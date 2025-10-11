@@ -1,0 +1,187 @@
+{
+  "meta": {
+    "version": "2.1.0",
+    "description": "Authoritative game definition file. All unit and structure data is now sourced from the complete set of game manual images and direct user corrections.",
+    "generated_at": "2025-10-11T00:23:54Z"
+  },
+  "resources": [
+    { "id": "metal", "name": "Metal" },
+    { "id": "mineral", "name": "Mineral" },
+    { "id": "food", "name": "Food" },
+    { "id": "energy", "name": "Energy" },
+    { "id": "ground_space", "name": "Ground Space" },
+    { "id": "orbital_space", "name": "Orbital Space" },
+    { "id": "research_points", "name": "Research Points" }
+  ],
+  "units": [
+    {
+      "id": "worker",
+      "name": "Worker",
+      "category": "colonist",
+      "build_time_turns": 1,
+      "cost": [],
+      "consumption": [
+        { "type": "resource", "id": "food", "amount_per_100_pop": 1 },
+        { "type": "housing", "category": "worker", "amount": 1 }
+      ],
+      "requirements": [],
+      "score_value": 1
+    },
+    {
+      "id": "soldier",
+      "name": "Soldier",
+      "category": "colonist",
+      "build_time_turns": 1,
+      "cost": [
+        { "type": "resource", "id": "food", "amount": 2820 },
+        { "type": "unit", "id": "worker", "amount": 1, "is_consumed": true }
+      ],
+      "consumption": [
+        { "type": "resource", "id": "food", "amount_per_100_pop": 1 },
+        { "type": "housing", "category": "soldier", "amount": 1 }
+      ],
+      "requirements": [{ "type": "structure", "id": "army_barracks" }],
+      "score_value": 104
+    },
+    {
+      "id": "scientist",
+      "name": "Scientist",
+      "category": "colonist",
+      "build_time_turns": 5,
+      "cost": [
+        { "type": "resource", "id": "food", "amount": 2025 },
+        { "type": "unit", "id": "worker", "amount": 1, "is_consumed": true }
+      ],
+      "consumption": [
+        { "type": "resource", "id": "food", "amount_per_100_pop": 1 },
+        { "type": "housing", "category": "worker", "amount": 1 }
+      ],
+      "requirements": [{ "type": "structure", "id": "research_lab" }],
+      "score_value": 208
+    },
+    {
+      "id": "fighter",
+      "name": "Fighter",
+      "category": "ship",
+      "subcategory": "military",
+      "build_time_turns": 4,
+      "cost": [
+        { "type": "resource", "id": "metal", "amount": 1500 },
+        { "type": "resource", "id": "mineral", "amount": 350 },
+        { "type": "resource", "id": "food", "amount": 500 }
+      ],
+      "consumption": [],
+      "requirements": [
+        { "type": "structure", "id": "ship_yard" },
+        { "type": "structure", "id": "light_weapons_factory" }
+      ],
+      "score_value": 5
+    }
+  ],
+  "structures": [
+    {
+      "id": "outpost",
+      "name": "Outpost",
+      "tier": 1,
+      "is_advanced": false,
+      "build_time_turns": 1,
+      "cost": [
+        { "type": "resource", "id": "metal", "amount": 300 },
+        { "type": "resource", "id": "mineral", "amount": 200 },
+        { "type": "resource", "id": "food", "amount": 100 }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0,
+        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+      },
+      "requirements": [],
+      "operations": {
+        "production": [{ "type": "worker", "base_amount": 200, "is_abundance_scaled": false }],
+        "consumption": [],
+        "effects": [
+          { "type": "PROVIDE_HOUSING", "category": "worker", "amount": 50000 },
+          { "type": "PROVIDE_HOUSING", "category": "soldier", "amount": 100000 }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Starting structure; provides housing and produces 200 workers/turn."
+    },
+    {
+      "id": "metal_mine",
+      "name": "Metal Mine",
+      "tier": 1,
+      "is_advanced": false,
+      "build_time_turns": 4,
+      "cost": [
+        { "type": "resource", "id": "metal", "amount": 600 },
+        { "type": "resource", "id": "mineral", "amount": 2000 }
+      ],
+      "build_requirements": {
+        "workers_occupied": 5000,
+        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+      },
+      "requirements": [],
+      "operations": {
+        "production": [{ "type": "metal", "base_amount": 300, "is_abundance_scaled": true }],
+        "consumption": [{ "type": "resource", "id": "energy", "amount": 10 }],
+        "effects": []
+      },
+      "max_per_planet": null
+    },
+    {
+      "id": "farm",
+      "name": "Farm",
+      "tier": 1,
+      "is_advanced": false,
+      "build_time_turns": 4,
+      "cost": [
+        { "type": "resource", "id": "metal", "amount": 1500 },
+        { "type": "resource", "id": "mineral", "amount": 1000 }
+      ],
+      "build_requirements": {
+        "workers_occupied": 5000,
+        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+      },
+      "requirements": [],
+      "operations": {
+        "production": [{ "type": "food", "base_amount": 200, "is_abundance_scaled": true }],
+        "consumption": [{ "type": "resource", "id": "energy", "amount": 10 }],
+        "effects": []
+      },
+      "max_per_planet": null
+    },
+    {
+      "id": "ship_yard",
+      "name": "Ship Yard",
+      "tier": 1,
+      "is_advanced": true,
+      "build_time_turns": 12,
+      "cost": [
+        { "type": "resource", "id": "metal", "amount": 48000 },
+        { "type": "resource", "id": "mineral", "amount": 32000 }
+      ],
+      "build_requirements": {
+        "workers_occupied": 25000,
+        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+      },
+      "requirements": [],
+      "operations": { "production": [], "consumption": [{ "type": "resource", "id": "energy", "amount": 10 }], "effects": [] },
+      "max_per_planet": 1
+    },
+    {
+      "id": "army_barracks",
+      "name": "Army Barracks",
+      "tier": 2,
+      "is_advanced": false,
+      "build_time_turns": 8,
+      "cost": [
+        { "type": "resource", "id": "metal", "amount": 12000 },
+        { "type": "resource", "id": "mineral", "amount": 8000 }
+      ],
+      "build_requirements": { "workers_occupied": 25000, "space_cost": [{ "type": "ground_space", "amount": 1 }] },
+      "requirements": [],
+      "operations": { "production": [], "consumption": [{ "type": "resource", "id": "energy", "amount": 10 }], "effects": [] },
+      "max_per_planet": null
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+﻿/* Fonts are preloaded in layout.tsx; Tailwind is configured via postcss and tailwind.config.js */
+
+:root{
+	--bg-primary: #120c18;
+	--bg-secondary: #21182c;
+	--accent-primary: #e91e63;
+	--accent-secondary: #ff4081;
+	--text-primary: #e1dce6;
+	--text-secondary: #a39cb0;
+	--border: #3c2d4a;
+	--success: #00b0ff;
+	--warning: #ffab40;
+}
+
+html {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	overflow-y: auto;
+	background: radial-gradient(ellipse at bottom, var(--bg-primary) 0%, #0f0912 100%);
+	color-scheme: dark;
+}
+
+body {
+	font-family: Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial;
+	color: var(--text-primary);
+	height: 100%;
+	margin: 0;
+	padding: 0;
+	width: 100%;
+	background: transparent;
+}
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Minimal star background styles adapted from template */
+#stars1, #stars2, #stars3 {
+	position: fixed;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	z-index: 0;
+	background-repeat: repeat;
+	pointer-events: none;
+}
+
+#stars1 {
+	background-image: radial-gradient(#fff 1px, transparent 1px);
+	background-size: 1.5px 1.5px;
+	opacity: 0.2;
+}
+
+#stars2 {
+	background-image: radial-gradient(#fff 1px, transparent 1px);
+	background-size: 2px 2px;
+	opacity: 0.14;
+}
+
+#stars3 {
+	background-image: radial-gradient(#fff 1px, transparent 1px);
+	background-size: 3px 3px;
+	opacity: 0.1;
+}
+
+/* Ensure app content sits above the stars */
+body > .min-h-screen { z-index: 1; position: relative; }
+
+/* Small utility classes for the Florent theme */
+
+/* Token mappings for Tailwind usage (use these in tailwind.config.js theme.extend if desired):
+	--bg-primary -> theme('colors.pink-nebula.bg')
+	--bg-secondary -> theme('colors.pink-nebula.panel')
+	--accent-primary -> theme('colors.pink-nebula.accent-primary')
+	--accent-secondary -> theme('colors.pink-nebula.accent-secondary')
+	--text-primary -> theme('colors.pink-nebula.text')
+	--text-secondary -> theme('colors.pink-nebula.muted')
+	--border -> theme('colors.pink-nebula.border')
+*/
