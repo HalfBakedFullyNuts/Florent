@@ -1,10 +1,9 @@
 ﻿import type { Metadata } from 'next'
 import './globals.css'
-import Header from '../components/Header'
 
 export const metadata: Metadata = {
-  title: 'Infinite Conflict - Build Planner',
-  description: 'Early-game build planner for Infinite Conflict',
+  title: 'Florent Simulator - Infinite Conflict Build Planner',
+  description: 'Interactive build order simulator for Infinite Conflict game strategy planning',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -31,9 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div id="stars2" />
         <div id="stars3" />
 
-        <Header />
-
-        <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text">{children}</div>
+        <div style={{ position: 'relative', zIndex: 1 }}>{children}</div>
       </body>
     </html>
   )

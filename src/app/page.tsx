@@ -1,349 +1,481 @@
-﻿"use client";
-import React, { useMemo, useState, type FormEvent } from 'react';
-import colonistData from '../data/colonistTypes.json';
+"use client";
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import GameData from '../lib/game/dataManager';
 import type { Unit as GUnit, Structure as GStructure } from '../lib/game/dataManager';
-import { enqueueItem, cancelQueueItemImpl, processTick } from '../lib/game/agent';
-import type { PlayerState } from '../lib/game/types';
+import { enqueueItem, processTick } from '../lib/game/agent';
+import type { PlayerState, QueueItem } from '../lib/game/types';
 
-type Planet = {
-  id: string;
-  name: string;
-  metalAbund: number;
-  mineralAbund: number;
-  foodAbund: number;
-}
-type QueueItem = {
-  id: string;
-  planetId: string;
-  itemName: string;
-  count: number;
-}
-type ColonistCost = {
-  metal: number;
-  mineral: number;
-  worker_input: number;
-  food_upkeep_per_100: number;
-  turns_to_produce: number;
-}
-type ColonistType = {
-  name: string;
-  type: string;
-  cost: ColonistCost;
-  prerequisites: Array<{ type: string; name: string }>;
-  additional_cost?: string;
-  storage_required?: string;
-  score_value?: number;
-}
-const COLONISTS: ColonistType[] = (colonistData as unknown as { colonist_types: ColonistType[] }).colonist_types;
-
-// Lightweight runtime logger to help debug component state
-function debugLog(label: string, data?: unknown) {
-  try {
-    // Use console.debug so it can be filtered; stringify where appropriate
-    const payload = typeof data === 'string' ? data : JSON.stringify(data, null, 2)
-    // eslint-disable-next-line no-console
-    console.debug(`[page.tsx] ${new Date().toISOString()} - ${label}:`, payload)
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.debug(`[page.tsx] ${label}: (unserializable)`, data)
+// Client-only wrapper to prevent hydration mismatches
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+  if (!hasMounted) {
+    return null;
   }
+  return <>{children}</>;
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10)
-}
+type TabType = 'structures' | 'ships' | 'colonists';
 
-export default function Home() {
-  // Only one set of hooks and variables
-  const [planets, setPlanets] = useState<Planet[]>([]);
-  const [selectedPlanetId, setSelectedPlanetId] = useState<string | null>(null);
-  const [turn, setTurn] = useState<number>(1);
-  const [lastError, setLastError] = useState<string | null>(null);
-  const [player, setPlayer] = useState<PlayerState>(() => ({
-    resources: { mass: 100000, mineral: 100000, food: 100000, energy: 100000 },
+// Initialize player state with starting buildings
+function initializePlayer(): PlayerState {
+  return {
+    resources: {
+      mass: 30000,      // Starting metal
+      mineral: 20000,   // Starting mineral
+      food: 10000,      // Starting food
+      energy: 1000      // Starting energy
+    },
     income: { mass: 0, mineral: 0, food: 0, energy: 0 },
-    ownedBuildings: [],
+    ownedBuildings: [
+      { id: 'outpost-0', name: 'outpost', builtAtTick: 0 },
+      { id: 'metal_mine-0', name: 'metal_mine', builtAtTick: 0 },
+      { id: 'metal_mine-1', name: 'metal_mine', builtAtTick: 0 },
+      { id: 'metal_mine-2', name: 'metal_mine', builtAtTick: 0 },
+    ],
     completedResearch: [],
     buildQueue: [],
     unitQueueByFactory: {},
-    unitCounts: {},
+    unitCounts: { worker: 50000, soldier: 0, scientist: 0 },
     tick: 0,
-    meta: {},
-  }));
-  const planetSummaryRows = [
-    { id: 'metal', label: 'Metal', color: 'text-pink-nebula-text', stored: player.resources.mass, output: '+1200', abundance: '100%' },
-    { id: 'mineral', label: 'Mineral', color: 'text-pink-nebula-text', stored: player.resources.mineral, output: '+800', abundance: '100%' },
-    { id: 'food', label: 'Food', color: 'text-pink-nebula-text', stored: player.resources.food, output: '+200', abundance: '100%' },
-    { id: 'energy', label: 'Energy', color: 'text-pink-nebula-text', stored: player.resources.energy, output: '+130', abundance: '100%' },
-  ];
-
-  const selectedPlanet = useMemo(
-    () => planets.find(p => p.id === selectedPlanetId) || null,
-    [planets, selectedPlanetId]
-  )
-
-  const planetQueue = useMemo(() => {
-    // For now buildQueue items are global and not assigned to planets. Show all items.
-    return player.buildQueue
-  }, [player.buildQueue])
-
-  function addPlanet(name: string, metalAbund: number, mineralAbund: number, foodAbund: number) {
-    const id = uid()
-    const p: Planet = { id, name, metalAbund, mineralAbund, foodAbund }
-    setPlanets(prev => [...prev, p])
-    setSelectedPlanetId(id)
-    debugLog('addPlanet', { id, name, metalAbund, mineralAbund, foodAbund, planetsCount: planets.length + 1 })
-  }
-
-  function addQueueItem(itemId: string, itemType: 'structure' | 'unit', count: number) {
-    if (!selectedPlanet) return
-    setLastError(null)
-    // Attempt to enqueue via agent to validate costs/prereqs and update player state
-    try {
-      const res = enqueueItem(player, itemId, itemType, count)
-      if (!res.ok) {
-        setLastError(res.reason || 'Unable to queue item')
-        return
-      }
-      // agent mutates player in-place; trigger React update
-      setPlayer({ ...player })
-      debugLog('addQueueItem - enqueued', { itemId, itemType, count, playerSnapshot: player })
-    } catch (e) {
-      // coerce message if present
-      const msg = (e as any)?.message || String(e)
-      setLastError(msg)
+    meta: {
+      housing_worker: 50000,
+      housing_soldier: 100000,
+      ground_space_used: 4,  // outpost + 3 mines
+      ground_space_max: 60,
+      orbital_space_used: 0,
+      orbital_space_max: 50
     }
-    // end addQueueItem
+  };
+}
 
-    debugLog('addQueueItem - exit', { selectedPlanetId, lastError })
+// Calculate resource production/consumption
+function calculateIncome(player: PlayerState, abundances: { metal: number; mineral: number; food: number }) {
+  const income = { mass: 0, mineral: 0, food: 0, energy: 0 };
+
+  for (const b of player.ownedBuildings) {
+    const def = GameData.getStructureById(b.name);
+    if (!def?.operations) continue;
+
+    // Production
+    const prods = def.operations.production || [];
+    for (const p of prods) {
+      let amt = p.base_amount || 0;
+      if (p.is_abundance_scaled) {
+        if (p.type === 'metal') amt *= abundances.metal;
+        if (p.type === 'mineral') amt *= abundances.mineral;
+        if (p.type === 'food') amt *= abundances.food;
+      }
+      if (p.type === 'metal') income.mass += Math.round(amt);
+      else if (p.type === 'mineral') income.mineral += Math.round(amt);
+      else if (p.type === 'food') income.food += Math.round(amt);
+      else if (p.type === 'energy') income.energy += Math.round(amt);
+    }
+
+    // Consumption
+    const cons = def.operations.consumption || [];
+    for (const c of cons) {
+      if (c.type === 'resource') {
+        const amt = c.amount || 0;
+        if (c.id === 'energy') income.energy -= amt;
+        else if (c.id === 'metal') income.mass -= amt;
+        else if (c.id === 'mineral') income.mineral -= amt;
+        else if (c.id === 'food') income.food -= amt;
+      }
+    }
   }
 
-  // Move these functions outside of the return statement
-  const removeQueueItem = (id: string) => {
-    const res = cancelQueueItemImpl(player, id)
-    if (!res.ok) setLastError(res.reason || 'Unable to cancel')
-    setPlayer({ ...player })
-    debugLog('removeQueueItem', { id, ok: res.ok, playerSnapshot: player })
-  }
-
-  const getColonist = (name: string): ColonistType | undefined => {
-    return COLONISTS.find(c => c.name === name)
-  }
-
-  const totalQueuedCosts = useMemo(() => {
-    const totals = { met: 0, min: 0, food: 0, energy: 0 }
-    for (const qi of planetQueue) {
-      const defUnit = GameData.getUnitById(qi.name)
-      const defStruct = GameData.getStructureById(qi.name)
-      const def = defUnit || defStruct
-      if (!def || !def.cost) continue
-      for (const c of def.cost) {
-        if ((c as any).type === 'resource') {
-          const id = (c as any).id as string
-          const amt = Math.round((c as any).amount || 0)
-          if (id === 'metal') totals.met += amt
-          else if (id === 'mineral') totals.min += amt
-          else if (id === 'food') totals.food += amt
-          else if (id === 'energy') totals.energy += amt
+  // Food consumption from population
+  const totalPop = Object.entries(player.unitCounts || {}).reduce((sum, [type, count]) => {
+    const unit = GameData.getUnitById(type);
+    if (unit?.consumption) {
+      for (const c of unit.consumption) {
+        if (c.type === 'resource' && c.id === 'food' && 'amount_per_100_pop' in c) {
+          income.food -= Math.round((count / 100) * (c.amount_per_100_pop || 0));
         }
       }
     }
-    return totals
-  }, [planetQueue])
+    return sum + count;
+  }, 0);
 
-  const estimatedOutputs = useMemo(() => {
-    if (!selectedPlanet) return { met: 0, min: 0, food: 0, energy: 0 }
-    const out = { met: 0, min: 0, food: 0, energy: 0 }
-    for (const b of player.ownedBuildings) {
-      const def = GameData.getStructureById(b.name)
-      if (!def || !def.operations || !def.operations.production) continue
-      for (const p of def.operations.production) {
-        let amt = p.base_amount || 0
-        if (p.is_abundance_scaled) {
-          if (p.type === 'metal') amt *= selectedPlanet.metalAbund
-          if (p.type === 'mineral') amt *= selectedPlanet.mineralAbund
-          if (p.type === 'food') amt *= selectedPlanet.foodAbund
-        }
-        if (p.type === 'metal') out.met += Math.round(amt)
-        else if (p.type === 'mineral') out.min += Math.round(amt)
-        else if (p.type === 'food') out.food += Math.round(amt)
-        else if (p.type === 'energy') out.energy += Math.round(amt)
-      }
+  return income;
+}
+
+// Simulate to a specific turn
+function simulateToTurn(basePlayer: PlayerState, targetTurn: number, abundances: { metal: number; mineral: number; food: number }): PlayerState {
+  const player = JSON.parse(JSON.stringify(basePlayer)) as PlayerState;
+
+  while (player.tick < targetTurn) {
+    processTick(player, abundances, 1);
+    player.income = calculateIncome(player, abundances);
+  }
+
+  return player;
+}
+
+// Find the next turn when all queues are empty
+function findNextEmptyTurn(player: PlayerState, abundances: { metal: number; mineral: number; food: number }): number {
+  let simPlayer = JSON.parse(JSON.stringify(player)) as PlayerState;
+  let maxTurn = simPlayer.tick + 200; // Safety limit
+
+  while (simPlayer.tick < maxTurn) {
+    if (simPlayer.buildQueue.length === 0 &&
+        Object.values(simPlayer.unitQueueByFactory).every(q => q.length === 0)) {
+      return simPlayer.tick;
     }
-    return out
-  }, [player.ownedBuildings, selectedPlanet])
+    processTick(simPlayer, abundances, 1);
+  }
 
+  return simPlayer.tick;
+}
+
+export default function Home() {
+  const [basePlayer, setBasePlayer] = useState<PlayerState>(() => initializePlayer());
+  const [currentTurn, setCurrentTurn] = useState(0);
+  const [maxTurn, setMaxTurn] = useState(200);
+  const [activeTab, setActiveTab] = useState<TabType>('structures');
+  const [lastError, setLastError] = useState<string | null>(null);
+
+  const abundances = { metal: 1, mineral: 1, food: 1 }; // 100% abundances
+
+  // Calculate current player state at selected turn
+  const currentPlayer = useMemo(() => {
+    return simulateToTurn(basePlayer, currentTurn, abundances);
+  }, [basePlayer, currentTurn]);
+
+  // Update income when player state changes
+  useEffect(() => {
+    const income = calculateIncome(currentPlayer, abundances);
+    currentPlayer.income = income;
+  }, [currentPlayer]);
+
+  // Get available items based on tab
+  const availableItems = useMemo(() => {
+    if (activeTab === 'structures') {
+      return GameData.getAllStructures()
+        .filter(s => {
+          // Check if requirements are met
+          if (s.requirements) {
+            for (const req of s.requirements) {
+              if (req.type === 'structure' && !currentPlayer.ownedBuildings.some(b => b.name === req.id)) {
+                return false;
+              }
+              if (req.type === 'research_flag' && !currentPlayer.completedResearch.includes(req.id)) {
+                return false;
+              }
+            }
+          }
+          // Check max_per_planet
+          if (s.max_per_planet !== null && s.max_per_planet !== undefined) {
+            const count = currentPlayer.ownedBuildings.filter(b => b.name === s.id).length;
+            if (count >= s.max_per_planet) return false;
+          }
+          return true;
+        });
+    } else if (activeTab === 'ships') {
+      return GameData.getAllUnits()
+        .filter(u => u.category === 'ship')
+        .filter(u => {
+          if (u.requirements) {
+            for (const req of u.requirements) {
+              if (req.type === 'structure' && !currentPlayer.ownedBuildings.some(b => b.name === req.id)) {
+                return false;
+              }
+            }
+          }
+          return true;
+        });
+    } else {
+      return GameData.getAllUnits()
+        .filter(u => u.category === 'colonist')
+        .filter(u => {
+          if (u.requirements) {
+            for (const req of u.requirements) {
+              if (req.type === 'structure' && !currentPlayer.ownedBuildings.some(b => b.name === req.id)) {
+                return false;
+              }
+            }
+          }
+          return true;
+        });
+    }
+  }, [activeTab, currentPlayer]);
+
+  // Queue an item and advance time
+  const queueItem = useCallback((itemId: string, itemType: 'structure' | 'unit') => {
+    setLastError(null);
+
+    // Clone player state
+    const newPlayer = JSON.parse(JSON.stringify(basePlayer)) as PlayerState;
+
+    // Try to enqueue
+    const res = enqueueItem(newPlayer, itemId, itemType, 1);
+    if (!res.ok) {
+      setLastError(res.reason || 'Unable to queue item');
+      return;
+    }
+
+    // Find the turn when this item will complete
+    const def = itemType === 'structure' ? GameData.getStructureById(itemId) : GameData.getUnitById(itemId);
+    const buildTime = def?.build_time_turns || 1;
+    const completionTurn = newPlayer.tick + buildTime;
+
+    // Simulate to that turn
+    while (newPlayer.tick < completionTurn) {
+      processTick(newPlayer, abundances, 1);
+      newPlayer.income = calculateIncome(newPlayer, abundances);
+    }
+
+    // Update state
+    setBasePlayer(newPlayer);
+    setCurrentTurn(findNextEmptyTurn(newPlayer, abundances));
+  }, [basePlayer, abundances]);
+
+  // Reset simulation
+  const resetSimulation = useCallback(() => {
+    const newPlayer = initializePlayer();
+    setBasePlayer(newPlayer);
+    setCurrentTurn(0);
+    setLastError(null);
+  }, []);
+
+  // Format numbers for display - use explicit locale for consistency
+  const fmt = (n: number) => n.toLocaleString('en-US');
+  const fmtIncome = (n: number) => n >= 0 ? `+${fmt(n)}` : fmt(n);
+
+  // Get ground/orbital space usage
+  const groundSpaceUsed = currentPlayer.meta?.ground_space_used as number || 0;
+  const groundSpaceMax = currentPlayer.meta?.ground_space_max as number || 60;
+  const orbitalSpaceUsed = currentPlayer.meta?.orbital_space_used as number || 0;
+  const orbitalSpaceMax = currentPlayer.meta?.orbital_space_max as number || 50;
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans">
       {/* Header */}
       <header className="bg-pink-nebula-panel px-6 py-4 flex items-center justify-between border-b border-pink-nebula-border">
         <div className="flex items-center gap-4">
-          <span className="text-2xl font-bold tracking-wide">Infinite Conflict</span>
-          <nav className="flex gap-2">
-            {planets.map(p => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedPlanetId(p.id)}
-                className={`px-3 py-1 rounded ${selectedPlanetId === p.id ? 'bg-pink-nebula-accent-primary text-pink-nebula-text' : 'text-pink-nebula-muted'}`}
-              >
-                {p.name}
-              </button>
-            ))}
-            <button className="px-3 py-1 rounded border border-pink-nebula-border text-pink-nebula-muted">+</button>
-          </nav>
+          <span className="text-2xl font-bold tracking-wide">Florent Simulator</span>
+          <span className="text-pink-nebula-muted">Turn {currentPlayer.tick}</span>
         </div>
         <div className="flex items-center gap-6">
-          {/* Resource summary placeholder */}
-          <span className="text-pink-nebula-muted">Resources: M {player.resources.mass} Mi {player.resources.mineral} F {player.resources.food} E {player.resources.energy}</span>
+          <ClientOnly>
+            <div className="flex gap-4 text-sm">
+              <span>Metal: {fmt(currentPlayer.resources.mass)} <span className={currentPlayer.income.mass >= 0 ? 'text-green-400' : 'text-red-400'}>({fmtIncome(currentPlayer.income.mass)}/t)</span></span>
+              <span>Mineral: {fmt(currentPlayer.resources.mineral)} <span className={currentPlayer.income.mineral >= 0 ? 'text-green-400' : 'text-red-400'}>({fmtIncome(currentPlayer.income.mineral)}/t)</span></span>
+              <span>Food: {fmt(currentPlayer.resources.food)} <span className={currentPlayer.income.food >= 0 ? 'text-green-400' : 'text-red-400'}>({fmtIncome(currentPlayer.income.food)}/t)</span></span>
+              <span>Energy: {fmt(currentPlayer.resources.energy)} <span className={currentPlayer.income.energy >= 0 ? 'text-green-400' : 'text-red-400'}>({fmtIncome(currentPlayer.income.energy)}/t)</span></span>
+            </div>
+          </ClientOnly>
+          <button
+            onClick={resetSimulation}
+            className="px-3 py-1 rounded bg-pink-nebula-accent-primary text-pink-nebula-text hover:bg-pink-nebula-accent-secondary"
+          >
+            Reset
+          </button>
         </div>
       </header>
 
+      {/* Turn slider */}
+      <div className="px-6 py-3 bg-pink-nebula-panel border-b border-pink-nebula-border">
+        <div className="flex items-center gap-4">
+          <span className="text-sm">View Turn:</span>
+          <input
+            type="range"
+            min={0}
+            max={maxTurn}
+            value={currentTurn}
+            onChange={(e) => setCurrentTurn(Number(e.target.value))}
+            className="flex-1"
+          />
+          <input
+            type="number"
+            min={0}
+            max={maxTurn}
+            value={currentTurn}
+            onChange={(e) => setCurrentTurn(Number(e.target.value))}
+            className="w-20 px-2 py-1 bg-pink-nebula-bg border border-pink-nebula-border rounded"
+          />
+        </div>
+      </div>
+
+      {/* Error message */}
+      {lastError && (
+        <div className="px-6 py-2 bg-red-900/50 text-red-300 text-sm">
+          {lastError}
+        </div>
+      )}
+
       {/* Main grid layout */}
-      <main className="max-w-7xl mx-auto grid grid-cols-[280px_1fr_320px] gap-8 py-8">
-        {/* Left column: Owned Buildings List */}
-        <aside className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-4 flex flex-col">
-          <h2 className="text-lg font-bold mb-4">Buildings</h2>
-          <div className="flex flex-col gap-2">
-            {/* Always show these buildings for the selected planet */}
-            {['Outpost', 'Metal Mine', 'Metal Mine', 'Metal Mine', 'Mineral Extractor', 'Mineral Extractor', 'Mineral Extractor', 'Farm', 'Solar Generator'].map((name, idx) => (
-              <div key={name + idx} className="flex items-center gap-3 p-2 rounded bg-pink-nebula-bg border border-pink-nebula-border">
-                {/* Placeholder for icon */}
-                <div className="w-8 h-8 bg-pink-nebula-panel rounded" />
-                <div>
-                  <div className="text-pink-nebula-text font-semibold">{name}</div>
-                  {/* Output/consumption placeholder */}
-                  <div className="text-pink-nebula-muted text-xs">+Output / -Consumption</div>
+      <main className="max-w-7xl mx-auto grid grid-cols-[320px_1fr_320px] gap-6 p-6">
+        {/* Left: Completed Buildings */}
+        <aside className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-4">
+          <h2 className="text-lg font-bold mb-4">Completed Structures</h2>
+          <div className="space-y-2 max-h-[600px] overflow-y-auto">
+            {currentPlayer.ownedBuildings.map((b, idx) => {
+              const def = GameData.getStructureById(b.name);
+              return (
+                <div key={`${b.id}-${idx}`} className="p-2 rounded bg-pink-nebula-bg border border-pink-nebula-border">
+                  <div className="text-pink-nebula-text font-semibold">{def?.name || b.name}</div>
+                  <div className="text-pink-nebula-muted text-xs">Built turn {b.builtAtTick}</div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+          <ClientOnly>
+            <div className="mt-4 pt-4 border-t border-pink-nebula-border space-y-1">
+              <div className="text-sm">Workers: {fmt(currentPlayer.unitCounts?.worker || 0)}</div>
+              <div className="text-sm">Soldiers: {fmt(currentPlayer.unitCounts?.soldier || 0)}</div>
+              <div className="text-sm">Scientists: {fmt(currentPlayer.unitCounts?.scientist || 0)}</div>
+            </div>
+          </ClientOnly>
         </aside>
 
-        {/* Middle column: Build Queue (single section) */}
-        <section className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-4 flex flex-col">
-          <div className="flex items-center gap-4 mb-4">
-          </div>
-            <h2 className="text-lg font-bold">Build Queue</h2>
-            {/* Tabs for production */}
+        {/* Middle: Available to Build */}
+        <section className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold">Available to Build</h2>
             <div className="flex gap-2">
-              <button className="px-3 py-1 rounded bg-pink-nebula-accent-primary text-pink-nebula-text">Colonists</button>
-              <button className="px-3 py-1 rounded text-pink-nebula-muted border border-pink-nebula-border">Ships</button>
+              <button
+                onClick={() => setActiveTab('structures')}
+                className={`px-3 py-1 rounded ${activeTab === 'structures' ? 'bg-pink-nebula-accent-primary text-pink-nebula-text' : 'text-pink-nebula-muted border border-pink-nebula-border'}`}
+              >
+                Structures
+              </button>
+              <button
+                onClick={() => setActiveTab('ships')}
+                className={`px-3 py-1 rounded ${activeTab === 'ships' ? 'bg-pink-nebula-accent-primary text-pink-nebula-text' : 'text-pink-nebula-muted border border-pink-nebula-border'}`}
+              >
+                Ships
+              </button>
+              <button
+                onClick={() => setActiveTab('colonists')}
+                className={`px-3 py-1 rounded ${activeTab === 'colonists' ? 'bg-pink-nebula-accent-primary text-pink-nebula-text' : 'text-pink-nebula-muted border border-pink-nebula-border'}`}
+              >
+                Colonists
+              </button>
             </div>
+          </div>
 
-          {/* Current queue (top) and currently building item with remaining turns */}
-          <div className="mb-4">
-            <div className="text-pink-nebula-muted font-semibold mb-1">Current Queue</div>
-            <div className="flex flex-col gap-2">
-              {/* Example: show one item as currently building, rest as queued */}
-              <div className="flex items-center gap-3 p-2 rounded bg-pink-nebula-bg border border-pink-nebula-border">
-                <div className="w-8 h-8 bg-pink-nebula-panel rounded" />
-                <div>
-                  <div className="text-pink-nebula-text font-semibold">Metal Mine</div>
-                  <div className="text-pink-nebula-muted text-xs">Building... 3 turns left</div>
+          <div className="space-y-2 max-h-[600px] overflow-y-auto">
+            {availableItems.map(item => {
+              const canAfford = item.cost?.every(c => {
+                if (c.type === 'resource') {
+                  if (c.id === 'metal') return currentPlayer.resources.mass >= c.amount;
+                  if (c.id === 'mineral') return currentPlayer.resources.mineral >= c.amount;
+                  if (c.id === 'food') return currentPlayer.resources.food >= c.amount;
+                  if (c.id === 'energy') return currentPlayer.resources.energy >= c.amount;
+                }
+                if (c.type === 'unit') {
+                  return (currentPlayer.unitCounts?.[c.id] || 0) >= c.amount;
+                }
+                return true;
+              }) ?? true;
+
+              return (
+                <div
+                  key={item.id}
+                  className={`p-3 rounded border ${canAfford ? 'bg-pink-nebula-bg border-pink-nebula-border hover:border-pink-nebula-accent-primary cursor-pointer' : 'bg-pink-nebula-bg/50 border-red-900/50'}`}
+                  onClick={() => canAfford && queueItem(item.id, activeTab === 'structures' ? 'structure' : 'unit')}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-pink-nebula-text font-semibold">{item.name}</div>
+                      <div className="text-pink-nebula-muted text-xs">
+                        {item.build_time_turns} turns •
+                        {item.cost?.map(c => {
+                          if (c.type === 'resource') {
+                            return ` ${c.id}: ${c.amount}`;
+                          }
+                          if (c.type === 'unit') {
+                            return ` ${c.id}: ${c.amount}`;
+                          }
+                          return '';
+                        }).join(' •')}
+                      </div>
+                    </div>
+                    {canAfford && (
+                      <button className="px-3 py-1 rounded bg-pink-nebula-accent-primary text-pink-nebula-text hover:bg-pink-nebula-accent-secondary text-sm">
+                        Queue
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {/* Queued items placeholder */}
-              <div className="flex items-center gap-3 p-2 rounded bg-pink-nebula-bg border border-pink-nebula-border">
-                <div className="w-8 h-8 bg-pink-nebula-panel rounded" />
-                <div>
-                  <div className="text-pink-nebula-text font-semibold">Farm</div>
-                  <div className="text-pink-nebula-muted text-xs">Queued</div>
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </section>
 
-        {/* Right column: Planet Summary */}
-        <aside className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-4 flex flex-col">
-          <h2 className="text-lg font-bold mb-4">Planet Summary</h2>
-          <table className="w-full text-sm mb-4">
-            <thead>
-              <tr className="text-pink-nebula-muted">
-                <th className="text-left">Resource</th>
-                <th className="text-right">Stored</th>
-                <th className="text-right">Output</th>
-                <th className="text-right">Abundance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {planetSummaryRows.map(r => (
-                <tr key={r.id}>
-                  <td className={r.color}>{r.label}</td>
-                  <td className="text-right">{r.stored}</td>
-                  <td className="text-right">{r.output}</td>
-                  <td className="text-right">{r.abundance}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {/* Space and meta info placeholder */}
-          <div className="text-pink-nebula-muted">Space: 20K/50K</div>
-        </aside>
+        {/* Right: Build Queue & Planet Summary */}
+        <aside className="space-y-4">
+          {/* Build Queue */}
+          <div className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-4">
+            <h2 className="text-lg font-bold mb-3">Build Queue</h2>
+            <div className="space-y-2 max-h-[250px] overflow-y-auto">
+              {currentPlayer.buildQueue.length === 0 ? (
+                <div className="text-pink-nebula-muted text-sm">Queue empty</div>
+              ) : (
+                currentPlayer.buildQueue.map((item, idx) => (
+                  <div key={item.id} className="p-2 rounded bg-pink-nebula-bg border border-pink-nebula-border">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-pink-nebula-text text-sm font-semibold">{item.name}</div>
+                        <div className="text-pink-nebula-muted text-xs">
+                          {idx === 0 ? `Building... ${item.remainingTime.toFixed(1)} turns left` : 'Queued'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
 
+          {/* Planet Summary */}
+          <div className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-4">
+            <h2 className="text-lg font-bold mb-3">Planet Summary</h2>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-pink-nebula-muted">Metal Abundance</span>
+                <span>100%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-pink-nebula-muted">Mineral Abundance</span>
+                <span>100%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-pink-nebula-muted">Food Abundance</span>
+                <span>100%</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-pink-nebula-muted">Ground Space</span>
+                <span>{groundSpaceUsed}/{groundSpaceMax}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-pink-nebula-muted">Orbital Space</span>
+                <span>{orbitalSpaceUsed}/{orbitalSpaceMax}</span>
+              </div>
+              <ClientOnly>
+                <div className="pt-2 border-t border-pink-nebula-border">
+                  <div className="flex justify-between">
+                    <span className="text-pink-nebula-muted">Workers</span>
+                    <span>{fmt(currentPlayer.unitCounts?.worker || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-pink-nebula-muted">Soldiers</span>
+                    <span>{fmt(currentPlayer.unitCounts?.soldier || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-pink-nebula-muted">Scientists</span>
+                    <span>{fmt(currentPlayer.unitCounts?.scientist || 0)}</span>
+                  </div>
+                </div>
+              </ClientOnly>
+            </div>
+          </div>
+        </aside>
       </main>
     </div>
-  )
-}
-
-function AddPlanetForm({ onAdd }: { onAdd: (name: string, metalAbund: number, mineralAbund: number, foodAbund: number) => void }) {
-  const [name, setName] = useState('')
-  const [metal, setMetal] = useState(1)
-  const [mineral, setMineral] = useState(1)
-  const [food, setFood] = useState(1)
-
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return
-    const used = { name: name.trim(), metal: Number(metal), mineral: Number(mineral), food: Number(food) }
-    onAdd(used.name, used.metal, used.mineral, used.food)
-    debugLog('AddPlanetForm.submit', used)
-    setName('')
-  }
-
-  return (
-    <form className="space-y-2" onSubmit={submit}>
-      <div className="flex gap-2">
-        <input value={name} onChange={e => setName(e.target.value)} placeholder="Planet name" className="flex-1 px-3 py-1 border rounded" />
-        <input type="number" value={metal} onChange={e => setMetal(Number(e.target.value))} className="w-20 px-2 py-1 border rounded" />
-        <input type="number" value={mineral} onChange={e => setMineral(Number(e.target.value))} className="w-20 px-2 py-1 border rounded" />
-        <input type="number" value={food} onChange={e => setFood(Number(e.target.value))} className="w-20 px-2 py-1 border rounded" />
-        <button className="px-3 py-1 rounded border" type="submit">Add</button>
-      </div>
-      <div className="text-xs text-gray-500">Abundances are multipliers (e.g. 1 = 100%)</div>
-    </form>
-  )
-}
-
-function AddQueueItemForm({ onAdd }: { onAdd: (itemId: string, itemType: 'structure' | 'unit', count: number) => void }) {
-  const availableUnits = GameData.getAllUnits() as GUnit[]
-  const availableStructures = GameData.getAllStructures() as GStructure[]
-  const allItems = [...availableStructures.map((s:GStructure)=>({id:s.id, label:s.name, type:'structure'})), ...availableUnits.map((u:GUnit)=>({id:u.id, label:u.name, type:'unit'}))]
-  const [item, setItem] = useState(allItems[0]?.id || '')
-  const [count, setCount] = useState(1)
-
-  function submit(e: FormEvent) {
-    e.preventDefault()
-    if (!item) return
-    const found = allItems.find(ai => ai.id === item)
-    const type = (found && (found as any).type) || 'unit'
-    const used = { item, type: type as 'structure' | 'unit', count: Number(count) }
-    onAdd(used.item, used.type, used.count)
-    debugLog('AddQueueItemForm.submit', used)
-    setCount(1)
-  }
-
-  return (
-    <form className="flex gap-2 items-center" onSubmit={submit}>
-      <select value={item} onChange={e => setItem(e.target.value)} className="px-2 py-1 border rounded">
-        {allItems.map(c => (
-          <option key={c.id} value={c.id}>{c.label} {c.type === 'structure' ? '(Structure)' : ''}</option>
-        ))}
-      </select>
-      <input type="number" value={count} min={1} onChange={e => setCount(Number(e.target.value))} className="w-24 px-2 py-1 border rounded" />
-      <button className="px-3 py-1 rounded border" type="submit">Queue</button>
-    </form>
-  )
+  );
 }
