@@ -42,6 +42,7 @@ Notes & next steps
 
 - The code uses CSS variables for the main theme. If you use Tailwind classes for color, map them to the tokens in `tailwind.config.js` or use the helper classes in `globals.css`.
 - The components are intentionally minimal — they're scaffolding to be extended with actual data and behaviors.
+- UI tweaks that affect behavior should ship with accompanying tests; run `npm run test:coverage` to make sure the coverage gate (70% lines/statements/functions, 60% branches) still passes.
 
 If you want I can:
 - Replace helper classes with full Tailwind utility classes mapped to tokens (preferred if you use Tailwind heavily).

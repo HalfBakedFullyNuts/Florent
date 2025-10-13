@@ -263,10 +263,10 @@ npm run start        # Start production server
 npm test            # Run test suite
 npm run lint        # Check code style
 npm run typecheck   # TypeScript validation
+npm run test:coverage # Run tests with coverage thresholds (fails <70% lines / <60% branches)
 
 # Analysis
 npm run analyze     # Bundle size analysis
-npm run coverage    # Test coverage report
 ```
 
 ### Making Changes
@@ -297,23 +297,14 @@ const foodConsumption = Math.floor(totalPop / 100) * 10; // Adjust ratio
 
 ## 🧪 Testing
 
-### Test Coverage
-
-| Component | Coverage | Tests |
-|-----------|----------|-------|
-| **Game Logic** | 95% | Unit tests for all mechanics |
-| **UI Components** | 88% | React Testing Library |
-| **Integration** | 92% | Full simulation scenarios |
-| **Data Validation** | 100% | Schema validation |
-
-### Running Tests
+### Running Tests & Coverage Gates
 
 ```bash
 # Run all tests
 npm test
 
-# Run with coverage
-npm test -- --coverage
+# Enforce coverage thresholds (70% lines/statements/functions, 60% branches)
+npm run test:coverage
 
 # Run specific suite
 npm test agent.test.ts
@@ -321,6 +312,10 @@ npm test agent.test.ts
 # Watch mode
 npm test -- --watch
 ```
+
+- Coverage reports are written to `coverage/`; the HTML report lives at `coverage/lcov-report/index.html`.
+- Pull requests must pass `npm run test:coverage`; add or update tests before landing new logic.
+- When coverage is intentionally reduced, include rationale in the PR description and update thresholds only via ADR.
 
 ## 🎮 Usage Examples
 

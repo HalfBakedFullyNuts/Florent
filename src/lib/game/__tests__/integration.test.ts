@@ -35,11 +35,16 @@ describe('integration: multi-tick simulations', () => {
     // baseline worker count should be 0
     expect(p.unitCounts!['worker'] || 0).toBeGreaterThanOrEqual(0)
 
-    // run a few ticks to allow production
-    processTick(p, { metal: 1, mineral: 1, food: 1 }, 1)
-    processTick(p, { metal: 1, mineral: 1, food: 1 }, 1)
+  p.unitCounts = { worker: 1000 }
 
-    expect((p.unitCounts!['worker'] || 0)).toBeGreaterThanOrEqual(200)
+  // build prerequisite structures for Army Barracks (Colony, Light Weapons Factory)
+  const colonyRes = enqueueItem(p, 'colony', 'structure', 1)
+  expect(colonyRes.ok).toBe(true)
+  while (p.buildQueue.length > 0) processTick(p, { metal: 1, mineral: 1, food: 1 }, 1)
+
+  const lwfRes = enqueueItem(p, 'light_weapons_factory', 'structure', 1)
+  expect(lwfRes.ok).toBe(true)
+  while (p.buildQueue.length > 0) processTick(p, { metal: 1, mineral: 1, food: 1 }, 1)
 
   // build an Army Barracks so soldier prerequisites are satisfied
   const rbRes = enqueueItem(p, 'army_barracks', 'structure', 1)

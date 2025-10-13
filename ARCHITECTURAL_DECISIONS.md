@@ -15,6 +15,9 @@ Short rationale (1-2 sentences).
 
 Initial entries
 
+2025-10-12 — Enforce Vitest coverage thresholds in CI
+We introduced `npm run test:coverage` (70% lines/statements/functions, 60% branches) as a required gate so every feature is backed by tests before merging.
+
 2025-10-11 — Use Next.js App Router with Client Components for interactive UI
 We chose Next.js 14 app-router and marked `src/app/page.tsx` as a Client Component to enable React hooks and local state for the main interactive planner UI.
 
@@ -26,4 +29,3 @@ To keep the code simple and easy to reason about, local `useState` is used for p
 
 Process requirement (new)
 - All contributors must add an ADR entry to this file whenever they make a non-trivial architectural decision (for example introducing a global store, adding server-side APIs, or changing how game logic is persisted).
-

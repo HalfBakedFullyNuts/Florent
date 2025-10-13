@@ -8,6 +8,7 @@ import {
   completeQueueItem,
   enqueueItem,
   cancelQueueItemLegacy,
+  cancelQueueItemImpl,
 } from '../agent'
 import type { PlayerState } from '../types'
 
@@ -19,6 +20,35 @@ const makePlayer = (): PlayerState => ({
   buildQueue: [],
   unitQueueByFactory: {},
   tick: 0,
+})
+
+const makeBasePlayer = (): PlayerState => ({
+  resources: { mass: 30000, mineral: 20000, food: 10000, energy: 1000 },
+  income: { mass: 0, mineral: 0, food: 0, energy: 0 },
+  ownedBuildings: [
+    { id: 'outpost-0', name: 'outpost', builtAtTick: 0 },
+    { id: 'metal_mine-0', name: 'metal_mine', builtAtTick: 0 },
+    { id: 'metal_mine-1', name: 'metal_mine', builtAtTick: 0 },
+    { id: 'metal_mine-2', name: 'metal_mine', builtAtTick: 0 },
+    { id: 'mineral_extractor-0', name: 'mineral_extractor', builtAtTick: 0 },
+    { id: 'mineral_extractor-1', name: 'mineral_extractor', builtAtTick: 0 },
+    { id: 'mineral_extractor-2', name: 'mineral_extractor', builtAtTick: 0 },
+    { id: 'farm-0', name: 'farm', builtAtTick: 0 },
+    { id: 'solar_generator-0', name: 'solar_generator', builtAtTick: 0 },
+  ],
+  completedResearch: [],
+  buildQueue: [],
+  unitQueueByFactory: {},
+  unitCounts: { worker: 30000, soldier: 0, scientist: 0 },
+  tick: 0,
+  meta: {
+    housing_worker: 50000,
+    housing_soldier: 100000,
+    ground_space_used: 9,
+    ground_space_max: 60,
+    orbital_space_used: 0,
+    orbital_space_max: 40,
+  },
 })
 
 describe('agent expanded behavior', () => {
@@ -84,21 +114,15 @@ describe('agent expanded behavior', () => {
     expect(p.completedResearch.includes('Basic Research')).toBe(true)
   })
 
-  it('processTick decreases remainingTime normally and respects stalling lower bound', () => {
+  it('processTick advances the build queue sequentially turn by turn', () => {
     const p = makePlayer()
-  p.buildQueue.push({ id: 'q1', name: 'Test', type: 'Unit', remainingTime: 5, massReserved: 0, energyReserved: 0 } as any)
-  processTick(p, { metal: 1, mineral: 1, food: 1 }, 1)
+    p.buildQueue.push({ id: 'q1', name: 'Test', type: 'Building', remainingTime: 5, massReserved: 0, energyReserved: 0, meta: { itemType: 'structure' } } as any)
+    processTick(p, { metal: 1, mineral: 1, food: 1 }, 1)
     let rem = p.buildQueue.find(b => b.id === 'q1')!.remainingTime
-    expect(rem).toBeCloseTo(4, 5)
+    expect(rem).toBe(4)
 
-    // strong negative energy -> stallingFactor lower bounded (>= 0.1)
-  p.buildQueue = [{ id: 'q2', name: 'Test2', type: 'Unit', remainingTime: 10, massReserved: 0, energyReserved: 0 } as any]
-    p.income.energy = -2000
-  processTick(p, { metal: 1, mineral: 1, food: 1 }, 1)
-    const r2 = p.buildQueue.find(b => b.id === 'q2')!.remainingTime
-    // stalling should at least subtract 0.1
-    expect(r2).toBeLessThan(10)
-    expect(r2).toBeGreaterThan(9)
+    processTick(p, { metal: 1, mineral: 1, food: 1 }, 4)
+    expect(p.buildQueue.find(b => b.id === 'q1')).toBeUndefined()
   })
 
   it('unit enqueue consumes worker units and cancel refunds them; structures produce units over time', () => {
@@ -132,11 +156,177 @@ describe('agent expanded behavior', () => {
   expect(cancel.ok).toBe(true)
   expect(p.unitCounts['worker']).toBe(1)
 
-    // test structure production: Outpost produces workers per tick
+    // with sufficient workers and positive food, percent-based growth increases population
     p.ownedBuildings = [{ id: 'o1', name: 'outpost', builtAtTick: 0 }]
-    p.unitCounts = { worker: 0 }
+    p.unitCounts = { worker: 1000 }
+    p.resources.food = 5000
     processTick(p, { metal: 1, mineral: 1, food: 1 }, 1)
-    // outpost produces 200 workers per turn in game_data.json
-    expect(p.unitCounts['worker']).toBeGreaterThanOrEqual(200)
+    expect(p.unitCounts['worker']).toBeGreaterThan(1000)
+  })
+
+  it('automatically inserts wait items when resources will accumulate later', () => {
+    const player: PlayerState = {
+      resources: { mass: 0, mineral: 0, food: 1000, energy: 500 },
+      income: { mass: 0, mineral: 0, food: 0, energy: 0 },
+      ownedBuildings: [
+        { id: 'op1', name: 'outpost', builtAtTick: 0 },
+        { id: 'sg1', name: 'solar_generator', builtAtTick: 0 },
+      ],
+      completedResearch: [],
+      buildQueue: [],
+      unitQueueByFactory: {},
+      unitCounts: { worker: 30000 },
+      tick: 0,
+    }
+
+    const res = enqueueItem(player, 'living_quarters', 'structure', 1, { allowAutoWait: true })
+    expect(res.ok).toBe(true)
+    expect(player.buildQueue.length).toBeGreaterThanOrEqual(2)
+    const waitEntry = player.buildQueue[0]
+    const buildEntry = player.buildQueue[1]
+    expect(waitEntry.type).toBe('Wait')
+    expect(buildEntry.meta?.deferCost).toBe(true)
+    expect(buildEntry.meta?.costPaid).toBe(false)
+
+    const waitTurns = waitEntry.remainingTime
+    processTick(player, { metal: 1, mineral: 1, food: 1 }, waitTurns)
+    // wait entry should be removed after the simulated ticks
+    expect(player.buildQueue[0]?.name).toBe('living_quarters')
+
+    // advance additional turns to complete the build
+    processTick(player, { metal: 1, mineral: 1, food: 1 }, 10)
+    expect(player.buildQueue.find(q => q.name === 'living_quarters')).toBeUndefined()
+    // cost should have been deducted once resources were available
+    expect(player.resources.mass).toBeGreaterThanOrEqual(0)
+  })
+
+  it('fails to queue population costs when growth cannot cover deficit', () => {
+    const player: PlayerState = {
+      resources: { mass: 1000, mineral: 1000, food: 1000, energy: 500 },
+      income: { mass: 0, mineral: 0, food: 0, energy: 0 },
+      ownedBuildings: [
+        { id: 'barracks-1', name: 'army_barracks', builtAtTick: 0 },
+        { id: 'op1', name: 'outpost', builtAtTick: 0 },
+      ],
+      completedResearch: [],
+      buildQueue: [],
+      unitQueueByFactory: {},
+      unitCounts: { worker: 0 },
+      tick: 0,
+    }
+
+    const res = enqueueItem(player, 'soldier', 'unit', 1, { allowAutoWait: true })
+    expect(res.ok).toBe(false)
+  })
+
+  it('removing a prerequisite also removes dependent queued items', () => {
+    const player: PlayerState = {
+      resources: { mass: 500000, mineral: 500000, food: 0, energy: 0 },
+      income: { mass: 0, mineral: 0, food: 0, energy: 0 },
+      ownedBuildings: [],
+      completedResearch: [],
+      buildQueue: [],
+      unitQueueByFactory: {},
+      unitCounts: { worker: 500000 },
+      tick: 0,
+    }
+
+    const launchRes = enqueueItem(player, 'launch_site', 'structure', 1)
+    expect(launchRes.ok).toBe(true)
+    const shipRes = enqueueItem(player, 'ship_yard', 'structure', 1)
+    expect(shipRes.ok).toBe(true)
+
+    const launchItem = player.buildQueue.find(item => item.name === 'launch_site')
+    expect(launchItem).toBeDefined()
+    if (!launchItem) throw new Error('launch site not found in queue')
+
+    const cancelRes = cancelQueueItemImpl(player, launchItem.id)
+    expect(cancelRes.ok).toBe(true)
+    expect(player.buildQueue.find(item => item.name === 'ship_yard')).toBeUndefined()
+  })
+
+  it('population consumption reduces food stocks over time', () => {
+    const player: PlayerState = {
+      resources: { mass: 0, mineral: 0, food: 1000, energy: 0 },
+      income: { mass: 0, mineral: 0, food: 0, energy: 0 },
+      ownedBuildings: [],
+      completedResearch: [],
+      buildQueue: [],
+      unitQueueByFactory: {},
+      unitCounts: { worker: 10000 },
+      tick: 0,
+      meta: {},
+    }
+
+    processTick(player, { metal: 1, mineral: 1, food: 1 }, 1)
+    const afterOne = player.resources.food
+    expect(afterOne).toBeLessThan(1000)
+
+    processTick(player, { metal: 1, mineral: 1, food: 1 }, 4)
+    expect(player.resources.food).toBeLessThan(afterOne)
+  })
+
+  it('prevents population growth when food income is negative and stocks depleted', () => {
+    const player: PlayerState = {
+      resources: { mass: 0, mineral: 0, food: 50, energy: 0 },
+      income: { mass: 0, mineral: 0, food: 0, energy: 0 },
+      ownedBuildings: [
+        { id: 'metal_mine-0', name: 'metal_mine', builtAtTick: 0 },
+        { id: 'mineral_extractor-0', name: 'mineral_extractor', builtAtTick: 0 },
+        { id: 'solar_generator-0', name: 'solar_generator', builtAtTick: 0 },
+      ],
+      completedResearch: [],
+      buildQueue: [],
+      unitQueueByFactory: {},
+      unitCounts: { worker: 5000 },
+      tick: 0,
+      meta: {},
+    }
+
+    const initialWorkers = player.unitCounts.worker
+    processTick(player, { metal: 1, mineral: 1, food: 0.5 }, 10)
+    expect(player.unitCounts?.worker).toBe(initialWorkers)
+    expect(player.resources.food).toBe(0)
+  })
+
+  it('auto wait suggestions account for existing stocks and production', () => {
+    const player = makeBasePlayer()
+    const launch = enqueueItem(player, 'launch_site', 'structure', 1)
+    expect(launch.ok).toBe(true)
+
+    const result = enqueueItem(player, 'ship_yard', 'structure', 1, { allowAutoWait: true })
+    expect(result.ok).toBe(true)
+
+    const waitEntry = player.buildQueue.find(item => item.type === 'Wait' && item.meta?.waitFor)
+    const shipEntry = player.buildQueue.find(item => item.name === 'ship_yard')
+    expect(waitEntry).toBeDefined()
+    expect(shipEntry).toBeDefined()
+    expect(waitEntry?.meta?.waitFor).toBe(shipEntry?.id)
+    expect(waitEntry?.remainingTime).toBe(20)
+  })
+
+  it('cancelQueueItemImpl refunds queued structure costs', () => {
+    const player = makeBasePlayer()
+    const beforeMass = player.resources.mass
+    const beforeMineral = player.resources.mineral
+
+    const res = enqueueItem(player, 'metal_mine', 'structure', 1)
+    expect(res.ok).toBe(true)
+    const entry = player.buildQueue.find(item => item.name === 'metal_mine')
+    if (!entry) throw new Error('metal mine not queued')
+
+    const cancelRes = cancelQueueItemImpl(player, entry.id)
+    expect(cancelRes.ok).toBe(true)
+    expect(player.resources.mass).toBe(beforeMass)
+    expect(player.resources.mineral).toBe(beforeMineral)
+  })
+
+  it('energy upkeep does not reduce stored energy', () => {
+    const player = makeBasePlayer()
+    player.resources.energy = 50
+    player.ownedBuildings = player.ownedBuildings.filter(b => b.name !== 'solar_generator')
+
+    processTick(player, { metal: 1, mineral: 1, food: 1 }, 5)
+    expect(player.resources.energy).toBe(50)
   })
 })

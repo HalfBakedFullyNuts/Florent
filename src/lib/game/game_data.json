@@ -1,17 +1,38 @@
 {
   "meta": {
-    "version": "2.1.0",
-    "description": "Authoritative game definition file. All unit and structure data is now sourced from the complete set of game manual images and direct user corrections.",
-    "generated_at": "2025-10-11T00:23:54Z"
+    "version": "1.0.0",
+    "description": "Structure data extracted from the Infinite Conflict manual HTML source.",
+    "generated_at": "2025-10-12T15:00:00Z"
   },
   "resources": [
-    { "id": "metal", "name": "Metal" },
-    { "id": "mineral", "name": "Mineral" },
-    { "id": "food", "name": "Food" },
-    { "id": "energy", "name": "Energy" },
-    { "id": "ground_space", "name": "Ground Space" },
-    { "id": "orbital_space", "name": "Orbital Space" },
-    { "id": "research_points", "name": "Research Points" }
+    {
+      "id": "metal",
+      "name": "Metal"
+    },
+    {
+      "id": "mineral",
+      "name": "Mineral"
+    },
+    {
+      "id": "food",
+      "name": "Food"
+    },
+    {
+      "id": "energy",
+      "name": "Energy"
+    },
+    {
+      "id": "ground_space",
+      "name": "Ground Space"
+    },
+    {
+      "id": "orbital_space",
+      "name": "Orbital Space"
+    },
+    {
+      "id": "research_points",
+      "name": "Research Points"
+    }
   ],
   "units": [
     {
@@ -21,10 +42,23 @@
       "build_time_turns": 1,
       "cost": [],
       "consumption": [
-        { "type": "resource", "id": "food", "amount_per_100_pop": 1 },
-        { "type": "housing", "category": "worker", "amount": 1 }
+        {
+          "type": "resource",
+          "id": "food",
+          "amount_per_100_pop": 1
+        },
+        {
+          "type": "housing",
+          "category": "worker",
+          "amount": 1
+        }
       ],
-      "requirements": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
       "score_value": 1
     },
     {
@@ -33,14 +67,31 @@
       "category": "colonist",
       "build_time_turns": 1,
       "cost": [
-        { "type": "resource", "id": "food", "amount": 2820 },
-        { "type": "unit", "id": "worker", "amount": 1, "is_consumed": true }
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 2820
+        },
+        {
+          "type": "unit",
+          "id": "worker",
+          "amount": 1,
+          "is_consumed": true
+        }
       ],
       "consumption": [
-        { "type": "resource", "id": "food", "amount_per_100_pop": 1 },
-        { "type": "housing", "category": "soldier", "amount": 1 }
+        {
+          "type": "housing",
+          "category": "soldier",
+          "amount": 1
+        }
       ],
-      "requirements": [{ "type": "structure", "id": "army_barracks" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "army_barracks"
+        }
+      ],
       "score_value": 104
     },
     {
@@ -49,14 +100,31 @@
       "category": "colonist",
       "build_time_turns": 5,
       "cost": [
-        { "type": "resource", "id": "food", "amount": 2025 },
-        { "type": "unit", "id": "worker", "amount": 1, "is_consumed": true }
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 2025
+        },
+        {
+          "type": "unit",
+          "id": "worker",
+          "amount": 1,
+          "is_consumed": true
+        }
       ],
       "consumption": [
-        { "type": "resource", "id": "food", "amount_per_100_pop": 1 },
-        { "type": "housing", "category": "worker", "amount": 1 }
+        {
+          "type": "housing",
+          "category": "worker",
+          "amount": 1
+        }
       ],
-      "requirements": [{ "type": "structure", "id": "research_lab" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "research_lab"
+        }
+      ],
       "score_value": 208
     },
     {
@@ -66,16 +134,482 @@
       "subcategory": "military",
       "build_time_turns": 4,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 1500 },
-        { "type": "resource", "id": "mineral", "amount": 350 },
-        { "type": "resource", "id": "food", "amount": 500 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1500
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 350
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 500
+        }
       ],
       "consumption": [],
       "requirements": [
-        { "type": "structure", "id": "ship_yard" },
-        { "type": "structure", "id": "light_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "ship_yard"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
       ],
       "score_value": 5
+    },
+    {
+      "id": "bomber",
+      "name": "Bomber",
+      "category": "ship",
+      "subcategory": "military",
+      "build_time_turns": 6,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1500
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 3000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 1500
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "ship_yard"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
+      ],
+      "score_value": 15
+    },
+    {
+      "id": "frigate",
+      "name": "Frigate",
+      "category": "ship",
+      "subcategory": "military",
+      "build_time_turns": 10,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 17000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 3800
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 5000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "ship_yard"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
+      ],
+      "score_value": 50
+    },
+    {
+      "id": "destroyer",
+      "name": "Destroyer",
+      "category": "ship",
+      "subcategory": "military",
+      "build_time_turns": 14,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 25000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 25000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "ship_yard"
+        },
+        {
+          "type": "structure",
+          "id": "heavy_weapons_factory"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "cruiser",
+      "name": "Cruiser",
+      "category": "ship",
+      "subcategory": "military",
+      "build_time_turns": 20,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 160000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 37000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 50000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "space_dock"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
+      ],
+      "score_value": 2500
+    },
+    {
+      "id": "battleship",
+      "name": "Battleship",
+      "category": "ship",
+      "subcategory": "military",
+      "build_time_turns": 26,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 300000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 600000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 300000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "space_dock"
+        },
+        {
+          "type": "structure",
+          "id": "heavy_weapons_factory"
+        }
+      ],
+      "score_value": 10000
+    },
+    {
+      "id": "command_carrier",
+      "name": "Command Carrier",
+      "category": "ship",
+      "subcategory": "military",
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1200000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 800000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 500000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "space_dock"
+        },
+        {
+          "type": "structure",
+          "id": "heavy_weapons_factory"
+        }
+      ],
+      "score_value": 20000
+    },
+    {
+      "id": "freighter",
+      "name": "Freighter",
+      "category": "ship",
+      "subcategory": "transport",
+      "build_time_turns": 8,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 24000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 16000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 20000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "ship_yard"
+        }
+      ],
+      "score_value": 3.84,
+      "cargo_capacity": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 120000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 80000
+        },
+        {
+          "type": "resource_group",
+          "ids": [
+            "food",
+            "energy",
+            "worker",
+            "soldier"
+          ],
+          "amount": 40000
+        }
+      ]
+    },
+    {
+      "id": "merchant",
+      "name": "Merchant",
+      "category": "ship",
+      "subcategory": "transport",
+      "build_time_turns": 10,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 48000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 32000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 36000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "ship_yard"
+        }
+      ],
+      "score_value": 7.68,
+      "cargo_capacity": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 240000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 160000
+        },
+        {
+          "type": "resource_group",
+          "ids": [
+            "food",
+            "energy",
+            "worker",
+            "soldier"
+          ],
+          "amount": 80000
+        }
+      ]
+    },
+    {
+      "id": "trader",
+      "name": "Trader",
+      "category": "ship",
+      "subcategory": "transport",
+      "build_time_turns": 12,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 72000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 48000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 60000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "space_dock"
+        }
+      ],
+      "score_value": 11.52,
+      "cargo_capacity": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 480000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 320000
+        },
+        {
+          "type": "resource_group",
+          "ids": [
+            "food",
+            "energy",
+            "worker",
+            "soldier"
+          ],
+          "amount": 160000
+        }
+      ]
+    },
+    {
+      "id": "outpost_ship",
+      "name": "Outpost Ship",
+      "category": "ship",
+      "subcategory": "support",
+      "build_time_turns": 16,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 30000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 20000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 50000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "ship_yard"
+        }
+      ],
+      "score_value": 4.8,
+      "description": "Used to establish an outpost on an unoccupied planet. See Colonization."
+    },
+    {
+      "id": "invasion_ship",
+      "name": "Invasion Ship",
+      "category": "ship",
+      "subcategory": "support",
+      "build_time_turns": 16,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 30000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 20000
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 50000
+        }
+      ],
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "ship_yard"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
+      ],
+      "score_value": 4.16,
+      "description": "Used to invade an enemy-occupied planet. See Invasion."
     }
   ],
   "structures": [
@@ -84,27 +618,52 @@
       "name": "Outpost",
       "tier": 1,
       "is_advanced": false,
-      "build_time_turns": 1,
-      "cost": [
-        { "type": "resource", "id": "metal", "amount": 300 },
-        { "type": "resource", "id": "mineral", "amount": 200 },
-        { "type": "resource", "id": "food", "amount": 100 }
-      ],
+      "build_time_turns": 0,
+      "cost": [],
       "build_requirements": {
         "workers_occupied": 0,
-        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
       },
       "requirements": [],
       "operations": {
-        "production": [{ "type": "worker", "base_amount": 200, "is_abundance_scaled": false }],
+        "production": [
+          {
+            "type": "metal",
+            "base_amount": 300,
+            "is_abundance_scaled": false
+          },
+          {
+            "type": "mineral",
+            "base_amount": 200,
+            "is_abundance_scaled": false
+          },
+          {
+            "type": "food",
+            "base_amount": 100,
+            "is_abundance_scaled": false
+          }
+        ],
         "consumption": [],
         "effects": [
-          { "type": "PROVIDE_HOUSING", "category": "worker", "amount": 50000 },
-          { "type": "PROVIDE_HOUSING", "category": "soldier", "amount": 100000 }
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 50000
+          },
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "soldier",
+            "amount": 100000
+          }
         ]
       },
       "max_per_planet": 1,
-      "description": "Starting structure; provides housing and produces 200 workers/turn."
+      "description": "Provides 50,000 housing for workers and 100,000 housing for soldiers. Produces resources and 200 workers per turn."
     },
     {
       "id": "metal_mine",
@@ -113,20 +672,94 @@
       "is_advanced": false,
       "build_time_turns": 4,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 600 },
-        { "type": "resource", "id": "mineral", "amount": 2000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 600
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 2000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 5000,
-        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
       },
       "requirements": [],
       "operations": {
-        "production": [{ "type": "metal", "base_amount": 300, "is_abundance_scaled": true }],
-        "consumption": [{ "type": "resource", "id": "energy", "amount": 10 }],
+        "production": [
+          {
+            "type": "metal",
+            "base_amount": 300,
+            "is_abundance_scaled": true
+          }
+        ],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
         "effects": []
       },
-      "max_per_planet": null
+      "max_per_planet": null,
+      "description": "Produces Metal. Production scales with planet abundance."
+    },
+    {
+      "id": "mineral_extractor",
+      "name": "Mineral Extractor",
+      "tier": 1,
+      "is_advanced": false,
+      "build_time_turns": 4,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 3000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 400
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 5000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
+      },
+      "requirements": [],
+      "operations": {
+        "production": [
+          {
+            "type": "mineral",
+            "base_amount": 200,
+            "is_abundance_scaled": true
+          }
+        ],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": null,
+      "description": "Extracts Minerals. Production scales with planet abundance."
     },
     {
       "id": "farm",
@@ -135,20 +768,336 @@
       "is_advanced": false,
       "build_time_turns": 4,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 1500 },
-        { "type": "resource", "id": "mineral", "amount": 1000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1500
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 1000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 5000,
-        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
       },
       "requirements": [],
       "operations": {
-        "production": [{ "type": "food", "base_amount": 200, "is_abundance_scaled": true }],
-        "consumption": [{ "type": "resource", "id": "energy", "amount": 10 }],
+        "production": [
+          {
+            "type": "food",
+            "base_amount": 200,
+            "is_abundance_scaled": true
+          }
+        ],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
         "effects": []
       },
-      "max_per_planet": null
+      "max_per_planet": null,
+      "description": "Produces Food. Production scales with planet abundance."
+    },
+    {
+      "id": "solar_generator",
+      "name": "Solar Generator",
+      "tier": 1,
+      "is_advanced": false,
+      "build_time_turns": 4,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1500
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 1000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 5000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
+      },
+      "requirements": [],
+      "operations": {
+        "production": [
+          {
+            "type": "energy",
+            "base_amount": 100,
+            "is_abundance_scaled": false
+          }
+        ],
+        "consumption": [],
+        "effects": []
+      },
+      "max_per_planet": null,
+      "description": "Generates Energy."
+    },
+    {
+      "id": "leisure_centre",
+      "name": "Leisure Centre",
+      "tier": 1,
+      "is_advanced": false,
+      "build_time_turns": 8,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 12000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 8000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 10000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
+        "effects": [
+          {
+            "type": "INCREASE_BIRTH_RATE",
+            "amount_percent": 0.5
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Increases Birth Rate by 0.5% per turn."
+    },
+    {
+      "id": "launch_site",
+      "name": "Launch Site",
+      "tier": 1,
+      "is_advanced": false,
+      "build_time_turns": 8,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 15000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 10000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 25000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
+        "effects": [
+          {
+            "type": "ENABLES_ORBITAL_CONSTRUCTION"
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Enables building of orbital structures."
+    },
+    {
+      "id": "living_quarters",
+      "name": "Living Quarters",
+      "tier": 1,
+      "is_advanced": false,
+      "build_time_turns": 6,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 2400
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 1600
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 25000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
+      },
+      "requirements": [],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
+        "effects": [
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 50000
+          }
+        ]
+      },
+      "max_per_planet": null,
+      "description": "Provides 50,000 Housing."
+    },
+    {
+      "id": "habitat",
+      "name": "Habitat",
+      "tier": 1,
+      "is_advanced": true,
+      "build_time_turns": 6,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 4800
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 3200
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 25000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 1
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "launch_site"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
+        ],
+        "effects": [
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 100000
+          }
+        ]
+      },
+      "max_per_planet": null,
+      "description": "Provides 100,000 Housing."
+    },
+    {
+      "id": "comms_satellite",
+      "name": "Comms Satellite",
+      "tier": 1,
+      "is_advanced": true,
+      "build_time_turns": 8,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 33000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 22000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 40000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "launch_site"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
+        "effects": [
+          {
+            "type": "ENABLES_SCANNING"
+          },
+          {
+            "type": "PROVIDE_FLEET_VISIBILITY"
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Allows you to see all the fleets moving into the same system, and allows you to scan planets."
     },
     {
       "id": "ship_yard",
@@ -157,16 +1106,141 @@
       "is_advanced": true,
       "build_time_turns": 12,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 48000 },
-        { "type": "resource", "id": "mineral", "amount": 32000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 48000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 32000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 25000,
-        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "launch_site"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
+        "effects": [
+          {
+            "type": "ENABLES_SHIP_PRODUCTION"
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Enables production of basic ship designs."
+    },
+    {
+      "id": "colony",
+      "name": "Colony",
+      "tier": 2,
+      "is_advanced": false,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 60000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 40000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 50000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
       "requirements": [],
-      "operations": { "production": [], "consumption": [{ "type": "resource", "id": "energy", "amount": 10 }], "effects": [] },
-      "max_per_planet": 1
+      "operations": {
+        "production": [],
+        "consumption": [],
+        "effects": [
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 100000
+          },
+          {
+            "type": "UNLOCKS_TIER_2"
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Provides 100,000 housing and unlocks Tier 2 structures."
+    },
+    {
+      "id": "light_weapons_factory",
+      "name": "Light Weapons Factory",
+      "tier": 2,
+      "is_advanced": false,
+      "build_time_turns": 12,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 30000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 20000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 40000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": 1,
+      "description": "Required for production of military ships and to build Army Barracks."
     },
     {
       "id": "army_barracks",
@@ -175,13 +1249,1120 @@
       "is_advanced": false,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 12000 },
-        { "type": "resource", "id": "mineral", "amount": 8000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 12000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 8000
+        }
       ],
-      "build_requirements": { "workers_occupied": 25000, "space_cost": [{ "type": "ground_space", "amount": 1 }] },
-      "requirements": [],
-      "operations": { "production": [], "consumption": [{ "type": "resource", "id": "energy", "amount": 10 }], "effects": [] },
-      "max_per_planet": null
+      "build_requirements": {
+        "workers_occupied": 25000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
+        "effects": [
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "soldier",
+            "amount": 400000
+          },
+          {
+            "type": "ENABLES_SOLDIER_TRAINING"
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Enables training of soldiers, and provides housing for 400,000 soldiers."
+    },
+    {
+      "id": "core_metal_mine",
+      "name": "Core Metal Mine",
+      "tier": 2,
+      "is_advanced": false,
+      "build_time_turns": 8,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 3600
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 12000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 35000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
+      "operations": {
+        "production": [
+          {
+            "type": "metal",
+            "base_amount": 900,
+            "is_abundance_scaled": true
+          }
+        ],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": null,
+      "description": "Advanced Metal Mine with higher output."
+    },
+    {
+      "id": "core_mineral_extractor",
+      "name": "Core Mineral Extractor",
+      "tier": 2,
+      "is_advanced": false,
+      "build_time_turns": 8,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 18000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 2400
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 35000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
+      "operations": {
+        "production": [
+          {
+            "type": "mineral",
+            "base_amount": 600,
+            "is_abundance_scaled": true
+          }
+        ],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": null,
+      "description": "Advanced Mineral Extractor with higher output."
+    },
+    {
+      "id": "hydroponics_lab",
+      "name": "Hydroponics Lab",
+      "tier": 2,
+      "is_advanced": false,
+      "build_time_turns": 8,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 9000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 6000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 35000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        },
+        {
+          "type": "structure",
+          "id": "launch_site"
+        }
+      ],
+      "operations": {
+        "production": [
+          {
+            "type": "food",
+            "base_amount": 600,
+            "is_abundance_scaled": true
+          }
+        ],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": null,
+      "description": "Advanced orbital farm with higher output."
+    },
+    {
+      "id": "solar_array",
+      "name": "Solar Array",
+      "tier": 2,
+      "is_advanced": false,
+      "build_time_turns": 8,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 9000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 6000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 35000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        },
+        {
+          "type": "structure",
+          "id": "launch_site"
+        }
+      ],
+      "operations": {
+        "production": [
+          {
+            "type": "energy",
+            "base_amount": 300,
+            "is_abundance_scaled": false
+          }
+        ],
+        "consumption": [],
+        "effects": []
+      },
+      "max_per_planet": null,
+      "description": "Advanced orbital energy generator with higher output."
+    },
+    {
+      "id": "hyperspace_beacon",
+      "name": "Hyperspace Beacon",
+      "tier": 2,
+      "is_advanced": true,
+      "build_time_turns": 16,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 39000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 26000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 40000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        },
+        {
+          "type": "structure",
+          "id": "launch_site"
+        },
+        {
+          "type": "research_flag",
+          "id": "hyperspace_beacon_research"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
+        ],
+        "effects": [
+          {
+            "type": "DECREASE_OWN_TRAVEL_TIME",
+            "amount_percent": 25
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Decreases travel time by 25% for owned ships only. Required at destination planet only."
+    },
+    {
+      "id": "metal_refinery",
+      "name": "Metal Refinery",
+      "tier": 2,
+      "is_advanced": true,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 75000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 100000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        },
+        {
+          "type": "research_flag",
+          "id": "metal_refinery_research"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 40
+          }
+        ],
+        "effects": [
+          {
+            "type": "INCREASE_ABUNDANCE",
+            "resource_type": "metal",
+            "amount": 30
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Increases metal abundance by 30."
+    },
+    {
+      "id": "mineral_processor",
+      "name": "Mineral Processor",
+      "tier": 2,
+      "is_advanced": true,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 75000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 100000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        },
+        {
+          "type": "research_flag",
+          "id": "mineral_processor_research"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 40
+          }
+        ],
+        "effects": [
+          {
+            "type": "INCREASE_ABUNDANCE",
+            "resource_type": "mineral",
+            "amount": 30
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Increases mineral abundance by 30."
+    },
+    {
+      "id": "food_purifier",
+      "name": "Food Purifier",
+      "tier": 2,
+      "is_advanced": true,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 75000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 100000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        },
+        {
+          "type": "research_flag",
+          "id": "food_purifier_research"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 40
+          }
+        ],
+        "effects": [
+          {
+            "type": "INCREASE_ABUNDANCE",
+            "resource_type": "food",
+            "amount": 30
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Increases food abundance by 30."
+    },
+    {
+      "id": "energy_booster",
+      "name": "Energy Booster",
+      "tier": 2,
+      "is_advanced": true,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 75000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 100000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        },
+        {
+          "type": "research_flag",
+          "id": "energy_booster_research"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [],
+        "effects": [
+          {
+            "type": "INCREASE_ABUNDANCE",
+            "resource_type": "energy",
+            "amount": 30
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Increases energy abundance by 30."
+    },
+    {
+      "id": "metropolis",
+      "name": "Metropolis",
+      "tier": 3,
+      "is_advanced": false,
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 120000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 80000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 160000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 4
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
+      "operations": {
+        "production": [
+          {
+            "type": "research_points",
+            "base_amount": 1,
+            "is_on_completion": true
+          }
+        ],
+        "consumption": [],
+        "effects": [
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 200000
+          },
+          {
+            "type": "UNLOCKS_TIER_3"
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Provides 200,000 housing, 1 Research Point on completion, and unlocks Tier 3 structures."
+    },
+    {
+      "id": "heavy_weapons_factory",
+      "name": "Heavy Weapons Factory",
+      "tier": 3,
+      "is_advanced": false,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 90000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 60000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 200000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 30
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": 1,
+      "description": "Required for production of advanced military ships: destroyers and battleships."
+    },
+    {
+      "id": "space_dock",
+      "name": "Space Dock",
+      "tier": 3,
+      "is_advanced": false,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 144000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 96000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 240000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 4
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "structure",
+          "id": "ship_yard"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": 1,
+      "description": "Required for production of advanced ships."
+    },
+    {
+      "id": "hospital",
+      "name": "Hospital",
+      "tier": 3,
+      "is_advanced": false,
+      "build_time_turns": 16,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 36000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 24000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 40000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "structure",
+          "id": "medical_centre"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
+        ],
+        "effects": [
+          {
+            "type": "INCREASE_BIRTH_RATE",
+            "amount_percent": 0.5
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Increases Birth Rate by 0.5% per turn."
+    },
+    {
+      "id": "land_reclamation",
+      "name": "Land Reclamation",
+      "tier": 3,
+      "is_advanced": false,
+      "build_time_turns": 24,
+      "cost": [],
+      "build_requirements": {
+        "workers_occupied": 100000,
+        "space_cost": []
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [],
+        "effects": [
+          {
+            "type": "INCREASE_SPACE",
+            "space_type": "ground",
+            "amount": 1
+          }
+        ]
+      },
+      "max_per_planet": null,
+      "description": "Increases the ground space of the planet by 1."
+    },
+    {
+      "id": "orbital_clearing",
+      "name": "Orbital Clearing",
+      "tier": 3,
+      "is_advanced": false,
+      "build_time_turns": 24,
+      "cost": [],
+      "build_requirements": {
+        "workers_occupied": 100000,
+        "space_cost": []
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [],
+        "effects": [
+          {
+            "type": "INCREASE_SPACE",
+            "space_type": "orbital",
+            "amount": 1
+          }
+        ]
+      },
+      "max_per_planet": null,
+      "description": "Increases the orbital space of the planet by 1."
+    },
+    {
+      "id": "jump_gate",
+      "name": "Jump Gate",
+      "tier": 3,
+      "is_advanced": true,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 156000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 104000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 160000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 4
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "structure",
+          "id": "launch_site"
+        },
+        {
+          "type": "research_flag",
+          "id": "jump_gate_research"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 40
+          }
+        ],
+        "effects": [
+          {
+            "type": "DECREASE_ALLIANCE_TRAVEL_TIME",
+            "amount_percent": 25
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Decreases travel time by 25% to all ships of the same alliance. Required at both origin and destination planet."
+    },
+    {
+      "id": "strip_metal_mine",
+      "name": "Strip Metal Mine",
+      "tier": 3,
+      "is_advanced": true,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 72000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 240000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 200000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 6
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "research_flag",
+          "id": "strip_metal_mine_research"
+        }
+      ],
+      "operations": {
+        "production": [
+          {
+            "type": "metal",
+            "base_amount": 9000,
+            "is_abundance_scaled": true
+          }
+        ],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 60
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": 1,
+      "description": "Highest-tier metal mine with massive output."
+    },
+    {
+      "id": "strip_mineral_extractor",
+      "name": "Strip Mineral Extractor",
+      "tier": 3,
+      "is_advanced": true,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 360000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 48000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 200000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 6
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "research_flag",
+          "id": "strip_mineral_extractor_research"
+        }
+      ],
+      "operations": {
+        "production": [
+          {
+            "type": "mineral",
+            "base_amount": 6000,
+            "is_abundance_scaled": true
+          }
+        ],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 60
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": 1,
+      "description": "Highest-tier mineral extractor with massive output."
+    },
+    {
+      "id": "hydroponics_dome",
+      "name": "Hydroponics Dome",
+      "tier": 3,
+      "is_advanced": true,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 180000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 120000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 200000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 6
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "structure",
+          "id": "launch_site"
+        },
+        {
+          "type": "research_flag",
+          "id": "hydroponics_dome_research"
+        }
+      ],
+      "operations": {
+        "production": [
+          {
+            "type": "food",
+            "base_amount": 9000,
+            "is_abundance_scaled": true
+          }
+        ],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 60
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": 1,
+      "description": "Highest-tier orbital farm with massive output."
+    },
+    {
+      "id": "solar_station",
+      "name": "Solar Station",
+      "tier": 3,
+      "is_advanced": true,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 180000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 120000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 200000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 6
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "structure",
+          "id": "launch_site"
+        },
+        {
+          "type": "research_flag",
+          "id": "solar_station_research"
+        }
+      ],
+      "operations": {
+        "production": [
+          {
+            "type": "energy",
+            "base_amount": 3000,
+            "is_abundance_scaled": false
+          }
+        ],
+        "consumption": [],
+        "effects": []
+      },
+      "max_per_planet": 1,
+      "description": "Highest-tier orbital energy generator with massive output."
     }
   ]
 }

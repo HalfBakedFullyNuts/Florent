@@ -5,6 +5,7 @@ This file contains short guidance for both LLMs (when generating prompts/specs) 
 A. Guidance for LLMs producing prompts or spec sheets
 - Be concise: start with a 1-2 sentence high-level objective.
 - Provide explicit acceptance criteria: list 3–5 concrete checks or outputs the user can use to verify success.
+- Call out the coverage gate when tests change: reference `npm run test:coverage` and the minimums (70% lines/statements/functions, 60% branches).
 - Avoid making environment assumptions: when referencing runtime (dev server, test command), include exact commands and file paths.
 - When proposing code changes, include the files to change and a small patch (diff) focused on minimal edits.
 - If the LLM recommends a structural change (new package, major refactor), also generate an ADR entry describing the change and reasoning.
@@ -20,6 +21,7 @@ Example spec structure for LLMs
 B. Guidance for human developers
 - Add ADRs: Whenever you change the architecture (introduce a global store, server APIs, or change routing), add a short entry to `ARCHITECTURAL_DECISIONS.md`.
 - Tests first: prefer adding a small unit test for new logic in `src/lib/game` or a UI test under `src/app/__tests__`.
+- Always run `npm run test:coverage` before opening a PR; the build fails if coverage drops below 70% lines/statements/functions or 60% branches.
 - Keep game logic isolated: `src/lib/game` is the single source of truth for domain logic; UI should call into it, not reimplement rules.
 - Use the prescribed scripts: `npm run dev`, `npm run build`, `npm run test`.
 - When writing prompts for LLMs, use the spec structure above and include file context where possible.
@@ -44,4 +46,3 @@ D. Review & PR expectations
 
 E. Contact & escalation
 - If an LLM-suggested change touches database, infra, or external APIs, escalate to a human reviewer before applying.
-
