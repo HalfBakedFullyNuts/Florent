@@ -1,6 +1,8 @@
 # Node
 node_modules/
 .next/
+.next/**
+coverage/
 .env
 .env.local
 .env.development.local
@@ -29,6 +31,10 @@ Thumbs.db
 dist/
 build/
 
+# Keys / secrets
+defaultkey.ssh
+defaultkey.ssh.pub
+.ssh/
+
 # Mac
 *.swp
-

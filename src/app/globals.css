@@ -1,4 +1,8 @@
-﻿/* Fonts are preloaded in layout.tsx; Tailwind is configured via postcss and tailwind.config.js */
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fonts are preloaded in layout.tsx; Tailwind is configured via postcss and tailwind.config.js */
 
 :root{
 	--bg-primary: #120c18;
@@ -31,10 +35,6 @@ body {
 	width: 100%;
 	background: transparent;
 }
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
 
 /* Minimal star background styles adapted from template */
 #stars1, #stars2, #stars3 {

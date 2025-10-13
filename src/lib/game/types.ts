@@ -49,7 +49,7 @@ export type OwnedBuilding = {
 export type QueueItem = {
   id: string
   name: string // building or unit name
-  type: 'Building' | 'Unit' | 'Research'
+  type: 'Building' | 'Unit' | 'Research' | 'Wait'
   remainingTime: number
   massReserved: number
   energyReserved: number

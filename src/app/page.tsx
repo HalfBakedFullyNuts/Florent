@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import GameData from '../lib/game/dataManager';
 import type { Unit as GUnit, Structure as GStructure } from '../lib/game/dataManager';
-import { enqueueItem, processTick, cancelQueueItemImpl, moveQueueItemGlobal } from '../lib/game/agent';
+import { enqueueItem, processTick, cancelQueueItemImpl, moveQueueItemGlobal, calculateIncome } from '../lib/game/agent';
 import type { EnqueueOptions } from '../lib/game/agent';
 import type { PlayerState, QueueItem } from '../lib/game/types';
 
@@ -97,57 +97,7 @@ function initializePlayer(): PlayerState {
   return player;
 }
 
-// Calculate resource production/consumption
-function calculateIncome(player: PlayerState, abundances: { metal: number; mineral: number; food: number }) {
-  const income = { mass: 0, mineral: 0, food: 0, energy: 0 };
-
-  for (const b of player.ownedBuildings) {
-    const def = GameData.getStructureById(b.name);
-    if (!def?.operations) continue;
-
-    // Production
-    const prods = def.operations.production || [];
-    for (const p of prods) {
-      let amt = p.base_amount || 0;
-      if (p.is_abundance_scaled) {
-        if (p.type === 'metal') amt *= abundances.metal;
-        if (p.type === 'mineral') amt *= abundances.mineral;
-        if (p.type === 'food') amt *= abundances.food;
-      }
-      if (p.type === 'metal') income.mass += Math.round(amt);
-      else if (p.type === 'mineral') income.mineral += Math.round(amt);
-      else if (p.type === 'food') income.food += Math.round(amt);
-      else if (p.type === 'energy') income.energy += Math.round(amt);
-    }
-
-    // Consumption
-    const cons = def.operations.consumption || [];
-    for (const c of cons) {
-      if (c.type === 'resource') {
-        const amt = c.amount || 0;
-        if (c.id === 'energy') income.energy -= amt;
-        else if (c.id === 'metal') income.mass -= amt;
-        else if (c.id === 'mineral') income.mineral -= amt;
-        else if (c.id === 'food') income.food -= amt;
-      }
-    }
-  }
-
-  // Food consumption from population
-  const totalPop = Object.entries(player.unitCounts || {}).reduce((sum, [type, count]) => {
-    const unit = GameData.getUnitById(type);
-    if (unit?.consumption) {
-      for (const c of unit.consumption) {
-        if (c.type === 'resource' && c.id === 'food' && 'amount_per_100_pop' in c) {
-          income.food -= Math.round((count / 100) * (c.amount_per_100_pop || 0));
-        }
-      }
-    }
-    return sum + count;
-  }, 0);
-
-  return income;
-}
+// calculateIncome moved to engine (../lib/game/agent)
 
 // Simulate to a specific turn
 function simulateToTurn(basePlayer: PlayerState, targetTurn: number, abundances: { metal: number; mineral: number; food: number }): PlayerState {

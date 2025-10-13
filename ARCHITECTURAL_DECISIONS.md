@@ -15,6 +15,9 @@ Short rationale (1-2 sentences).
 
 Initial entries
 
+2025-10-13 — Harden engine types, move income calc, remove secrets
+Moved `calculateIncome` into the engine API, tightened `Effect` typing, added `Wait` to queue item type, switched fonts to `next/font`, modernized tsconfig, and removed committed key files with .gitignore protection.
+
 2025-10-12 — Enforce Vitest coverage thresholds in CI
 We introduced `npm run test:coverage` (70% lines/statements/functions, 60% branches) as a required gate so every feature is backed by tests before merging.
 

@@ -16,7 +16,15 @@ export type Consumption =
   | { type: 'resource'; id: ResourceId; amount?: number; amount_per_100_pop?: number }
   | { type: 'housing'; category: 'worker' | 'soldier'; amount: number }
 
-export type Effect = Record<string, unknown>
+export type Effect =
+  | { type: 'PROVIDE_HOUSING'; category: 'worker' | 'soldier'; amount: number }
+  | { type: 'UNLOCK_CATEGORY'; category: string }
+  | { type: 'MODIFY_ATTRIBUTE'; attribute: string; value: number }
+  | { type: 'ENABLE_ACTION'; action: string }
+  | { type: 'INCREASE_BIRTH_RATE'; amount_percent: number }
+  | { type: 'INCREASE_SPACE'; space_type: 'ground' | 'orbital'; amount: number }
+  // Allow dataset-defined flags we don’t explicitly model yet
+  | { type: string; [key: string]: unknown }
 
 export type Requirement = { type: 'structure' | 'research_flag'; id: string }
 
