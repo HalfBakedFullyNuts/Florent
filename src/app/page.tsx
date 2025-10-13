@@ -2,7 +2,7 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import GameData from '../lib/game/dataManager';
 import type { Unit as GUnit, Structure as GStructure } from '../lib/game/dataManager';
-import { enqueueItem, processTick, cancelQueueItemImpl, moveQueueItemGlobal, calculateIncome } from '../lib/game/agent';
+import { enqueueItem, processTick, cancelQueueItemImpl, moveQueueItemGlobal, calculateIncome, getMaxBuildCount, updateQueueItemCount, clearBuildQueue } from '../lib/game/agent';
 import type { EnqueueOptions } from '../lib/game/agent';
 import type { PlayerState, QueueItem } from '../lib/game/types';
 
@@ -88,7 +88,8 @@ function initializePlayer(): PlayerState {
       ground_space_used: spaceUsage.ground,
       ground_space_max: 60,
       orbital_space_used: spaceUsage.orbital,
-      orbital_space_max: 40
+      orbital_space_max: 40,
+      workers_busy: 0
     }
   };
 
@@ -132,6 +133,11 @@ export default function Home() {
   const [currentTurn, setCurrentTurn] = useState(0);
   const [maxTurn, setMaxTurn] = useState(200);
   const [activeTab, setActiveTab] = useState<TabType>('structures');
+  const [queueTab, setQueueTab] = useState<TabType>('structures');
+  const [pendingEnqueue, setPendingEnqueue] = useState<{ itemId: string; itemType: 'structure' | 'unit'; waitTurns: number; reason: 'workers' | 'resources'; count: number } | null>(null);
+  const [batchCounts, setBatchCounts] = useState<Record<string, number>>({});
+  const [queueCountDrafts, setQueueCountDrafts] = useState<Record<string, number>>({});
+  const [viewBuildList, setViewBuildList] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [selectedQueueId, setSelectedQueueId] = useState<string | null>(null);
   const [draggingQueueId, setDraggingQueueId] = useState<string | null>(null);
@@ -160,6 +166,31 @@ export default function Home() {
     return counts;
   }, [basePlayer.buildQueue]);
 
+  const queuedStructureIds = useMemo(() => {
+    const ids = new Set<string>();
+    basePlayer.buildQueue.forEach(item => {
+      if (item.meta?.itemType === 'structure') ids.add(item.name);
+    });
+    return ids;
+  }, [basePlayer.buildQueue]);
+
+  const isBatchableUnit = useCallback((unit: GUnit | null) => {
+    if (!unit) return false;
+    return unit.category === 'ship' || unit.category === 'colonist';
+  }, []);
+
+  const getBatchCount = useCallback((id: string) => {
+    return batchCounts[id] ?? 1;
+  }, [batchCounts]);
+
+  const setBatchCount = useCallback((id: string, value: number) => {
+    setBatchCounts(prev => ({ ...prev, [id]: value }));
+  }, []);
+
+  const computeMaxCount = useCallback((player: PlayerState, itemId: string, itemType: 'structure' | 'unit') => {
+    return Math.max(1, getMaxBuildCount(player, itemId, itemType));
+  }, []);
+
   const availableItems = useMemo(() => {
     if (activeTab === 'structures') {
       return GameData.getAllStructures()
@@ -167,8 +198,10 @@ export default function Home() {
           // Check if requirements are met
           if (s.requirements) {
             for (const req of s.requirements) {
-              if (req.type === 'structure' && !currentPlayer.ownedBuildings.some(b => b.name === req.id)) {
-                return false;
+              if (req.type === 'structure') {
+                const owned = currentPlayer.ownedBuildings.some(b => b.name === req.id);
+                const queued = queuedStructureIds.has(req.id);
+                if (!owned && !queued) return false;
               }
               if (req.type === 'research_flag' && !currentPlayer.completedResearch.includes(req.id)) {
                 return false;
@@ -189,8 +222,10 @@ export default function Home() {
         .filter(u => {
           if (u.requirements) {
             for (const req of u.requirements) {
-              if (req.type === 'structure' && !currentPlayer.ownedBuildings.some(b => b.name === req.id)) {
-                return false;
+              if (req.type === 'structure') {
+                const owned = currentPlayer.ownedBuildings.some(b => b.name === req.id);
+                const queued = queuedStructureIds.has(req.id);
+                if (!owned && !queued) return false;
               }
             }
           }
@@ -202,15 +237,43 @@ export default function Home() {
         .filter(u => {
           if (u.requirements) {
             for (const req of u.requirements) {
-              if (req.type === 'structure' && !currentPlayer.ownedBuildings.some(b => b.name === req.id)) {
-                return false;
+              if (req.type === 'structure') {
+                const owned = currentPlayer.ownedBuildings.some(b => b.name === req.id);
+                const queued = queuedStructureIds.has(req.id);
+                if (!owned && !queued) return false;
               }
             }
           }
           return true;
         });
     }
-  }, [activeTab, currentPlayer, queuedStructureCounts]);
+  }, [activeTab, currentPlayer, queuedStructureCounts, queuedStructureIds]);
+
+  const queueTabs: TabType[] = ['structures', 'ships', 'colonists'];
+
+  const filteredBuildQueue = useMemo(() => {
+    return basePlayer.buildQueue.filter(item => {
+      if (item.meta?.itemType === 'wait' || item.type === 'Wait') return true;
+      const itemType = item.meta?.itemType || (item.type === 'Building' ? 'structure' : item.type === 'Unit' ? 'unit' : item.type === 'Research' ? 'research' : undefined);
+      if (itemType === 'structure') return queueTab === 'structures';
+      if (itemType === 'unit') {
+        const unitDef = GameData.getUnitById(item.name);
+        if (unitDef?.category === 'ship') return queueTab === 'ships';
+        if (unitDef?.category === 'colonist') return queueTab === 'colonists';
+        return queueTab === 'structures';
+      }
+      if (itemType === 'research') return queueTab === 'structures';
+      return queueTab === 'structures';
+    });
+  }, [basePlayer.buildQueue, queueTab]);
+
+  const computeMaxCountForQueueItem = useCallback((queueItem: QueueItem) => {
+    const unitDef = GameData.getUnitById(queueItem.name);
+    if (!isBatchableUnit(unitDef)) return Number((queueItem.meta as any)?.count || 1);
+    const draft = JSON.parse(JSON.stringify(basePlayer)) as PlayerState;
+    cancelQueueItemImpl(draft, queueItem.id);
+    return computeMaxCount(draft, queueItem.name, 'unit');
+  }, [basePlayer, computeMaxCount, isBatchableUnit]);
 
   // Queue an item and advance time
   const applyPlayerState = useCallback((player: PlayerState) => {
@@ -220,32 +283,39 @@ export default function Home() {
     setCurrentTurn(player.meta?.queueCompletionTurn ?? player.tick);
   }, [abundances, setBasePlayer, setCurrentTurn]);
 
-  const queueItem = useCallback((itemId: string, itemType: 'structure' | 'unit') => {
-    setLastError(null);
+  const attemptEnqueue = useCallback((itemId: string, itemType: 'structure' | 'unit', count = 1, opts?: EnqueueOptions, showModal = true): ReturnType<typeof enqueueItem> => {
+    const run = (options?: EnqueueOptions) => {
+      const draft = JSON.parse(JSON.stringify(basePlayer)) as PlayerState;
+      const result = enqueueItem(draft, itemId, itemType, count, options);
+      return { draft, result };
+    };
 
-    const newPlayer = JSON.parse(JSON.stringify(basePlayer)) as PlayerState;
-    const attempt = (opts?: EnqueueOptions) => enqueueItem(newPlayer, itemId, itemType, 1, opts);
+    const { draft, result } = run(opts);
 
-    let res = attempt();
-
-    if (!res.ok && res.reason === 'wait_required') {
-      const waitTurns = res.waitTurns ?? 0;
-      let useWait = true;
-      if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-        useWait = window.confirm(
-          `Not enough resources to start now. Add a wait of ${waitTurns} turn${waitTurns === 1 ? '' : 's'} before construction?\nPress Cancel to queue anyway (stocks may go negative).`
-        );
+    if (!result.ok) {
+      if (result.reason === 'wait_required' && !opts?.allowAutoWait && !opts?.allowNegativeStocks) {
+        const waitTurns = Math.max(0, result.waitTurns ?? 0);
+        if (waitTurns === 0) {
+          return attemptEnqueue(itemId, itemType, count, { ...opts, allowAutoWait: true }, showModal);
+        }
+        if (showModal) {
+          setPendingEnqueue({ itemId, itemType, waitTurns, reason: result.shortage || 'resources', count });
+        }
+        return result;
       }
-      res = useWait ? attempt({ allowAutoWait: true }) : attempt({ allowNegativeStocks: true });
+      setLastError(result.reason || 'Unable to queue item');
+      return result;
     }
 
-    if (!res.ok) {
-      setLastError(res.reason || 'Unable to queue item');
-      return;
-    }
-
-    applyPlayerState(newPlayer);
+    setLastError(null);
+    applyPlayerState(draft);
+    return result;
   }, [basePlayer, applyPlayerState]);
+
+  const queueItem = useCallback((itemId: string, itemType: 'structure' | 'unit', count = 1) => {
+    setLastError(null);
+    attemptEnqueue(itemId, itemType, count);
+  }, [attemptEnqueue]);
 
   const queueWait = useCallback((turns: number) => {
     if (!Number.isFinite(turns) || turns <= 0) return;
@@ -263,6 +333,26 @@ export default function Home() {
     newPlayer.buildQueue.push(waitItem);
     applyPlayerState(newPlayer);
   }, [basePlayer, applyPlayerState]);
+
+  const handleWaitConfirm = useCallback(() => {
+    if (!pendingEnqueue) return;
+    attemptEnqueue(pendingEnqueue.itemId, pendingEnqueue.itemType, pendingEnqueue.count, { allowAutoWait: true }, false);
+    setPendingEnqueue(null);
+  }, [pendingEnqueue, attemptEnqueue]);
+
+  const handleQueueAnyway = useCallback(() => {
+    if (!pendingEnqueue) return;
+    if (pendingEnqueue.reason === 'workers') {
+      setPendingEnqueue(null);
+      return;
+    }
+    attemptEnqueue(pendingEnqueue.itemId, pendingEnqueue.itemType, pendingEnqueue.count, { allowNegativeStocks: true }, false);
+    setPendingEnqueue(null);
+  }, [pendingEnqueue, attemptEnqueue]);
+
+  const handleCancelPending = useCallback(() => {
+    setPendingEnqueue(null);
+  }, []);
 
   const removeQueueItem = useCallback((itemId: string) => {
     const newPlayer = JSON.parse(JSON.stringify(basePlayer)) as PlayerState;
@@ -318,17 +408,7 @@ export default function Home() {
   const foodIncome = currentPlayer.income.food;
   const hasFoodSupport = foodIncome >= 0 || currentPlayer.resources.food >= Math.abs(foodIncome);
   const workerGrowth = hasFoodSupport ? workerPercentGrowth + workerBonusGrowth : 0;
-  const busyWorkersFromOwned = currentPlayer.ownedBuildings.reduce((acc, b) => {
-    const def = GameData.getStructureById(b.name);
-    return acc + (def?.build_requirements?.workers_occupied || 0);
-  }, 0);
-  const busyWorkersFromQueue = currentPlayer.buildQueue.reduce((acc, item) => {
-    const itemType = item.meta?.itemType || (item.type === 'Building' ? 'structure' : item.type === 'Unit' ? 'unit' : item.type.toLowerCase());
-    if (itemType !== 'structure') return acc;
-    const def = GameData.getStructureById(item.name);
-    return acc + (def?.build_requirements?.workers_occupied || 0);
-  }, 0);
-  const busyWorkers = busyWorkersFromOwned + busyWorkersFromQueue;
+  const busyWorkers = Math.max(0, Number(currentPlayer.meta?.workers_busy || 0));
   const totalHousing = Object.entries(currentPlayer.meta || {}).reduce((acc, [key, value]) => {
     if (!key.startsWith('housing_')) return acc;
     return acc + Number(value || 0);
@@ -384,6 +464,42 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans">
+      {pendingEnqueue && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" data-testid="wait-modal">
+          <div className="bg-pink-nebula-panel border border-pink-nebula-border rounded-lg p-6 w-full max-w-md space-y-4">
+            <h3 className="text-lg font-bold">Construction Delayed</h3>
+            <p className="text-sm text-pink-nebula-muted">
+              {pendingEnqueue.reason === 'workers'
+                ? `More workers need to finish their current assignments before this project can start. Add a wait of ${pendingEnqueue.waitTurns} turn${pendingEnqueue.waitTurns === 1 ? '' : 's'} to free up crews.`
+                : `Resources are not available yet. Add a wait of ${pendingEnqueue.waitTurns} turn${pendingEnqueue.waitTurns === 1 ? '' : 's'} to accumulate the required stockpile or queue anyway to allow deficits.`}
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                className="px-3 py-1 border border-pink-nebula-border rounded hover:bg-pink-nebula-bg/60 text-sm"
+                onClick={handleCancelPending}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1 border border-pink-nebula-border rounded text-sm ${pendingEnqueue.reason === 'workers' ? 'opacity-40 cursor-not-allowed' : 'hover:bg-pink-nebula-accent-secondary'}`}
+                onClick={pendingEnqueue.reason === 'workers' ? undefined : handleQueueAnyway}
+                disabled={pendingEnqueue.reason === 'workers'}
+              >
+                Queue Anyway
+              </button>
+              <button
+                type="button"
+                className="px-3 py-1 bg-pink-nebula-accent-primary text-pink-nebula-text rounded hover:bg-pink-nebula-accent-secondary text-sm"
+                onClick={handleWaitConfirm}
+              >
+                Add Wait
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="bg-pink-nebula-panel px-6 py-4 flex items-center justify-between border-b border-pink-nebula-border">
         <div className="flex items-center gap-4">
@@ -680,8 +796,8 @@ export default function Home() {
         {/* Right column */}
         <aside className="space-y-4">
           {/* Build Queue */}
-          <div className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-4">
-            <div className="flex items-center justify-between mb-3">
+          <div className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-4" data-testid="build-queue-panel">
+            <div className="flex items-center justify-between mb-2">
               <h2 className="text-lg font-bold">Build Queue</h2>
               <button
                 className="text-sm border border-pink-nebula-border px-2 py-1 rounded hover:bg-pink-nebula-accent-secondary"
@@ -695,11 +811,27 @@ export default function Home() {
                 Add Wait
               </button>
             </div>
+            <div className="flex gap-2 mb-3">
+              {queueTabs.map(tab => (
+                <button
+                  key={tab}
+                  type="button"
+                  data-testid={`queue-tab-${tab}`}
+                  aria-pressed={queueTab === tab}
+                  className={`px-3 py-1 rounded ${queueTab === tab ? 'bg-pink-nebula-accent-primary text-pink-nebula-text' : 'text-pink-nebula-muted border border-pink-nebula-border'}`}
+                  onClick={() => setQueueTab(tab)}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
             <div className="space-y-2 max-h-[250px] overflow-y-auto">
-              {basePlayer.buildQueue.length === 0 ? (
-                <div className="text-pink-nebula-muted text-sm">Queue empty</div>
+              {filteredBuildQueue.length === 0 ? (
+                <div className="text-pink-nebula-muted text-sm">
+                  {basePlayer.buildQueue.length === 0 ? 'Queue empty' : 'No items in this category'}
+                </div>
               ) : (
-                basePlayer.buildQueue.map((item, idx) => {
+                filteredBuildQueue.map((item, idx) => {
                   const def = item.meta?.itemType === 'structure' ? GameData.getStructureById(item.name) : GameData.getUnitById(item.name);
                   const isWait = item.meta?.itemType === 'wait' || item.type === 'Wait';
                   const displayName = isWait

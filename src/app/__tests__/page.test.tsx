@@ -72,7 +72,7 @@ describe('Home page', () => {
     if (!tbody) throw new Error('Resource table missing')
     expect(summary).toHaveTextContent(/Housing\s*150,000/)
     expect(summary).toHaveTextContent(/Workers\s*\+300\s*30,000/)
-    expect(summary).toHaveTextContent(/Busy Workers\s*40,000/)
+    expect(summary).toHaveTextContent(/Busy Workers\s*0/)
   })
 
   it('summarizes housing and space remaining', () => {

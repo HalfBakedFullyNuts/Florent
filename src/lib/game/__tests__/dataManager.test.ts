@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import GameData from '../dataManager'
 
 const validMockData = {
   meta: { version: 'test', description: 'mock dataset' },
@@ -77,5 +78,17 @@ describe('GameDataService', () => {
     }
 
     await expect(loadGameData(badStructureOperations)).rejects.toThrow('[GameDataValidation] structures[0].operations.consumption must be an array if present')
+  })
+
+  it('provides freighter cargo capacity and worker requirements', () => {
+    const freighter = GameData.getUnitById('freighter')
+    expect(freighter?.build_requirements?.workers_occupied).toBe(20000)
+    const capacities = freighter?.cargo_capacity || []
+    const metalCap = capacities.find((c: any) => c.id === 'metal') as any
+    const mineralCap = capacities.find((c: any) => c.id === 'mineral') as any
+    const groupCap = capacities.find((c: any) => (c.ids || []).includes('worker')) as any
+    expect(metalCap?.amount).toBe(120000)
+    expect(mineralCap?.amount).toBe(80000)
+    expect(groupCap?.amount).toBe(40000)
   })
 })

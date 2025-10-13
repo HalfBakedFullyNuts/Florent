@@ -17,7 +17,7 @@ export type Consumption =
   | { type: 'housing'; category: 'worker' | 'soldier'; amount: number }
 
 export type Effect =
-  | { type: 'PROVIDE_HOUSING'; category: 'worker' | 'soldier'; amount: number }
+  | { type: 'PROVIDE_HOUSING'; category: 'worker' | 'soldier' | 'scientist'; amount: number }
   | { type: 'UNLOCK_CATEGORY'; category: string }
   | { type: 'MODIFY_ATTRIBUTE'; attribute: string; value: number }
   | { type: 'ENABLE_ACTION'; action: string }
@@ -50,6 +50,9 @@ export type Unit = {
   cost?: Cost[]
   consumption?: Consumption[]
   requirements?: Requirement[]
+  build_requirements?: {
+    workers_occupied?: number
+  }
 }
 
 class GameDataService {
@@ -93,6 +96,12 @@ class GameDataService {
     if (!this.isObject(u)) this.fail(`units[${i}] must be an object`)
     if (typeof u.id !== 'string' || u.id.length === 0) this.fail(`units[${i}].id must be a non-empty string`)
     if (typeof u.name !== 'string') this.fail(`units[${i}].name must be a string`)
+    if (u.build_requirements !== undefined) {
+      if (!this.isObject(u.build_requirements)) this.fail(`units[${i}].build_requirements must be an object if present`)
+      if (u.build_requirements.workers_occupied !== undefined && typeof u.build_requirements.workers_occupied !== 'number') {
+        this.fail(`units[${i}].build_requirements.workers_occupied must be a number if present`)
+      }
+    }
     if (u.cost !== undefined) {
       if (!Array.isArray(u.cost)) this.fail(`units[${i}].cost must be an array if present`)
       u.cost.forEach((c: any, j: number) => this.validateCost(c, `units[${i}].cost[${j}]`))

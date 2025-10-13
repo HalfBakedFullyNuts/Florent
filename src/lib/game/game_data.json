@@ -66,6 +66,9 @@
       "name": "Soldier",
       "category": "colonist",
       "build_time_turns": 1,
+      "build_requirements": {
+        "workers_occupied": 10
+      },
       "cost": [
         {
           "type": "resource",
@@ -99,6 +102,9 @@
       "name": "Scientist",
       "category": "colonist",
       "build_time_turns": 5,
+      "build_requirements": {
+        "workers_occupied": 20
+      },
       "cost": [
         {
           "type": "resource",
@@ -143,13 +149,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 350
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 500
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 500
+      },
       "consumption": [],
       "requirements": [
         {
@@ -179,13 +183,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 3000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 1500
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 1500
+      },
       "consumption": [],
       "requirements": [
         {
@@ -215,13 +217,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 3800
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 5000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 5000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -251,13 +251,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 50000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 25000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 25000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -287,13 +285,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 37000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 50000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 50000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -323,13 +319,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 600000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 300000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 300000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -359,13 +353,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 800000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 500000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 500000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -395,13 +387,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 16000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 20000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 20000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -449,13 +439,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 32000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 36000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 36000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -503,13 +491,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 48000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 60000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 60000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -557,13 +543,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 20000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 50000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 50000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -590,13 +574,11 @@
           "type": "resource",
           "id": "mineral",
           "amount": 20000
-        },
-        {
-          "type": "resource",
-          "id": "food",
-          "amount": 50000
         }
       ],
+      "build_requirements": {
+        "workers_occupied": 50000
+      },
       "consumption": [],
       "requirements": [
         {
@@ -609,6 +591,13 @@
         }
       ],
       "score_value": 4.16,
+      "cargo_capacity": [
+        {
+          "type": "resource",
+          "id": "soldier",
+          "amount": 50000
+        }
+      ],
       "description": "Used to invade an enemy-occupied planet. See Invasion."
     }
   ],
@@ -1292,7 +1281,7 @@
           {
             "type": "PROVIDE_HOUSING",
             "category": "soldier",
-            "amount": 400000
+            "amount": 250000
           },
           {
             "type": "ENABLES_SOLDIER_TRAINING"
@@ -1300,7 +1289,60 @@
         ]
       },
       "max_per_planet": 1,
-      "description": "Enables training of soldiers, and provides housing for 400,000 soldiers."
+      "description": "Enables training of soldiers, and provides housing for 250,000 soldiers."
+    },
+    {
+      "id": "research_lab",
+      "name": "Research Lab",
+      "tier": 2,
+      "is_advanced": false,
+      "build_time_turns": 14,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 24000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 16000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 25000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 15
+          }
+        ],
+        "effects": [
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "scientist",
+            "amount": 25000
+          }
+        ]
+      },
+      "max_per_planet": 1,
+      "description": "Enables advanced research and provides housing for 25,000 scientists."
     },
     {
       "id": "core_metal_mine",
@@ -1852,7 +1894,7 @@
         ]
       },
       "max_per_planet": 1,
-      "description": "Provides 200,000 housing, 1 Research Point on completion, and unlocks Tier 3 structures."
+      "description": "Provides 200,000 housing and unlocks Tier 3 structures."
     },
     {
       "id": "heavy_weapons_factory",

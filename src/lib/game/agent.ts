@@ -50,16 +50,50 @@ function isUnitCost(c: Cost): c is { type: 'unit'; id: string; amount: number; i
 
 const DEFAULT_ABUNDANCES = { metal: 1, mineral: 1, food: 1 }
 const MAX_AUTOWAIT_TURNS = 200
+const BUSY_WORKERS_META_KEY = 'workers_busy'
 
 type EnqueueOptions = {
   allowAutoWait?: boolean
   allowNegativeStocks?: boolean
 }
 
-type EnqueueResult = { ok: true } | { ok: false; reason: string; waitTurns?: number }
+type EnqueueResult = { ok: true } | { ok: false; reason: string; waitTurns?: number; shortage?: 'workers' | 'resources' }
 
 function clonePlayerState(player: PlayerState): PlayerState {
   return JSON.parse(JSON.stringify(player))
+}
+
+function getBusyWorkers(player: PlayerState): number {
+  return Number((player.meta && player.meta[BUSY_WORKERS_META_KEY]) || 0)
+}
+
+function setBusyWorkers(player: PlayerState, value: number) {
+  if (!player.meta) player.meta = {}
+  if (value <= 0) {
+    delete player.meta[BUSY_WORKERS_META_KEY]
+    return
+  }
+  player.meta[BUSY_WORKERS_META_KEY] = value
+}
+
+function reserveWorkers(player: PlayerState, amount: number) {
+  if (amount <= 0) return
+  const current = getBusyWorkers(player)
+  setBusyWorkers(player, current + amount)
+}
+
+function releaseWorkers(player: PlayerState, amount: number) {
+  if (amount <= 0) return
+  const current = getBusyWorkers(player)
+  setBusyWorkers(player, Math.max(0, current - amount))
+}
+
+function getWorkersRequired(def: GStructure | GUnit | null): number {
+  if (!def || !('build_requirements' in def)) return 0
+  const req = (def as any).build_requirements
+  if (!req || typeof req !== 'object') return 0
+  const workers = Number((req as any).workers_occupied || 0)
+  return Number.isFinite(workers) && workers > 0 ? workers : 0
 }
 
 function getResourceAmount(player: PlayerState, id: string): number {
@@ -77,6 +111,24 @@ function getResourceAmount(player: PlayerState, id: string): number {
   }
 }
 
+function isBatchableUnit(def: GUnit | null): boolean {
+  if (!def) return false
+  return def.category === 'ship' || def.category === 'colonist'
+}
+
+function scaleCost(cost: Cost, factor: number): Cost {
+  if (factor === 1) return cost
+  if ((cost as any).type === 'resource') {
+    const base = Math.round((cost as any).amount || 0)
+    return { ...(cost as any), amount: base * factor } as Cost
+  }
+  if (isUnitCost(cost)) {
+    const base = Math.round(cost.amount || 0)
+    return { ...cost, amount: base * factor }
+  }
+  return cost
+}
+
 function hasSufficientCost(player: PlayerState, def: GStructure | GUnit | null, count: number): boolean {
   if (!def) return false
   const costs = def.cost || []
@@ -89,6 +141,11 @@ function hasSufficientCost(player: PlayerState, def: GStructure | GUnit | null, 
       const have = Math.floor(player.unitCounts?.[cost.id] || 0)
       if (have < required) return false
     }
+  }
+  const workersNeeded = getWorkersRequired(def) * count
+  if (workersNeeded > 0) {
+    const totalWorkers = Math.floor(player.unitCounts?.worker || 0)
+    if (totalWorkers < workersNeeded) return false
   }
   return true
 }
@@ -185,17 +242,19 @@ function tryPayDeferredCost(player: PlayerState, qi: QueueItem): boolean {
   if (!itemType) return true
   const def = itemType === 'structure' ? GameData.getStructureById(qi.name) : GameData.getUnitById(qi.name)
   if (!def) return false
-  if (!hasSufficientCost(player, def, 1)) return false
+  const count = Math.max(1, Number((qi.meta as any)?.count || 1))
+  if (!hasSufficientCost(player, def, count)) return false
 
   const costs = def.cost || []
   const paid: Cost[] = []
   for (const c of costs) {
-    const ok = deductCost(player, c)
+    const scaled = scaleCost(c, count)
+    const ok = deductCost(player, scaled)
     if (!ok) {
       for (const prev of paid) refundCost(player, prev)
       return false
     }
-    paid.push(c)
+    paid.push(scaled)
   }
   qi.meta = { ...(qi.meta || {}), costPaid: true }
   return true
@@ -268,6 +327,8 @@ export function enqueueItem(player: PlayerState, itemId: string, itemType: 'stru
   const originalResources = { ...player.resources }
   const originalUnitCounts = player.unitCounts ? { ...player.unitCounts } : null
   const originalQueueLength = player.buildQueue.length
+  const originalBusyWorkers = getBusyWorkers(player)
+  const queueInitiallyEmpty = originalQueueLength === 0
 
   const revertState = () => {
     player.resources.mass = originalResources.mass
@@ -279,14 +340,36 @@ export function enqueueItem(player: PlayerState, itemId: string, itemType: 'stru
     } else {
       delete player.unitCounts
     }
+    setBusyWorkers(player, originalBusyWorkers)
     player.buildQueue.splice(originalQueueLength)
   }
 
-  for (let i = 0; i < count; i++) {
+  const baseDefinition = itemType === 'structure' ? GameData.getStructureById(itemId) : GameData.getUnitById(itemId)
+  if (!baseDefinition) return { ok: false, reason: 'Item not found' }
+
+  const isBatchUnit = itemType === 'unit' && isBatchableUnit(baseDefinition)
+  const requestedCount = isBatchUnit ? Math.max(1, count) : 1
+  const iterations = isBatchUnit ? 1 : count
+
+  for (let i = 0; i < iterations; i++) {
     const definition = itemType === 'structure' ? GameData.getStructureById(itemId) : GameData.getUnitById(itemId)
     if (!definition) {
       revertState()
       return { ok: false, reason: 'Item not found' }
+    }
+
+    const itemCount = isBatchUnit ? requestedCount : 1
+    const perItemWorkers = getWorkersRequired(definition)
+    const workersRequired = perItemWorkers * itemCount
+    let workersCommittedNow = false
+    const totalWorkers = Math.floor(player.unitCounts?.worker || 0)
+    const workerShortageTotal = workersRequired > 0 && totalWorkers < workersRequired
+    const workerShortageBusy = workersRequired > 0 && !workerShortageTotal && (totalWorkers - getBusyWorkers(player) < workersRequired)
+
+    const canReserveImmediately = queueInitiallyEmpty && i === 0 && !workerShortageTotal && !workerShortageBusy
+    if (canReserveImmediately) {
+      reserveWorkers(player, workersRequired)
+      workersCommittedNow = true
     }
 
     const structureRequirements = (definition.requirements || []).filter(r => r.type === 'structure').map(r => r.id)
@@ -299,46 +382,65 @@ export function enqueueItem(player: PlayerState, itemId: string, itemType: 'stru
     const turnsUntilStart = player.buildQueue.reduce((sum, item) => sum + Math.max(0, item.remainingTime || 0), 0)
     let deferCost = false
     let waitItem: QueueItem | null = null
-    if (!hasSufficientCost(player, definition, 1)) {
+    const resourcesReadyNow = hasSufficientCost(player, definition, itemCount)
+
+    if (!resourcesReadyNow) {
       if (allowNegativeStocks) {
         // cost will be deducted immediately allowing resources to go negative
       } else {
-        const waitTurns = estimateWaitTurns(player, definition, 1)
-        if (!allowAutoWait) {
-          if (waitTurns === null) {
-            revertState()
-            return { ok: false, reason: 'Insufficient resources' }
-          }
-          const deficit = waitTurns - turnsUntilStart
-          revertState()
-          return { ok: false, reason: 'wait_required', waitTurns: deficit > 0 ? deficit : 0 }
-        }
+        const waitTurns = estimateWaitTurns(player, definition, itemCount)
+        const shortageType: 'workers' | 'resources' = workerShortageTotal ? 'workers' : 'resources'
         if (waitTurns === null) {
           revertState()
-          return { ok: false, reason: 'Insufficient resources' }
+          return { ok: false, reason: shortageType === 'workers' ? 'Insufficient workers' : 'Insufficient resources' }
         }
         const deficit = waitTurns - turnsUntilStart
-        if (deficit > 0) {
-          waitItem = createWaitQueueItem(deficit, player.tick)
-          player.buildQueue.push(waitItem)
+        if (!allowAutoWait) {
+          if (deficit <= 0) {
+            deferCost = true
+          } else {
+            revertState()
+            return { ok: false, reason: 'wait_required', waitTurns: deficit, shortage: shortageType }
+          }
+        } else {
+          if (deficit > 0) {
+            waitItem = createWaitQueueItem(deficit, player.tick)
+            player.buildQueue.push(waitItem)
+          }
+          deferCost = true
         }
-        deferCost = true
       }
+    } else if (workerShortageBusy) {
+      deferCost = true
     }
 
     if (!deferCost) {
       const costs = definition.cost || []
       const paid: Cost[] = []
       for (const c of costs) {
-        const ok = payCost(player, c, allowNegativeStocks)
+        const scaled = scaleCost(c, itemCount)
+        const ok = payCost(player, scaled, allowNegativeStocks)
         if (!ok) {
           for (const prev of paid) refundCost(player, prev)
           revertState()
           return { ok: false, reason: 'Insufficient resources' }
         }
-        paid.push(c)
+        paid.push(scaled)
       }
     }
+
+    const qiMeta: Record<string, unknown> = {
+      itemType,
+      enqueuedTurn: player.tick + 1,
+      deferCost,
+      costPaid: !deferCost,
+      dependsOn: dependencies,
+    }
+    if (workersRequired > 0) {
+      qiMeta.workersReserved = workersRequired
+      qiMeta.workersCommitted = workersCommittedNow
+    }
+    if (isBatchUnit) qiMeta.count = itemCount
 
     const qi: QueueItem = {
       id: uuidv4(),
@@ -347,13 +449,7 @@ export function enqueueItem(player: PlayerState, itemId: string, itemType: 'stru
       remainingTime: Math.max(1, definition.build_time_turns || 1),
       massReserved: 0,
       energyReserved: 0,
-      meta: {
-        itemType,
-        enqueuedTurn: player.tick + 1,
-        deferCost,
-        costPaid: !deferCost,
-        dependsOn: dependencies,
-      },
+      meta: qiMeta,
     }
     if (waitItem) {
       waitItem.meta = { ...(waitItem.meta || {}), waitFor: qi.id }
@@ -399,10 +495,14 @@ function cancelQueueItemInternal(player: PlayerState, itemId: string, visited: S
   const idx = player.buildQueue.findIndex(q => q.id === itemId)
   if (idx === -1) return { ok: false, reason: 'Item not found' }
   const qi = player.buildQueue.splice(idx, 1)[0]
+  const reservedWorkers = Math.floor((qi.meta as any)?.workersReserved || 0)
+  const workersCommitted = (qi.meta as any)?.workersCommitted
+  if (reservedWorkers > 0 && workersCommitted !== false) releaseWorkers(player, reservedWorkers)
   const def = qi.meta?.itemType === 'structure' ? GameData.getStructureById(qi.name) : GameData.getUnitById(qi.name)
   const costPaid = qi.meta?.costPaid
+  const count = Math.max(1, Number((qi.meta as any)?.count || 1))
   if (def && def.cost && costPaid !== false) {
-    for (const c of def.cost) refundCost(player, c)
+    for (const c of def.cost) refundCost(player, scaleCost(c, count))
   } else {
     if (qi.massReserved && qi.massReserved > 0) player.resources.mass += qi.massReserved
     if (qi.energyReserved && qi.energyReserved > 0) player.resources.energy += qi.energyReserved
@@ -476,13 +576,27 @@ export function processTick(player: PlayerState, planetAbundances: { metal: numb
     if (player.buildQueue.length > 0) {
       const qi = player.buildQueue[0]
       const isWait = qi.meta?.itemType === 'wait' || qi.type === 'Wait'
+      let costReady = true
       if (!isWait && qi.meta?.deferCost && qi.meta.costPaid !== true) {
-        tryPayDeferredCost(player, qi)
+        costReady = tryPayDeferredCost(player, qi)
       }
       const dependenciesMet = (Array.isArray(qi.meta?.dependsOn) ? (qi.meta!.dependsOn as string[]) : []).every(depId =>
         !player.buildQueue.some(item => item.id === depId)
       )
-      const canAdvance = dependenciesMet && (isWait || !qi.meta?.deferCost || qi.meta.costPaid === true)
+      let canAdvance = dependenciesMet && (isWait || costReady)
+      if (!isWait) {
+        const workersNeeded = Math.floor((qi.meta as any)?.workersReserved || 0)
+        const workersCommitted = (qi.meta as any)?.workersCommitted === true
+        if (workersNeeded > 0 && !workersCommitted) {
+          const availableWorkers = Math.floor(player.unitCounts?.worker || 0) - getBusyWorkers(player)
+          if (availableWorkers >= workersNeeded) {
+            reserveWorkers(player, workersNeeded)
+            qi.meta = { ...(qi.meta || {}), workersCommitted: true }
+          } else {
+            canAdvance = false
+          }
+        }
+      }
       if (canAdvance) {
         qi.remainingTime -= 1
         if (qi.remainingTime <= 0) {
@@ -591,6 +705,9 @@ export function processTick(player: PlayerState, planetAbundances: { metal: numb
 export function completeQueueItem(player: PlayerState, qi: QueueItem) {
   // remove from queue
   player.buildQueue = player.buildQueue.filter(x => x.id !== qi.id)
+  const reservedWorkers = Math.floor((qi.meta as any)?.workersReserved || 0)
+  const workersCommitted = (qi.meta as any)?.workersCommitted
+  if (reservedWorkers > 0 && workersCommitted !== false) releaseWorkers(player, reservedWorkers)
   // Determine item type (prefer meta.itemType, fallback to legacy qi.type)
   let itemType: 'structure' | 'unit' | 'research' | null = null
   if (qi.meta?.itemType) itemType = qi.meta.itemType as any
@@ -611,9 +728,10 @@ export function completeQueueItem(player: PlayerState, qi: QueueItem) {
         }
   } else if (itemType === 'unit') {
     // Add produced unit to population counts
+    const amountProduced = Math.max(1, Number((qi.meta as any)?.count || 1))
     if (def && def.id) {
       player.unitCounts ||= {}
-      player.unitCounts[def.id] = (player.unitCounts[def.id] || 0) + 1
+      player.unitCounts[def.id] = (player.unitCounts[def.id] || 0) + amountProduced
     }
     // apply any unit effects if present
       if (def && 'operations' in def && def.operations && def.operations.effects) {
@@ -708,4 +826,104 @@ export function calculateIncome(
   }
 
   return income
+}
+
+export function getMaxBuildCount(player: PlayerState, itemId: string, itemType: 'structure' | 'unit'): number {
+  const def = itemType === 'structure' ? GameData.getStructureById(itemId) : GameData.getUnitById(itemId)
+  if (!def) return 0
+
+  if (itemType === 'unit' && isBatchableUnit(def as GUnit)) {
+    let max = Number.POSITIVE_INFINITY
+    const costs = def.cost || []
+    for (const cost of costs) {
+      if ((cost as any).type === 'resource') {
+        const per = Math.round((cost as any).amount || 0)
+        if (per > 0) {
+          const available = getResourceAmount(player, (cost as any).id)
+          max = Math.min(max, Math.floor(available / per))
+        }
+      } else if (isUnitCost(cost as Cost)) {
+        const per = Math.round((cost as any).amount || 0)
+        if (per > 0) {
+          const have = Math.floor(player.unitCounts?.[(cost as Cost).id] || 0)
+          max = Math.min(max, Math.floor(have / per))
+        }
+      }
+    }
+
+    const perWorkers = getWorkersRequired(def as any)
+    if (perWorkers > 0) {
+      const availableWorkers = Math.max(0, Math.floor(player.unitCounts?.worker || 0) - getBusyWorkers(player))
+      max = Math.min(max, Math.floor(availableWorkers / perWorkers))
+    }
+
+    if (!Number.isFinite(max)) return 0
+    return Math.max(0, Math.floor(max))
+  }
+
+  return 1
+}
+
+export function updateQueueItemCount(player: PlayerState, queueItemId: string, newCount: number) {
+  const idx = player.buildQueue.findIndex(item => item.id === queueItemId)
+  if (idx === -1) return { ok: false, reason: 'Item not found' }
+  const qi = player.buildQueue[idx]
+  if ((qi.meta as any)?.itemType !== 'unit') return { ok: false, reason: 'Only unit queue items can be adjusted' }
+  const def = GameData.getUnitById(qi.name)
+  if (!isBatchableUnit(def)) return { ok: false, reason: 'Only ships and colonists can be adjusted' }
+
+  const currentCount = Math.max(1, Number((qi.meta as any)?.count || 1))
+  if (newCount === currentCount) return { ok: true, adjustedCount: currentCount }
+
+  if (newCount <= 0) {
+    cancelQueueItemInternal(player, queueItemId, new Set())
+    return { ok: true, adjustedCount: 0 }
+  }
+
+  const originalQueueSnapshot = JSON.parse(JSON.stringify(player.buildQueue)) as QueueItem[]
+  const originalBusy = getBusyWorkers(player)
+
+  const cancelRes = cancelQueueItemInternal(player, queueItemId, new Set())
+  if (!cancelRes.ok) {
+    player.buildQueue = originalQueueSnapshot
+    setBusyWorkers(player, originalBusy)
+    return { ok: false, reason: cancelRes.reason || 'Unable to update queue item' }
+  }
+
+  const enqueueRes = enqueueItem(player, qi.name, 'unit', newCount, { allowAutoWait: true })
+  if (!enqueueRes.ok) {
+    // restore original state
+    player.buildQueue = originalQueueSnapshot
+    setBusyWorkers(player, originalBusy)
+    return { ...enqueueRes }
+  }
+
+  const newItem = [...player.buildQueue]
+    .reverse()
+    .find(item => item.name === qi.name && Math.max(1, Number((item.meta as any)?.count || 1)) === newCount)
+
+  if (!newItem) {
+    player.buildQueue = originalQueueSnapshot
+    setBusyWorkers(player, originalBusy)
+    return { ok: false, reason: 'Updated queue item not found' }
+  }
+
+  const waitItem = player.buildQueue.find(item => item.meta?.waitFor === newItem.id)
+
+  if (waitItem) {
+    moveQueueItemGlobal(player, waitItem.id, Math.min(idx, player.buildQueue.length - 1))
+    const newIndexAfterWait = Math.min(idx + 1, player.buildQueue.length - 1)
+    moveQueueItemGlobal(player, newItem.id, newIndexAfterWait)
+  } else {
+    moveQueueItemGlobal(player, newItem.id, Math.min(idx, player.buildQueue.length - 1))
+  }
+
+  return { ok: true, adjustedCount: newCount }
+}
+
+export function clearBuildQueue(player: PlayerState) {
+  const ids = [...player.buildQueue].map(item => item.id)
+  for (const id of ids) {
+    cancelQueueItemInternal(player, id, new Set())
+  }
 }

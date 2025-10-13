@@ -11,7 +11,7 @@ function makePlayer(): PlayerState {
     completedResearch: [],
     buildQueue: [],
     unitQueueByFactory: {},
-    unitCounts: {},
+    unitCounts: { worker: 500000 },
     tick: 0,
     meta: {},
   }
@@ -35,11 +35,11 @@ describe('integration: multi-tick simulations', () => {
     // baseline worker count should be 0
     expect(p.unitCounts!['worker'] || 0).toBeGreaterThanOrEqual(0)
 
-  p.unitCounts = { worker: 1000 }
+  p.unitCounts = { worker: 200000 }
 
   // build prerequisite structures for Army Barracks (Colony, Light Weapons Factory)
-  const colonyRes = enqueueItem(p, 'colony', 'structure', 1)
-  expect(colonyRes.ok).toBe(true)
+    const colonyRes = enqueueItem(p, 'colony', 'structure', 1)
+    expect(colonyRes.ok).toBe(true)
   while (p.buildQueue.length > 0) processTick(p, { metal: 1, mineral: 1, food: 1 }, 1)
 
   const lwfRes = enqueueItem(p, 'light_weapons_factory', 'structure', 1)
@@ -57,6 +57,7 @@ describe('integration: multi-tick simulations', () => {
 
   // now enqueue a soldier (consumes a worker)
   const before = p.unitCounts!['worker'] || 0
+  p.resources.food = 100000
   const rs = enqueueItem(p, 'soldier', 'unit', 1)
   expect(rs.ok).toBe(true)
   expect((p.unitCounts!['worker'] || 0)).toBe(before - 1)

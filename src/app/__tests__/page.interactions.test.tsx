@@ -40,11 +40,14 @@ describe('Home page interactions', () => {
 
     render(<Home />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Ships/i }))
+    const availableSection = screen.getByText(/Available to Build/i).closest('section')
+    if (!availableSection) throw new Error('Available to Build section not found')
+
+    fireEvent.click(within(availableSection).getAllByRole('button', { name: /^Ships$/i })[0])
     await screen.findByText('Scout Ship')
     expect(screen.queryByText('Worker')).not.toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: /Colonists/i }))
+    fireEvent.click(within(availableSection).getAllByRole('button', { name: /^Colonists$/i })[0])
     await screen.findByText('Worker')
     expect(screen.queryByText('Scout Ship')).not.toBeInTheDocument()
   })
@@ -146,16 +149,17 @@ describe('Home page interactions', () => {
 
     render(<Home />)
 
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-
     const delayedRow = await screen.findByTestId('available-delayed_lab')
     fireEvent.click(delayedRow)
+
+    const modal = await screen.findByTestId('wait-modal')
+    expect(modal).toBeInTheDocument()
+    fireEvent.click(within(modal).getByRole('button', { name: /^Add Wait$/i }))
 
     const waitRow = await screen.findByText(/Wait for/) // wait item should be queued
     expect(waitRow).toBeInTheDocument()
     const queueEntries = await screen.findAllByTestId(/queue-entry-/)
     expect(queueEntries.some(entry => entry.textContent?.includes('Delayed Lab'))).toBe(true)
-    expect(confirmSpy).toHaveBeenCalled()
   })
 
   it('allows removing queue items after selecting them', async () => {
@@ -205,6 +209,56 @@ describe('Home page interactions', () => {
     await waitFor(() => {
       const firstAfter = screen.getByTestId('queue-entry-0')
       expect(firstAfter.textContent || '').toMatch(/Metal Mine/)
+    })
+  })
+
+  it('filters build queue entries by tab selection', async () => {
+    const originalUnits = GameData.getAllUnits()
+    const originalUnitById = GameData.getUnitById
+    const testShip = {
+      id: 'test_ship',
+      name: 'Test Ship',
+      category: 'ship',
+      build_time_turns: 2,
+      cost: [],
+      requirements: [],
+    }
+
+    vi.spyOn(GameData, 'getAllUnits').mockReturnValue([...originalUnits, testShip] as any)
+    vi.spyOn(GameData, 'getUnitById').mockImplementation((id: string) => {
+      if (id === 'test_ship') return testShip as any
+      return originalUnitById.call(GameData, id)
+    })
+
+    render(<Home />)
+
+    const availableSection = screen.getByText(/Available to Build/i).closest('section')
+    if (!availableSection) throw new Error('Available to Build section not found')
+
+    const mineRow = await within(availableSection).findByTestId('available-metal_mine')
+    fireEvent.click(mineRow)
+
+    const shipsTab = within(availableSection).getAllByRole('button', { name: /^Ships$/i })[0]
+    fireEvent.click(shipsTab)
+    const shipRow = await within(availableSection).findByTestId('available-test_ship')
+    fireEvent.click(shipRow)
+
+    const queuePanel = screen.getByTestId('build-queue-panel')
+
+    await screen.findByTestId('queue-entry-0')
+    expect(within(queuePanel).queryByText(/Test Ship/)).not.toBeInTheDocument()
+
+    const queueShipsTab = screen.getByTestId('queue-tab-ships')
+    fireEvent.click(queueShipsTab)
+    await waitFor(() => {
+      expect(within(queuePanel).getByText(/Test Ship/)).toBeInTheDocument()
+    })
+
+    const queueStructuresTab = screen.getByTestId('queue-tab-structures')
+    fireEvent.click(queueStructuresTab)
+    await waitFor(() => {
+      expect(within(queuePanel).getByText(/Metal Mine/)).toBeInTheDocument()
+      expect(within(queuePanel).queryByText(/Test Ship/)).not.toBeInTheDocument()
     })
   })
 

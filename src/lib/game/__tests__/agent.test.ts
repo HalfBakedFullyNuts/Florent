@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import GameData from '../dataManager'
 import {
   validatePrereqs,
   enqueueUnit,
@@ -48,6 +49,7 @@ const makeBasePlayer = (): PlayerState => ({
     ground_space_max: 60,
     orbital_space_used: 0,
     orbital_space_max: 40,
+    workers_busy: 0,
   },
 })
 
@@ -140,12 +142,15 @@ describe('agent expanded behavior', () => {
 
   // Now test data-driven enqueue: use enqueueItem to queue a soldier which consumes a worker
   // ensure worker count and resources are sufficient
-  p.unitCounts = { worker: 1 }
+  p.unitCounts = { worker: 20 }
   p.resources.food = 10000
+  p.buildQueue = []
+  p.meta = {}
   const r2 = enqueueItem(p, 'soldier', 'unit', 1)
     expect(r2.ok).toBe(true)
-    // worker should have been consumed (is_consumed true in game_data.json)
-    expect(p.unitCounts['worker']).toBe(0)
+    // ten workers are reserved during training; one worker is permanently converted
+    expect(p.meta?.workers_busy).toBe(10)
+    expect(p.unitCounts['worker']).toBe(19)
 
     // find queued soldier and cancel it, which should refund the consumed worker
     const q = p.buildQueue.find(qi => qi.name === 'soldier')
@@ -154,7 +159,8 @@ describe('agent expanded behavior', () => {
   if (!q) throw new Error('queued soldier not found')
   const cancel = cancelQueueItemLegacy(p, 'b1', q.id)
   expect(cancel.ok).toBe(true)
-  expect(p.unitCounts['worker']).toBe(1)
+  expect(p.meta?.workers_busy || 0).toBe(0)
+  expect(p.unitCounts['worker']).toBe(20)
 
     // with sufficient workers and positive food, percent-based growth increases population
     p.ownedBuildings = [{ id: 'o1', name: 'outpost', builtAtTick: 0 }]
@@ -175,7 +181,7 @@ describe('agent expanded behavior', () => {
       completedResearch: [],
       buildQueue: [],
       unitQueueByFactory: {},
-      unitCounts: { worker: 30000 },
+      unitCounts: { worker: 100000 },
       tick: 0,
     }
 
@@ -217,6 +223,16 @@ describe('agent expanded behavior', () => {
 
     const res = enqueueItem(player, 'soldier', 'unit', 1, { allowAutoWait: true })
     expect(res.ok).toBe(false)
+  })
+
+  it('returns wait suggestion when total workers are insufficient but growth can cover deficit', () => {
+    const player = makeBasePlayer()
+    player.unitCounts = { worker: 30000 }
+
+    const res = enqueueItem(player, 'colony', 'structure', 1)
+    expect(res.ok).toBe(false)
+    expect(res.reason).toBe('wait_required')
+    expect((res as any).waitTurns).toBeGreaterThan(0)
   })
 
   it('removing a prerequisite also removes dependent queued items', () => {
@@ -291,6 +307,7 @@ describe('agent expanded behavior', () => {
 
   it('auto wait suggestions account for existing stocks and production', () => {
     const player = makeBasePlayer()
+    player.unitCounts = { worker: 100000, soldier: 0, scientist: 0 }
     const launch = enqueueItem(player, 'launch_site', 'structure', 1)
     expect(launch.ok).toBe(true)
 
@@ -328,5 +345,85 @@ describe('agent expanded behavior', () => {
 
     processTick(player, { metal: 1, mineral: 1, food: 1 }, 5)
     expect(player.resources.energy).toBe(50)
+  })
+
+  it('reserves workers while constructing structures and releases them on cancel', () => {
+    const player = makeBasePlayer()
+    const workersForMine = GameData.getStructureById('metal_mine')?.build_requirements?.workers_occupied || 0
+    expect(workersForMine).toBeGreaterThan(0)
+
+    const res = enqueueItem(player, 'metal_mine', 'structure', 1)
+    expect(res.ok).toBe(true)
+    expect(player.meta?.workers_busy).toBe(workersForMine)
+
+    const entry = player.buildQueue.find(item => item.name === 'metal_mine')
+    if (!entry) throw new Error('metal mine not queued')
+
+    const cancel = cancelQueueItemImpl(player, entry.id)
+    expect(cancel.ok).toBe(true)
+    expect(player.meta?.workers_busy || 0).toBe(0)
+  })
+
+  it('requires sufficient free workers to queue structures', () => {
+    const player = makeBasePlayer()
+    player.unitCounts = { worker: 100 } // not enough for metal mine requirements
+    const res = enqueueItem(player, 'metal_mine', 'structure', 1)
+    expect(res.ok).toBe(false)
+    expect(res.reason).toBe('Insufficient workers')
+  })
+
+  it('reserves workers while training soldiers and releases them when complete', () => {
+    const player = makeBasePlayer()
+    player.unitCounts = { worker: 20 }
+    player.ownedBuildings.push({ id: 'barracks-test', name: 'army_barracks', builtAtTick: 0 })
+
+    const result = enqueueItem(player, 'soldier', 'unit', 1)
+    expect(result.ok).toBe(true)
+    expect(player.meta?.workers_busy).toBe(10)
+
+    const queued = player.buildQueue.find(item => item.name === 'soldier')
+    if (!queued) throw new Error('soldier not queued')
+
+    processTick(player, { metal: 1, mineral: 1, food: 1 }, 1)
+    expect(player.meta?.workers_busy || 0).toBe(0)
+    expect(player.unitCounts?.soldier || 0).toBeGreaterThan(0)
+    expect(player.unitCounts?.worker || 0).toBe(19)
+  })
+
+  it('reserves workers for ship construction and releases them on completion', () => {
+    const player = makeBasePlayer()
+    player.resources = { mass: 100000, mineral: 100000, food: 100000, energy: 1000 }
+    player.unitCounts = { worker: 100000 }
+    player.ownedBuildings.push({ id: 'ship-yard-1', name: 'ship_yard', builtAtTick: 0 })
+    player.ownedBuildings.push({ id: 'lwf-1', name: 'light_weapons_factory', builtAtTick: 0 })
+
+    const res = enqueueItem(player, 'fighter', 'unit', 1)
+    expect(res.ok).toBe(true)
+    expect(player.meta?.workers_busy).toBe(500)
+
+    processTick(player, { metal: 1, mineral: 1, food: 1 }, 4)
+    expect(player.meta?.workers_busy || 0).toBe(0)
+  })
+
+  it('allows queuing launch site and ship yard sequentially with shared workers', () => {
+    const player = makeBasePlayer()
+    player.resources = { mass: 200000, mineral: 200000, food: 10000, energy: 1000 }
+    player.unitCounts = { worker: 60000 }
+
+    const launchRes = enqueueItem(player, 'launch_site', 'structure', 1)
+    expect(launchRes.ok).toBe(true)
+    expect(player.meta?.workers_busy).toBe(25000)
+
+    const shipyardRes = enqueueItem(player, 'ship_yard', 'structure', 1)
+    expect(shipyardRes.ok).toBe(true)
+    // Ship yard workers are not yet committed while launch site is in progress
+    expect(player.meta?.workers_busy).toBe(25000)
+
+    processTick(player, { metal: 1, mineral: 1, food: 1 }, 8)
+    expect(player.meta?.workers_busy || 0).toBe(0)
+    expect(player.ownedBuildings.some(b => b.name === 'launch_site')).toBe(true)
+
+    processTick(player, { metal: 1, mineral: 1, food: 1 }, 1)
+    expect(player.meta?.workers_busy).toBe(25000)
   })
 })

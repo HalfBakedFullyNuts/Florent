@@ -191,4 +191,37 @@ describe('agent advanced behaviors', () => {
     structureSpy.mockRestore()
     unitSpy.mockRestore()
   })
+
+  it('research lab provides scientist housing when completed', () => {
+    const player = makePlayer()
+    player.resources = { mass: 100000, mineral: 100000, food: 100000, energy: 100000 }
+    player.unitCounts = { worker: 200000 }
+    player.ownedBuildings.push({ id: 'colony-test', name: 'colony', builtAtTick: 0 })
+
+    const res = enqueueItem(player, 'research_lab', 'structure', 1)
+    expect(res.ok).toBe(true)
+
+    while (player.buildQueue.length > 0) {
+      processTick(player, { metal: 1, mineral: 1, food: 1 }, 1)
+    }
+
+    expect(player.meta?.housing_scientist).toBe(25000)
+  })
+
+  it('army barracks provides updated soldier housing capacity', () => {
+    const player = makePlayer()
+    player.resources = { mass: 100000, mineral: 100000, food: 100000, energy: 100000 }
+    player.unitCounts = { worker: 200000 }
+    player.ownedBuildings.push({ id: 'colony-test', name: 'colony', builtAtTick: 0 })
+    player.ownedBuildings.push({ id: 'lwf-test', name: 'light_weapons_factory', builtAtTick: 0 })
+
+    const res = enqueueItem(player, 'army_barracks', 'structure', 1)
+    expect(res.ok).toBe(true)
+
+    while (player.buildQueue.length > 0) {
+      processTick(player, { metal: 1, mineral: 1, food: 1 }, 1)
+    }
+
+    expect(player.meta?.housing_soldier).toBe(250000)
+  })
 })

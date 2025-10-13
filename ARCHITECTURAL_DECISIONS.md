@@ -15,6 +15,9 @@ Short rationale (1-2 sentences).
 
 Initial entries
 
+2025-10-13 — Track worker reservations during construction
+Worker occupancy is now captured from `build_requirements.workers_occupied`, reserving workers during queueing, releasing them on cancel/complete, extending data for soldiers/scientists, and exposing busy counts through player meta/UI.
+
 2025-10-13 — Harden engine types, move income calc, remove secrets
 Moved `calculateIncome` into the engine API, tightened `Effect` typing, added `Wait` to queue item type, switched fonts to `next/font`, modernized tsconfig, and removed committed key files with .gitignore protection.
 
