@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(jq:*)",
+      "Bash(node -e:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat: complete game data and implementation planning for turn-based simulator\n\nAdded comprehensive game data from official Infinite Conflict units:\n- 15 units (3 colonists + 12 ship types) with proper worker reservations\n- 35 structures across tiers 1-3.5 with complete production/consumption data\n- Colonist training mechanics: soldiers reserve 10 workers, scientists 25\n\nCreated detailed implementation architecture:\n- Architecture/tickets.md: 23 phased tickets with TDD approach\n- Architecture/CoreLogicPseudocode.md: Complete engine pseudocode\n- Architecture/Teststrategy.md: Comprehensive testing plan\n- Architecture/IMPLEMENTATION_PLAN.md: Migration strategy and design decisions\n- CLAUDE.md: Updated guidance for AI assistants\n\nKey architectural decisions documented:\n- Parallel directory structure for gradual migration\n- game_data.json as authoritative source (no modifications)\n- Three-lane architecture (Building → Ship → Colonist)\n- Queue-time vs activation-time validation split\n- Completion buffers using Map<turn, WorkItem[]>\n\nUpdated README.md with migration status and new project overview.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(npx tsc:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
