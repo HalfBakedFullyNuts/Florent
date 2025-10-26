@@ -8,7 +8,10 @@
       "Bash(npx tsc:*)",
       "Bash(npm test:*)",
       "Bash(npm run build:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(del \"C:\\Users\\User\\Florent\\src\\lib\\sim\\engine\\__tests__\\phase5-integration.test.ts\")",
+      "Bash(npm run test:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

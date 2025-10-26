@@ -56,8 +56,7 @@ export type WarningType =
   | 'NEGATIVE_ENERGY'
   | 'NO_FOOD'
   | 'HOUSING_FULL'
-  | 'SPACE_FULL'
-  | 'IDLE_LANE';
+  | 'SPACE_FULL';
 
 export interface Warning {
   type: WarningType;
@@ -233,18 +232,6 @@ export function getWarnings(state: PlanetState): Warning[] {
     });
   }
 
-  // Check for idle lanes
-  for (const laneId of ['building', 'ship', 'colonist'] as LaneId[]) {
-    const lane = state.lanes[laneId];
-    if (lane.pendingQueue.length === 0 && !lane.active) {
-      warnings.push({
-        type: 'IDLE_LANE',
-        message: `${laneId} lane is idle. Queue something to build.`,
-        severity: 'info',
-      });
-    }
-  }
-
   return warnings;
 }
 
@@ -269,6 +256,12 @@ export function canQueueItem(
   }
 
   const lane = state.lanes[def.lane];
+
+  // Check if lane has an active item (lane is busy)
+  if (lane.active) {
+    return { allowed: false, reason: 'Lane is busy' };
+  }
+
   if (lane.pendingQueue.length >= lane.maxQueueDepth) {
     return { allowed: false, reason: 'Queue is full' };
   }

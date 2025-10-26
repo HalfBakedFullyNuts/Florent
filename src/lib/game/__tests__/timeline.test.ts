@@ -286,19 +286,19 @@ describe('GameController', () => {
       expect(result.reason).toBe('REQ_MISSING');
     });
 
-    it('should reject item when lane is busy', () => {
+    it('should allow queueing multiple items when lane is idle', () => {
       // Create controller with energy
       const stateWithEnergy = cloneState(initialState);
       stateWithEnergy.stocks.energy = 100;
       const ctrl = new GameController(stateWithEnergy);
 
       // Queue first item
-      ctrl.queueItem(0, 'metal_mine', 1);
+      const result1 = ctrl.queueItem(0, 'metal_mine', 1);
+      expect(result1.success).toBe(true);
 
-      // Try to queue second item in same lane
-      const result = ctrl.queueItem(0, 'farm', 1);
-
-      expect(result.success).toBe(false);
+      // Queue second item in same lane - should succeed (new queue system allows multiple)
+      const result2 = ctrl.queueItem(0, 'farm', 1);
+      expect(result2.success).toBe(true);
     });
   });
 

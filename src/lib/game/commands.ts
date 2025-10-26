@@ -44,19 +44,24 @@ export class GameController {
       return { success: false, reason: 'INVALID_LANE' };
     }
 
-    // Validate queue operation
-    const validation = canQueue(state, def, requestedQty);
-    if (!validation.allowed) {
-      return { success: false, reason: validation.reason };
-    }
-
     // Determine lane from definition
     const laneId = def.lane;
     const lane = state.lanes[laneId];
 
+    // Check if lane is busy with active work
+    if (lane.active) {
+      return { success: false, reason: 'INVALID_LANE' };
+    }
+
     // Check if queue is full (max 10 items)
     if (lane.pendingQueue.length >= lane.maxQueueDepth) {
       return { success: false, reason: 'INVALID_LANE' };
+    }
+
+    // Validate queue operation
+    const validation = canQueue(state, def, requestedQty);
+    if (!validation.allowed) {
+      return { success: false, reason: validation.reason };
     }
 
     // Create work item
