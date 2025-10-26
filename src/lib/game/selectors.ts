@@ -7,6 +7,7 @@ import type { PlanetState, LaneId, NetOutputs, ResourceId } from '../sim/engine/
 import { computeNetOutputsPerTurn } from '../sim/engine/outputs';
 import { computeGrowthBonus } from '../sim/engine/growth_food';
 import { WORKER_GROWTH_BASE, FOOD_PER_WORKER } from '../sim/rules/constants';
+import { canQueue } from '../sim/engine/validation';
 
 export interface PlanetSummary {
   turn: number;
@@ -126,16 +127,16 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   const lane = state.lanes[laneId];
   const entries: LaneEntry[] = [];
 
-  // Add pending entry
-  if (lane.pending) {
-    const def = state.defs[lane.pending.itemId];
+  // Add all pending entries from queue
+  for (const pending of lane.pendingQueue) {
+    const def = state.defs[pending.itemId];
     entries.push({
-      id: lane.pending.id,
-      itemId: lane.pending.itemId,
+      id: pending.id,
+      itemId: pending.itemId,
       itemName: def?.name || 'Unknown',
       status: 'pending',
-      quantity: lane.pending.quantity,
-      turnsRemaining: lane.pending.turnsRemaining,
+      quantity: pending.quantity,
+      turnsRemaining: pending.turnsRemaining,
       eta: null, // Pending, so no ETA yet
     });
   }
@@ -235,7 +236,7 @@ export function getWarnings(state: PlanetState): Warning[] {
   // Check for idle lanes
   for (const laneId of ['building', 'ship', 'colonist'] as LaneId[]) {
     const lane = state.lanes[laneId];
-    if (!lane.pending && !lane.active) {
+    if (lane.pendingQueue.length === 0 && !lane.active) {
       warnings.push({
         type: 'IDLE_LANE',
         message: `${laneId} lane is idle. Queue something to build.`,
@@ -268,11 +269,10 @@ export function canQueueItem(
   }
 
   const lane = state.lanes[def.lane];
-  if (lane.pending || lane.active) {
-    return { allowed: false, reason: 'Lane is busy' };
+  if (lane.pendingQueue.length >= lane.maxQueueDepth) {
+    return { allowed: false, reason: 'Queue is full' };
   }
 
-  // Import and use canQueue from validation
-  // For now, just return a simple check
-  return { allowed: true };
+  // Use validation logic which checks prerequisites and energy
+  return canQueue(state, def, quantity);
 }

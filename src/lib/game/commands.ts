@@ -54,8 +54,8 @@ export class GameController {
     const laneId = def.lane;
     const lane = state.lanes[laneId];
 
-    // Check if lane is available (no pending item)
-    if (lane.pending) {
+    // Check if queue is full (max 10 items)
+    if (lane.pendingQueue.length >= lane.maxQueueDepth) {
       return { success: false, reason: 'INVALID_LANE' };
     }
 
@@ -69,9 +69,9 @@ export class GameController {
       turnsRemaining: def.durationTurns,
     };
 
-    // Mutate state to add pending item
+    // Mutate state to add pending item to queue
     const success = this.timeline.mutateAtTurn(turn, (s) => {
-      s.lanes[laneId].pending = workItem;
+      s.lanes[laneId].pendingQueue.push(workItem);
     });
 
     if (!success) {
@@ -94,10 +94,10 @@ export class GameController {
 
     const lane = state.lanes[laneId];
 
-    // If there's a pending item, just remove it
-    if (lane.pending) {
+    // If there's a pending item in queue, remove the first one
+    if (lane.pendingQueue.length > 0) {
       this.timeline.mutateAtTurn(turn, (s) => {
-        s.lanes[laneId].pending = null;
+        s.lanes[laneId].pendingQueue.shift();
       });
       return { success: true };
     }

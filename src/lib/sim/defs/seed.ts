@@ -128,16 +128,19 @@ export function createInitialState(
     },
     lanes: {
       building: {
-        pending: null,
+        pendingQueue: [],
         active: null,
+        maxQueueDepth: 10,
       },
       ship: {
-        pending: null,
+        pendingQueue: [],
         active: null,
+        maxQueueDepth: 10,
       },
       colonist: {
-        pending: null,
+        pendingQueue: [],
         active: null,
+        maxQueueDepth: 10,
       },
     },
     completedCounts,

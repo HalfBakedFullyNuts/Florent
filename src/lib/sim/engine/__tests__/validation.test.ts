@@ -58,9 +58,9 @@ describe('Validation Primitives', () => {
         scientistCap: 0,
       },
       lanes: {
-        building: { pending: null, active: null },
-        ship: { pending: null, active: null },
-        colonist: { pending: null, active: null },
+        building: { pendingQueue: [], active: null, maxQueueDepth: 10 },
+        ship: { pendingQueue: [], active: null, maxQueueDepth: 10 },
+        colonist: { pendingQueue: [], active: null, maxQueueDepth: 10 },
       },
       completedCounts: {
         outpost: 1,

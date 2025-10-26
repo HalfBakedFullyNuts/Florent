@@ -319,7 +319,7 @@ describe('GameController', () => {
 
       // Lane should be clear
       const finalState = ctrl.getStateAtTurn(0);
-      expect(finalState?.lanes.building.pending).toBeNull();
+      expect(finalState?.lanes.building.pendingQueue).toEqual([]);
     });
 
     it('should return false when no item to cancel', () => {

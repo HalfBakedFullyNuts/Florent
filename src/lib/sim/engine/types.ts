@@ -80,8 +80,9 @@ export interface WorkItem {
 // ============================================================================
 
 export interface LaneState {
-  pending: WorkItem | null;
+  pendingQueue: WorkItem[]; // Queue of pending items (max 10)
   active: WorkItem | null;
+  maxQueueDepth: number; // Default: 10
 }
 
 // ============================================================================

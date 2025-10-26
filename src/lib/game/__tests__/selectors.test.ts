@@ -95,13 +95,13 @@ describe('Selectors', () => {
     });
 
     it('should include pending entry with no ETA', () => {
-      state.lanes.building.pending = {
+      state.lanes.building.pendingQueue = [{
         id: 'pending_1',
         itemId: 'metal_mine',
         status: 'pending',
         quantity: 1,
         turnsRemaining: 4,
-      };
+      }];
 
       const view = getLaneView(state, 'building');
 
@@ -131,13 +131,13 @@ describe('Selectors', () => {
     });
 
     it('should include both pending and active entries', () => {
-      state.lanes.building.pending = {
+      state.lanes.building.pendingQueue = [{
         id: 'pending_1',
         itemId: 'farm',
         status: 'pending',
         quantity: 1,
         turnsRemaining: 4,
-      };
+      }];
 
       state.lanes.building.active = {
         id: 'active_1',
@@ -300,19 +300,20 @@ describe('Selectors', () => {
       expect(result.reason).toBe('Item not found');
     });
 
-    it('should return false when lane is busy with pending item', () => {
-      state.lanes.building.pending = {
-        id: 'pending_1',
+    it('should return false when queue is full', () => {
+      // Fill queue to max depth
+      state.lanes.building.pendingQueue = Array(10).fill(null).map((_, i) => ({
+        id: `pending_${i}`,
         itemId: 'farm',
-        status: 'pending',
+        status: 'pending' as const,
         quantity: 1,
         turnsRemaining: 4,
-      };
+      }));
 
       const result = canQueueItem(state, 'metal_mine', 1);
 
       expect(result.allowed).toBe(false);
-      expect(result.reason).toBe('Lane is busy');
+      expect(result.reason).toBe('Queue is full');
     });
 
     it('should return false when lane is busy with active item', () => {

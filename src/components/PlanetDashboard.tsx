@@ -203,6 +203,69 @@ export function PlanetDashboard({ summary }: PlanetDashboardProps) {
                 />
               </div>
             </div>
+
+            {/* Colonist Population Bars (UI-3) */}
+            <div className="mt-4 pt-3 border-t border-pink-nebula-border/50">
+              <div className="text-xs text-pink-nebula-muted mb-2 font-semibold">Population Capacity</div>
+              <div className="flex items-end justify-between gap-2 h-24">
+                {/* Workers Bar */}
+                <div className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex-1 flex flex-col justify-end">
+                    <div
+                      className="w-full bg-pink-nebula-text rounded-t transition-all"
+                      style={{
+                        height: `${Math.min(
+                          100,
+                          (summary.population.workersTotal / summary.housing.workerCap) * 100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs text-pink-nebula-text font-mono">
+                    {formatWithK(summary.population.workersTotal)}
+                  </div>
+                  <div className="text-xs text-pink-nebula-muted">Workers</div>
+                </div>
+
+                {/* Soldiers Bar */}
+                <div className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex-1 flex flex-col justify-end">
+                    <div
+                      className="w-full bg-pink-500 rounded-t transition-all"
+                      style={{
+                        height: `${Math.min(
+                          100,
+                          (summary.population.soldiers / summary.housing.soldierCap) * 100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs text-pink-500 font-mono">
+                    {formatWithK(summary.population.soldiers)}
+                  </div>
+                  <div className="text-xs text-pink-nebula-muted">Soldiers</div>
+                </div>
+
+                {/* Scientists Bar */}
+                <div className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex-1 flex flex-col justify-end">
+                    <div
+                      className="w-full bg-blue-400 rounded-t transition-all"
+                      style={{
+                        height: `${Math.min(
+                          100,
+                          (summary.population.scientists / summary.housing.scientistCap) * 100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="text-xs text-blue-400 font-mono">
+                    {formatWithK(summary.population.scientists)}
+                  </div>
+                  <div className="text-xs text-pink-nebula-muted">Scientists</div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

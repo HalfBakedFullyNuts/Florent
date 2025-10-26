@@ -21,6 +21,12 @@ describe('PlanetSummary', () => {
           food: 1635.96,
           energy: 520.123,
         },
+        abundance: {
+          metal: 1.0,
+          mineral: 1.0,
+          food: 1.0,
+          energy: 1.0,
+        },
         outputsPerTurn: {
           metal: 1200,
           mineral: 800,
@@ -45,6 +51,7 @@ describe('PlanetSummary', () => {
           soldiers: 0,
           scientists: 0,
         },
+        ships: {},
         foodUpkeep: 20,
         growthHint: 'Workers will grow next turn',
       };
@@ -74,6 +81,12 @@ describe('PlanetSummary', () => {
           food: 1000,
           energy: 500,
         },
+        abundance: {
+          metal: 1.0,
+          mineral: 1.0,
+          food: 1.0,
+          energy: 1.0,
+        },
         outputsPerTurn: {
           metal: 1250.678, // Should display as +1.250,7 or +1250.7
           mineral: -50.234, // Should display as -50,2 or -50.2
@@ -98,6 +111,7 @@ describe('PlanetSummary', () => {
           soldiers: 0,
           scientists: 0,
         },
+        ships: {},
         foodUpkeep: 20,
         growthHint: 'Workers will grow next turn',
       };
@@ -118,6 +132,12 @@ describe('PlanetSummary', () => {
           mineral: 0.5, // Should round down to 0
           food: -10.9, // Should floor to -10 (or be clamped at 0)
           energy: 0,
+        },
+        abundance: {
+          metal: 1.0,
+          mineral: 1.0,
+          food: 1.0,
+          energy: 1.0,
         },
         outputsPerTurn: {
           metal: 0,
@@ -143,6 +163,7 @@ describe('PlanetSummary', () => {
           soldiers: 0,
           scientists: 0,
         },
+        ships: {},
         foodUpkeep: 20,
         growthHint: 'Warning: Negative food!',
       };

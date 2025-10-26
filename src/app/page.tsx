@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { GameController } from '../lib/game/commands';
-import { getPlanetSummary, getLaneView, getWarnings } from '../lib/game/selectors';
+import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem } from '../lib/game/selectors';
 import { createStandardStart } from '../lib/sim/defs/seed';
 import { loadGameData } from '../lib/sim/defs/adapter.client';
 import gameDataRaw from '../lib/game/game_data.json';
@@ -11,7 +11,7 @@ import gameDataRaw from '../lib/game/game_data.json';
 import { TurnSlider } from '../components/TurnSlider';
 import { PlanetDashboard } from '../components/PlanetDashboard';
 import { CompactLane } from '../components/QueueDisplay/CompactLane';
-import { LaneBoard } from '../components/LaneBoard/LaneBoard';
+import { ItemGrid } from '../components/LaneBoard/ItemGrid';
 import { WarningsPanel } from '../components/WarningsPanel';
 
 /**
@@ -62,6 +62,41 @@ export default function Home() {
     return items;
   }, [defs]);
 
+  // Helper: Find next turn where all queues are empty
+  const findNextEmptyQueueTurn = (startTurn: number): number => {
+    const maxTurn = controller.getTotalTurns() - 1;
+    const MAX_ITERATIONS = 1000; // Circuit breaker
+    const startTime = performance.now();
+    const TIMEOUT_MS = 100; // Performance budget
+
+    let iterations = 0;
+    for (let turn = startTurn; turn <= maxTurn && iterations < MAX_ITERATIONS; turn++) {
+      iterations++;
+
+      // Check timeout
+      if (performance.now() - startTime > TIMEOUT_MS) {
+        console.warn(`Turn calculation timeout after ${iterations} iterations`);
+        return startTurn; // Graceful degradation
+      }
+
+      const state = controller.getStateAtTurn(turn);
+      if (!state) continue;
+
+      // Check if all lanes are empty (no pending queue items, no active)
+      const allLanesEmpty = Object.values(state.lanes).every(
+        (lane) => lane.pendingQueue.length === 0 && !lane.active
+      );
+
+      if (allLanesEmpty) {
+        return turn;
+      }
+    }
+
+    // If no empty turn found or hit iteration limit
+    console.warn(`No empty turn found after ${iterations} iterations`);
+    return Math.min(startTurn + 10, maxTurn); // Jump ahead 10 turns max
+  };
+
   // Command handlers
   const handleQueueItem = (itemId: string, quantity: number) => {
     setError(null);
@@ -71,8 +106,9 @@ export default function Home() {
       if (!result.success) {
         setError(result.reason || 'Cannot queue item');
       } else {
-        // Move to latest turn after queueing
-        setViewTurn(controller.getTotalTurns() - 1);
+        // AUTO-ADVANCE: Jump to next turn where queues are empty
+        const nextEmptyTurn = findNextEmptyQueueTurn(viewTurn + 1);
+        setViewTurn(nextEmptyTurn);
       }
     } catch (e) {
       setError((e as Error).message || 'Unknown error');
@@ -118,8 +154,9 @@ export default function Home() {
       return { allowed: false, reason: 'Cannot queue while viewing past turn' };
     }
 
-    // Basic validation (full validation happens in command)
-    return { allowed: true };
+    // Use selector for queue depth validation
+    const currentState = controller.getCurrentState();
+    return validateQueueItem(currentState, itemId, quantity);
   };
 
   return (
@@ -151,14 +188,14 @@ export default function Home() {
 
       {/* Error Display */}
       {error && (
-        <div className="mx-6 mt-4 bg-red-900/20 border border-red-400 rounded p-4 text-red-400">
+        <div className="mx-auto mt-4 w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl px-6 bg-red-900/20 border border-red-400 rounded p-4 text-red-400">
           {error}
         </div>
       )}
 
       {/* Warnings Panel */}
       {warnings.length > 0 && (
-        <div className="mx-6 mt-4">
+        <div className="px-6 mt-4">
           <WarningsPanel warnings={warnings} />
         </div>
       )}
@@ -166,9 +203,10 @@ export default function Home() {
       {/* Planet Dashboard - Horizontal Overview */}
       <PlanetDashboard summary={summary} />
 
-      {/* Main Content - Four Columns: 3 Lanes + Selection Panel */}
+      {/* Main Content - Three Lane Queues + Item Grid */}
       <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-[280px_280px_280px_1fr] gap-4">
+        {/* Lane Queue Display */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {/* Lane 1: Structures */}
           <CompactLane
             laneId="building"
@@ -195,19 +233,16 @@ export default function Home() {
             onCancel={(index) => handleCancelItem('colonist')}
             disabled={viewTurn < totalTurns - 1}
           />
+        </div>
 
-          {/* Column 4: Item Selection Panel (Temporary - will be replaced in Ticket 25) */}
-          <div className="space-y-4 lg:col-span-1">
-            <LaneBoard
-              laneId="building"
-              laneView={buildingLane}
-              availableItems={availableItems}
-              currentTurn={viewTurn}
-              onQueueItem={handleQueueItem}
-              onCancelItem={() => handleCancelItem('building')}
-              canQueueItem={canQueueItem}
-            />
-          </div>
+        {/* Item Selection Grid (UI-4: One-click queueing) */}
+        <div className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-6">
+          <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Queue Items</h2>
+          <ItemGrid
+            availableItems={availableItems}
+            onQueueItem={handleQueueItem}
+            canQueueItem={canQueueItem}
+          />
         </div>
       </main>
 

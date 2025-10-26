@@ -14,11 +14,11 @@ export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
   const lane = state.lanes[laneId];
 
   // Check if there's a pending item and no active item
-  if (!lane.pending || lane.active) {
+  if (lane.pendingQueue.length === 0 || lane.active) {
     return;
   }
 
-  const pending = lane.pending;
+  const pending = lane.pendingQueue[0];
   const def = state.defs[pending.itemId];
   if (!def) {
     console.error(`Definition not found for item: ${pending.itemId}`);
@@ -67,14 +67,9 @@ export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
     status: 'active',
     turnsRemaining: def.durationTurns,
   };
-  lane.pending = null;
 
-  // For colonists, add to pending conversions (same-turn completion)
-  if (def.colonistKind) {
-    state.pendingColonistConversions.push({
-      ...lane.active,
-    });
-  }
+  // Remove from pending queue
+  lane.pendingQueue.shift();
 }
 
 /**
@@ -120,6 +115,11 @@ export function progressActive(state: PlanetState, laneId: LaneId): WorkItem | n
     active.status = 'completed';
     const completedItem = { ...active };
     lane.active = null;
+
+    // For colonists, add to pending conversions (same-turn completion)
+    if (def.colonistKind) {
+      state.pendingColonistConversions.push(completedItem);
+    }
 
     return completedItem;
   }

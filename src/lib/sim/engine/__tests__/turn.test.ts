@@ -150,18 +150,18 @@ describe('Turn Runner', () => {
   describe('lane processing', () => {
     it('should activate pending items', () => {
       // Queue a metal mine in building lane
-      state.lanes.building.pending = {
+      state.lanes.building.pendingQueue = [{
         id: 'pending_1',
         itemId: 'metal_mine',
         status: 'pending',
         quantity: 1,
         turnsRemaining: 4,
-      };
+      }];
 
       runTurn(state, buffer);
 
       // Should be activated (moved from pending to active)
-      expect(state.lanes.building.pending).toBeNull();
+      expect(state.lanes.building.pendingQueue).toEqual([]);
       expect(state.lanes.building.active).not.toBeNull();
       expect(state.lanes.building.active?.status).toBe('active');
     });

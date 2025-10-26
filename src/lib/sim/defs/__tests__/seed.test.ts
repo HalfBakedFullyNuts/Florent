@@ -63,11 +63,11 @@ describe('Seed Functions', () => {
     it('should initialize all lanes as idle', () => {
       const state = createInitialState(defs);
 
-      expect(state.lanes.building.pending).toBeNull();
+      expect(state.lanes.building.pendingQueue).toEqual([]);
       expect(state.lanes.building.active).toBeNull();
-      expect(state.lanes.ship.pending).toBeNull();
+      expect(state.lanes.ship.pendingQueue).toEqual([]);
       expect(state.lanes.ship.active).toBeNull();
-      expect(state.lanes.colonist.pending).toBeNull();
+      expect(state.lanes.colonist.pendingQueue).toEqual([]);
       expect(state.lanes.colonist.active).toBeNull();
     });
 

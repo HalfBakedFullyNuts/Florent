@@ -48,7 +48,7 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
   };
 
   return (
-    <div className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-6 space-y-6">
+    <div className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-6 space-y-6 w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold text-pink-nebula-text">Planet Summary</h2>
@@ -63,17 +63,31 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
             <tr className="text-pink-nebula-muted border-b border-pink-nebula-border">
               <th className="text-left py-2">Resource</th>
               <th className="text-right py-2">Stored</th>
+              <th className="text-right py-2">Abundance</th>
               <th className="text-right py-2">Output/Turn</th>
             </tr>
           </thead>
           <tbody>
             {resources.map((resource) => {
               const stored = summary.stocks[resource.id];
+              const abundance = summary.abundance[resource.id];
               const output = summary.outputsPerTurn[resource.id];
+              const abundancePercent = Math.round(abundance * 100);
+
+              // Adjust opacity based on abundance level
+              const getAbundanceOpacity = (percent: number) => {
+                if (percent < 50) return 'opacity-60';
+                if (percent < 100) return 'opacity-80';
+                return 'opacity-100';
+              };
+
               return (
                 <tr key={resource.id} className="border-b border-pink-nebula-border last:border-0">
                   <td className={`py-2 font-semibold ${resource.color}`}>{resource.label}</td>
                   <td className="text-right py-2 text-pink-nebula-text">{formatNumber(stored)}</td>
+                  <td className={`text-right py-2 font-semibold ${resource.color} ${getAbundanceOpacity(abundancePercent)}`}>
+                    {abundancePercent}%
+                  </td>
                   <td className={`text-right py-2 font-semibold ${getResourceColor(output)}`}>
                     {formatOutput(output)}
                   </td>
