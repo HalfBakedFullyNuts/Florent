@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 
 export interface ItemGridProps {
   availableItems: Record<string, any>; // All ItemDefinitions
@@ -33,22 +33,31 @@ export function ItemGrid({
   const [batchingItem, setBatchingItem] = useState<string | null>(null);
   const [batchQuantity, setBatchQuantity] = useState<number>(1);
 
-  // Group items by lane, excluding non-queueable items
-  const itemsByLane = Object.values(availableItems).reduce(
-    (acc: Record<string, any[]>, item: any) => {
-      // Skip excluded items (workers, outpost)
-      if (EXCLUDED_ITEMS.includes(item.id)) {
-        return acc;
-      }
+  // Group items by lane, excluding non-queueable items and items with unmet prerequisites
+  const itemsByLane = useMemo(() => {
+    return Object.values(availableItems).reduce(
+      (acc: Record<string, any[]>, item: any) => {
+        // Skip excluded items (workers, outpost)
+        if (EXCLUDED_ITEMS.includes(item.id)) {
+          return acc;
+        }
 
-      if (!acc[item.lane]) {
-        acc[item.lane] = [];
-      }
-      acc[item.lane].push(item);
-      return acc;
-    },
-    {}
-  );
+        // Skip items that cannot be queued (unmet prerequisites, etc)
+        // Use quantity=1 for validation since we're just checking if item is queueable at all
+        const validation = canQueueItem(item.id, 1);
+        if (!validation.allowed) {
+          return acc;
+        }
+
+        if (!acc[item.lane]) {
+          acc[item.lane] = [];
+        }
+        acc[item.lane].push(item);
+        return acc;
+      },
+      {}
+    );
+  }, [availableItems, canQueueItem]);
 
   const handleItemClick = (itemId: string, laneId: string) => {
     const supportsBatching = laneId === 'ship' || laneId === 'colonist';
