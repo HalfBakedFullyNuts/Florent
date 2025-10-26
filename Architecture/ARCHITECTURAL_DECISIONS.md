@@ -15,6 +15,21 @@ Short rationale (1-2 sentences).
 
 ## Recent Decisions - Turn-Based Simulator Implementation
 
+2025-10-26 — Auto-advance to last building completion in queue
+When buildings are queued, the UI automatically advances to the turn when the last building in the queue completes, showing the cumulative planet state after all queued work finishes. This provides immediate feedback on the full impact of queuing decisions.
+
+2025-10-26 — Continuous timeline display for queue scheduling
+Pending items in the queue display a projected continuous timeline (e.g., T1-T4, T5-T8, T9-T12) showing when each item will occupy the production lane, calculated by sequentially allocating time slots based on item durations.
+
+2025-10-26 — Same-turn completion for buildings
+Buildings apply their effects (housing, space capacity, production) on the same turn they complete (turnsRemaining reaches 0), not the following turn. This ensures resource outputs immediately reflect new structures. Ships retain next-turn completion via buffer.
+
+2025-10-26 — Turn tracking in WorkItem lifecycle
+WorkItems now track queuedTurn, startTurn, and completionTurn to support accurate timeline displays and history. This enables showing when items were queued, when they activated, and when they completed throughout their lifecycle.
+
+2025-10-26 — Completion history for visual queue persistence
+Completed items remain visible in lane queues with muted styling rather than disappearing, creating a visual history of construction progress. This helps players track what has been built during the session.
+
 2025-10-25 — Parallel directory structure during migration
 We will create `src/lib/sim/` alongside existing `src/lib/game/` to allow gradual migration without breaking existing functionality, then deprecate old code once new engine is validated.
 

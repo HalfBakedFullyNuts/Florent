@@ -234,12 +234,13 @@ describe('Selectors', () => {
       expect(spaceWarning).toBeDefined();
     });
 
-    it('should not generate warnings for idle lanes', () => {
+    it('should not generate warnings for healthy state', () => {
+      state.stocks.energy = 100;
+      state.stocks.food = 500;
       const warnings = getWarnings(state);
 
-      // Idle lane warnings have been removed - check that they don't exist
-      const idleWarnings = warnings.filter((w) => w.type === 'IDLE_LANE');
-      expect(idleWarnings).toHaveLength(0);
+      // Idle lane warnings have been removed - only returns real problems
+      expect(warnings).toHaveLength(0);
     });
 
     it('should combine multiple warnings', () => {

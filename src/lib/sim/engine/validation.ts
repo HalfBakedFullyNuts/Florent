@@ -8,6 +8,7 @@ import { computeNetOutputsPerTurn } from './outputs';
 
 /**
  * Check if prerequisites are met for queuing an item
+ * Checks both completed structures AND queued/active items
  */
 export function hasPrereqs(state: PlanetState, def: ItemDefinition): boolean {
   if (!def.prerequisites || def.prerequisites.length === 0) {
@@ -15,10 +16,36 @@ export function hasPrereqs(state: PlanetState, def: ItemDefinition): boolean {
   }
 
   for (const prereqId of def.prerequisites) {
-    const count = state.completedCounts[prereqId] || 0;
-    if (count === 0) {
-      return false;
+    // Check completed counts first
+    const completedCount = state.completedCounts[prereqId] || 0;
+    if (completedCount > 0) {
+      continue; // Prerequisite met via completed structures
     }
+
+    // Check all lanes for queued or active items
+    const allLanes = [state.lanes.building, state.lanes.ship, state.lanes.colonist];
+    let foundInLane = false;
+
+    for (const lane of allLanes) {
+      // Check active item
+      if (lane.active?.itemId === prereqId) {
+        foundInLane = true;
+        break;
+      }
+
+      // Check pending queue
+      if (lane.pendingQueue.some(item => item.itemId === prereqId)) {
+        foundInLane = true;
+        break;
+      }
+    }
+
+    if (foundInLane) {
+      continue; // Prerequisite met via queued or active item
+    }
+
+    // Prerequisite not found anywhere
+    return false;
   }
 
   return true;

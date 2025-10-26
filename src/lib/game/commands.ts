@@ -64,7 +64,7 @@ export class GameController {
       return { success: false, reason: validation.reason };
     }
 
-    // Create work item
+    // Create work item with queue turn tracking
     const workItemId = generateWorkItemId();
     const workItem = {
       id: workItemId,
@@ -72,6 +72,7 @@ export class GameController {
       quantity: requestedQty,
       status: 'pending' as const,
       turnsRemaining: def.durationTurns,
+      queuedTurn: turn,
     };
 
     // Mutate state to add pending item to queue
@@ -149,6 +150,33 @@ export class GameController {
 
       return { success: true };
     }
+
+    return { success: false, reason: 'NOT_FOUND' };
+  }
+
+  /**
+   * Remove an item from completion history by item ID
+   *
+   * WARNING: This method is fundamentally broken in a deterministic simulation!
+   *
+   * The problem: When you remove a completed item from history and the timeline
+   * recomputes, the item that was originally queued is STILL in the pendingQueue
+   * of past states. When recomputation runs forward, it completes AGAIN, causing
+   * completedCounts to increment back up.
+   *
+   * This creates a paradox: you can't retroactively "undo" history in a deterministic
+   * simulation without also removing the original queue command that led to the completion.
+   *
+   * Proper solution: Don't allow removal of completed items. Only allow canceling
+   * pending/active items before they complete.
+   *
+   * This method is kept for backwards compatibility but should be deprecated.
+   */
+  removeFromHistory(turn: number, laneId: LaneId, workItemId: string): CancelResult {
+    // This operation is not supported in a deterministic simulation
+    console.warn('[removeFromHistory] This operation is deprecated and causes state corruption.');
+    console.warn('You cannot retroactively remove completed items from history.');
+    console.warn('Only pending/active items can be canceled before completion.');
 
     return { success: false, reason: 'NOT_FOUND' };
   }

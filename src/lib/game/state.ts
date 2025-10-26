@@ -28,17 +28,21 @@ export class Timeline {
    * Returns undefined if turn hasn't been computed yet
    */
   getStateAtTurn(turn: number): PlanetState | undefined {
-    if (turn < 0 || turn >= this.states.length) {
+    // Map turn number to array index (turn 1 = index 0)
+    const initialTurn = this.states[0]?.currentTurn || 1;
+    const index = turn - initialTurn;
+
+    if (index < 0 || index >= this.states.length) {
       return undefined;
     }
-    return cloneState(this.states[turn]);
+    return cloneState(this.states[index]);
   }
 
   /**
-   * Get current turn index
+   * Get current turn number (not index)
    */
   getCurrentTurn(): number {
-    return this.currentTurnIndex;
+    return this.states[this.currentTurnIndex]?.currentTurn || 1;
   }
 
   /**
@@ -133,18 +137,22 @@ export class Timeline {
    * This is used by the commands API to apply changes
    */
   mutateAtTurn(turn: number, mutation: (state: PlanetState) => void): boolean {
-    if (turn < 0 || turn >= this.states.length) {
+    // Map turn number to array index
+    const initialTurn = this.states[0]?.currentTurn || 1;
+    const index = turn - initialTurn;
+
+    if (index < 0 || index >= this.states.length) {
       return false;
     }
 
     // Get the state at the target turn
-    const state = this.states[turn];
+    const state = this.states[index];
 
     // Apply the mutation
     mutation(state);
 
     // Recompute from this turn (truncate everything after)
-    this.recomputeFromTurn(turn);
+    this.recomputeFromTurn(index);
 
     return true;
   }

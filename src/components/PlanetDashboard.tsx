@@ -5,6 +5,7 @@ import type { PlanetSummary as PlanetSummaryType } from '../lib/game/selectors';
 
 export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
+  defs: Record<string, any>;
 }
 
 /**
@@ -17,12 +18,12 @@ export interface PlanetDashboardProps {
  * - Ships: Fleet overview
  * - Growth: Next turn projection
  */
-export function PlanetDashboard({ summary }: PlanetDashboardProps) {
+export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
   const resources = [
-    { id: 'metal', label: 'Metal', color: 'text-pink-500' },
-    { id: 'mineral', label: 'Mineral', color: 'text-blue-400' },
-    { id: 'food', label: 'Food', color: 'text-green-400' },
-    { id: 'energy', label: 'Energy', color: 'text-yellow-400' },
+    { id: 'metal', label: 'Metal', color: 'text-gray-300' }, // silver
+    { id: 'mineral', label: 'Mineral', color: 'text-red-500' }, // red
+    { id: 'food', label: 'Food', color: 'text-green-500' }, // green
+    { id: 'energy', label: 'Energy', color: 'text-blue-400' }, // blue
   ] as const;
 
   // Memoize formatting functions for performance
@@ -60,6 +61,45 @@ export function PlanetDashboard({ summary }: PlanetDashboardProps) {
     return 'text-pink-nebula-muted';
   };
 
+  // Calculate turns until population growth stops
+  const turnsUntilGrowthStops = useMemo(() => {
+    // Growth stops when either:
+    // 1. Workers hit housing cap
+    // 2. Food output becomes <= 0
+
+    const foodOutput = summary.outputsPerTurn.food;
+    const currentWorkers = summary.population.workersTotal;
+    const housingCap = summary.housing.workerCap;
+
+    // If food is already <= 0, growth has stopped
+    if (foodOutput <= 0) {
+      return 0;
+    }
+
+    // If at or above housing cap, growth has stopped
+    if (currentWorkers >= housingCap) {
+      return 0;
+    }
+
+    // Calculate turns until housing cap is reached
+    // Assuming constant growth rate from growthHint
+    const growthMatch = summary.growthHint.match(/\+(\d+) workers/);
+    const workersPerTurn = growthMatch ? parseInt(growthMatch[1]) : 0;
+
+    if (workersPerTurn <= 0) {
+      return 0;
+    }
+
+    const turnsToHousingCap = Math.ceil((housingCap - currentWorkers) / workersPerTurn);
+
+    // Calculate turns until food runs out
+    // Food consumption per turn = foodUpkeep
+    const currentFood = summary.stocks.food;
+    const turnsToNoFood = foodOutput > 0 ? Infinity : Math.floor(currentFood / summary.foodUpkeep);
+
+    return Math.min(turnsToHousingCap, turnsToNoFood);
+  }, [summary]);
+
   // Get ship names from item IDs
   const shipsList = Object.entries(summary.ships).map(([shipId, count]) => ({
     id: shipId,
@@ -67,11 +107,52 @@ export function PlanetDashboard({ summary }: PlanetDashboardProps) {
     count,
   }));
 
+  // Get structure list with formatted display info
+  const structuresList = useMemo(() => {
+    const structures = Object.entries(summary.structures).map(([structureId, count]) => {
+      const def = defs[structureId];
+      const name = def?.name || structureId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+
+      // Calculate individual resource outputs/consumption
+      const metalOut = def?.effectsOnComplete?.production_metal || 0;
+      const mineralOut = def?.effectsOnComplete?.production_mineral || 0;
+      const foodOut = def?.effectsOnComplete?.production_food || 0;
+      const energyOut = def?.effectsOnComplete?.production_energy || 0;
+      const metalIn = def?.upkeepPerUnit?.metal || 0;
+      const mineralIn = def?.upkeepPerUnit?.mineral || 0;
+      const foodIn = def?.upkeepPerUnit?.food || 0;
+      const energyIn = def?.upkeepPerUnit?.energy || 0;
+
+      return {
+        id: structureId,
+        name,
+        count,
+        tier: def?.tier || 0,
+        durationTurns: def?.durationTurns || 0,
+        // Total outputs/consumption for all of this structure type
+        metalNet: (metalOut - metalIn) * count,
+        mineralNet: (mineralOut - mineralIn) * count,
+        foodNet: (foodOut - foodIn) * count,
+        energyNet: (energyOut - energyIn) * count,
+        space: (def?.costsPerUnit?.space || 0) * count,
+      };
+    });
+
+    // Sort: tier (ascending) > duration (ascending) > name (alphabetical)
+    structures.sort((a, b) => {
+      if (a.tier !== b.tier) return a.tier - b.tier;
+      if (a.durationTurns !== b.durationTurns) return a.durationTurns - b.durationTurns;
+      return a.name.localeCompare(b.name);
+    });
+
+    return structures;
+  }, [summary.structures, defs]);
+
   return (
     <div className="w-full max-w-[1800px] mx-auto px-6 my-4">
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 bg-pink-nebula-panel rounded-lg p-4 border border-pink-nebula-border">
         {/* Resources Section - Table Layout */}
-        <div className="xl:col-span-2 bg-pink-nebula-bg rounded-lg p-3">
+        <div className="bg-pink-nebula-bg rounded-lg p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Resources</h3>
           <table className="w-full text-sm">
             <thead>
@@ -121,17 +202,17 @@ export function PlanetDashboard({ summary }: PlanetDashboardProps) {
             </thead>
             <tbody>
               <tr className="border-b border-pink-nebula-border/50">
-                <td className="py-2 text-pink-nebula-text font-semibold w-24">Workers</td>
-                <td className="text-right py-2 text-pink-nebula-text font-mono w-24">
-                  {formatNumber(summary.population.workersTotal)}
+                <td className="py-2 text-orange-400 font-semibold w-24">Workers</td>
+                <td className="text-right py-2 text-orange-400 font-mono w-24">
+                  {formatNumber(summary.population.workersTotal)} ({formatNumber(summary.population.workersBusy)})
                 </td>
                 <td className="text-right py-2 text-pink-nebula-muted font-mono w-14">
                   {formatWithK(summary.housing.workerCap)}
                 </td>
               </tr>
               <tr className="border-b border-pink-nebula-border/50">
-                <td className="py-2 text-pink-500 font-semibold w-24">Soldiers</td>
-                <td className="text-right py-2 text-pink-500 font-mono w-24">
+                <td className="py-2 text-red-300 font-semibold w-24">Soldiers</td>
+                <td className="text-right py-2 text-red-300 font-mono w-24">
                   {formatNumber(summary.population.soldiers)}
                 </td>
                 <td className="text-right py-2 text-pink-nebula-muted font-mono w-14">
@@ -139,8 +220,8 @@ export function PlanetDashboard({ summary }: PlanetDashboardProps) {
                 </td>
               </tr>
               <tr>
-                <td className="py-2 text-blue-400 font-semibold w-24">Scientists</td>
-                <td className="text-right py-2 text-blue-400 font-mono w-24">
+                <td className="py-2 text-yellow-400 font-semibold w-24">Scientists</td>
+                <td className="text-right py-2 text-yellow-400 font-mono w-24">
                   {formatNumber(summary.population.scientists)}
                 </td>
                 <td className="text-right py-2 text-pink-nebula-muted font-mono w-14">
@@ -201,6 +282,32 @@ export function PlanetDashboard({ summary }: PlanetDashboardProps) {
                     )}%`,
                   }}
                 />
+              </div>
+            </div>
+
+            {/* Population Growth Countdown */}
+            <div className="mt-4 pt-3 border-t border-pink-nebula-border/50">
+              <div className="text-xs text-pink-nebula-muted mb-2 font-semibold">Growth Countdown</div>
+              <div className="w-full bg-pink-nebula-panel rounded-full h-3 relative overflow-hidden">
+                {turnsUntilGrowthStops > 0 ? (
+                  <>
+                    <div
+                      className="h-full bg-gradient-to-r from-green-400 to-yellow-400 transition-all"
+                      style={{ width: '100%' }}
+                    />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-xs font-bold text-pink-nebula-bg drop-shadow">
+                        {turnsUntilGrowthStops}T until cap
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="h-full bg-red-900 flex items-center justify-center">
+                    <span className="text-xs font-bold text-red-300">
+                      Growth stopped
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -269,34 +376,50 @@ export function PlanetDashboard({ summary }: PlanetDashboardProps) {
           </div>
         </div>
 
-        {/* Ships Section - Table Layout */}
+        {/* Completed Structures Section - Detailed List */}
         <div className="bg-pink-nebula-bg rounded-lg p-3">
-          <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Ships</h3>
-          {shipsList.length > 0 ? (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-pink-nebula-muted border-b border-pink-nebula-border">
-                  <th className="text-left pb-2">Type</th>
-                  <th className="text-right pb-2">Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shipsList.map((ship, index) => (
-                  <tr
-                    key={ship.id}
-                    className={`${index < shipsList.length - 1 ? 'border-b border-pink-nebula-border/50' : ''}`}
-                  >
-                    <td className="py-2 text-pink-nebula-text font-semibold">{ship.name}</td>
-                    <td className="text-right py-2 text-pink-nebula-accent-secondary font-mono font-bold">
-                      {ship.count}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Completed Structures</h3>
+          {structuresList.length > 0 ? (
+            <div className="space-y-1">
+              {structuresList.map((structure) => (
+                <div
+                  key={structure.id}
+                  className="text-xs font-mono flex items-center"
+                >
+                  <span className="font-semibold text-white w-40 flex-shrink-0">
+                    {structure.name} x{structure.count}
+                  </span>
+
+                  {/* Metal - fixed width column */}
+                  <span className="text-gray-300 w-16 text-right">
+                    {structure.metalNet !== 0 ? (structure.metalNet > 0 ? '+' : '') + structure.metalNet + 'M' : ''}
+                  </span>
+
+                  {/* Mineral - fixed width column */}
+                  <span className="text-red-500 w-16 text-right">
+                    {structure.mineralNet !== 0 ? (structure.mineralNet > 0 ? '+' : '') + structure.mineralNet + 'Min' : ''}
+                  </span>
+
+                  {/* Food - fixed width column */}
+                  <span className="text-green-500 w-16 text-right">
+                    {structure.foodNet !== 0 ? (structure.foodNet > 0 ? '+' : '') + structure.foodNet + 'F' : ''}
+                  </span>
+
+                  {/* Energy - fixed width column */}
+                  <span className="text-blue-400 w-16 text-right">
+                    {structure.energyNet !== 0 ? (structure.energyNet > 0 ? '+' : '') + structure.energyNet + 'E' : ''}
+                  </span>
+
+                  {/* Space - fixed width column */}
+                  <span className="text-pink-nebula-muted w-14 text-right">
+                    {structure.space > 0 ? '-' + structure.space + 'GS' : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="text-xs text-pink-nebula-muted text-center py-4">
-              No ships built
+              No structures built
             </div>
           )}
         </div>

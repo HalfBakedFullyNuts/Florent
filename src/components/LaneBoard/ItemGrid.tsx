@@ -33,19 +33,12 @@ export function ItemGrid({
   const [batchingItem, setBatchingItem] = useState<string | null>(null);
   const [batchQuantity, setBatchQuantity] = useState<number>(1);
 
-  // Group items by lane, excluding non-queueable items and items with unmet prerequisites
+  // Group items by lane, excluding non-queueable items, and sort them
   const itemsByLane = useMemo(() => {
-    return Object.values(availableItems).reduce(
+    const grouped = Object.values(availableItems).reduce(
       (acc: Record<string, any[]>, item: any) => {
         // Skip excluded items (workers, outpost)
         if (EXCLUDED_ITEMS.includes(item.id)) {
-          return acc;
-        }
-
-        // Skip items that cannot be queued (unmet prerequisites, etc)
-        // Use quantity=1 for validation since we're just checking if item is queueable at all
-        const validation = canQueueItem(item.id, 1);
-        if (!validation.allowed) {
           return acc;
         }
 
@@ -57,9 +50,45 @@ export function ItemGrid({
       },
       {}
     );
+
+    // Sort items within each lane: available first, then by duration, then alphabetically
+    Object.keys(grouped).forEach(laneId => {
+      grouped[laneId].sort((a, b) => {
+        // Check if items are queueable
+        const aQueueable = canQueueItem(a.id, 1).allowed;
+        const bQueueable = canQueueItem(b.id, 1).allowed;
+
+        // Primary sort: available items first
+        if (aQueueable !== bQueueable) {
+          return bQueueable ? 1 : -1; // queueable items come first
+        }
+
+        // Secondary sort: duration in turns (ascending)
+        if (a.durationTurns !== b.durationTurns) {
+          return a.durationTurns - b.durationTurns;
+        }
+
+        // Tertiary sort: name (alphabetical)
+        return a.name.localeCompare(b.name);
+      });
+    });
+
+    return grouped;
   }, [availableItems, canQueueItem]);
 
+  const isItemQueueable = (itemId: string): boolean => {
+    const validation = canQueueItem(itemId, 1);
+    return validation.allowed;
+  };
+
   const handleItemClick = (itemId: string, laneId: string) => {
+    const validation = canQueueItem(itemId, 1);
+    if (!validation.allowed) {
+      setError(validation.reason || 'Cannot queue item');
+      setTimeout(() => setError(null), 3000);
+      return;
+    }
+
     const supportsBatching = laneId === 'ship' || laneId === 'colonist';
 
     if (supportsBatching) {
@@ -91,28 +120,28 @@ export function ItemGrid({
       case 'building':
         return {
           title: 'Structures',
-          color: 'border-blue-400',
-          bgHover: 'hover:bg-blue-400/10',
+          bgColor: 'bg-slate-800',
+          bgHover: 'hover:bg-slate-700',
           icon: '🏗️',
         };
       case 'ship':
         return {
           title: 'Ships',
-          color: 'border-purple-400',
-          bgHover: 'hover:bg-purple-400/10',
+          bgColor: 'bg-slate-800',
+          bgHover: 'hover:bg-slate-700',
           icon: '🚀',
         };
       case 'colonist':
         return {
           title: 'Colonists',
-          color: 'border-green-400',
-          bgHover: 'hover:bg-green-400/10',
+          bgColor: 'bg-slate-800',
+          bgHover: 'hover:bg-slate-700',
           icon: '👥',
         };
       default:
         return {
           title: laneId,
-          color: 'border-pink-nebula-border',
+          bgColor: 'bg-pink-nebula-panel',
           bgHover: 'hover:bg-pink-nebula-bg',
           icon: '•',
         };
@@ -121,10 +150,10 @@ export function ItemGrid({
 
   const getResourceColor = (resource: string) => {
     switch (resource) {
-      case 'metal': return 'text-pink-500';
-      case 'mineral': return 'text-blue-400';
-      case 'food': return 'text-green-400';
-      case 'energy': return 'text-yellow-400';
+      case 'metal': return 'text-gray-300'; // silver
+      case 'mineral': return 'text-red-500'; // red
+      case 'food': return 'text-green-500'; // green
+      case 'energy': return 'text-blue-400'; // blue
       default: return 'text-pink-nebula-muted';
     }
   };
@@ -150,7 +179,7 @@ export function ItemGrid({
       )}
 
       {/* Desktop: 3-Column Grid */}
-      <div className="hidden lg:grid lg:grid-cols-3 gap-4 max-w-[900px] mx-auto">
+      <div className="hidden lg:grid lg:grid-cols-3 gap-6 pl-6">
         {['building', 'ship', 'colonist'].map((laneId) => {
           const items = itemsByLane[laneId] || [];
           const config = getLaneConfig(laneId);
@@ -158,7 +187,7 @@ export function ItemGrid({
           return (
             <div
               key={laneId}
-              className={`bg-pink-nebula-panel rounded-lg border-2 ${config.color} p-4 max-w-[280px]`}
+              className={`${config.bgColor} rounded-lg p-4 min-w-[350px] max-w-[458px]`}
             >
               {/* Column Header */}
               <div className="flex items-center gap-2 mb-4 pb-3 border-b border-pink-nebula-border">
@@ -178,25 +207,38 @@ export function ItemGrid({
                     No items available
                   </div>
                 ) : (
-                  items.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => handleItemClick(item.id, laneId)}
-                      className={`w-full text-left p-3 rounded border border-pink-nebula-border bg-pink-nebula-bg ${config.bgHover} transition-colors group`}
-                    >
-                      <div className="font-semibold text-sm text-pink-nebula-text group-hover:text-pink-nebula-accent-primary">
-                        {item.name}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 text-xs">
-                        <span className="text-pink-nebula-muted">⏱️ {item.durationTurns}T</span>
-                        {formatCost(item).map(({ resource, amount, color }) => (
-                          <span key={resource} className={color}>
-                            {resource.charAt(0).toUpperCase()}:{amount}
+                  items.map((item) => {
+                    const queueable = isItemQueueable(item.id);
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => handleItemClick(item.id, laneId)}
+                        className={`w-full max-w-[400px] text-left p-3 rounded border transition-colors group ${
+                          queueable
+                            ? `border-pink-nebula-border bg-pink-nebula-bg ${config.bgHover} cursor-pointer`
+                            : 'border-pink-nebula-muted bg-pink-nebula-bg/50 opacity-60 cursor-not-allowed'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 text-xs flex-wrap">
+                          <span className={`font-semibold ${
+                            queueable
+                              ? 'text-pink-nebula-text group-hover:text-pink-nebula-accent-primary'
+                              : 'text-pink-nebula-muted'
+                          }`}>
+                            {item.name}
                           </span>
-                        ))}
-                      </div>
-                    </button>
-                  ))
+                          <span className={queueable ? 'text-pink-nebula-muted' : 'text-pink-nebula-muted/60'}>
+                            ⏱️ {item.durationTurns}T
+                          </span>
+                          {formatCost(item).map(({ resource, amount, color }) => (
+                            <span key={resource} className={queueable ? color : `${color}/60`}>
+                              {resource.charAt(0).toUpperCase()}:{amount}
+                            </span>
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -243,25 +285,38 @@ export function ItemGrid({
                       No items available
                     </div>
                   ) : (
-                    items.map((item) => (
-                      <button
-                        key={item.id}
-                        onClick={() => handleItemClick(item.id, laneId)}
-                        className={`w-full text-left p-3 rounded border border-pink-nebula-border bg-pink-nebula-bg ${config.bgHover} transition-colors group`}
-                      >
-                        <div className="font-semibold text-sm text-pink-nebula-text group-hover:text-pink-nebula-accent-primary">
-                          {item.name}
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 text-xs">
-                          <span className="text-pink-nebula-muted">⏱️ {item.durationTurns}T</span>
-                          {formatCost(item).map(({ resource, amount, color }) => (
-                            <span key={resource} className={color}>
-                              {resource.charAt(0).toUpperCase()}:{amount}
+                    items.map((item) => {
+                      const queueable = isItemQueueable(item.id);
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => handleItemClick(item.id, laneId)}
+                          className={`w-full max-w-[400px] text-left p-3 rounded border transition-colors group ${
+                            queueable
+                              ? `border-pink-nebula-border bg-pink-nebula-bg ${config.bgHover} cursor-pointer`
+                              : 'border-pink-nebula-muted bg-pink-nebula-bg/50 opacity-60 cursor-not-allowed'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 text-xs flex-wrap">
+                            <span className={`font-semibold ${
+                              queueable
+                                ? 'text-pink-nebula-text group-hover:text-pink-nebula-accent-primary'
+                                : 'text-pink-nebula-muted'
+                            }`}>
+                              {item.name}
                             </span>
-                          ))}
-                        </div>
-                      </button>
-                    ))
+                            <span className={queueable ? 'text-pink-nebula-muted' : 'text-pink-nebula-muted/60'}>
+                              ⏱️ {item.durationTurns}T
+                            </span>
+                            {formatCost(item).map(({ resource, amount, color }) => (
+                              <span key={resource} className={queueable ? color : `${color}/60`}>
+                                {resource.charAt(0).toUpperCase()}:{amount}
+                              </span>
+                            ))}
+                          </div>
+                        </button>
+                      );
+                    })
                   )}
                 </div>
               )}

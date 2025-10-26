@@ -60,12 +60,14 @@ export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
     }
   }
 
-  // Move item from pending to active
+  // Move item from pending to active with turn tracking
   lane.active = {
     ...pending,
     quantity: actualQty,
     status: 'active',
     turnsRemaining: def.durationTurns,
+    startTurn: state.currentTurn,
+    // completionTurn will be set when the item actually completes
   };
 
   // Remove from pending queue
@@ -111,9 +113,14 @@ export function progressActive(state: PlanetState, laneId: LaneId): WorkItem | n
       }
     }
 
-    // Mark as completed and save reference before clearing
+    // Mark as completed and set completion turn
     active.status = 'completed';
+    active.completionTurn = state.currentTurn;
     const completedItem = { ...active };
+
+    // Add to completion history for visual display
+    lane.completionHistory.push(completedItem);
+
     lane.active = null;
 
     // For colonists, add to pending conversions (same-turn completion)
