@@ -33,6 +33,7 @@ export interface PlanetSummary {
     scientists: number;
   };
   ships: Record<string, number>; // shipId -> count
+  structures: Record<string, number>; // structureId -> count
   growthHint: string; // "+X workers at end of turn"
   foodUpkeep: number;
 }
@@ -45,6 +46,9 @@ export interface LaneEntry {
   quantity: number;
   turnsRemaining: number;
   eta: number | null; // Turn number when it will complete, null if pending
+  queuedTurn?: number; // Turn when item was queued
+  startTurn?: number; // Turn when work started
+  completionTurn?: number; // Turn when work completed
 }
 
 export interface LaneView {
@@ -56,8 +60,7 @@ export type WarningType =
   | 'NEGATIVE_ENERGY'
   | 'NO_FOOD'
   | 'HOUSING_FULL'
-  | 'SPACE_FULL'
-  | 'IDLE_LANE';
+  | 'SPACE_FULL';
 
 export interface Warning {
   type: WarningType;
@@ -100,6 +103,16 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
     }
   });
 
+  // Extract structure counts from completedCounts (single source of truth)
+  const structures: Record<string, number> = {};
+
+  Object.entries(state.completedCounts).forEach(([itemId, count]) => {
+    const def = state.defs[itemId];
+    if (def && def.type === 'structure' && count > 0) {
+      structures[itemId] = count;
+    }
+  });
+
   return {
     turn: state.currentTurn,
     stocks: { ...state.stocks },
@@ -115,6 +128,7 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
       scientists: state.population.scientists,
     },
     ships,
+    structures,
     growthHint,
     foodUpkeep,
   };
@@ -127,9 +141,56 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   const lane = state.lanes[laneId];
   const entries: LaneEntry[] = [];
 
-  // Add all pending entries from queue
-  for (const pending of lane.pendingQueue) {
+  // Add completed items from history (most recent first)
+  for (const completed of [...lane.completionHistory].reverse()) {
+    const def = state.defs[completed.itemId];
+    entries.push({
+      id: completed.id,
+      itemId: completed.itemId,
+      itemName: def?.name || 'Unknown',
+      status: 'completed',
+      quantity: completed.quantity,
+      turnsRemaining: 0,
+      eta: null, // Already completed
+      queuedTurn: completed.queuedTurn,
+      startTurn: completed.startTurn,
+      completionTurn: completed.completionTurn,
+    });
+  }
+
+  // Calculate the schedule starting point based on what's already scheduled
+  let scheduleStart = 1; // Default to T1
+
+  // Check if there are completed items to continue from
+  if (lane.completionHistory.length > 0) {
+    // Find the latest completion
+    const lastCompleted = lane.completionHistory[lane.completionHistory.length - 1];
+    if (lastCompleted.completionTurn) {
+      scheduleStart = lastCompleted.completionTurn + 1;
+    }
+  }
+
+  // If there's an active item, next slot starts after it completes
+  if (lane.active) {
+    // For active items, we know when they'll complete
+    if (lane.active.completionTurn) {
+      scheduleStart = lane.active.completionTurn + 1;
+    } else {
+      // Fall back to calculating based on current turn and remaining
+      scheduleStart = state.currentTurn + lane.active.turnsRemaining;
+    }
+  }
+
+  // Build continuous timeline for pending items
+  for (let i = 0; i < lane.pendingQueue.length; i++) {
+    const pending = lane.pendingQueue[i];
     const def = state.defs[pending.itemId];
+    const duration = def?.durationTurns || 4;
+
+    // Simple continuous scheduling: each item gets duration turns
+    const displayStart = scheduleStart;
+    const displayEnd = scheduleStart + duration - 1;
+
     entries.push({
       id: pending.id,
       itemId: pending.itemId,
@@ -137,8 +198,14 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
       status: 'pending',
       quantity: pending.quantity,
       turnsRemaining: pending.turnsRemaining,
-      eta: null, // Pending, so no ETA yet
+      eta: displayEnd,
+      queuedTurn: displayStart, // For display purposes
+      startTurn: displayStart,
+      completionTurn: displayEnd,
     });
+
+    // Next item starts immediately after this one completes
+    scheduleStart = displayEnd + 1;
   }
 
   // Add active entry
@@ -153,6 +220,9 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
       quantity: lane.active.quantity,
       turnsRemaining: lane.active.turnsRemaining,
       eta,
+      queuedTurn: lane.active.queuedTurn,
+      startTurn: lane.active.startTurn,
+      completionTurn: lane.active.completionTurn,
     });
   }
 
@@ -233,18 +303,6 @@ export function getWarnings(state: PlanetState): Warning[] {
     });
   }
 
-  // Check for idle lanes
-  for (const laneId of ['building', 'ship', 'colonist'] as LaneId[]) {
-    const lane = state.lanes[laneId];
-    if (lane.pendingQueue.length === 0 && !lane.active) {
-      warnings.push({
-        type: 'IDLE_LANE',
-        message: `${laneId} lane is idle. Queue something to build.`,
-        severity: 'info',
-      });
-    }
-  }
-
   return warnings;
 }
 
@@ -269,6 +327,12 @@ export function canQueueItem(
   }
 
   const lane = state.lanes[def.lane];
+
+  // Check if lane has an active item (lane is busy)
+  if (lane.active) {
+    return { allowed: false, reason: 'Lane is busy' };
+  }
+
   if (lane.pendingQueue.length >= lane.maxQueueDepth) {
     return { allowed: false, reason: 'Queue is full' };
   }

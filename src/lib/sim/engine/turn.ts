@@ -31,6 +31,7 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
   processCompletions(state, completedItems);
 
   // Phase 2-4: Process each lane in order (building → ship → colonist)
+  const sameTurnCompletions: WorkItem[] = [];
   for (const laneId of LANE_ORDER) {
     // Activation phase
     tryActivateNext(state, laneId);
@@ -38,14 +39,22 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
     // Progression phase
     const completedItem = progressActive(state, laneId);
 
-    // If item completed and it's not a colonist, enqueue for next turn
+    // If item completed
     if (completedItem) {
       const def = state.defs[completedItem.itemId];
       if (def && !def.colonistKind) {
-        completionBuffer.enqueue(currentTurn + 1, completedItem);
+        // Buildings get same-turn completion, ships get next-turn
+        if (def.type === 'structure') {
+          sameTurnCompletions.push(completedItem);
+        } else {
+          completionBuffer.enqueue(currentTurn + 1, completedItem);
+        }
       }
     }
   }
+
+  // Apply building completions immediately (same turn)
+  processCompletions(state, sameTurnCompletions);
 
   // Phase 5: Process colonist conversions (same-turn completion)
   applyColonistConversions(state);

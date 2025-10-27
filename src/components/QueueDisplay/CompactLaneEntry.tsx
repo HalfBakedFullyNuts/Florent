@@ -9,6 +9,7 @@ export interface CompactLaneEntryProps {
   onCancel: () => void;
   disabled?: boolean;
   queuedTurn?: number; // When item was queued
+  isNewest?: boolean; // Whether this is the most recently added item
 }
 
 /**
@@ -25,12 +26,12 @@ export function CompactLaneEntry({
   onCancel,
   disabled = false,
   queuedTurn = 0,
+  isNewest = false,
 }: CompactLaneEntryProps) {
-  const [showCancel, setShowCancel] = useState(false);
-
-  // Calculate turn range
-  const startTurn = queuedTurn || currentTurn;
-  const endTurn = entry.eta !== null ? entry.eta : startTurn + entry.turnsRemaining;
+  // Calculate turn range - use startTurn (activation) to completionTurn
+  // For pending items, we don't know when they'll activate yet
+  const startTurn = entry.startTurn ?? (queuedTurn || currentTurn);
+  const endTurn = entry.completionTurn ?? (entry.eta !== null ? entry.eta : startTurn + entry.turnsRemaining);
 
   // Format entry text
   const formatEntry = () => {
@@ -40,28 +41,30 @@ export function CompactLaneEntry({
 
     // Status indicators
     let statusIcon = '';
-    if (entry.status === 'active') {
+    if (entry.status === 'completed') {
+      statusIcon = '✓';
+    } else if (entry.status === 'active') {
       statusIcon = `⏳${entry.turnsRemaining}`;
     } else if (entry.status === 'pending') {
       statusIcon = '⏸';
-    } else if (entry.turnsRemaining === 0) {
-      statusIcon = '✓';
     }
 
     return `${turnRange} ${batchIndicator}${name} ${statusIcon}`;
   };
 
-  // Get visual state classes
+  // Get visual state classes with newest highlight
   const getStatusClasses = () => {
+    const highlightClass = isNewest ? 'ring-2 ring-pink-nebula-accent-primary' : '';
+
     switch (entry.status) {
       case 'active':
-        return 'bg-green-900/10 border-l-green-400 hover:bg-green-900/20';
+        return `bg-green-900/10 border-l-green-400 hover:bg-green-900/20 ${highlightClass}`;
       case 'pending':
-        return 'bg-blue-900/10 border-l-blue-400 hover:bg-blue-900/20';
+        return `bg-blue-900/10 border-l-blue-400 hover:bg-blue-900/20 ${highlightClass}`;
       case 'completed':
-        return 'bg-yellow-900/10 border-l-yellow-400 hover:bg-yellow-900/20';
+        return `bg-pink-nebula-bg/50 border-l-pink-nebula-muted opacity-60 ${highlightClass}`;
       default:
-        return 'bg-pink-nebula-bg border-l-pink-nebula-border';
+        return `bg-pink-nebula-bg border-l-pink-nebula-border ${highlightClass}`;
     }
   };
 
@@ -71,11 +74,7 @@ export function CompactLaneEntry({
     : 0;
 
   return (
-    <div
-      className="relative group"
-      onMouseEnter={() => setShowCancel(true)}
-      onMouseLeave={() => setShowCancel(false)}
-    >
+    <div className="relative group">
       {/* Entry content */}
       <div className={`
         flex items-center justify-between px-3 py-2 rounded
@@ -86,14 +85,14 @@ export function CompactLaneEntry({
           {formatEntry()}
         </span>
 
-        {/* Cancel button - appears on hover */}
-        {showCancel && !disabled && (
+        {/* Cancel button - grey X on the right - only for pending/active items */}
+        {!disabled && entry.status !== 'completed' && (
           <button
             onClick={(e) => {
               e.stopPropagation();
               onCancel();
             }}
-            className="w-5 h-5 rounded flex items-center justify-center bg-red-600/80 hover:bg-red-600 transition-colors text-white text-xs font-bold ml-2"
+            className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 transition-colors text-xs ml-2 shrink-0"
             aria-label={`Cancel ${entry.itemName}`}
             title="Cancel production"
           >

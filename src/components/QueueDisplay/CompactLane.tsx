@@ -9,7 +9,7 @@ export interface CompactLaneProps {
   laneId: LaneId;
   laneView: LaneView;
   currentTurn: number;
-  onCancel: (entryIndex: number) => void;
+  onCancel: (entry: LaneEntry) => void;
   disabled?: boolean;
 }
 
@@ -42,22 +42,22 @@ export function CompactLane({
     }
   };
 
-  const getLaneBorderColor = () => {
+  const getLaneBackgroundColor = () => {
     switch (laneId) {
       case 'building':
-        return 'border-blue-400';
+        return 'bg-slate-800';
       case 'ship':
-        return 'border-purple-400';
+        return 'bg-slate-800';
       case 'colonist':
-        return 'border-green-400';
+        return 'bg-slate-800';
       default:
-        return 'border-pink-nebula-border';
+        return 'bg-pink-nebula-panel';
     }
   };
 
   return (
     <div className={`
-      w-[280px] bg-pink-nebula-panel rounded-lg border-2 ${getLaneBorderColor()}
+      w-[280px] ${getLaneBackgroundColor()} rounded-lg
       flex flex-col overflow-hidden
     `}>
       {/* Header */}
@@ -73,21 +73,29 @@ export function CompactLane({
       </div>
 
       {/* Queue entries with scroll */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[400px]">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[1200px]">
         {laneView.entries.length === 0 ? (
           <div className="text-center text-pink-nebula-muted py-8 text-sm">
             Queue empty
           </div>
         ) : (
-          laneView.entries.map((entry, index) => (
-            <CompactLaneEntry
-              key={entry.id}
-              entry={entry}
-              currentTurn={currentTurn}
-              onCancel={() => onCancel(index)}
-              disabled={disabled}
-            />
-          ))
+          laneView.entries.map((entry, index) => {
+            // The newest item is the last non-completed item in the list
+            const nonCompletedEntries = laneView.entries.filter(e => e.status !== 'completed');
+            const isNewest = nonCompletedEntries.length > 0 &&
+                           entry.id === nonCompletedEntries[nonCompletedEntries.length - 1].id;
+
+            return (
+              <CompactLaneEntry
+                key={entry.id}
+                entry={entry}
+                currentTurn={currentTurn}
+                onCancel={() => onCancel(entry)}
+                disabled={disabled}
+                isNewest={isNewest}
+              />
+            );
+          })
         )}
       </div>
 

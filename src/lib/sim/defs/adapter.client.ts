@@ -121,6 +121,7 @@ function convertUnit(raw: RawUnit): ItemDefinition {
     name: raw.name,
     lane,
     type,
+    tier: raw.tier,
     durationTurns: raw.build_time_turns,
     costsPerUnit: costs,
     effectsOnComplete: {}, // Units don't have effects in the data
@@ -238,6 +239,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     name: raw.name,
     lane,
     type,
+    tier: raw.tier,
     durationTurns: raw.build_time_turns,
     costsPerUnit: costs,
     effectsOnComplete: effects,

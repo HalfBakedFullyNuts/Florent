@@ -171,8 +171,7 @@ describe('Selectors', () => {
       state.stocks.food = 500;
       const warnings = getWarnings(state);
 
-      expect(warnings).toHaveLength(3); // Only idle lane warnings
-      expect(warnings.every((w) => w.type === 'IDLE_LANE')).toBe(true);
+      expect(warnings).toHaveLength(0); // No warnings for healthy state (idle lane warnings removed)
     });
 
     it('should warn when energy is negative', () => {
@@ -235,28 +234,13 @@ describe('Selectors', () => {
       expect(spaceWarning).toBeDefined();
     });
 
-    it('should provide info warnings for idle lanes', () => {
+    it('should not generate warnings for healthy state', () => {
+      state.stocks.energy = 100;
+      state.stocks.food = 500;
       const warnings = getWarnings(state);
 
-      const idleWarnings = warnings.filter((w) => w.type === 'IDLE_LANE');
-      expect(idleWarnings).toHaveLength(3); // All 3 lanes idle
-      expect(idleWarnings.every((w) => w.severity === 'info')).toBe(true);
-    });
-
-    it('should not warn about idle lanes that are busy', () => {
-      state.lanes.building.active = {
-        id: 'active_1',
-        itemId: 'metal_mine',
-        status: 'active',
-        quantity: 1,
-        turnsRemaining: 2,
-      };
-
-      const warnings = getWarnings(state);
-      const idleWarnings = warnings.filter((w) => w.type === 'IDLE_LANE');
-
-      expect(idleWarnings).toHaveLength(2); // Only ship and colonist lanes idle
-      expect(idleWarnings.some((w) => w.message.includes('building'))).toBe(false);
+      // Idle lane warnings have been removed - only returns real problems
+      expect(warnings).toHaveLength(0);
     });
 
     it('should combine multiple warnings', () => {
@@ -269,7 +253,7 @@ describe('Selectors', () => {
       expect(warnings.some((w) => w.type === 'NEGATIVE_ENERGY')).toBe(true);
       expect(warnings.some((w) => w.type === 'NO_FOOD')).toBe(true);
       expect(warnings.some((w) => w.type === 'SPACE_FULL')).toBe(true);
-      expect(warnings.length).toBeGreaterThan(3);
+      expect(warnings.length).toBeGreaterThanOrEqual(3); // At least 3 warnings (no idle warnings)
     });
   });
 
@@ -342,9 +326,15 @@ describe('Selectors', () => {
       const buildingResult = canQueueItem(state, 'metal_mine', 1);
       expect(buildingResult.allowed).toBe(true);
 
-      // Colonist lane is free, so soldier (colonist) should be allowed
+      // Colonist lane is free, but soldier needs barracks (prerequisite missing)
       const colonistResult = canQueueItem(state, 'soldier', 1);
-      expect(colonistResult.allowed).toBe(true);
+      expect(colonistResult.allowed).toBe(false);
+      expect(colonistResult.reason).toBe('REQ_MISSING');
+
+      // Add barracks to meet prerequisites
+      state.completedCounts.barracks = 1;
+      const colonistResultAfterBarracks = canQueueItem(state, 'soldier', 1);
+      expect(colonistResultAfterBarracks.allowed).toBe(true);
     });
   });
 });

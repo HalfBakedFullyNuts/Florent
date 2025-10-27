@@ -101,7 +101,7 @@ export function createInitialState(
 
   // Create initial state
   const initialState: PlanetState = {
-    currentTurn: 0,
+    currentTurn: 1,
     stocks,
     abundance,
     population: {
@@ -130,16 +130,19 @@ export function createInitialState(
       building: {
         pendingQueue: [],
         active: null,
+        completionHistory: [],
         maxQueueDepth: 10,
       },
       ship: {
         pendingQueue: [],
         active: null,
+        completionHistory: [],
         maxQueueDepth: 10,
       },
       colonist: {
         pendingQueue: [],
         active: null,
+        completionHistory: [],
         maxQueueDepth: 10,
       },
     },

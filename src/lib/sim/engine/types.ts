@@ -54,6 +54,7 @@ export interface ItemDefinition {
   name: string;
   lane: LaneId;
   type: UnitType;
+  tier: number;
   durationTurns: number;
   costsPerUnit: Costs;
   effectsOnComplete: Effects;
@@ -73,6 +74,9 @@ export interface WorkItem {
   status: Status;
   quantity: number; // final quantity after clamping
   turnsRemaining: number;
+  queuedTurn?: number; // Turn when item was queued
+  startTurn?: number; // Turn when work started (set when activated)
+  completionTurn?: number; // Turn when work completed (set when finished)
 }
 
 // ============================================================================
@@ -82,6 +86,7 @@ export interface WorkItem {
 export interface LaneState {
   pendingQueue: WorkItem[]; // Queue of pending items (max 10)
   active: WorkItem | null;
+  completionHistory: WorkItem[]; // Completed items for visual history
   maxQueueDepth: number; // Default: 10
 }
 

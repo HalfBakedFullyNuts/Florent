@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { GameController } from '../lib/game/commands';
 import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem } from '../lib/game/selectors';
 import { createStandardStart } from '../lib/sim/defs/seed';
@@ -10,8 +10,8 @@ import gameDataRaw from '../lib/game/game_data.json';
 // UI Components
 import { TurnSlider } from '../components/TurnSlider';
 import { PlanetDashboard } from '../components/PlanetDashboard';
-import { CompactLane } from '../components/QueueDisplay/CompactLane';
-import { ItemGrid } from '../components/LaneBoard/ItemGrid';
+import { TabbedLaneDisplay } from '../components/QueueDisplay/TabbedLaneDisplay';
+import { TabbedItemGrid } from '../components/LaneBoard/TabbedItemGrid';
 import { WarningsPanel } from '../components/WarningsPanel';
 
 /**
@@ -30,30 +30,25 @@ export default function Home() {
     return new GameController(initialState);
   });
 
-  const [viewTurn, setViewTurn] = useState(0);
+  const [viewTurn, setViewTurn] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [stateVersion, setStateVersion] = useState(0); // Force re-render when state changes
 
-  // Get current state from controller
+  // Get current state from controller - re-fetch when viewTurn OR stateVersion changes
   const currentState = controller.getStateAtTurn(viewTurn);
   const totalTurns = controller.getTotalTurns();
 
-  // Guard against undefined state
-  if (!currentState) {
-    return <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text p-6">
-      <h1 className="text-2xl font-bold">Error: Invalid turn {viewTurn}</h1>
-    </div>;
-  }
+  const defs = currentState?.defs || {};
 
-  const defs = currentState.defs;
+  // Use selectors for UI data - re-compute when state or version changes
+  // These hooks must be called unconditionally (Rules of Hooks)
+  const summary = useMemo(() => currentState ? getPlanetSummary(currentState) : null, [currentState, stateVersion]);
+  const buildingLane = useMemo(() => currentState ? getLaneView(currentState, 'building') : null, [currentState, stateVersion]);
+  const shipLane = useMemo(() => currentState ? getLaneView(currentState, 'ship') : null, [currentState, stateVersion]);
+  const colonistLane = useMemo(() => currentState ? getLaneView(currentState, 'colonist') : null, [currentState, stateVersion]);
+  const warnings = useMemo(() => currentState ? getWarnings(currentState) : [], [currentState, stateVersion]);
 
-  // Use selectors for UI data
-  const summary = useMemo(() => getPlanetSummary(currentState), [currentState]);
-  const buildingLane = useMemo(() => getLaneView(currentState, 'building'), [currentState]);
-  const shipLane = useMemo(() => getLaneView(currentState, 'ship'), [currentState]);
-  const colonistLane = useMemo(() => getLaneView(currentState, 'colonist'), [currentState]);
-  const warnings = useMemo(() => getWarnings(currentState), [currentState]);
-
-  // Get available items for each lane
+  // Get available items for each lane - must be before early return
   const availableItems = useMemo(() => {
     const items: Record<string, any> = {};
     Object.entries(defs).forEach(([id, def]) => {
@@ -62,84 +57,8 @@ export default function Home() {
     return items;
   }, [defs]);
 
-  // Helper: Find next turn where all queues are empty
-  const findNextEmptyQueueTurn = (startTurn: number): number => {
-    const maxTurn = controller.getTotalTurns() - 1;
-    const MAX_ITERATIONS = 1000; // Circuit breaker
-    const startTime = performance.now();
-    const TIMEOUT_MS = 100; // Performance budget
-
-    let iterations = 0;
-    for (let turn = startTurn; turn <= maxTurn && iterations < MAX_ITERATIONS; turn++) {
-      iterations++;
-
-      // Check timeout
-      if (performance.now() - startTime > TIMEOUT_MS) {
-        console.warn(`Turn calculation timeout after ${iterations} iterations`);
-        return startTurn; // Graceful degradation
-      }
-
-      const state = controller.getStateAtTurn(turn);
-      if (!state) continue;
-
-      // Check if all lanes are empty (no pending queue items, no active)
-      const allLanesEmpty = Object.values(state.lanes).every(
-        (lane) => lane.pendingQueue.length === 0 && !lane.active
-      );
-
-      if (allLanesEmpty) {
-        return turn;
-      }
-    }
-
-    // If no empty turn found or hit iteration limit
-    console.warn(`No empty turn found after ${iterations} iterations`);
-    return Math.min(startTurn + 10, maxTurn); // Jump ahead 10 turns max
-  };
-
-  // Command handlers
-  const handleQueueItem = (itemId: string, quantity: number) => {
-    setError(null);
-    try {
-      const currentTurn = controller.getCurrentTurn();
-      const result = controller.queueItem(currentTurn, itemId, quantity);
-      if (!result.success) {
-        setError(result.reason || 'Cannot queue item');
-      } else {
-        // AUTO-ADVANCE: Jump to next turn where queues are empty
-        const nextEmptyTurn = findNextEmptyQueueTurn(viewTurn + 1);
-        setViewTurn(nextEmptyTurn);
-      }
-    } catch (e) {
-      setError((e as Error).message || 'Unknown error');
-    }
-  };
-
-  const handleCancelItem = (laneId: 'building' | 'ship' | 'colonist') => {
-    setError(null);
-    try {
-      const currentTurn = controller.getCurrentTurn();
-      const result = controller.cancelEntry(currentTurn, laneId);
-      if (!result.success) {
-        setError(result.reason || 'Cannot cancel item');
-      }
-    } catch (e) {
-      setError((e as Error).message || 'Unknown error');
-    }
-  };
-
-  const handleAdvanceTurn = () => {
-    setError(null);
-    try {
-      controller.nextTurn();
-      // Move to the new latest turn
-      setViewTurn(controller.getTotalTurns() - 1);
-    } catch (e) {
-      setError((e as Error).message || 'Unknown error');
-    }
-  };
-
-  const canQueueItem = (itemId: string, quantity: number) => {
+  // canQueueItem callback - must be before early return
+  const canQueueItem = useCallback((itemId: string, quantity: number) => {
     if (!itemId) {
       return { allowed: false, reason: 'No item selected' };
     }
@@ -157,26 +76,165 @@ export default function Home() {
     // Use selector for queue depth validation
     const currentState = controller.getCurrentState();
     return validateQueueItem(currentState, itemId, quantity);
+  }, [defs, viewTurn, totalTurns, controller]);
+
+  // Guard against undefined state AFTER all hooks are called
+  if (!currentState || !summary || !buildingLane || !shipLane || !colonistLane) {
+    return <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text p-6">
+      <h1 className="text-2xl font-bold">Error: Invalid turn {viewTurn}</h1>
+    </div>;
+  }
+
+  // Helper: Find next turn where all queues are empty
+  const findNextEmptyQueueTurn = (startTurn: number): number => {
+    const totalTurns = controller.getTotalTurns();
+    const maxTurn = totalTurns - 1;
+    const MAX_ITERATIONS = 1000; // Circuit breaker
+    const startTime = performance.now();
+    const TIMEOUT_MS = 100; // Performance budget
+
+    // If we're already at or beyond the last turn, just stay at current turn
+    if (startTurn > maxTurn) {
+      return maxTurn;
+    }
+
+    let iterations = 0;
+    for (let turn = startTurn; turn <= maxTurn && iterations < MAX_ITERATIONS; turn++) {
+      iterations++;
+
+      // Check timeout
+      if (performance.now() - startTime > TIMEOUT_MS) {
+        console.warn(`Turn calculation timeout after ${iterations} iterations`);
+        return Math.min(startTurn, maxTurn); // Stay within bounds
+      }
+
+      const state = controller.getStateAtTurn(turn);
+      if (!state) continue;
+
+      // Check if all lanes are empty (no pending queue items, no active)
+      const allLanesEmpty = Object.values(state.lanes).every(
+        (lane) => lane.pendingQueue.length === 0 && !lane.active
+      );
+
+      if (allLanesEmpty) {
+        return turn;
+      }
+    }
+
+    // If no empty turn found, simulate more turns and try again
+    if (totalTurns <= 100) { // Only auto-simulate if reasonable number of turns
+      controller.simulateTurns(10); // Add 10 more turns
+      return findNextEmptyQueueTurn(startTurn); // Recursive call with new turns
+    }
+
+    // Otherwise just advance a reasonable amount
+    return Math.min(startTurn + 10, controller.getTotalTurns() - 1);
+  };
+
+  // Command handlers
+  const handleQueueItem = (itemId: string, quantity: number) => {
+    setError(null);
+    try {
+      const currentTurn = controller.getCurrentTurn();
+      const result = controller.queueItem(currentTurn, itemId, quantity);
+      if (!result.success) {
+        setError(result.reason || 'Cannot queue item');
+      } else {
+        // Increment state version to force React to re-render with updated state
+        setStateVersion(prev => prev + 1);
+
+        // AUTO-ADVANCE: For buildings only, advance to when the last queued building completes
+        const def = defs[itemId];
+        if (def && def.lane === 'building') {
+          // Calculate when ALL buildings in the queue will complete
+          const currentState = controller.getCurrentState();
+          const buildingLane = currentState.lanes.building;
+
+          // Calculate total duration of all buildings in queue
+          let totalDuration = 0;
+
+          // Add remaining time for active building if any
+          if (buildingLane.active) {
+            totalDuration += buildingLane.active.turnsRemaining;
+          }
+
+          // Add duration for all pending buildings
+          for (const pending of buildingLane.pendingQueue) {
+            const pendingDef = defs[pending.itemId];
+            if (pendingDef) {
+              totalDuration += pendingDef.durationTurns;
+            }
+          }
+
+          // The last building will complete at currentTurn + totalDuration
+          const lastCompletionTurn = currentTurn + totalDuration;
+
+          // Ensure turns are simulated up to the last completion
+          const totalTurns = controller.getTotalTurns();
+          if (lastCompletionTurn >= totalTurns) {
+            const turnsToSimulate = lastCompletionTurn - totalTurns + 1;
+            controller.simulateTurns(turnsToSimulate);
+          }
+
+          // Jump to when the last building completes
+          setViewTurn(lastCompletionTurn);
+          setStateVersion(prev => prev + 1);
+        }
+        // For ships/colonists, stay at current turn (no auto-advance)
+      }
+    } catch (e) {
+      console.error('Error in handleQueueItem:', e);
+      setError((e as Error).message || 'Unknown error');
+    }
+  };
+
+  const handleCancelItem = (laneId: 'building' | 'ship' | 'colonist', entry: any) => {
+    setError(null);
+    try {
+      // Use viewTurn instead of currentTurn, since we're viewing a specific turn
+      const turnToModify = viewTurn;
+
+      // If it's a completed item, remove from history
+      if (entry.status === 'completed') {
+        const result = controller.removeFromHistory(turnToModify, laneId, entry.id);
+        if (!result.success) {
+          setError(result.reason || 'Cannot remove from history');
+        } else {
+          setStateVersion(prev => prev + 1);
+        }
+      } else {
+        // For active/pending items, use the normal cancel at current turn
+        const currentTurn = controller.getCurrentTurn();
+        const result = controller.cancelEntry(currentTurn, laneId);
+        if (!result.success) {
+          setError(result.reason || 'Cannot cancel item');
+        } else {
+          setStateVersion(prev => prev + 1);
+        }
+      }
+    } catch (e) {
+      setError((e as Error).message || 'Unknown error');
+    }
+  };
+
+  const handleAdvanceTurn = () => {
+    setError(null);
+    try {
+      controller.nextTurn();
+      // Move to the new latest turn
+      setViewTurn(controller.getTotalTurns() - 1);
+      // Increment state version to force re-render
+      setStateVersion(prev => prev + 1);
+    } catch (e) {
+      setError((e as Error).message || 'Unknown error');
+    }
   };
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col">
       {/* Header */}
       <header className="bg-pink-nebula-panel px-6 py-4 border-b border-pink-nebula-border">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
-          <button
-            onClick={handleAdvanceTurn}
-            disabled={viewTurn < totalTurns - 1}
-            className={`px-4 py-2 rounded font-semibold transition-colors ${
-              viewTurn < totalTurns - 1
-                ? 'bg-pink-nebula-bg text-pink-nebula-muted cursor-not-allowed'
-                : 'bg-pink-nebula-accent-primary text-pink-nebula-text hover:bg-pink-nebula-accent-secondary'
-            }`}
-          >
-            Advance Turn
-          </button>
-        </div>
+        <h1 className="text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
       </header>
 
       {/* Turn Slider */}
@@ -201,48 +259,34 @@ export default function Home() {
       )}
 
       {/* Planet Dashboard - Horizontal Overview */}
-      <PlanetDashboard summary={summary} />
+      <PlanetDashboard summary={summary} defs={defs} />
 
-      {/* Main Content - Three Lane Queues + Item Grid */}
+      {/* Main Content - Side-by-side Tabbed Displays */}
       <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
-        {/* Lane Queue Display */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          {/* Lane 1: Structures */}
-          <CompactLane
-            laneId="building"
-            laneView={buildingLane}
-            currentTurn={viewTurn}
-            onCancel={(index) => handleCancelItem('building')}
-            disabled={viewTurn < totalTurns - 1}
-          />
+        <div className="flex gap-6">
+          {/* Left: Add to Queue (Item Selection) */}
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Add to Queue</h2>
+            <TabbedItemGrid
+              availableItems={availableItems}
+              onQueueItem={handleQueueItem}
+              canQueueItem={canQueueItem}
+            />
+          </div>
 
-          {/* Lane 2: Ships */}
-          <CompactLane
-            laneId="ship"
-            laneView={shipLane}
-            currentTurn={viewTurn}
-            onCancel={(index) => handleCancelItem('ship')}
-            disabled={viewTurn < totalTurns - 1}
-          />
-
-          {/* Lane 3: Colonists */}
-          <CompactLane
-            laneId="colonist"
-            laneView={colonistLane}
-            currentTurn={viewTurn}
-            onCancel={(index) => handleCancelItem('colonist')}
-            disabled={viewTurn < totalTurns - 1}
-          />
-        </div>
-
-        {/* Item Selection Grid (UI-4: One-click queueing) */}
-        <div className="bg-pink-nebula-panel rounded-lg border border-pink-nebula-border p-6">
-          <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Queue Items</h2>
-          <ItemGrid
-            availableItems={availableItems}
-            onQueueItem={handleQueueItem}
-            canQueueItem={canQueueItem}
-          />
+          {/* Right: Planet Queue (Lane Display) */}
+          <div className="flex-1">
+            <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Planet Queue</h2>
+            <TabbedLaneDisplay
+              buildingLane={buildingLane}
+              shipLane={shipLane}
+              colonistLane={colonistLane}
+              currentTurn={viewTurn}
+              onCancel={(laneId, entry) => handleCancelItem(laneId, entry)}
+              disabled={viewTurn < totalTurns - 1}
+              defs={defs}
+            />
+          </div>
         </div>
       </main>
 
