@@ -17,21 +17,6 @@ export interface TurnSliderProps {
  * Ticket 13: UI component for timeline navigation
  */
 export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSliderProps) {
-  const canGoPrevious = currentTurn > 0;
-  const canGoNext = currentTurn < totalTurns - 1;
-
-  const handlePrevious = () => {
-    if (canGoPrevious) {
-      onTurnChange(currentTurn - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (canGoNext) {
-      onTurnChange(currentTurn + 1);
-    }
-  };
-
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTurn = parseInt(e.target.value, 10);
     onTurnChange(newTurn);
@@ -47,20 +32,6 @@ export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSlider
   return (
     <div className="w-full bg-pink-nebula-panel border-b border-pink-nebula-border">
       <div className="max-w-[1800px] mx-auto px-6 py-4 flex items-center gap-4">
-        {/* Previous Turn Button */}
-        <button
-          onClick={handlePrevious}
-          disabled={!canGoPrevious}
-          className={`px-4 py-2 rounded font-semibold transition-colors ${
-            canGoPrevious
-              ? 'bg-pink-nebula-accent-primary text-pink-nebula-text hover:bg-pink-nebula-accent-secondary'
-              : 'bg-pink-nebula-bg text-pink-nebula-muted cursor-not-allowed'
-          }`}
-          aria-label="Previous turn"
-        >
-          ← Previous
-        </button>
-
         {/* Turn Display and Input */}
         <div className="flex items-center gap-2">
           <label htmlFor="turn-input" className="text-pink-nebula-muted font-semibold">
@@ -100,20 +71,6 @@ export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSlider
                      [&::-moz-range-thumb]:border-0"
           aria-label="Turn slider"
         />
-
-        {/* Next Turn Button */}
-        <button
-          onClick={handleNext}
-          disabled={!canGoNext}
-          className={`px-4 py-2 rounded font-semibold transition-colors ${
-            canGoNext
-              ? 'bg-pink-nebula-accent-primary text-pink-nebula-text hover:bg-pink-nebula-accent-secondary'
-              : 'bg-pink-nebula-bg text-pink-nebula-muted cursor-not-allowed'
-          }`}
-          aria-label="Next turn"
-        >
-          Next →
-        </button>
       </div>
     </div>
   );

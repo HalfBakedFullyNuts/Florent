@@ -155,6 +155,73 @@ export class GameController {
   }
 
   /**
+   * Cancel a specific entry by its ID
+   * Works for both pending and active entries
+   */
+  cancelEntryById(turn: number, laneId: LaneId, entryId: string): CancelResult {
+    const state = this.timeline.getStateAtTurn(turn);
+    if (!state) {
+      return { success: false, reason: 'INVALID_TURN' };
+    }
+
+    const lane = state.lanes[laneId];
+
+    // Check if entry is in pending queue
+    const pendingIndex = lane.pendingQueue.findIndex(item => item.id === entryId);
+    if (pendingIndex !== -1) {
+      this.timeline.mutateAtTurn(turn, (s) => {
+        s.lanes[laneId].pendingQueue.splice(pendingIndex, 1);
+      });
+      return { success: true };
+    }
+
+    // Check if entry is the active item
+    if (lane.active && lane.active.id === entryId) {
+      this.timeline.mutateAtTurn(turn, (s) => {
+        const active = s.lanes[laneId].active;
+        if (!active) return;
+
+        const def = s.defs[active.itemId];
+        if (!def) return;
+
+        // Refund resources
+        const costs = def.costsPerUnit;
+        s.stocks.metal += costs.metal * active.quantity;
+        s.stocks.mineral += costs.mineral * active.quantity;
+        s.stocks.food += costs.food * active.quantity;
+        s.stocks.energy += costs.energy * active.quantity;
+
+        // Release workers
+        const workersNeeded = costs.workers || 0;
+        if (workersNeeded > 0) {
+          const totalWorkers = workersNeeded * active.quantity;
+          s.population.workersIdle += totalWorkers;
+          s.population.busyByLane[laneId] =
+            (s.population.busyByLane[laneId] || 0) - totalWorkers;
+        }
+
+        // Release space
+        const spaceNeeded = costs.space || 0;
+        if (spaceNeeded > 0) {
+          const totalSpace = spaceNeeded * active.quantity;
+          if (def.type === 'structure') {
+            s.space.groundUsed -= totalSpace;
+          } else {
+            s.space.orbitalUsed -= totalSpace;
+          }
+        }
+
+        // Clear active slot
+        s.lanes[laneId].active = null;
+      });
+
+      return { success: true };
+    }
+
+    return { success: false, reason: 'NOT_FOUND' };
+  }
+
+  /**
    * Remove an item from completion history by item ID
    *
    * WARNING: This method is fundamentally broken in a deterministic simulation!

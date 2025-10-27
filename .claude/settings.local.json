@@ -22,7 +22,12 @@
       "mcp__chrome-devtools__take_snapshot",
       "Read(//c/Users/User/Documents/ShareX/Screenshots/2025-10/**)",
       "Bash(npm run dev:*)",
-      "mcp__chrome-devtools__list_pages"
+      "mcp__chrome-devtools__list_pages",
+      "Bash(find:*)",
+      "Bash(npx eslint:*)",
+      "Bash(npm run lint:*)",
+      "Bash(rm:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

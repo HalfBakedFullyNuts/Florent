@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
 
 export interface CompactLaneEntryProps {
@@ -28,6 +28,17 @@ export function CompactLaneEntry({
   queuedTurn = 0,
   isNewest = false,
 }: CompactLaneEntryProps) {
+  const [confirmMode, setConfirmMode] = useState(false);
+
+  // Reset confirmation mode after 3 seconds
+  useEffect(() => {
+    if (confirmMode) {
+      const timer = setTimeout(() => {
+        setConfirmMode(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [confirmMode]);
   // Calculate turn range - use startTurn (activation) to completionTurn
   // For pending items, we don't know when they'll activate yet
   const startTurn = entry.startTurn ?? (queuedTurn || currentTurn);
@@ -73,33 +84,53 @@ export function CompactLaneEntry({
     ? Math.round(((endTurn - startTurn - entry.turnsRemaining) / (endTurn - startTurn)) * 100)
     : 0;
 
+  const handleClick = () => {
+    if (confirmMode) {
+      // Second click - actually remove
+      onCancel();
+    } else {
+      // First click - enter confirm mode
+      setConfirmMode(true);
+    }
+  };
+
   return (
     <div className="relative group">
       {/* Entry content */}
-      <div className={`
-        flex items-center justify-between px-3 py-2 rounded
-        border-l-4 transition-all text-sm
-        ${getStatusClasses()}
-      `}>
-        <span className="text-pink-nebula-text font-mono text-xs flex-1">
-          {formatEntry()}
-        </span>
+      <button
+        onClick={handleClick}
+        className={`
+          w-full flex items-center justify-between px-3 py-2 rounded
+          border-l-4 transition-all text-sm
+          ${confirmMode ? 'bg-red-900/20 border-l-red-500' : getStatusClasses()}
+          cursor-pointer hover:bg-slate-800
+        `}
+        title={confirmMode ? 'Click again to confirm removal' : 'Click to remove from queue'}
+      >
+        {confirmMode ? (
+          <>
+            <span className="text-red-400 font-semibold text-xs flex-1">
+              Remove {entry.itemName}?
+            </span>
+            <span className="text-red-400 font-bold text-xs ml-2">
+              CONFIRM
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-white font-mono text-xs flex-1 group-hover:text-pink-400 transition-colors">
+              {formatEntry()}
+            </span>
 
-        {/* Cancel button - grey X on the right - only for pending/active items */}
-        {!disabled && entry.status !== 'completed' && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onCancel();
-            }}
-            className="w-4 h-4 flex items-center justify-center text-gray-500 hover:text-gray-300 transition-colors text-xs ml-2 shrink-0"
-            aria-label={`Cancel ${entry.itemName}`}
-            title="Cancel production"
-          >
-            ✕
-          </button>
+            {/* Remove indicator - only for pending/active items */}
+            {!disabled && entry.status !== 'completed' && (
+              <span className="text-gray-500 group-hover:text-pink-400 transition-colors text-xs ml-2 shrink-0">
+                ✕
+              </span>
+            )}
+          </>
         )}
-      </div>
+      </button>
 
       {/* Progress bar for active items */}
       {entry.status === 'active' && progressPercent > 0 && (

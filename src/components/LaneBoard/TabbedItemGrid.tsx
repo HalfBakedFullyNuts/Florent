@@ -157,10 +157,11 @@ export function TabbedItemGrid({
                         <button
                           key={item.id}
                           onClick={() => handleItemClick(item.id)}
+                          disabled={!queueable}
                           className={`w-full text-left p-3 rounded border transition-colors group ${
                             queueable
                               ? 'border-pink-nebula-border bg-pink-nebula-bg hover:bg-slate-700 cursor-pointer'
-                              : 'border-pink-nebula-muted bg-pink-nebula-bg/50 opacity-60 cursor-not-allowed'
+                              : 'border-pink-nebula-border bg-pink-nebula-bg opacity-60 cursor-not-allowed'
                           }`}
                         >
                           <div className="flex items-center gap-2 text-sm flex-wrap">

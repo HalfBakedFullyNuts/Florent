@@ -176,9 +176,11 @@ export default function Home() {
             controller.simulateTurns(turnsToSimulate);
           }
 
-          // Jump to when the last building completes
-          setViewTurn(lastCompletionTurn);
+          // Force state update after simulating turns
           setStateVersion(prev => prev + 1);
+
+          // Set viewTurn to the completion turn directly (where lane will be idle)
+          setViewTurn(lastCompletionTurn);
         }
         // For ships/colonists, stay at current turn (no auto-advance)
       }
@@ -191,26 +193,21 @@ export default function Home() {
   const handleCancelItem = (laneId: 'building' | 'ship' | 'colonist', entry: any) => {
     setError(null);
     try {
-      // Use viewTurn instead of currentTurn, since we're viewing a specific turn
-      const turnToModify = viewTurn;
+      // Cancel the specific entry by ID at the current turn
+      const currentTurn = controller.getCurrentTurn();
+      const result = controller.cancelEntryById(currentTurn, laneId, entry.id);
 
-      // If it's a completed item, remove from history
-      if (entry.status === 'completed') {
-        const result = controller.removeFromHistory(turnToModify, laneId, entry.id);
-        if (!result.success) {
-          setError(result.reason || 'Cannot remove from history');
-        } else {
-          setStateVersion(prev => prev + 1);
-        }
+      if (!result.success) {
+        setError(result.reason || 'Cannot cancel item');
       } else {
-        // For active/pending items, use the normal cancel at current turn
-        const currentTurn = controller.getCurrentTurn();
-        const result = controller.cancelEntry(currentTurn, laneId);
-        if (!result.success) {
-          setError(result.reason || 'Cannot cancel item');
-        } else {
-          setStateVersion(prev => prev + 1);
-        }
+        // Force state update to re-render UI
+        setStateVersion(prev => prev + 1);
+
+        // Get new current turn after cancellation (timeline may have recalculated)
+        const newCurrentTurn = controller.getCurrentTurn();
+
+        // Update viewTurn to the current turn to see the updated queue
+        setViewTurn(newCurrentTurn);
       }
     } catch (e) {
       setError((e as Error).message || 'Unknown error');
