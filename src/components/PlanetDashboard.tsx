@@ -123,6 +123,10 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
       const foodIn = def?.upkeepPerUnit?.food || 0;
       const energyIn = def?.upkeepPerUnit?.energy || 0;
 
+      // Determine if this structure uses orbital space (orbital_facility subcategory)
+      const isOrbital = def?.subcategory === 'orbital_facility';
+      const spaceAmount = (def?.costsPerUnit?.space || 0) * count;
+
       return {
         id: structureId,
         name,
@@ -134,7 +138,8 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
         mineralNet: (mineralOut - mineralIn) * count,
         foodNet: (foodOut - foodIn) * count,
         energyNet: (energyOut - energyIn) * count,
-        space: (def?.costsPerUnit?.space || 0) * count,
+        space: spaceAmount,
+        isOrbital,
       };
     });
 
@@ -390,29 +395,29 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
                     {structure.name} x{structure.count}
                   </span>
 
-                  {/* Metal - fixed width column */}
+                  {/* Metal - fixed width column, no letter suffix */}
                   <span className="text-gray-300 w-16 text-right">
-                    {structure.metalNet !== 0 ? (structure.metalNet > 0 ? '+' : '') + structure.metalNet + 'M' : ''}
+                    {structure.metalNet !== 0 ? (structure.metalNet > 0 ? '+' : '') + structure.metalNet : ''}
                   </span>
 
-                  {/* Mineral - fixed width column */}
+                  {/* Mineral - fixed width column, no letter suffix */}
                   <span className="text-red-500 w-16 text-right">
-                    {structure.mineralNet !== 0 ? (structure.mineralNet > 0 ? '+' : '') + structure.mineralNet + 'Min' : ''}
+                    {structure.mineralNet !== 0 ? (structure.mineralNet > 0 ? '+' : '') + structure.mineralNet : ''}
                   </span>
 
-                  {/* Food - fixed width column */}
+                  {/* Food - fixed width column, no letter suffix */}
                   <span className="text-green-500 w-16 text-right">
-                    {structure.foodNet !== 0 ? (structure.foodNet > 0 ? '+' : '') + structure.foodNet + 'F' : ''}
+                    {structure.foodNet !== 0 ? (structure.foodNet > 0 ? '+' : '') + structure.foodNet : ''}
                   </span>
 
-                  {/* Energy - fixed width column */}
+                  {/* Energy - fixed width column, no letter suffix */}
                   <span className="text-blue-400 w-16 text-right">
-                    {structure.energyNet !== 0 ? (structure.energyNet > 0 ? '+' : '') + structure.energyNet + 'E' : ''}
+                    {structure.energyNet !== 0 ? (structure.energyNet > 0 ? '+' : '') + structure.energyNet : ''}
                   </span>
 
-                  {/* Space - fixed width column */}
+                  {/* Space - fixed width column, show OS for orbital, GS for ground */}
                   <span className="text-pink-nebula-muted w-14 text-right">
-                    {structure.space > 0 ? '-' + structure.space + 'GS' : ''}
+                    {structure.space > 0 ? '-' + structure.space + (structure.isOrbital ? ' OS' : ' GS') : ''}
                   </span>
                 </div>
               ))}

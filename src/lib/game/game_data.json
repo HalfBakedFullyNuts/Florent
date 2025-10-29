@@ -620,7 +620,7 @@
         { "type": "resource", "id": "mineral", "amount": 32000 }
       ],
       "build_requirements": {
-        "workers_occupied": 25000,
+        "workers_occupied": 60000,
         "space_cost": [{ "type": "orbital_space", "amount": 2 }]
       },
       "requirements": [{ "type": "structure", "id": "launch_site" }],

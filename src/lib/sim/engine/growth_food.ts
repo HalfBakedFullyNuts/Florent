@@ -27,6 +27,7 @@ export function computeGrowthBonus(state: PlanetState): number {
 /**
  * Calculate and apply worker growth
  * Only applies if food > 0 after production
+ * Growth is clamped to not exceed housing cap
  */
 export function applyWorkerGrowth(state: PlanetState): GrowthCalculation {
   // No growth if food is depleted
@@ -39,11 +40,17 @@ export function applyWorkerGrowth(state: PlanetState): GrowthCalculation {
   const totalRate = baseRate + bonusRate;
   const growthAmount = Math.floor(state.population.workersTotal * totalRate);
 
-  // Apply growth
-  state.population.workersTotal += growthAmount;
-  state.population.workersIdle += growthAmount;
+  // Calculate available housing
+  const availableHousing = state.housing.workerCap - state.population.workersTotal;
 
-  return { baseRate, bonusRate, totalRate, growthAmount };
+  // Clamp growth to not exceed housing cap
+  const actualGrowth = Math.max(0, Math.min(growthAmount, availableHousing));
+
+  // Apply growth (only if there's available housing)
+  state.population.workersTotal += actualGrowth;
+  state.population.workersIdle += actualGrowth;
+
+  return { baseRate, bonusRate, totalRate, growthAmount: actualGrowth };
 }
 
 /**

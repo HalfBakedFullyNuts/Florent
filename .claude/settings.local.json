@@ -27,7 +27,9 @@
       "Bash(npx eslint:*)",
       "Bash(npm run lint:*)",
       "Bash(rm:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__take_screenshot"
     ],
     "deny": [],
     "ask": []

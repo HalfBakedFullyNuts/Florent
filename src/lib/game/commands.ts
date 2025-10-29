@@ -222,6 +222,51 @@ export class GameController {
   }
 
   /**
+   * Cancel an entry by searching the timeline to find where it actually exists.
+   * Handles the mismatch between queuedTurn and actual item location.
+   *
+   * This is useful for ships/colonists that don't auto-advance the UI,
+   * where the item may be queued at T5 but actually active at T51.
+   */
+  cancelEntryByIdSmart(turn: number, laneId: LaneId, entryId: string): CancelResult {
+    const totalTurns = this.getTotalTurns();
+
+    // Quick check: Try the turn first (common case for buildings)
+    const startState = this.timeline.getStateAtTurn(turn);
+    if (startState) {
+      const lane = startState.lanes[laneId];
+      const inPending = lane.pendingQueue.some(item => item.id === entryId);
+      const isActive = lane.active?.id === entryId;
+
+      if (inPending || isActive) {
+        return this.cancelEntryById(turn, laneId, entryId);
+      }
+    }
+
+    // Not at turn, search forward (ships/colonists case)
+    for (let searchTurn = turn + 1; searchTurn < totalTurns; searchTurn++) {
+      const state = this.timeline.getStateAtTurn(searchTurn);
+      if (!state) continue;
+
+      const lane = state.lanes[laneId];
+      const inPending = lane.pendingQueue.some(item => item.id === entryId);
+      const isActive = lane.active?.id === entryId;
+
+      if (inPending || isActive) {
+        return this.cancelEntryById(searchTurn, laneId, entryId);
+      }
+
+      // Stop searching if item is in completionHistory
+      const inHistory = lane.completionHistory.some(item => item.id === entryId);
+      if (inHistory) {
+        return { success: false, reason: 'NOT_FOUND' }; // Can't cancel completed items
+      }
+    }
+
+    return { success: false, reason: 'NOT_FOUND' };
+  }
+
+  /**
    * Remove an item from completion history by item ID
    *
    * WARNING: This method is fundamentally broken in a deterministic simulation!

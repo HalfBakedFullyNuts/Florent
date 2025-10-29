@@ -25,6 +25,8 @@ export function TabbedItemGrid({
   canQueueItem,
 }: TabbedItemGridProps) {
   const [activeTab, setActiveTab] = useState<LaneId>('building');
+  const [editingItem, setEditingItem] = useState<string | null>(null);
+  const [quantityValue, setQuantityValue] = useState('1');
 
   // Group items by lane
   const itemsByLane: Record<string, any[]> = {
@@ -76,10 +78,55 @@ export function TabbedItemGrid({
     return canQueueItem(itemId, 1).allowed;
   };
 
-  const handleItemClick = (itemId: string) => {
+  const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
-    if (queueable) {
+    if (!queueable) return;
+
+    if (laneId === 'building') {
+      // Structures: queue immediately with quantity=1
       onQueueItem(itemId, 1);
+    } else {
+      // Ships/Colonists: show inline quantity input
+      if (editingItem === itemId) {
+        // If clicking same item, queue with current quantity
+        const qty = parseInt(quantityValue) || 1;
+        const validation = canQueueItem(itemId, qty);
+
+        if (validation.allowed) {
+          onQueueItem(itemId, qty);
+          setEditingItem(null);
+        }
+      } else {
+        // Show quantity input for this item
+        setEditingItem(itemId);
+        setQuantityValue('1');
+      }
+    }
+  };
+
+  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, itemId: string) => {
+    if (e.key === 'Enter') {
+      const qty = parseInt(quantityValue) || 1;
+      const validation = canQueueItem(itemId, qty);
+
+      if (validation.allowed) {
+        onQueueItem(itemId, qty);
+        setEditingItem(null);
+      }
+    } else if (e.key === 'Escape') {
+      setEditingItem(null);
+      setQuantityValue('1');
+    }
+  };
+
+  const handleQuantityBlur = (itemId: string) => {
+    // Queue with current quantity on blur
+    const qty = parseInt(quantityValue) || 1;
+    const validation = canQueueItem(itemId, qty);
+
+    if (validation.allowed) {
+      onQueueItem(itemId, qty);
+      setEditingItem(null);
     }
   };
 
@@ -120,10 +167,11 @@ export function TabbedItemGrid({
           return (
             <div
               key={laneId}
+              onClick={() => !isActive && setActiveTab(laneId)}
               className={`
                 bg-slate-800 rounded-lg p-4 overflow-y-auto
                 transition-all duration-[350ms] ease-in-out
-                ${isActive ? 'flex-[2]' : 'flex-1'}
+                ${isActive ? 'flex-[2]' : 'flex-1 cursor-pointer hover:bg-slate-750'}
               `}
             >
               {/* Header - visible in all states */}
@@ -153,10 +201,12 @@ export function TabbedItemGrid({
 
                     if (isActive) {
                       // Active tab: Full display with costs
+                      const isEditing = editingItem === item.id;
+
                       return (
                         <button
                           key={item.id}
-                          onClick={() => handleItemClick(item.id)}
+                          onClick={() => handleItemClick(item.id, laneId)}
                           disabled={!queueable}
                           className={`w-full text-left p-3 rounded border transition-colors group ${
                             queueable
@@ -170,9 +220,24 @@ export function TabbedItemGrid({
                             }`}>
                               {item.name}
                             </span>
-                            <span className={queueable ? 'text-pink-nebula-muted' : 'text-pink-nebula-muted/60'}>
-                              ⏱️ {item.durationTurns}T
-                            </span>
+
+                            {/* Inline quantity input for ships/colonists */}
+                            {isEditing && (laneId === 'ship' || laneId === 'colonist') && (
+                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                                <span className="text-pink-nebula-muted text-xs">×</span>
+                                <input
+                                  type="number"
+                                  min="1"
+                                  value={quantityValue}
+                                  onChange={(e) => setQuantityValue(e.target.value)}
+                                  onKeyDown={(e) => handleQuantityKeyDown(e, item.id)}
+                                  onBlur={() => handleQuantityBlur(item.id)}
+                                  autoFocus
+                                  className="w-14 px-2 py-0.5 bg-pink-nebula-panel border border-pink-nebula-border rounded text-pink-nebula-text text-xs text-center focus:outline-none focus:border-pink-nebula-accent-primary"
+                                />
+                              </div>
+                            )}
+
                             {/* Show costs for active tab */}
                             {item.costsPerUnit && Object.entries(item.costsPerUnit)
                               .filter(([_, amount]) => (amount as number) > 0)
@@ -183,27 +248,33 @@ export function TabbedItemGrid({
                                              resource === 'energy' ? 'text-blue-400' : 'text-pink-nebula-muted';
                                 return (
                                   <span key={resource} className={queueable ? color : `${color}/60`}>
-                                    {resource.charAt(0).toUpperCase()}:{amount}
+                                    {amount}
                                   </span>
                                 );
                               })
                             }
+
+                            <span className={queueable ? 'text-pink-nebula-muted' : 'text-pink-nebula-muted/60'}>
+                              ⏱️ {item.durationTurns}T
+                            </span>
                           </div>
                         </button>
                       );
                     } else {
                       // Inactive tab: Compressed display (name + time only)
+                      // Clicking expands the tab
                       return (
-                        <div
+                        <button
                           key={item.id}
-                          className={`text-sm py-1 px-2 ${
+                          onClick={() => setActiveTab(laneId)}
+                          className={`text-sm py-1 px-2 w-full text-left hover:bg-slate-700 rounded transition-colors cursor-pointer ${
                             queueable ? 'text-pink-nebula-text' : 'text-pink-nebula-muted opacity-60'
                           }`}
                         >
                           <div className="truncate">
                             {item.name} <span className="text-pink-nebula-muted">({item.durationTurns}T)</span>
                           </div>
-                        </div>
+                        </button>
                       );
                     }
                   })

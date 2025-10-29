@@ -69,6 +69,34 @@ describe('Turn Runner', () => {
       expect(state.population.workersTotal).toBe(initialWorkers);
     });
 
+    it('should clamp worker growth to housing cap', () => {
+      const initialWorkers = state.population.workersTotal;
+      state.stocks.food = 1000; // Ensure food > 0 for growth
+
+      // Set housing cap to only allow 50 more workers
+      state.housing.workerCap = initialWorkers + 50;
+
+      runTurn(state, buffer);
+
+      // Growth would be 1% of initialWorkers (100 workers)
+      // But housing only allows 50 more
+      expect(state.population.workersTotal).toBe(state.housing.workerCap);
+      expect(state.population.workersTotal).toBe(initialWorkers + 50);
+    });
+
+    it('should not grow workers when at housing cap', () => {
+      const initialWorkers = state.population.workersTotal;
+      state.stocks.food = 1000; // Ensure food > 0 for growth
+
+      // Set housing cap equal to current workers
+      state.housing.workerCap = initialWorkers;
+
+      runTurn(state, buffer);
+
+      // No growth should occur since we're at cap
+      expect(state.population.workersTotal).toBe(initialWorkers);
+    });
+
     it('should clamp food at 0', () => {
       state.stocks.food = 10; // Low food that will go negative after upkeep
       state.population.workersTotal = 100000; // High workers = high upkeep

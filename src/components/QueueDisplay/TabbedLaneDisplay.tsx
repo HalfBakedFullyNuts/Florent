@@ -11,6 +11,8 @@ export interface TabbedLaneDisplayProps {
   colonistLane: LaneView;
   currentTurn: number;
   onCancel: (laneId: LaneId, entry: LaneEntry) => void;
+  onQuantityChange?: (laneId: LaneId, entry: LaneEntry, newQuantity: number) => void;
+  getMaxQuantity?: (laneId: LaneId, entry: LaneEntry) => number;
   disabled?: boolean;
   defs: Record<string, any>;
 }
@@ -29,6 +31,8 @@ export function TabbedLaneDisplay({
   colonistLane,
   currentTurn,
   onCancel,
+  onQuantityChange,
+  getMaxQuantity,
   disabled = false,
   defs,
 }: TabbedLaneDisplayProps) {
@@ -88,10 +92,11 @@ export function TabbedLaneDisplay({
           return (
             <div
               key={laneId}
+              onClick={() => !isActive && setActiveTab(laneId)}
               className={`
                 bg-slate-800 rounded-lg p-4 overflow-y-auto
                 transition-all duration-[350ms] ease-in-out
-                ${isActive ? 'flex-[2.2]' : 'flex-[0.9]'}
+                ${isActive ? 'flex-[2.2]' : 'flex-[0.9] cursor-pointer hover:bg-slate-750'}
               `}
             >
               {/* Header - visible in all states */}
@@ -121,6 +126,8 @@ export function TabbedLaneDisplay({
                     const isNewest = entry.id === newestId;
                     const def = defs[entry.itemId];
                     const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
+                    const showQuantityInput = laneId === 'ship' || laneId === 'colonist';
+                    const maxQuantity = getMaxQuantity ? getMaxQuantity(laneId, entry) : undefined;
 
                     return (
                       <QueueLaneEntry
@@ -128,6 +135,9 @@ export function TabbedLaneDisplay({
                         entry={entry}
                         currentTurn={currentTurn}
                         onCancel={() => onCancel(laneId, entry)}
+                        onQuantityChange={onQuantityChange ? (newQty) => onQuantityChange(laneId, entry, newQty) : undefined}
+                        maxQuantity={maxQuantity}
+                        showQuantityInput={showQuantityInput}
                         disabled={disabled}
                         isNewest={isNewest}
                         def={def}
@@ -136,10 +146,21 @@ export function TabbedLaneDisplay({
                     );
                   })
                 ) : (
-                  // Inactive tab: Compressed display (just count or top entries)
-                  <div className="text-center text-pink-nebula-muted text-sm py-4">
-                    {laneView.entries.length} item{laneView.entries.length !== 1 ? 's' : ''}
-                  </div>
+                  // Inactive tab: Compressed display (item names only)
+                  laneView.entries.map((entry) => {
+                    return (
+                      <button
+                        key={entry.id}
+                        onClick={() => setActiveTab(laneId)}
+                        className="text-sm py-1 px-2 w-full text-left hover:bg-slate-700 rounded transition-colors cursor-pointer text-pink-nebula-text"
+                      >
+                        <div className="truncate">
+                          {entry.quantity > 1 && <span className="text-pink-400 font-semibold">{entry.quantity}× </span>}
+                          {entry.itemName}
+                        </div>
+                      </button>
+                    );
+                  })
                 )}
               </div>
 

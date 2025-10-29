@@ -68,15 +68,16 @@ export default function Home() {
       return { allowed: false, reason: 'Unknown item' };
     }
 
-    // Check if viewing past turn
-    if (viewTurn < totalTurns - 1) {
-      return { allowed: false, reason: 'Cannot queue while viewing past turn' };
+    // CRITICAL-1 FIX: Get state at viewed turn, not current turn
+    // This allows queueing when the specific lane is idle at the viewed turn
+    const viewState = controller.getStateAtTurn(viewTurn);
+    if (!viewState) {
+      return { allowed: false, reason: 'Invalid turn' };
     }
 
-    // Use selector for queue depth validation
-    const currentState = controller.getCurrentState();
-    return validateQueueItem(currentState, itemId, quantity);
-  }, [defs, viewTurn, totalTurns, controller]);
+    // Check if THIS SPECIFIC lane is available at viewed turn
+    return validateQueueItem(viewState, itemId, quantity);
+  }, [defs, viewTurn, controller]);
 
   // Guard against undefined state AFTER all hooks are called
   if (!currentState || !summary || !buildingLane || !shipLane || !colonistLane) {
@@ -135,54 +136,49 @@ export default function Home() {
   const handleQueueItem = (itemId: string, quantity: number) => {
     setError(null);
     try {
-      const currentTurn = controller.getCurrentTurn();
-      const result = controller.queueItem(currentTurn, itemId, quantity);
+      // CRITICAL-1 FIX: Queue at viewTurn instead of currentTurn
+      const result = controller.queueItem(viewTurn, itemId, quantity);
       if (!result.success) {
         setError(result.reason || 'Cannot queue item');
       } else {
-        // Increment state version to force React to re-render with updated state
         setStateVersion(prev => prev + 1);
 
-        // AUTO-ADVANCE: For buildings only, advance to when the last queued building completes
         const def = defs[itemId];
-        if (def && def.lane === 'building') {
-          // Calculate when ALL buildings in the queue will complete
-          const currentState = controller.getCurrentState();
-          const buildingLane = currentState.lanes.building;
+        if (!def) return;
 
-          // Calculate total duration of all buildings in queue
-          let totalDuration = 0;
+        // CRITICAL-2 FIX: Calculate when this item will complete and ensure turns exist
+        const state = controller.getStateAtTurn(viewTurn);
+        if (!state) return;
 
-          // Add remaining time for active building if any
-          if (buildingLane.active) {
-            totalDuration += buildingLane.active.turnsRemaining;
-          }
+        const lane = state.lanes[def.lane];
 
-          // Add duration for all pending buildings
-          for (const pending of buildingLane.pendingQueue) {
-            const pendingDef = defs[pending.itemId];
-            if (pendingDef) {
-              totalDuration += pendingDef.durationTurns;
-            }
-          }
-
-          // The last building will complete at currentTurn + totalDuration
-          const lastCompletionTurn = currentTurn + totalDuration;
-
-          // Ensure turns are simulated up to the last completion
-          const totalTurns = controller.getTotalTurns();
-          if (lastCompletionTurn >= totalTurns) {
-            const turnsToSimulate = lastCompletionTurn - totalTurns + 1;
-            controller.simulateTurns(turnsToSimulate);
-          }
-
-          // Force state update after simulating turns
-          setStateVersion(prev => prev + 1);
-
-          // Set viewTurn to the completion turn directly (where lane will be idle)
-          setViewTurn(lastCompletionTurn);
+        // Calculate total duration in this lane
+        let totalDuration = 0;
+        if (lane.active) {
+          totalDuration += lane.active.turnsRemaining;
         }
-        // For ships/colonists, stay at current turn (no auto-advance)
+        for (const pending of lane.pendingQueue) {
+          const pendingDef = defs[pending.itemId];
+          if (pendingDef) {
+            totalDuration += pendingDef.durationTurns;
+          }
+        }
+
+        const completionTurn = viewTurn + totalDuration;
+
+        // Ensure we have enough turns simulated
+        const totalTurns = controller.getTotalTurns();
+        if (completionTurn >= totalTurns) {
+          const turnsToSimulate = completionTurn - totalTurns + 1;
+          controller.simulateTurns(turnsToSimulate);
+          setStateVersion(prev => prev + 1);
+        }
+
+        // AUTO-ADVANCE: Only for buildings
+        if (def.lane === 'building') {
+          setViewTurn(completionTurn);
+        }
+        // Ships/colonists stay at viewTurn (no auto-advance)
       }
     } catch (e) {
       console.error('Error in handleQueueItem:', e);
@@ -193,25 +189,82 @@ export default function Home() {
   const handleCancelItem = (laneId: 'building' | 'ship' | 'colonist', entry: any) => {
     setError(null);
     try {
-      // Cancel the specific entry by ID at the current turn
-      const currentTurn = controller.getCurrentTurn();
-      const result = controller.cancelEntryById(currentTurn, laneId, entry.id);
+      // CRITICAL-3 FIX: Use smart cancellation that searches timeline
+      // This handles ships/colonists where queuedTurn != actual location
+      const cancelTurn = entry.queuedTurn || viewTurn;
+      const result = controller.cancelEntryByIdSmart(cancelTurn, laneId, entry.id);
 
       if (!result.success) {
-        setError(result.reason || 'Cannot cancel item');
+        if (result.reason === 'NOT_FOUND') {
+          setError('Item cannot be canceled (may be completed)');
+        } else {
+          setError(result.reason || 'Cannot cancel item');
+        }
       } else {
         // Force state update to re-render UI
         setStateVersion(prev => prev + 1);
 
-        // Get new current turn after cancellation (timeline may have recalculated)
-        const newCurrentTurn = controller.getCurrentTurn();
-
-        // Update viewTurn to the current turn to see the updated queue
-        setViewTurn(newCurrentTurn);
+        // Stay at current view for better UX
+        // (don't jump around, user is viewing where they want to be)
       }
     } catch (e) {
       setError((e as Error).message || 'Unknown error');
     }
+  };
+
+  const handleQuantityChange = (laneId: 'building' | 'ship' | 'colonist', entry: any, newQuantity: number) => {
+    setError(null);
+    try {
+      // Cancel existing entry
+      const cancelTurn = entry.queuedTurn || viewTurn;
+      const cancelResult = controller.cancelEntryByIdSmart(cancelTurn, laneId, entry.id);
+
+      if (!cancelResult.success) {
+        setError('Failed to update quantity');
+        return;
+      }
+
+      // Re-queue with new quantity
+      const queueResult = controller.queueItem(viewTurn, entry.itemId, newQuantity);
+
+      if (!queueResult.success) {
+        setError(`Cannot set quantity to ${newQuantity}: ${queueResult.reason || 'validation failed'}`);
+        // Try to restore original quantity
+        controller.queueItem(viewTurn, entry.itemId, entry.quantity);
+      }
+
+      // Force state update
+      setStateVersion(prev => prev + 1);
+    } catch (e) {
+      setError((e as Error).message || 'Unknown error');
+    }
+  };
+
+  const getMaxQuantity = (laneId: 'building' | 'ship' | 'colonist', entry: any): number => {
+    const state = controller.getStateAtTurn(viewTurn);
+    if (!state) return entry.quantity;
+
+    const def = state.defs[entry.itemId];
+    if (!def) return entry.quantity;
+
+    // Binary search for maximum quantity
+    let low = 1;
+    let high = 10000;
+    let maxValid = entry.quantity;
+
+    while (low <= high) {
+      const mid = Math.floor((low + high) / 2);
+      const validation = canQueueItem(entry.itemId, mid);
+
+      if (validation.allowed) {
+        maxValid = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+
+    return maxValid;
   };
 
   const handleAdvanceTurn = () => {
@@ -280,6 +333,8 @@ export default function Home() {
               colonistLane={colonistLane}
               currentTurn={viewTurn}
               onCancel={(laneId, entry) => handleCancelItem(laneId, entry)}
+              onQuantityChange={(laneId, entry, newQty) => handleQuantityChange(laneId, entry, newQty)}
+              getMaxQuantity={(laneId, entry) => getMaxQuantity(laneId, entry)}
               disabled={viewTurn < totalTurns - 1}
               defs={defs}
             />

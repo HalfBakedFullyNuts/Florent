@@ -199,7 +199,7 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
       quantity: pending.quantity,
       turnsRemaining: pending.turnsRemaining,
       eta: displayEnd,
-      queuedTurn: displayStart, // For display purposes
+      queuedTurn: pending.queuedTurn, // Preserve actual queue turn for cancellation
       startTurn: displayStart,
       completionTurn: displayEnd,
     });
