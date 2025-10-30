@@ -11,6 +11,8 @@ export interface GlassQueueButtonProps {
   disabled?: boolean;
   onClick?: () => void;
   turnsRemaining?: number;
+  startTurn?: number;
+  completionTurn?: number;
   className?: string;
   children?: React.ReactNode;
 }
@@ -37,6 +39,8 @@ export function GlassQueueButton({
   disabled = false,
   onClick,
   turnsRemaining,
+  startTurn,
+  completionTurn,
   className,
   children,
 }: GlassQueueButtonProps) {
@@ -79,6 +83,13 @@ export function GlassQueueButton({
         {quantity && quantity > 1 && (
           <span className="font-semibold text-pink-400">
             {quantity}×
+          </span>
+        )}
+
+        {/* Turn range display (Tx-Ty) */}
+        {startTurn !== undefined && completionTurn !== undefined && (
+          <span className="text-xs text-pink-nebula-muted font-normal">
+            T{startTurn}-T{completionTurn}
           </span>
         )}
 

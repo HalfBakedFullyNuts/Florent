@@ -111,9 +111,11 @@ export function QueueLaneEntry({
       quantity={editingQuantity ? undefined : entry.quantity}
       status={status}
       turnsRemaining={entry.turnsRemaining}
+      startTurn={entry.startTurn}
+      completionTurn={entry.completionTurn}
       disabled={disabled}
       onClick={handleClick}
-      className={entry.status === 'completed' ? 'opacity-60' : ''}
+      className={entry.status === 'completed' ? 'opacity-90' : ''}
     >
       {/* Quantity input for ships/colonists */}
       {showQuantityInput && !disabled && entry.status !== 'completed' && (
