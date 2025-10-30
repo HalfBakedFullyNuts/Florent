@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
+import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 
 export interface QueueLaneEntryProps {
   entry: LaneEntry;
@@ -79,78 +80,66 @@ export function QueueLaneEntry({
     }
   };
 
+  // Determine status for border color
+  const status = entry.status === 'active' ? 'active' :
+                 entry.status === 'pending' ? 'pending' :
+                 entry.status === 'completed' ? 'completed' : undefined;
+
+  if (confirmMode) {
+    // Confirmation mode: Custom red styling
+    return (
+      <button
+        onClick={handleClick}
+        className="glass-button w-full text-left p-3 border-red-500 bg-red-900/20 ring-2 ring-red-500"
+        title="Click again to confirm removal"
+      >
+        <div className="flex items-center gap-2 text-sm flex-wrap">
+          <span className="font-semibold text-red-400 flex-1">
+            Remove {entry.itemName}?
+          </span>
+          <span className="text-red-400 font-bold text-xs">
+            CLICK TO CONFIRM
+          </span>
+        </div>
+      </button>
+    );
+  }
+
   return (
-    <button
+    <GlassQueueButton
+      itemName={entry.itemName}
+      quantity={editingQuantity ? undefined : entry.quantity}
+      status={status}
+      turnsRemaining={entry.turnsRemaining}
+      disabled={disabled}
       onClick={handleClick}
-      className={`w-full text-left p-3 rounded border transition-colors group ${
-        confirmMode
-          ? 'border-red-500 bg-red-900/20 ring-2 ring-red-500 cursor-pointer hover:bg-slate-700'
-          : 'border-pink-nebula-border bg-pink-nebula-bg hover:bg-slate-700 cursor-pointer'
-      } ${entry.status === 'completed' ? 'opacity-60' : ''}`}
-      title={confirmMode ? 'Click again to confirm removal' : 'Click to remove from queue'}
+      className={entry.status === 'completed' ? 'opacity-60' : ''}
     >
-      <div className="flex items-center gap-2 text-sm flex-wrap">
-        {confirmMode ? (
-          <>
-            <span className="font-semibold text-red-400 flex-1">
-              Remove {entry.itemName}?
-            </span>
-            <span className="text-red-400 font-bold text-xs">
-              CLICK TO CONFIRM
-            </span>
-          </>
-        ) : (
-          <>
-            {/* Quantity prefix for batches - hide when editing to avoid redundancy */}
-            {entry.quantity > 1 && !editingQuantity && (
-              <span className={`font-semibold ${
-                queueable ? 'text-pink-400' : 'text-pink-nebula-muted'
-              }`}>
-                {entry.quantity}×
-              </span>
-            )}
+      {/* Quantity input for ships/colonists */}
+      {showQuantityInput && !disabled && entry.status !== 'completed' && (
+        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+          <span className="text-pink-nebula-muted text-xs">×</span>
+          <input
+            type="number"
+            min="1"
+            max={maxQuantity}
+            value={quantityValue}
+            onChange={(e) => setQuantityValue(e.target.value)}
+            onFocus={() => setEditingQuantity(true)}
+            onBlur={handleQuantityBlur}
+            onKeyDown={handleQuantityKeyDown}
+            className="w-14 px-2 py-0.5 bg-pink-nebula-panel border border-pink-nebula-border rounded text-pink-nebula-text text-xs text-center focus:outline-none focus:border-pink-nebula-accent-primary"
+            disabled={disabled}
+          />
+        </div>
+      )}
 
-            <span className={`font-semibold ${
-              queueable ? 'text-white group-hover:text-pink-400' : 'text-pink-nebula-muted'
-            }`}>
-              {entry.itemName}
-            </span>
-
-            {/* Quantity input for ships/colonists */}
-            {showQuantityInput && !disabled && entry.status !== 'completed' && (
-              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                <span className="text-pink-nebula-muted text-xs">×</span>
-                <input
-                  type="number"
-                  min="1"
-                  max={maxQuantity}
-                  value={quantityValue}
-                  onChange={(e) => setQuantityValue(e.target.value)}
-                  onFocus={() => setEditingQuantity(true)}
-                  onBlur={handleQuantityBlur}
-                  onKeyDown={handleQuantityKeyDown}
-                  className="w-14 px-2 py-0.5 bg-pink-nebula-panel border border-pink-nebula-border rounded text-pink-nebula-text text-xs text-center focus:outline-none focus:border-pink-nebula-accent-primary"
-                  disabled={disabled}
-                />
-              </div>
-            )}
-
-            {/* Turns to completion */}
-            {entry.turnsRemaining > 0 && (
-              <span className={queueable ? 'text-pink-nebula-muted' : 'text-pink-nebula-muted/60'}>
-                {entry.turnsRemaining}T
-              </span>
-            )}
-
-            {/* Remove indicator - only for pending/active items */}
-            {!disabled && entry.status !== 'completed' && (
-              <span className="ml-auto text-gray-500 group-hover:text-pink-nebula-accent-primary transition-colors text-xs shrink-0">
-                ✕
-              </span>
-            )}
-          </>
-        )}
-      </div>
-    </button>
+      {/* Remove indicator - only for pending/active items */}
+      {!disabled && entry.status !== 'completed' && (
+        <span className="ml-auto text-gray-500 group-hover:text-pink-nebula-accent-primary transition-colors text-xs shrink-0">
+          ✕
+        </span>
+      )}
+    </GlassQueueButton>
   );
 }

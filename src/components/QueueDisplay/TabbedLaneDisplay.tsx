@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import type { LaneView, LaneEntry } from '../../lib/game/selectors';
 import type { LaneId } from '../../lib/sim/engine/types';
 import { QueueLaneEntry } from './QueueLaneEntry';
+import { Card } from '@/components/ui/card';
 
 export interface TabbedLaneDisplayProps {
   buildingLane: LaneView;
@@ -90,13 +91,13 @@ export function TabbedLaneDisplay({
             : null;
 
           return (
-            <div
+            <Card
               key={laneId}
               onClick={() => !isActive && setActiveTab(laneId)}
               className={`
-                bg-slate-800 rounded-lg p-4 overflow-y-auto
+                p-4 overflow-y-auto
                 transition-all duration-[350ms] ease-in-out
-                ${isActive ? 'flex-[2.2]' : 'flex-[0.9] cursor-pointer hover:bg-slate-750'}
+                ${isActive ? 'flex-[2.2]' : 'flex-[0.9] cursor-pointer hover:bg-white/10'}
               `}
             >
               {/* Header - visible in all states */}
@@ -121,8 +122,8 @@ export function TabbedLaneDisplay({
                     {isActive ? 'Queue empty' : '—'}
                   </div>
                 ) : isActive ? (
-                  // Active tab: Full display with all entries
-                  laneView.entries.map((entry) => {
+                  // Active tab: Full display with all entries (most recent first)
+                  laneView.entries.slice().reverse().map((entry) => {
                     const isNewest = entry.id === newestId;
                     const def = defs[entry.itemId];
                     const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
@@ -146,8 +147,8 @@ export function TabbedLaneDisplay({
                     );
                   })
                 ) : (
-                  // Inactive tab: Compressed display (item names only)
-                  laneView.entries.map((entry) => {
+                  // Inactive tab: Compressed display (item names only, most recent first)
+                  laneView.entries.slice().reverse().map((entry) => {
                     return (
                       <button
                         key={entry.id}
@@ -174,7 +175,7 @@ export function TabbedLaneDisplay({
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           );
         })}
       </div>

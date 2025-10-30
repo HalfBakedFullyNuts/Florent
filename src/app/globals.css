@@ -18,7 +18,7 @@ html {
 	margin: 0;
 	padding: 0;
 	overflow-y: auto;
-	background: radial-gradient(ellipse at bottom, var(--bg-primary) 0%, #0f0912 100%);
+	background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
 	color-scheme: dark;
 }
 
@@ -35,6 +35,177 @@ body {
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ==============================================
+   NEBULA COMMAND DESIGN SYSTEM - CSS UTILITIES
+   ============================================== */
+
+/* Nebula CSS Variables */
+@layer base {
+  :root {
+    --nebula-primary: #e879f9;
+    --nebula-secondary: #c084fc;
+    --nebula-accent: #7c3aed;
+    --nebula-bg-dark: rgba(26, 15, 46, 0.95);
+    --nebula-bg-medium: rgba(26, 15, 46, 0.6);
+    --nebula-bg-light: rgba(26, 15, 46, 0.3);
+  }
+}
+
+/* Glass-morphism Utilities */
+@layer components {
+  .glass-card {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(40px) saturate(180%) brightness(110%);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 1rem;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  }
+
+  .glass-panel {
+    background: rgba(26, 15, 46, 0.4);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 0.375rem;
+  }
+
+  .glass-subtle {
+    background: rgba(26, 15, 46, 0.3);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+    border-radius: 0.25rem;
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-200;
+  }
+
+  .glass-card-hover:hover {
+    background: rgba(26, 15, 46, 0.7);
+    border-color: rgba(255, 255, 255, 0.15);
+  }
+
+  .glass-button {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 0.5rem;
+    transition: all 0.2s ease-in-out;
+  }
+
+  .glass-button:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(232, 121, 249, 0.5);
+    filter: brightness(1.1);
+  }
+
+  .glass-button:disabled {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .glass-button:disabled:hover {
+    background: rgba(255, 255, 255, 0.04);
+    border-color: rgba(255, 255, 255, 0.1);
+    filter: brightness(1);
+  }
+}
+
+/* Glow Effect Utilities */
+@layer utilities {
+  .glow-primary {
+    box-shadow: 0 0 20px rgba(232, 121, 249, 0.3);
+  }
+
+  .glow-primary-subtle {
+    box-shadow: 0 0 10px rgba(232, 121, 249, 0.15);
+  }
+
+  .glow-secondary {
+    box-shadow: 0 0 20px rgba(192, 132, 252, 0.3);
+  }
+
+  .glow-accent {
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+  }
+
+  /* Resource-specific glows */
+  .glow-tyr {
+    box-shadow: 0 0 30px rgba(156, 163, 175, 0.6), 0 0 60px rgba(156, 163, 175, 0.3);
+  }
+
+  .glow-mineral {
+    box-shadow: 0 0 30px rgba(248, 113, 113, 0.6), 0 0 60px rgba(248, 113, 113, 0.3);
+  }
+
+  .glow-food {
+    box-shadow: 0 0 30px rgba(134, 239, 172, 0.6), 0 0 60px rgba(134, 239, 172, 0.3);
+  }
+
+  .glow-energy {
+    box-shadow: 0 0 30px rgba(96, 165, 250, 0.6), 0 0 60px rgba(96, 165, 250, 0.3);
+  }
+
+  /* Hover glow transitions */
+  .hover\:glow-primary:hover {
+    box-shadow: 0 0 20px rgba(232, 121, 249, 0.3);
+  }
+
+  .hover\:glow-accent:hover {
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
+  }
+
+  /* Resource-specific text glows */
+  .text-glow-metal {
+    color: rgb(192, 192, 192);
+    text-shadow: 0 0 8px rgba(192, 192, 192, 0.6);
+  }
+
+  .text-glow-mineral {
+    color: rgb(239, 68, 68);
+    text-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+  }
+
+  .text-glow-food {
+    color: rgb(74, 222, 128);
+    text-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+  }
+
+  .text-glow-energy {
+    color: rgb(96, 165, 250);
+    text-shadow: 0 0 8px rgba(96, 165, 250, 0.6);
+  }
+
+  .text-glow-workers {
+    color: rgb(251, 146, 60);
+    text-shadow: 0 0 8px rgba(251, 146, 60, 0.6);
+  }
+
+  .text-glow-scientist {
+    color: rgb(250, 204, 21);
+    text-shadow: 0 0 8px rgba(250, 204, 21, 0.6);
+  }
+
+  .text-glow-soldiers {
+    color: rgb(252, 165, 165);
+    text-shadow: 0 0 8px rgba(252, 165, 165, 0.6);
+  }
+
+  /* State border indicators */
+  .border-l-active {
+    border-left: 4px solid rgb(34, 197, 94);
+  }
+
+  .border-l-pending {
+    border-left: 4px solid rgb(251, 146, 60);
+  }
+
+  .border-l-completed {
+    border-left: 4px solid rgb(148, 163, 184);
+  }
+}
 
 /* Minimal star background styles adapted from template */
 #stars1, #stars2, #stars3 {

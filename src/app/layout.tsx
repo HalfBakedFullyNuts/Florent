@@ -3,7 +3,7 @@ import './globals.css'
 import Header from '../components/Header'
 
 export const metadata: Metadata = {
-  title: 'Infinite Conflict - Build Planner',
+  title: 'Florent - Build Planner for Infinite Conflict',
   description: 'Early-game build planner for Infinite Conflict',
 }
 
@@ -33,7 +33,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <Header />
 
-        <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text">{children}</div>
+        {/* Vibrant gradient background to show blur effect */}
+        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-purple-900 via-pink-900 to-blue-900" />
+
+        <div className="min-h-screen text-pink-nebula-text relative">{children}</div>
       </body>
     </html>
   )

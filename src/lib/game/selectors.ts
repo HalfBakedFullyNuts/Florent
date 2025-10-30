@@ -226,6 +226,9 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
     });
   }
 
+  // Reverse the entire array so latest activity appears at top
+  entries.reverse();
+
   return {
     laneId,
     entries,

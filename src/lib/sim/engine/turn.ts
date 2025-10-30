@@ -3,7 +3,7 @@
  * Canonical order: building → ship → colonist → colonist conversion → production → growth → food upkeep
  */
 
-import type { PlanetState } from './types';
+import type { PlanetState, WorkItem } from './types';
 import { LANE_ORDER } from '../rules/constants';
 import { tryActivateNext, progressActive } from './lanes';
 import { processCompletions, applyColonistConversions } from './completions';

@@ -248,7 +248,7 @@ export function ItemGrid({
           return (
             <div
               key={laneId}
-              className={`bg-pink-nebula-panel rounded-lg border-2 ${config.color}`}
+              className="bg-pink-nebula-panel rounded-lg border-2 border-pink-nebula-border"
             >
               {/* Accordion Header */}
               <button

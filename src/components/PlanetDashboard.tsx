@@ -2,6 +2,7 @@
 
 import React, { useMemo } from 'react';
 import type { PlanetSummary as PlanetSummaryType } from '../lib/game/selectors';
+import { Card } from '@/components/ui/card';
 
 export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
@@ -155,9 +156,9 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
 
   return (
     <div className="w-full max-w-[1800px] mx-auto px-6 my-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 bg-pink-nebula-panel rounded-lg p-4 border border-pink-nebula-border">
+      <Card className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 p-4 glow-tyr border-gray-400/30">
         {/* Resources Section - Table Layout */}
-        <div className="bg-pink-nebula-bg rounded-lg p-3">
+        <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Resources</h3>
           <table className="w-full text-sm">
             <thead>
@@ -192,10 +193,10 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
               })}
             </tbody>
           </table>
-        </div>
+        </Card>
 
         {/* Population + Housing Section - Table Layout */}
-        <div className="bg-pink-nebula-bg rounded-lg p-3">
+        <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Population</h3>
           <table className="w-full text-sm">
             <thead>
@@ -243,10 +244,10 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
               {summary.growthHint}
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Space Section */}
-        <div className="bg-pink-nebula-bg rounded-lg p-3">
+        <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Space Remaining</h3>
           <div className="space-y-3">
             {/* Ground */}
@@ -379,10 +380,10 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Completed Structures Section - Detailed List */}
-        <div className="bg-pink-nebula-bg rounded-lg p-3">
+        <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Completed Structures</h3>
           {structuresList.length > 0 ? (
             <div className="space-y-1">
@@ -427,8 +428,8 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
               No structures built
             </div>
           )}
-        </div>
-      </div>
+        </Card>
+      </Card>
     </div>
   );
 }

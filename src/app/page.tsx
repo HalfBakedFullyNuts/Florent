@@ -13,6 +13,7 @@ import { PlanetDashboard } from '../components/PlanetDashboard';
 import { TabbedLaneDisplay } from '../components/QueueDisplay/TabbedLaneDisplay';
 import { TabbedItemGrid } from '../components/LaneBoard/TabbedItemGrid';
 import { WarningsPanel } from '../components/WarningsPanel';
+import { Card } from '@/components/ui/card';
 
 /**
  * Main game page - Integrated UI with new engine
@@ -315,17 +316,17 @@ export default function Home() {
       <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
         <div className="flex gap-6">
           {/* Left: Add to Queue (Item Selection) */}
-          <div className="flex-1">
+          <Card className="flex-1 p-6">
             <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Add to Queue</h2>
             <TabbedItemGrid
               availableItems={availableItems}
               onQueueItem={handleQueueItem}
               canQueueItem={canQueueItem}
             />
-          </div>
+          </Card>
 
           {/* Right: Planet Queue (Lane Display) */}
-          <div className="flex-1">
+          <Card className="flex-1 p-6">
             <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Planet Queue</h2>
             <TabbedLaneDisplay
               buildingLane={buildingLane}
@@ -338,7 +339,7 @@ export default function Home() {
               disabled={viewTurn < totalTurns - 1}
               defs={defs}
             />
-          </div>
+          </Card>
         </div>
       </main>
 

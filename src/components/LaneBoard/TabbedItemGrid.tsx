@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import type { ItemDefinition } from '../../lib/sim/engine/types';
+import { Card } from '@/components/ui/card';
+import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 
 export interface TabbedItemGridProps {
   availableItems: Record<string, any>;
@@ -76,6 +78,16 @@ export function TabbedItemGrid({
 
   const isItemQueueable = (itemId: string): boolean => {
     return canQueueItem(itemId, 1).allowed;
+  };
+
+  const formatCost = (item: any): Array<{ resource: string; amount: number }> => {
+    if (!item.costsPerUnit) return [];
+    return Object.entries(item.costsPerUnit)
+      .filter(([_, amount]) => (amount as number) > 0)
+      .map(([resource, amount]) => ({
+        resource,
+        amount: amount as number,
+      }));
   };
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
@@ -165,13 +177,13 @@ export function TabbedItemGrid({
           const config = getLaneConfig(laneId);
 
           return (
-            <div
+            <Card
               key={laneId}
               onClick={() => !isActive && setActiveTab(laneId)}
               className={`
-                bg-slate-800 rounded-lg p-4 overflow-y-auto
+                p-4 overflow-y-auto
                 transition-all duration-[350ms] ease-in-out
-                ${isActive ? 'flex-[2]' : 'flex-1 cursor-pointer hover:bg-slate-750'}
+                ${isActive ? 'flex-[2]' : 'flex-1 cursor-pointer hover:bg-white/10'}
               `}
             >
               {/* Header - visible in all states */}
@@ -198,89 +210,57 @@ export function TabbedItemGrid({
                 ) : (
                   items.map((item) => {
                     const queueable = isItemQueueable(item.id);
+                    const costs = formatCost(item);
 
                     if (isActive) {
                       // Active tab: Full display with costs
                       const isEditing = editingItem === item.id;
 
                       return (
-                        <button
+                        <GlassQueueButton
                           key={item.id}
-                          onClick={() => handleItemClick(item.id, laneId)}
+                          itemName={item.name}
+                          costs={costs}
+                          turnsRemaining={item.durationTurns}
                           disabled={!queueable}
-                          className={`w-full text-left p-3 rounded border transition-colors group ${
-                            queueable
-                              ? 'border-pink-nebula-border bg-pink-nebula-bg hover:bg-slate-700 cursor-pointer'
-                              : 'border-pink-nebula-border bg-pink-nebula-bg opacity-60 cursor-not-allowed'
-                          }`}
+                          onClick={() => handleItemClick(item.id, laneId)}
                         >
-                          <div className="flex items-center gap-2 text-sm flex-wrap">
-                            <span className={`font-semibold ${
-                              queueable ? 'text-pink-nebula-text group-hover:text-pink-nebula-accent-primary' : 'text-pink-nebula-muted'
-                            }`}>
-                              {item.name}
-                            </span>
-
-                            {/* Inline quantity input for ships/colonists */}
-                            {isEditing && (laneId === 'ship' || laneId === 'colonist') && (
-                              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                                <span className="text-pink-nebula-muted text-xs">×</span>
-                                <input
-                                  type="number"
-                                  min="1"
-                                  value={quantityValue}
-                                  onChange={(e) => setQuantityValue(e.target.value)}
-                                  onKeyDown={(e) => handleQuantityKeyDown(e, item.id)}
-                                  onBlur={() => handleQuantityBlur(item.id)}
-                                  autoFocus
-                                  className="w-14 px-2 py-0.5 bg-pink-nebula-panel border border-pink-nebula-border rounded text-pink-nebula-text text-xs text-center focus:outline-none focus:border-pink-nebula-accent-primary"
-                                />
-                              </div>
-                            )}
-
-                            {/* Show costs for active tab */}
-                            {item.costsPerUnit && Object.entries(item.costsPerUnit)
-                              .filter(([_, amount]) => (amount as number) > 0)
-                              .map(([resource, amount]) => {
-                                const color = resource === 'metal' ? 'text-gray-300' :
-                                             resource === 'mineral' ? 'text-red-500' :
-                                             resource === 'food' ? 'text-green-500' :
-                                             resource === 'energy' ? 'text-blue-400' : 'text-pink-nebula-muted';
-                                return (
-                                  <span key={resource} className={queueable ? color : `${color}/60`}>
-                                    {amount}
-                                  </span>
-                                );
-                              })
-                            }
-
-                            <span className={queueable ? 'text-pink-nebula-muted' : 'text-pink-nebula-muted/60'}>
-                              ⏱️ {item.durationTurns}T
-                            </span>
-                          </div>
-                        </button>
+                          {/* Inline quantity input for ships/colonists */}
+                          {isEditing && (laneId === 'ship' || laneId === 'colonist') && (
+                            <div className="flex items-center gap-1 ml-auto" onClick={(e) => e.stopPropagation()}>
+                              <span className="text-pink-nebula-muted text-xs">×</span>
+                              <input
+                                type="number"
+                                min="1"
+                                value={quantityValue}
+                                onChange={(e) => setQuantityValue(e.target.value)}
+                                onKeyDown={(e) => handleQuantityKeyDown(e, item.id)}
+                                onBlur={() => handleQuantityBlur(item.id)}
+                                autoFocus
+                                className="w-14 px-2 py-0.5 bg-pink-nebula-panel border border-pink-nebula-border rounded text-pink-nebula-text text-xs text-center focus:outline-none focus:border-pink-nebula-accent-primary"
+                              />
+                            </div>
+                          )}
+                        </GlassQueueButton>
                       );
                     } else {
                       // Inactive tab: Compressed display (name + time only)
                       // Clicking expands the tab
                       return (
-                        <button
+                        <GlassQueueButton
                           key={item.id}
+                          itemName={item.name}
+                          turnsRemaining={item.durationTurns}
+                          disabled={!queueable}
                           onClick={() => setActiveTab(laneId)}
-                          className={`text-sm py-1 px-2 w-full text-left hover:bg-slate-700 rounded transition-colors cursor-pointer ${
-                            queueable ? 'text-pink-nebula-text' : 'text-pink-nebula-muted opacity-60'
-                          }`}
-                        >
-                          <div className="truncate">
-                            {item.name} <span className="text-pink-nebula-muted">({item.durationTurns}T)</span>
-                          </div>
-                        </button>
+                          className="py-1 px-2"
+                        />
                       );
                     }
                   })
                 )}
               </div>
-            </div>
+            </Card>
           );
         })}
       </div>

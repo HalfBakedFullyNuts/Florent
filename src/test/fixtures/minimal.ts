@@ -12,6 +12,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
     name: 'Outpost',
     lane: 'building',
     type: 'structure',
+    tier: 1,
     durationTurns: 0,
     costsPerUnit: {
       metal: 0,
@@ -43,6 +44,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
     name: 'Metal Mine',
     lane: 'building',
     type: 'structure',
+    tier: 1,
     durationTurns: 4,
     costsPerUnit: {
       metal: 1500,
@@ -69,6 +71,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
     name: 'Farm',
     lane: 'building',
     type: 'structure',
+    tier: 1,
     durationTurns: 4,
     costsPerUnit: {
       metal: 1500,
@@ -95,6 +98,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
     name: 'Worker',
     lane: 'colonist',
     type: 'soldier', // Note: worker is technically a colonist type, but we model it separately
+    tier: 1,
     durationTurns: 1,
     costsPerUnit: {
       metal: 0,
@@ -119,6 +123,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
     name: 'Soldier',
     lane: 'colonist',
     type: 'soldier',
+    tier: 1,
     durationTurns: 4,
     costsPerUnit: {
       metal: 12,

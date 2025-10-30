@@ -29,7 +29,11 @@
       "Bash(rm:*)",
       "Bash(git checkout:*)",
       "mcp__chrome-devtools__fill",
-      "mcp__chrome-devtools__take_screenshot"
+      "mcp__chrome-devtools__take_screenshot",
+      "Bash(tee:*)",
+      "Bash(npm install:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx shadcn@latest add:*)"
     ],
     "deny": [],
     "ask": []
