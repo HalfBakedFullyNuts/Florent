@@ -49,6 +49,9 @@ export interface LaneEntry {
   queuedTurn?: number; // Turn when item was queued
   startTurn?: number; // Turn when work started
   completionTurn?: number; // Turn when work completed
+  invalid?: boolean; // Whether this item is invalid (fails validation)
+  invalidReason?: string; // Human-readable reason for invalidity
+  missingPrereqs?: string[]; // List of missing prerequisites
 }
 
 export interface LaneView {

@@ -26,19 +26,22 @@ function createTestController(): GameController {
  * Helper: Build structures to unlock scientists
  */
 function buildScientistPrereqs(controller: GameController): number {
-  // Queue and complete 4 mines
+  // Queue and complete 4 mines (metal_mine duration = 4)
+  // Queue at T, activates at T+1 with turnsRemaining=4, completes at T+5
   for (let i = 0; i < 4; i++) {
     controller.queueItem(controller.getCurrentTurn(), 'metal_mine', 1);
-    controller.simulateTurns(4);
+    controller.simulateTurns(5); // Activation + 4 turns
   }
 
-  // Queue and complete Army Barracks
+  // Queue and complete Army Barracks (duration = 8)
+  // Queue at T, activates at T+1 with turnsRemaining=8, completes at T+9
   controller.queueItem(controller.getCurrentTurn(), 'army_barracks', 1);
-  controller.simulateTurns(8);
+  controller.simulateTurns(9);
 
-  // Queue and complete Research Lab
+  // Queue and complete Research Lab (duration = 14)
+  // Queue at T, activates at T+1 with turnsRemaining=14, completes at T+15
   controller.queueItem(controller.getCurrentTurn(), 'research_lab', 1);
-  controller.simulateTurns(12);
+  controller.simulateTurns(15);
 
   return controller.getCurrentTurn();
 }
@@ -115,25 +118,20 @@ describe('Auto-Advance Queue Validation Tests', () => {
       controller.simulateTurns(20);
 
       const turnBeforeShip = controller.getCurrentTurn();
-      const totalTurnsBefore = controller.getTotalTurns();
 
       // Queue a ship (67 turns duration)
       const result = controller.queueItem(turnBeforeShip, 'outpost_ship', 1);
       expect(result.success).toBe(true);
 
-      // The controller should have enough turns to accommodate the ship
-      // Note: This test assumes the solution will auto-simulate turns
-      // If not implemented yet, this test will help validate the solution
+      // With fixed 200-turn timeline, all turns 1-200 are pre-computed
+      // getTotalTurns() always returns 200
+      expect(controller.getTotalTurns()).toBe(200);
+
       const shipDuration = 67;
       const expectedCompletionTurn = turnBeforeShip + shipDuration;
 
-      // Manually simulate to ensure turns exist (this is what the solution should do automatically)
-      if (controller.getTotalTurns() < expectedCompletionTurn) {
-        const turnsNeeded = expectedCompletionTurn - controller.getTotalTurns() + 1;
-        controller.simulateTurns(turnsNeeded);
-      }
-
       // Verify we can access the completion turn without error
+      // (should work as long as expectedCompletionTurn <= 200)
       const completionState = controller.getStateAtTurn(expectedCompletionTurn);
       expect(completionState).toBeTruthy();
     });
@@ -171,10 +169,10 @@ describe('Auto-Advance Queue Validation Tests', () => {
     it('should validate turn existence before queueing', () => {
       const controller = createTestController();
 
-      // Try to queue at a turn that doesn't exist
-      const invalidTurn = 9999;
+      // Try to queue at a turn beyond 200 (fixed timeline limit)
+      const invalidTurn = 250;
       const state = controller.getStateAtTurn(invalidTurn);
-      expect(state).toBeNull();
+      expect(state).toBeUndefined(); // Beyond 200-turn limit returns undefined
 
       // Should fail to queue at invalid turn
       const result = controller.queueItem(invalidTurn, 'metal_mine', 1);

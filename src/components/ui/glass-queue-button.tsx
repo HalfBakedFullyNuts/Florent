@@ -15,6 +15,8 @@ export interface GlassQueueButtonProps {
   completionTurn?: number;
   className?: string;
   children?: React.ReactNode;
+  invalidWarning?: boolean;
+  invalidReason?: string;
 }
 
 /**
@@ -43,6 +45,8 @@ export function GlassQueueButton({
   completionTurn,
   className,
   children,
+  invalidWarning = false,
+  invalidReason,
 }: GlassQueueButtonProps) {
 
   const getResourceColorClass = (resource: string): string => {
@@ -75,8 +79,10 @@ export function GlassQueueButton({
       className={cn(
         'glass-button w-full text-left p-3',
         getStatusBorderClass(),
+        invalidWarning && 'border-red-500',
         className
       )}
+      title={invalidWarning ? `Invalid: ${invalidReason}` : undefined}
     >
       <div className="flex items-center gap-2 text-sm flex-wrap">
         {/* Quantity prefix for batches */}
@@ -100,6 +106,16 @@ export function GlassQueueButton({
         )}>
           {itemName}
         </span>
+
+        {/* Invalid warning indicator */}
+        {invalidWarning && (
+          <span
+            className="text-red-500 font-bold text-lg"
+            title={invalidReason}
+          >
+            !
+          </span>
+        )}
 
         {/* Resource costs */}
         {costs.map(({ resource, amount }) => (

@@ -116,6 +116,8 @@ export function QueueLaneEntry({
       disabled={disabled}
       onClick={handleClick}
       className={entry.status === 'completed' ? 'opacity-90' : ''}
+      invalidWarning={entry.invalid}
+      invalidReason={entry.invalidReason}
     >
       {/* Quantity input for ships/colonists */}
       {showQuantityInput && !disabled && entry.status !== 'completed' && (

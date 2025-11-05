@@ -1,6 +1,6 @@
 /**
  * Timeline management and recomputation
- * Manages snapshots, invalidation, and deterministic recomputation
+ * Fixed 200-turn timeline architecture for simplified queue management
  */
 
 import type { PlanetState } from '../sim/engine/types';
@@ -9,18 +9,24 @@ import { CompletionBuffer } from '../sim/engine/buffers';
 import { cloneState } from '../sim/engine/helpers';
 
 /**
- * Timeline state manager
- * Stores all computed states and handles recomputation from edited turns
+ * Timeline state manager with fixed 200-turn architecture
+ * Always maintains exactly 200 pre-computed turns for consistent UX
  */
 export class Timeline {
+  private static readonly FIXED_TURNS = 200;
   private states: PlanetState[];
   private currentTurnIndex: number;
   private completionBuffer: CompletionBuffer;
+  private stableFromTurn: number = -1; // Cache for stable state optimization
 
   constructor(initialState: PlanetState) {
-    this.states = [cloneState(initialState)];
+    this.states = new Array(Timeline.FIXED_TURNS);
+    this.states[0] = cloneState(initialState);
     this.currentTurnIndex = 0;
     this.completionBuffer = new CompletionBuffer();
+
+    // Pre-compute all 200 turns on initialization
+    this.recomputeAll();
   }
 
   /**
@@ -53,87 +59,100 @@ export class Timeline {
   }
 
   /**
-   * Get total number of computed turns
+   * Get total number of computed turns (always 200)
    */
   getTotalTurns(): number {
-    return this.states.length;
+    return Timeline.FIXED_TURNS;
   }
 
   /**
-   * Set current turn index (for time travel)
+   * Recompute all 200 turns from scratch
+   * Optimized with stable state detection
+   */
+  recomputeAll(): void {
+    const start = performance.now();
+    this.stableFromTurn = -1;
+
+    // Reset completion buffer for fresh computation
+    this.completionBuffer.clear();
+
+    for (let i = 1; i < Timeline.FIXED_TURNS; i++) {
+      // Clone previous state and run turn
+      this.states[i] = cloneState(this.states[i - 1]);
+      runTurn(this.states[i], this.completionBuffer);
+
+      // Detect stable state (no active items, no pending queues)
+      if (this.stableFromTurn === -1 && this.isStableState(this.states[i])) {
+        this.stableFromTurn = i;
+        // Fast-copy stable state to remaining turns
+        const stableState = this.states[i];
+        for (let j = i + 1; j < Timeline.FIXED_TURNS; j++) {
+          this.states[j] = cloneState(stableState);
+          // Increment turn counter for each cloned state
+          this.states[j].currentTurn = stableState.currentTurn + (j - i);
+        }
+        break;
+      }
+    }
+
+    const duration = performance.now() - start;
+    if (duration > 100) {
+      console.log(`Timeline recompute: ${duration.toFixed(1)}ms, stable from T${this.stableFromTurn}`);
+    }
+  }
+
+  /**
+   * Check if state is stable (no work remaining)
+   */
+  private isStableState(state: PlanetState): boolean {
+    return Object.values(state.lanes).every(
+      lane => !lane.active && lane.pendingQueue.length === 0
+    );
+  }
+
+  /**
+   * Set current turn number (for time travel)
+   * Accepts turn numbers (1-200), not indices
    */
   setCurrentTurn(turn: number): boolean {
-    if (turn < 0 || turn >= this.states.length) {
+    // Map turn number to array index (turn 1 = index 0)
+    const initialTurn = this.states[0]?.currentTurn || 1;
+    const index = turn - initialTurn;
+
+    if (index < 0 || index >= this.states.length) {
       return false;
     }
-    this.currentTurnIndex = turn;
+    this.currentTurnIndex = index;
     return true;
   }
 
   /**
    * Advance to next turn
-   * Computes new state if not already computed
+   * Simply advances the view index (all turns pre-computed)
    */
   nextTurn(): PlanetState {
-    // If we're not at the end, just advance the index
-    if (this.currentTurnIndex < this.states.length - 1) {
+    if (this.currentTurnIndex < Timeline.FIXED_TURNS - 1) {
       this.currentTurnIndex += 1;
-      return this.getCurrentState();
     }
-
-    // Otherwise, compute the next turn
-    const currentState = cloneState(this.states[this.currentTurnIndex]);
-    runTurn(currentState, this.completionBuffer);
-    this.states.push(currentState);
-    this.currentTurnIndex += 1;
-
     return this.getCurrentState();
   }
 
   /**
-   * Simulate N turns from current position
-   * Extends timeline without changing current turn index
+   * Simulate N turns by advancing the view (backward compatibility)
+   * All 200 turns are already pre-computed; this just moves the view forward
    */
   simulateTurns(count: number): void {
-    if (count <= 0) return;
-
-    // Start from the last computed state
-    let lastState = cloneState(this.states[this.states.length - 1]);
-
-    for (let i = 0; i < count; i++) {
-      runTurn(lastState, this.completionBuffer);
-      this.states.push(cloneState(lastState));
+    // Advance current turn index by count (max at 199)
+    const newIndex = this.currentTurnIndex + count;
+    if (newIndex < Timeline.FIXED_TURNS) {
+      this.currentTurnIndex = newIndex;
+    } else {
+      this.currentTurnIndex = Timeline.FIXED_TURNS - 1;
     }
   }
 
   /**
-   * Recompute from specified turn
-   * Truncates timeline at turn T0 and recomputes forward
-   * This is the key function for handling edits/mutations
-   */
-  recomputeFromTurn(turn: number): void {
-    if (turn < 0 || turn >= this.states.length) {
-      console.error(`Cannot recompute from invalid turn: ${turn}`);
-      return;
-    }
-
-    // Truncate states array at the specified turn
-    this.states = this.states.slice(0, turn + 1);
-
-    // Reset completion buffer (it's now invalid after truncation)
-    this.completionBuffer.clear();
-
-    // If current turn is beyond truncation point, move it back
-    if (this.currentTurnIndex > turn) {
-      this.currentTurnIndex = turn;
-    }
-
-    // The timeline is now truncated at turn
-    // Future calls to nextTurn() or simulateTurns() will recompute forward
-  }
-
-  /**
-   * Apply a state mutation at specific turn and recompute forward
+   * Apply a state mutation at specific turn and recompute all 200 turns
    * This is used by the commands API to apply changes
    */
   mutateAtTurn(turn: number, mutation: (state: PlanetState) => void): boolean {
@@ -141,7 +160,7 @@ export class Timeline {
     const initialTurn = this.states[0]?.currentTurn || 1;
     const index = turn - initialTurn;
 
-    if (index < 0 || index >= this.states.length) {
+    if (index < 0 || index >= Timeline.FIXED_TURNS) {
       return false;
     }
 
@@ -151,19 +170,21 @@ export class Timeline {
     // Apply the mutation
     mutation(state);
 
-    // Recompute from this turn (truncate everything after)
-    this.recomputeFromTurn(index);
+    // Recompute all 200 turns from the beginning
+    this.recomputeAll();
 
     return true;
   }
 
   /**
-   * Reset timeline to initial state
+   * Reset timeline to initial state and recompute all 200 turns
    */
   reset(initialState: PlanetState): void {
-    this.states = [cloneState(initialState)];
+    this.states = new Array(Timeline.FIXED_TURNS);
+    this.states[0] = cloneState(initialState);
     this.currentTurnIndex = 0;
     this.completionBuffer.clear();
+    this.recomputeAll();
   }
 
   /**

@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { GameController } from '../lib/game/commands';
 import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem } from '../lib/game/selectors';
+import { validateAllQueueItems, type QueueValidationResult, getValidationMessage } from '../lib/game/validation';
 import { createStandardStart } from '../lib/sim/defs/seed';
 import { loadGameData } from '../lib/sim/defs/adapter.client';
 import gameDataRaw from '../lib/game/game_data.json';
@@ -34,12 +35,30 @@ export default function Home() {
   const [viewTurn, setViewTurn] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [stateVersion, setStateVersion] = useState(0); // Force re-render when state changes
+  const [queueValidation, setQueueValidation] = useState<Map<string, QueueValidationResult>>(new Map());
 
   // Get current state from controller - re-fetch when viewTurn OR stateVersion changes
   const currentState = controller.getStateAtTurn(viewTurn);
   const totalTurns = controller.getTotalTurns();
 
   const defs = currentState?.defs || {};
+
+  // Helper: Enrich lane entries with validation state
+  const enrichEntriesWithValidation = useCallback((entries: any[]) => {
+    return entries.map(entry => {
+      const validation = queueValidation.get(entry.id);
+      if (!validation) {
+        return entry; // No validation data, return as-is
+      }
+
+      return {
+        ...entry,
+        invalid: !validation.valid,
+        invalidReason: validation.reason ? getValidationMessage(validation) : undefined,
+        missingPrereqs: validation.missingPrereqs
+      };
+    });
+  }, [queueValidation]);
 
   // Use selectors for UI data - re-compute when state or version changes
   // These hooks must be called unconditionally (Rules of Hooks)
@@ -48,6 +67,20 @@ export default function Home() {
   const shipLane = useMemo(() => currentState ? getLaneView(currentState, 'ship') : null, [currentState, stateVersion]);
   const colonistLane = useMemo(() => currentState ? getLaneView(currentState, 'colonist') : null, [currentState, stateVersion]);
   const warnings = useMemo(() => currentState ? getWarnings(currentState) : [], [currentState, stateVersion]);
+
+  // Enrich lanes with validation state
+  const enrichedBuildingLane = useMemo(() =>
+    buildingLane ? { ...buildingLane, entries: enrichEntriesWithValidation(buildingLane.entries) } : null,
+    [buildingLane, enrichEntriesWithValidation]
+  );
+  const enrichedShipLane = useMemo(() =>
+    shipLane ? { ...shipLane, entries: enrichEntriesWithValidation(shipLane.entries) } : null,
+    [shipLane, enrichEntriesWithValidation]
+  );
+  const enrichedColonistLane = useMemo(() =>
+    colonistLane ? { ...colonistLane, entries: enrichEntriesWithValidation(colonistLane.entries) } : null,
+    [colonistLane, enrichEntriesWithValidation]
+  );
 
   // Get available items for each lane - must be before early return
   const availableItems = useMemo(() => {
@@ -81,7 +114,7 @@ export default function Home() {
   }, [defs, viewTurn, controller]);
 
   // Guard against undefined state AFTER all hooks are called
-  if (!currentState || !summary || !buildingLane || !shipLane || !colonistLane) {
+  if (!currentState || !summary || !enrichedBuildingLane || !enrichedShipLane || !enrichedColonistLane) {
     return <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text p-6">
       <h1 className="text-2xl font-bold">Error: Invalid turn {viewTurn}</h1>
     </div>;
@@ -192,6 +225,10 @@ export default function Home() {
     try {
       // CRITICAL-3 FIX: Use smart cancellation that searches timeline
       // This handles ships/colonists where queuedTurn != actual location
+
+      // Remember original timeline length before removal
+      const originalTotalTurns = controller.getTotalTurns();
+
       const cancelTurn = entry.queuedTurn || viewTurn;
       const result = controller.cancelEntryByIdSmart(cancelTurn, laneId, entry.id);
 
@@ -202,7 +239,47 @@ export default function Home() {
           setError(result.reason || 'Cannot cancel item');
         }
       } else {
-        // Force state update to re-render UI
+        // CRITICAL FIX: After cancellation, timeline is truncated at mutation point
+        // We need to re-simulate forward to restore timeline and process remaining queue items
+        const afterCancelTurns = controller.getTotalTurns();
+
+        // Re-simulate to at least the original turn count to avoid "Invalid turn" errors
+        // This ensures the timeline is extended forward with remaining queue items
+        if (afterCancelTurns < originalTotalTurns) {
+          const turnsToSimulate = originalTotalTurns - afterCancelTurns + 10; // +10 buffer for safety
+          controller.simulateTurns(turnsToSimulate);
+        }
+
+        // Check if viewTurn is still valid after removal and adjust BEFORE triggering re-render
+        const newTotalTurns = controller.getTotalTurns();
+        let adjustedViewTurn = viewTurn;
+
+        if (viewTurn >= newTotalTurns) {
+          // Adjust to the latest valid turn (max is totalTurns - 1)
+          adjustedViewTurn = Math.max(1, newTotalTurns - 1);
+          setViewTurn(adjustedViewTurn);
+        }
+
+        // Validate all remaining queue items after removal
+        const updatedState = controller.getStateAtTurn(adjustedViewTurn);
+        if (updatedState) {
+          // Helper to get lane entries for validation
+          const getLaneEntries = (state: any, laneId: 'building' | 'ship' | 'colonist') => {
+            return getLaneView(state, laneId).entries;
+          };
+
+          const validationResults = validateAllQueueItems(updatedState, getLaneEntries);
+
+          // Convert validation results to Map for efficient lookup
+          const validationMap = new Map<string, QueueValidationResult>();
+          for (const result of validationResults) {
+            validationMap.set(result.entryId, result);
+          }
+
+          setQueueValidation(validationMap);
+        }
+
+        // Force state update to re-render UI (do this AFTER adjusting viewTurn)
         setStateVersion(prev => prev + 1);
 
         // Stay at current view for better UX
@@ -329,9 +406,9 @@ export default function Home() {
           <Card className="flex-1 p-6">
             <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Planet Queue</h2>
             <TabbedLaneDisplay
-              buildingLane={buildingLane}
-              shipLane={shipLane}
-              colonistLane={colonistLane}
+              buildingLane={enrichedBuildingLane}
+              shipLane={enrichedShipLane}
+              colonistLane={enrichedColonistLane}
               currentTurn={viewTurn}
               onCancel={(laneId, entry) => handleCancelItem(laneId, entry)}
               onQuantityChange={(laneId, entry, newQty) => handleQuantityChange(laneId, entry, newQty)}

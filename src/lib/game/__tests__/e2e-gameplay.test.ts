@@ -35,7 +35,7 @@ describe('E2E Gameplay Tests', () => {
       expect(initialSummary.population.workersIdle).toBeGreaterThan(0);
 
       // Queue a metal mine
-      const queueResult = controller.queueItem(0, 'metal_mine', 1);
+      const queueResult = controller.queueItem(1, 'metal_mine', 1);
       expect(queueResult.success).toBe(true);
 
       // Check lane view
@@ -85,7 +85,7 @@ describe('E2E Gameplay Tests', () => {
       const controller = createTestController();
 
       // Try to queue fighters without shipyard (should fail)
-      const fighterResult = controller.queueItem(0, 'fighter', 5);
+      const fighterResult = controller.queueItem(1, 'fighter', 5);
       expect(fighterResult.success).toBe(false);
       expect(fighterResult.reason).toBe('REQ_MISSING');
 
@@ -98,7 +98,7 @@ describe('E2E Gameplay Tests', () => {
       const controller = createTestController();
 
       // Queue a soldier (requires army_barracks prerequisite)
-      const soldierResult = controller.queueItem(0, 'soldier', 1);
+      const soldierResult = controller.queueItem(1, 'soldier', 1);
 
       // Should fail due to missing prerequisites
       expect(soldierResult.success).toBe(false);
@@ -115,7 +115,7 @@ describe('E2E Gameplay Tests', () => {
         controller.nextTurn();
       }
 
-      expect(controller.getTotalTurns()).toBe(6); // 0-5
+      expect(controller.getTotalTurns()).toBe(200); // Always 200 turns in fixed timeline
 
       // Navigate to past turn
       const success = controller.setTurn(2);
@@ -163,7 +163,7 @@ describe('E2E Gameplay Tests', () => {
 
       // Queue metal mine (resources NOT consumed yet)
       const metalMineCost = controller.getCurrentState().defs.metal_mine.costsPerUnit;
-      controller.queueItem(0, 'metal_mine', 1);
+      controller.queueItem(1, 'metal_mine', 1);
 
       const afterQueue = getPlanetSummary(controller.getCurrentState());
       expect(afterQueue.stocks.metal).toBe(metalBefore); // No change yet
@@ -214,13 +214,13 @@ describe('E2E Gameplay Tests', () => {
       const metalBefore = beforeQueue.stocks.metal;
 
       // Queue item (no resources consumed yet)
-      controller.queueItem(0, 'metal_mine', 1);
+      controller.queueItem(1, 'metal_mine', 1);
 
       const afterQueue = getPlanetSummary(controller.getCurrentState());
       expect(afterQueue.stocks.metal).toBe(metalBefore); // No change
 
       // Cancel it (still pending)
-      const cancelResult = controller.cancelEntry(0, 'building');
+      const cancelResult = controller.cancelEntry(1, 'building');
       expect(cancelResult.success).toBe(true);
 
       const afterCancel = getPlanetSummary(controller.getCurrentState());
@@ -236,7 +236,7 @@ describe('E2E Gameplay Tests', () => {
       const metalBefore = beforeQueue.stocks.metal;
 
       // Queue and activate
-      controller.queueItem(0, 'metal_mine', 1);
+      controller.queueItem(1, 'metal_mine', 1);
       controller.nextTurn(); // Activates
 
       const afterActivation = getPlanetSummary(controller.getCurrentState());
@@ -259,11 +259,11 @@ describe('E2E Gameplay Tests', () => {
       const controller = createTestController();
 
       // Queue in building lane
-      const buildResult = controller.queueItem(0, 'metal_mine', 1);
+      const buildResult = controller.queueItem(1, 'metal_mine', 1);
       expect(buildResult.success).toBe(true);
 
       // Try to queue in ship lane (will fail - needs shipyard)
-      const shipResult = controller.queueItem(0, 'fighter', 1);
+      const shipResult = controller.queueItem(1, 'fighter', 1);
       expect(shipResult.success).toBe(false);
 
       // Check building lane has entry
@@ -290,7 +290,7 @@ describe('E2E Gameplay Tests', () => {
       const workersNeeded = metalMineDef.costsPerUnit.workers;
 
       if (workersNeeded > 0) {
-        controller.queueItem(0, 'metal_mine', 1);
+        controller.queueItem(1, 'metal_mine', 1);
         controller.nextTurn(); // Activate
 
         const afterActivation = getPlanetSummary(controller.getCurrentState());
@@ -314,11 +314,11 @@ describe('E2E Gameplay Tests', () => {
         controller.nextTurn();
       }
 
-      expect(controller.getTotalTurns()).toBe(51); // 0-50
+      expect(controller.getTotalTurns()).toBe(200); // Always 200 turns in fixed timeline
 
       // Should still have valid state
       const finalSummary = getPlanetSummary(controller.getCurrentState());
-      expect(finalSummary.turn).toBe(50);
+      expect(finalSummary.turn).toBe(51); // Started at turn 1, advanced 50 times = turn 51
       expect(finalSummary.stocks.metal).toBeGreaterThanOrEqual(0);
       expect(finalSummary.stocks.mineral).toBeGreaterThanOrEqual(0);
       expect(finalSummary.population.workersTotal).toBeGreaterThan(0);
