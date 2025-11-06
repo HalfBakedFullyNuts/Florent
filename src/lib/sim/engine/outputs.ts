@@ -3,11 +3,12 @@
  */
 
 import type { PlanetState, NetOutputs } from './types';
-import { RESOURCE_TYPES } from '../rules/constants';
+import { RESOURCE_TYPES, FOOD_PER_WORKER } from '../rules/constants';
 
 /**
  * Compute net outputs per turn
- * Σ(baseOutputsPerUnit × abundance × count) − Σ(upkeeps)
+ * Σ(baseOutputsPerUnit × abundance × count) − Σ(upkeeps) − populationUpkeep
+ * Food upkeep is now subtracted from production, not stocks
  */
 export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
   const netOutputs: NetOutputs = {
@@ -51,7 +52,29 @@ export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
     }
   }
 
+  // CRITICAL: Subtract population food upkeep from PRODUCTION, not stocks
+  // This makes upkeep visible in net production calculations
+  const populationFoodUpkeep = calculatePopulationFoodUpkeep(state);
+  netOutputs.food -= populationFoodUpkeep;
+
   return netOutputs;
+}
+
+/**
+ * Calculate total food upkeep for all population types
+ * Workers: FOOD_PER_WORKER (0.002) per worker
+ * Soldiers: FOOD_PER_WORKER per soldier
+ * Scientists: FOOD_PER_WORKER per scientist
+ */
+export function calculatePopulationFoodUpkeep(state: PlanetState): number {
+  const { workersTotal, soldiers, scientists } = state.population;
+
+  // All population types consume food at the same rate
+  const totalPopulation = workersTotal + soldiers + scientists;
+
+  // Use the existing FOOD_PER_WORKER constant (0.002 per worker)
+  // This gives 200 food per 100,000 population
+  return totalPopulation * FOOD_PER_WORKER;
 }
 
 /**

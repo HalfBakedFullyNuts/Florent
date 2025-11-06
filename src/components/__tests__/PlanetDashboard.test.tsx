@@ -54,13 +54,28 @@ describe('PlanetDashboard', () => {
       corvette: 5,
       destroyer: 2,
     },
+    structures: {
+      metal_mine: 4,
+      mineral_mine: 2,
+      farm: 3,
+      solar_panel: 5,
+      shipyard: 1,
+    },
     foodUpkeep: 20,
     growthHint: 'Workers will grow next turn',
   };
 
+  const mockDefs = {
+    metal_mine: { name: 'Metal Mine' },
+    mineral_mine: { name: 'Mineral Mine' },
+    farm: { name: 'Farm' },
+    solar_panel: { name: 'Solar Panel' },
+    shipyard: { name: 'Shipyard' },
+  };
+
   describe('Layout and Structure (Ticket 22)', () => {
     it('should render horizontal layout with 4 sections', () => {
-      const { container } = render(<PlanetDashboard summary={mockSummary} />);
+      const { container } = render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
 
       // Check for section headers
       expect(screen.getByText(/^Resources$/i)).toBeInTheDocument();
@@ -74,7 +89,7 @@ describe('PlanetDashboard', () => {
     });
 
     it('should display resources with integer stocks and decimal outputs', () => {
-      render(<PlanetDashboard summary={mockSummary} />);
+      render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
 
       // Stocks should be floored to integers
       expect(screen.getByText('30.123')).toBeInTheDocument(); // Metal stock
@@ -138,7 +153,7 @@ describe('PlanetDashboard', () => {
     });
 
     it('should display growth hint', () => {
-      render(<PlanetDashboard summary={mockSummary} />);
+      render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
 
       expect(screen.getByText(/Workers will grow next turn/i)).toBeInTheDocument();
     });

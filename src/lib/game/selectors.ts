@@ -4,9 +4,9 @@
  */
 
 import type { PlanetState, LaneId, NetOutputs, ResourceId } from '../sim/engine/types';
-import { computeNetOutputsPerTurn } from '../sim/engine/outputs';
+import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep } from '../sim/engine/outputs';
 import { computeGrowthBonus } from '../sim/engine/growth_food';
-import { WORKER_GROWTH_BASE, FOOD_PER_WORKER } from '../sim/rules/constants';
+import { WORKER_GROWTH_BASE } from '../sim/rules/constants';
 import { canQueue } from '../sim/engine/validation';
 
 export interface PlanetSummary {
@@ -94,8 +94,8 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
     0
   );
 
-  // Calculate food upkeep
-  const foodUpkeep = state.population.workersTotal * FOOD_PER_WORKER;
+  // Use engine's upkeep calculation for consistency
+  const foodUpkeep = calculatePopulationFoodUpkeep(state);
 
   // Extract ship counts from completedCounts
   const ships: Record<string, number> = {};

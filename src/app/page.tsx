@@ -170,50 +170,39 @@ export default function Home() {
   const handleQueueItem = (itemId: string, quantity: number) => {
     setError(null);
     try {
-      // CRITICAL-1 FIX: Queue at viewTurn instead of currentTurn
+      // Queue item at current view turn (timeline always has 200 turns)
       const result = controller.queueItem(viewTurn, itemId, quantity);
       if (!result.success) {
         setError(result.reason || 'Cannot queue item');
-      } else {
-        setStateVersion(prev => prev + 1);
+        return;
+      }
 
-        const def = defs[itemId];
-        if (!def) return;
+      setStateVersion(prev => prev + 1);
 
-        // CRITICAL-2 FIX: Calculate when this item will complete and ensure turns exist
+      // AUTO-ADVANCE: For buildings, move to completion turn
+      const def = defs[itemId];
+      if (def && def.lane === 'building') {
         const state = controller.getStateAtTurn(viewTurn);
-        if (!state) return;
+        if (state) {
+          const lane = state.lanes[def.lane];
 
-        const lane = state.lanes[def.lane];
-
-        // Calculate total duration in this lane
-        let totalDuration = 0;
-        if (lane.active) {
-          totalDuration += lane.active.turnsRemaining;
-        }
-        for (const pending of lane.pendingQueue) {
-          const pendingDef = defs[pending.itemId];
-          if (pendingDef) {
-            totalDuration += pendingDef.durationTurns;
+          // Calculate total duration in this lane
+          let totalDuration = 0;
+          if (lane.active) {
+            totalDuration += lane.active.turnsRemaining;
           }
-        }
+          for (const pending of lane.pendingQueue) {
+            const pendingDef = defs[pending.itemId];
+            if (pendingDef) {
+              totalDuration += pendingDef.durationTurns;
+            }
+          }
 
-        const completionTurn = viewTurn + totalDuration;
-
-        // Ensure we have enough turns simulated
-        const totalTurns = controller.getTotalTurns();
-        if (completionTurn >= totalTurns) {
-          const turnsToSimulate = completionTurn - totalTurns + 1;
-          controller.simulateTurns(turnsToSimulate);
-          setStateVersion(prev => prev + 1);
-        }
-
-        // AUTO-ADVANCE: Only for buildings
-        if (def.lane === 'building') {
+          const completionTurn = Math.min(viewTurn + totalDuration, 199); // Cap at turn 199
           setViewTurn(completionTurn);
         }
-        // Ships/colonists stay at viewTurn (no auto-advance)
       }
+      // Ships/colonists stay at viewTurn (no auto-advance)
     } catch (e) {
       console.error('Error in handleQueueItem:', e);
       setError((e as Error).message || 'Unknown error');
@@ -223,12 +212,7 @@ export default function Home() {
   const handleCancelItem = (laneId: 'building' | 'ship' | 'colonist', entry: any) => {
     setError(null);
     try {
-      // CRITICAL-3 FIX: Use smart cancellation that searches timeline
-      // This handles ships/colonists where queuedTurn != actual location
-
-      // Remember original timeline length before removal
-      const originalTotalTurns = controller.getTotalTurns();
-
+      // Cancel the item (timeline always has 200 turns, no need to extend)
       const cancelTurn = entry.queuedTurn || viewTurn;
       const result = controller.cancelEntryByIdSmart(cancelTurn, laneId, entry.id);
 
@@ -238,53 +222,32 @@ export default function Home() {
         } else {
           setError(result.reason || 'Cannot cancel item');
         }
-      } else {
-        // CRITICAL FIX: After cancellation, timeline is truncated at mutation point
-        // We need to re-simulate forward to restore timeline and process remaining queue items
-        const afterCancelTurns = controller.getTotalTurns();
-
-        // Re-simulate to at least the original turn count to avoid "Invalid turn" errors
-        // This ensures the timeline is extended forward with remaining queue items
-        if (afterCancelTurns < originalTotalTurns) {
-          const turnsToSimulate = originalTotalTurns - afterCancelTurns + 10; // +10 buffer for safety
-          controller.simulateTurns(turnsToSimulate);
-        }
-
-        // Check if viewTurn is still valid after removal and adjust BEFORE triggering re-render
-        const newTotalTurns = controller.getTotalTurns();
-        let adjustedViewTurn = viewTurn;
-
-        if (viewTurn >= newTotalTurns) {
-          // Adjust to the latest valid turn (max is totalTurns - 1)
-          adjustedViewTurn = Math.max(1, newTotalTurns - 1);
-          setViewTurn(adjustedViewTurn);
-        }
-
-        // Validate all remaining queue items after removal
-        const updatedState = controller.getStateAtTurn(adjustedViewTurn);
-        if (updatedState) {
-          // Helper to get lane entries for validation
-          const getLaneEntries = (state: any, laneId: 'building' | 'ship' | 'colonist') => {
-            return getLaneView(state, laneId).entries;
-          };
-
-          const validationResults = validateAllQueueItems(updatedState, getLaneEntries);
-
-          // Convert validation results to Map for efficient lookup
-          const validationMap = new Map<string, QueueValidationResult>();
-          for (const result of validationResults) {
-            validationMap.set(result.entryId, result);
-          }
-
-          setQueueValidation(validationMap);
-        }
-
-        // Force state update to re-render UI (do this AFTER adjusting viewTurn)
-        setStateVersion(prev => prev + 1);
-
-        // Stay at current view for better UX
-        // (don't jump around, user is viewing where they want to be)
+        return;
       }
+
+      // Validate all remaining queue items after removal
+      const updatedState = controller.getStateAtTurn(viewTurn);
+      if (updatedState) {
+        // Helper to get lane entries for validation
+        const getLaneEntries = (state: any, laneId: 'building' | 'ship' | 'colonist') => {
+          return getLaneView(state, laneId).entries;
+        };
+
+        const validationResults = validateAllQueueItems(updatedState, getLaneEntries);
+
+        // Convert validation results to Map for efficient lookup
+        const validationMap = new Map<string, QueueValidationResult>();
+        for (const result of validationResults) {
+          validationMap.set(result.entryId, result);
+        }
+
+        setQueueValidation(validationMap);
+      }
+
+      // Force state update to re-render UI
+      setStateVersion(prev => prev + 1);
+
+      // viewTurn is always valid (1-200), no adjustment needed
     } catch (e) {
       setError((e as Error).message || 'Unknown error');
     }

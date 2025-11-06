@@ -6,15 +6,17 @@ This document tracks critical bugs discovered during queue removal and populatio
 
 ## Queue Removal & Timeline Management
 
-### TICKET-1: Fix Queue Removal to Work from Any Viewed Turn
+### TICKET-1: Implement Fixed 200-Turn Timeline with CSV Debugging
 
 **Priority**: Critical
-**Effort**: 3 hours
+**Effort**: 2 hours (simplified from 3 hours)
 **Status**: Open
+**Architecture Change**: Fixed timeline length instead of dynamic
 **Related Files**:
 - `src/app/page.tsx` (handleCancelItem)
 - `src/lib/game/commands.ts` (cancelEntryByIdSmart)
 - `src/lib/game/state.ts` (Timeline)
+- `src/lib/game/debug.ts` (NEW - CSV logging)
 
 #### Dependencies
 
@@ -36,266 +38,374 @@ This document tracks critical bugs discovered during queue removal and populatio
 - Timeline.simulateTurns() → extends timeline forward after truncation
 - validateAllQueueItems() → called after mutation to detect invalid entries
 
-#### Problem Statement
+#### Architectural Decision: Fixed 200-Turn Timeline
 
-When removing a building from the queue while not viewing the latest turn, the UI becomes unusable:
-1. Turn slider jumps to an incorrect turn
-2. User cannot queue new items (all buttons greyed out)
-3. Planet state does not reflect the queue changes at the currently viewed turn
+**Paradigm Shift**: Instead of dynamically extending the timeline based on queue length, always maintain exactly 200 pre-computed turns. The turn slider becomes a pure view selector into this fixed dataset.
 
-**Expected Behavior**: Removing an item from the queue at any viewed turn should:
-- Keep the user at the same viewed turn (no jumping)
-- Show the planet state as it would be at that turn given the modified queue
-- Allow queueing new items immediately
-- Correctly recalculate all subsequent turns based on the removal
+**Benefits**:
+- Eliminates all timeline length edge cases
+- viewTurn is always valid (∈ [1, 200])
+- Massive code simplification
+- Consistent UX (slider range never changes)
+- Predictable performance (always 200 turns to compute)
 
-**Current Behavior**:
-- Timeline truncates at mutation point but doesn't extend forward properly
-- `viewTurn` becomes invalid after removal
-- UI state corruption prevents further interactions
+**Trade-offs**:
+- Every mutation recomputes all 200 turns (~200ms latency)
+- Memory usage: 200 × PlanetState (~1MB total, negligible)
+- Some wasted computation for empty turns (mitigated by stable state detection)
 
-#### Root Cause Analysis
+#### Problem Statement (Simplified)
 
-The `handleCancelItem` function in `page.tsx` has several issues:
+When removing items from the queue:
+1. Need to recompute all 200 turns efficiently
+2. Need to maintain viewTurn position (no jumping)
+3. Need to debug complex state issues when they occur
+4. Need to validate remaining queue items after removal
 
-1. **Timeline Truncation Without Proper Re-simulation**:
-   ```typescript
-   // Current: After cancelEntryByIdSmart, timeline is truncated
-   controller.cancelEntryByIdSmart(cancelTurn, laneId, entry.id);
-   // Timeline now has fewer turns than before
-   const afterCancelTurns = controller.getTotalTurns(); // May be less than viewTurn!
-   ```
+#### CSV Debugging System
 
-2. **Insufficient Re-simulation**:
-   ```typescript
-   // Current fix (+10 buffer) may not be enough for complex queues
-   controller.simulateTurns(originalTotalTurns - afterCancelTurns + 10);
-   ```
+**Purpose**: Track all state changes for debugging and replication of issues
 
-3. **No Validation of Queue State After Removal**:
-   - Doesn't verify that remaining queue items are still valid
-   - Doesn't ensure timeline extends far enough to complete all remaining items
+**CSV Structure** (3 separate files for different concerns):
 
-#### Known Issues
+1. **queue_operations.csv** - Track all queue mutations
+```csv
+timestamp,session_id,operation,turn,lane,item_id,item_name,quantity,success,error
+2025-01-15T10:23:45.123Z,abc123,queue,1,building,metal_mine_001,Metal Mine,1,true,
+2025-01-15T10:23:47.456Z,abc123,cancel,5,building,metal_mine_001,Metal Mine,1,true,
+2025-01-15T10:23:48.789Z,abc123,cancel,5,building,farm_002,Farm,1,false,NOT_FOUND
+```
 
-⚠️ **CRITICAL: Race Condition in Rapid Removals**
-**Issue**: Multiple rapid click events on cancel buttons can cause state corruption
-**Root Cause**: React state updates are batched, but Timeline mutations are immediate
-**Impact**: Removing 2 items quickly may cause:
-  - Second removal to operate on stale Timeline state
-  - ViewTurn adjustment to be incorrect (calculated from wrong totalTurns)
-  - Queue validation to run against intermediate state
+2. **planet_states.csv** - Snapshot key state at each turn
+```csv
+timestamp,session_id,turn,metal,mineral,food,energy,workers,soldiers,scientists,growth_rate,building_queue,ship_queue,colonist_queue
+2025-01-15T10:23:45.123Z,abc123,1,30000,20000,1000,0,20000,0,0,200,"metal_mine_001:4","",""
+2025-01-15T10:23:45.124Z,abc123,2,30000,20000,1000,0,20200,0,0,202,"metal_mine_001:3","",""
+```
 
-**Draft Solution**:
+3. **timeline_events.csv** - Track timeline recomputation events
+```csv
+timestamp,session_id,event,trigger,turns_computed,duration_ms,turns_with_activity,stable_from_turn
+2025-01-15T10:23:45.123Z,abc123,recompute_all,queue_item,200,187,10,11
+2025-01-15T10:23:47.456Z,abc123,recompute_all,cancel_item,200,195,8,9
+```
+
+**Searchability Features**:
+- session_id: Group all operations from one play session
+- timestamp: Exact ordering and performance analysis
+- turn: Find all state at specific turn
+- item_id: Track lifecycle of specific queue items
+- CSV format: Can be analyzed with Excel, pandas, or grep
+
+#### Known Issues (Simplified with Fixed Timeline)
+
+⚠️ **ISSUE: Race Condition During 200-Turn Recompute**
+**Issue**: During the ~200ms recompute, rapid clicks could trigger multiple recomputes
+**Impact**: Wasted computation, potential state inconsistency
+
+**Solution**:
 ```typescript
-// Add debouncing to handleCancelItem
-const [cancelInProgress, setCancelInProgress] = useState(false);
+const [recomputeInProgress, setRecomputeInProgress] = useState(false);
 
 const handleCancelItem = async (laneId, entry) => {
-  if (cancelInProgress) return; // Block rapid clicks
-  setCancelInProgress(true);
+  if (recomputeInProgress) return; // Block during recompute
+  setRecomputeInProgress(true);
 
   try {
-    // ... existing logic ...
+    controller.cancelEntryByIdSmart(viewTurn, laneId, entry.id);
+    await controller.recomputeAll(); // Recompute all 200 turns
   } finally {
-    setCancelInProgress(false);
+    setRecomputeInProgress(false);
   }
 };
 ```
 
-**Known Limitation**: This doesn't prevent the underlying race condition, just reduces likelihood. Full fix requires:
-1. Queue mutations as atomic transactions
-2. Timeline lock mechanism during recomputation
-3. Deferred state updates until recomputation completes
-
 ---
 
-⚠️ **ISSUE: Timeline Extension May Be Insufficient**
-**Issue**: Fixed +10 buffer may not cover all remaining queue items
-**Root Cause**: Calculation doesn't account for:
-  - Items already active in lanes (turnsRemaining)
-  - Multiple pending items in each of 3 lanes
-  - Batch queueing (quantity > 1 increases duration)
+⚠️ **ISSUE: Performance for Large Queues**
+**Issue**: With 200-turn fixed timeline, every mutation takes ~200ms
+**Impact**: Slightly noticeable delay on queue operations
 
-**Example Failure Case**:
-```
-Queue state after removal:
-- Building lane: active (3 turns left) + pending [farm, solar_gen]
-- Ship lane: pending [scout × 5]
-- Colonist lane: pending [soldier × 10]
-
-Total required turns = 3 + (4+4) + (5×8) + (10×4) = 3 + 8 + 40 + 40 = 91 turns
-Fixed +10 buffer only adds 10 turns → Timeline ends at T50, missing 41 turns of work!
-```
-
-**Draft Solution**: Use proposed `extendToCompleteAllQueues()` from spec:
+**Optimization Strategy**:
 ```typescript
 class Timeline {
-  extendToCompleteAllQueues(): void {
-    const latestState = this.states[this.states.length - 1];
-    let maxCompletionTurn = latestState.currentTurn;
+  private stableFromTurn: number = -1; // Cache stable state point
 
-    for (const lane of Object.values(latestState.lanes)) {
-      let laneTime = latestState.currentTurn;
-      if (lane.active) laneTime += lane.active.turnsRemaining;
-      for (const pending of lane.pendingQueue) {
-        const def = latestState.defs[pending.itemId];
-        if (def) laneTime += def.durationTurns * pending.quantity;
+  recomputeAll(): void {
+    const start = performance.now();
+
+    // Detect if state becomes stable (no more work)
+    for (let turn = 1; turn <= 200; turn++) {
+      const prevState = this.states[turn - 1];
+      this.states[turn] = runTurn(prevState);
+
+      // If no active work and no pending, state is stable
+      if (isStableState(this.states[turn]) && this.stableFromTurn === -1) {
+        this.stableFromTurn = turn;
+        // Copy stable state to remaining turns (fast!)
+        for (let i = turn + 1; i <= 200; i++) {
+          this.states[i] = cloneState(this.states[turn]);
+        }
+        break;
       }
-      maxCompletionTurn = Math.max(maxCompletionTurn, laneTime);
     }
 
-    const turnsNeeded = maxCompletionTurn - latestState.currentTurn;
-    if (turnsNeeded > 0) this.simulateTurns(turnsNeeded);
+    const duration = performance.now() - start;
+    this.logTimelineEvent('recompute_all', duration, this.stableFromTurn);
   }
 }
 ```
 
-**Integration Point**: Call after every queue mutation in commands.ts
-
----
-
-⚠️ **ISSUE: viewTurn Adjustment Logic Has Edge Cases**
-**Issue**: Boundary condition handling for viewTurn correction
-**Root Cause**: Logic doesn't handle all edge cases:
-  - viewTurn === totalTurns (should be valid but gets adjusted)
-  - viewTurn === 0 (would become -1 with Math.max(1, -1))
-  - Timeline has only 1 state (totalTurns = 1, viewTurn becomes 0)
-
-**Draft Solution**:
-```typescript
-// Current code:
-if (viewTurn >= newTotalTurns) {
-  adjustedViewTurn = Math.max(1, newTotalTurns - 1);
-}
-
-// Should be:
-if (viewTurn >= newTotalTurns) {
-  // Valid range is [states[0].currentTurn, totalTurns - 1]
-  const minTurn = controller.getStateAtTurn(0)?.currentTurn || 1;
-  const maxTurn = Math.max(minTurn, newTotalTurns - 1);
-  adjustedViewTurn = Math.min(Math.max(minTurn, viewTurn), maxTurn);
-}
-```
+**Performance Target**: <100ms for typical queues, <200ms worst case
 
 #### Technical Specification
 
-**Phase 1: Fix Timeline Re-simulation After Removal**
+**Phase 1: Implement Fixed 200-Turn Timeline**
+
+Update Timeline class in `src/lib/game/state.ts`:
+
+```typescript
+class Timeline {
+  private static readonly FIXED_TURNS = 200;
+  private states: PlanetState[] = [];
+  private sessionId: string = generateSessionId(); // For CSV tracking
+
+  /**
+   * Initialize timeline with 200 pre-computed turns
+   */
+  constructor(initialState: PlanetState) {
+    this.states = new Array(Timeline.FIXED_TURNS);
+    this.states[0] = cloneState(initialState);
+    this.recomputeAll();
+  }
+
+  /**
+   * Recompute all 200 turns from scratch
+   * Optimized with stable state detection
+   */
+  async recomputeAll(): Promise<void> {
+    const start = performance.now();
+    let stableFromTurn = -1;
+
+    for (let i = 1; i < Timeline.FIXED_TURNS; i++) {
+      this.states[i] = runTurn(this.states[i - 1]);
+
+      // Detect stable state (no active items, no pending queues)
+      if (stableFromTurn === -1 && this.isStableState(this.states[i])) {
+        stableFromTurn = i;
+        // Fast-copy stable state to remaining turns
+        const stableState = this.states[i];
+        for (let j = i + 1; j < Timeline.FIXED_TURNS; j++) {
+          this.states[j] = cloneState(stableState);
+        }
+        break;
+      }
+    }
+
+    const duration = performance.now() - start;
+    this.logTimelineEvent('recompute_all', duration, stableFromTurn);
+  }
+
+  /**
+   * Apply mutation and recompute all 200 turns
+   */
+  async mutateAtTurn(turn: number, mutation: (state: PlanetState) => void): Promise<boolean> {
+    if (turn < 0 || turn >= Timeline.FIXED_TURNS) return false;
+
+    // Apply mutation
+    mutation(this.states[turn]);
+
+    // Log the mutation
+    this.logStateChange(turn, 'mutation');
+
+    // Recompute everything from mutation point forward
+    await this.recomputeAll();
+    return true;
+  }
+
+  private isStableState(state: PlanetState): boolean {
+    return Object.values(state.lanes).every(
+      lane => !lane.active && lane.pendingQueue.length === 0
+    );
+  }
+
+  getStateAtTurn(turn: number): PlanetState | null {
+    if (turn < 0 || turn >= Timeline.FIXED_TURNS) return null;
+    return cloneState(this.states[turn]);
+  }
+
+  getTotalTurns(): number {
+    return Timeline.FIXED_TURNS; // Always 200
+  }
+}
+```
+
+**Phase 2: Simplify handleCancelItem**
 
 Update `handleCancelItem` in `src/app/page.tsx`:
 
 ```typescript
-const handleCancelItem = (laneId: LaneId, entry: LaneEntry) => {
+const [recomputeInProgress, setRecomputeInProgress] = useState(false);
+
+const handleCancelItem = async (laneId: LaneId, entry: LaneEntry) => {
+  if (recomputeInProgress) return; // Prevent rapid clicks
   setError(null);
+  setRecomputeInProgress(true);
+
   try {
-    // Remember original state before removal
-    const originalTotalTurns = controller.getTotalTurns();
-    const originalViewTurn = viewTurn;
+    // Log the operation attempt
+    CSVLogger.logQueueOperation('cancel', viewTurn, laneId, entry);
 
     // Cancel the item
-    const cancelTurn = entry.queuedTurn || viewTurn;
-    const result = controller.cancelEntryByIdSmart(cancelTurn, laneId, entry.id);
+    const result = controller.cancelEntryByIdSmart(viewTurn, laneId, entry.id);
 
     if (!result.success) {
+      CSVLogger.logQueueOperation('cancel_failed', viewTurn, laneId, entry, result.reason);
       setError(result.reason || 'Cannot cancel item');
       return;
     }
 
-    // CRITICAL: Calculate how far forward timeline needs to extend
-    // to process ALL remaining queue items to completion
-    const afterCancelState = controller.getStateAtTurn(cancelTurn);
-    if (!afterCancelState) {
-      setError('Invalid state after cancellation');
-      return;
+    // Recompute all 200 turns (simplified!)
+    await controller.recomputeAll();
+
+    // viewTurn is guaranteed valid (always 1-200), no adjustment needed
+
+    // Validate remaining queue items
+    const updatedState = controller.getStateAtTurn(viewTurn);
+    if (updatedState) {
+      const validationResults = validateAllQueueItems(updatedState, getLaneEntries);
+      setQueueValidation(new Map(validationResults.map(r => [r.entryId, r])));
     }
 
-    // Calculate required turns for all remaining items
-    let maxCompletionTurn = cancelTurn;
-    for (const lane of Object.values(afterCancelState.lanes)) {
-      if (lane.active) {
-        maxCompletionTurn = Math.max(maxCompletionTurn,
-          afterCancelState.currentTurn + lane.active.turnsRemaining);
-      }
-      for (const pending of lane.pendingQueue) {
-        const def = afterCancelState.defs[pending.itemId];
-        if (def) {
-          maxCompletionTurn += def.durationTurns;
-        }
-      }
-    }
-
-    // Ensure timeline extends to at least maxCompletionTurn
-    const currentTotalTurns = controller.getTotalTurns();
-    if (currentTotalTurns < maxCompletionTurn) {
-      const turnsNeeded = maxCompletionTurn - currentTotalTurns + 5; // +5 buffer
-      controller.simulateTurns(turnsNeeded);
-    }
-
-    // Keep user at their original viewed turn if still valid
-    const finalTotalTurns = controller.getTotalTurns();
-    if (originalViewTurn >= finalTotalTurns) {
-      setViewTurn(Math.max(1, finalTotalTurns - 1));
-    }
-    // else: keep viewTurn unchanged (user stays where they were)
-
-    // Validate all remaining queue items
-    const validationResults = validateAllQueueItems(
-      controller.getStateAtTurn(viewTurn),
-      getLaneEntries
-    );
-
-    setQueueValidation(new Map(
-      validationResults.map(r => [r.entryId, r])
-    ));
-
+    // Trigger re-render
     setStateVersion(prev => prev + 1);
-  } catch (e) {
-    setError((e as Error).message || 'Unknown error');
+
+  } finally {
+    setRecomputeInProgress(false);
   }
 };
 ```
 
-**Phase 2: Improve Timeline Extension Logic in Timeline Class**
+**Phase 3: Implement CSV Debugging System**
 
-Add helper method to `src/lib/game/state.ts`:
+Create new file `src/lib/game/debug.ts`:
 
 ```typescript
-class Timeline {
-  /**
-   * Extend timeline to ensure it covers all pending queue completions
-   */
-  extendToCompleteAllQueues(): void {
-    const latestState = this.states[this.states.length - 1];
-    if (!latestState) return;
+import { appendFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 
-    let maxCompletionTurn = latestState.currentTurn;
+class CSVLogger {
+  private static sessionId = this.generateSessionId();
+  private static logDir = join(process.cwd(), 'game_logs');
+  private static initialized = false;
 
-    for (const lane of Object.values(latestState.lanes)) {
-      let laneTime = latestState.currentTurn;
+  private static init() {
+    if (this.initialized) return;
+    mkdirSync(this.logDir, { recursive: true });
 
-      // Account for active item
-      if (lane.active) {
-        laneTime += lane.active.turnsRemaining;
-      }
+    // Create CSV headers
+    this.writeCSV('queue_operations.csv',
+      'timestamp,session_id,operation,turn,lane,item_id,item_name,quantity,success,error\n');
 
-      // Account for all pending items
-      for (const pending of lane.pendingQueue) {
-        const def = latestState.defs[pending.itemId];
-        if (def) {
-          laneTime += def.durationTurns;
-        }
-      }
+    this.writeCSV('planet_states.csv',
+      'timestamp,session_id,turn,metal,mineral,food,energy,workers,soldiers,scientists,growth_rate,building_queue,ship_queue,colonist_queue\n');
 
-      maxCompletionTurn = Math.max(maxCompletionTurn, laneTime);
+    this.writeCSV('timeline_events.csv',
+      'timestamp,session_id,event,trigger,turns_computed,duration_ms,turns_with_activity,stable_from_turn\n');
+
+    this.initialized = true;
+  }
+
+  static logQueueOperation(
+    operation: string,
+    turn: number,
+    lane: string,
+    item: any,
+    error?: string
+  ) {
+    this.init();
+    const row = [
+      new Date().toISOString(),
+      this.sessionId,
+      operation,
+      turn,
+      lane,
+      item.id,
+      item.itemName || item.name,
+      item.quantity || 1,
+      !error,
+      error || ''
+    ].join(',');
+
+    this.writeCSV('queue_operations.csv', row + '\n');
+  }
+
+  static logPlanetState(turn: number, state: PlanetState) {
+    this.init();
+    const row = [
+      new Date().toISOString(),
+      this.sessionId,
+      turn,
+      state.stocks.metal,
+      state.stocks.mineral,
+      state.stocks.food,
+      state.stocks.energy,
+      state.population.workersTotal,
+      state.population.soldiers,
+      state.population.scientists,
+      state.population.workersTotal * 0.01, // growth rate
+      this.serializeQueue(state.lanes.building),
+      this.serializeQueue(state.lanes.ship),
+      this.serializeQueue(state.lanes.colonist)
+    ].join(',');
+
+    this.writeCSV('planet_states.csv', row + '\n');
+  }
+
+  static logTimelineEvent(
+    event: string,
+    trigger: string,
+    turnsComputed: number,
+    duration: number,
+    stableFromTurn: number
+  ) {
+    this.init();
+    const row = [
+      new Date().toISOString(),
+      this.sessionId,
+      event,
+      trigger,
+      turnsComputed,
+      duration.toFixed(2),
+      stableFromTurn === -1 ? turnsComputed : stableFromTurn,
+      stableFromTurn
+    ].join(',');
+
+    this.writeCSV('timeline_events.csv', row + '\n');
+  }
+
+  private static serializeQueue(lane: LaneState): string {
+    const items = [];
+    if (lane.active) {
+      items.push(`${lane.active.itemId}:${lane.active.turnsRemaining}`);
     }
+    lane.pendingQueue.forEach(item => {
+      items.push(`${item.itemId}:pending`);
+    });
+    return `"${items.join('|')}"`;
+  }
 
-    // Simulate forward to completion
-    const turnsNeeded = maxCompletionTurn - latestState.currentTurn;
-    if (turnsNeeded > 0) {
-      this.simulateTurns(turnsNeeded);
-    }
+  private static writeCSV(filename: string, data: string) {
+    const filepath = join(this.logDir, filename);
+    appendFileSync(filepath, data, 'utf8');
+  }
+
+  private static generateSessionId(): string {
+    return Math.random().toString(36).substring(2, 15);
   }
 }
+
+export { CSVLogger };
 ```
 
 #### Migration Strategy

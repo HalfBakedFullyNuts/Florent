@@ -113,9 +113,15 @@ describe('Auto-Advance Queue Validation Tests', () => {
     it('should simulate required turns when queueing long-duration items', () => {
       const controller = createTestController();
 
+      // Build launch_site (prerequisite for shipyard)
+      // Queue at T1, activates at T2 with turnsRemaining=8, completes at T10
+      controller.queueItem(controller.getCurrentTurn(), 'launch_site', 1);
+      controller.simulateTurns(10); // Wait for launch_site to complete
+
       // Build shipyard to unlock ships
+      // Queue at T11, activates at T12 with turnsRemaining=12, completes at T24
       controller.queueItem(controller.getCurrentTurn(), 'shipyard', 1);
-      controller.simulateTurns(20);
+      controller.simulateTurns(14); // Wait for shipyard to complete
 
       const turnBeforeShip = controller.getCurrentTurn();
 
@@ -145,9 +151,13 @@ describe('Auto-Advance Queue Validation Tests', () => {
 
       const turnAfterMine = controller.getCurrentTurn();
 
+      // Build launch_site first (prerequisite for shipyard)
+      controller.queueItem(turnAfterMine, 'launch_site', 1);
+      controller.simulateTurns(10); // Wait for launch_site (8 turns)
+
       // Build shipyard
-      controller.queueItem(turnAfterMine, 'shipyard', 1);
-      controller.simulateTurns(20);
+      controller.queueItem(controller.getCurrentTurn(), 'shipyard', 1);
+      controller.simulateTurns(14); // Wait for shipyard (12 turns)
 
       const turnAfterShipyard = controller.getCurrentTurn();
 
@@ -200,13 +210,17 @@ describe('Auto-Advance Queue Validation Tests', () => {
 
       // Queue research lab
       controller.queueItem(controller.getCurrentTurn(), 'research_lab', 1);
-      controller.simulateTurns(12);
+      controller.simulateTurns(15); // Updated to 15 to match research_lab 14 turns duration
 
       const turnAfterResearch = controller.getCurrentTurn();
 
+      // Build launch_site first (prerequisite for shipyard)
+      controller.queueItem(turnAfterResearch, 'launch_site', 1);
+      controller.simulateTurns(10); // Wait for launch_site (8 turns)
+
       // Build shipyard
-      controller.queueItem(turnAfterResearch, 'shipyard', 1);
-      controller.simulateTurns(20);
+      controller.queueItem(controller.getCurrentTurn(), 'shipyard', 1);
+      controller.simulateTurns(14); // Wait for shipyard (12 turns)
 
       const finalTurn = controller.getCurrentTurn();
       const finalState = controller.getCurrentState();
@@ -233,9 +247,13 @@ describe('Auto-Advance Queue Validation Tests', () => {
     it('should remove ship from pending queue using smart cancellation', () => {
       const controller = createTestController();
 
+      // Build launch_site first (prerequisite for shipyard)
+      controller.queueItem(controller.getCurrentTurn(), 'launch_site', 1);
+      controller.simulateTurns(10); // Wait for launch_site (8 turns)
+
       // Build shipyard to unlock ships
       controller.queueItem(controller.getCurrentTurn(), 'shipyard', 1);
-      controller.simulateTurns(20);
+      controller.simulateTurns(14); // Wait for shipyard (12 turns)
 
       const queueTurn = controller.getCurrentTurn();
 
@@ -262,9 +280,13 @@ describe('Auto-Advance Queue Validation Tests', () => {
     it('should remove active ship when building has started', () => {
       const controller = createTestController();
 
+      // Build launch_site first (prerequisite for shipyard)
+      controller.queueItem(controller.getCurrentTurn(), 'launch_site', 1);
+      controller.simulateTurns(10); // Wait for launch_site (8 turns)
+
       // Build shipyard
       controller.queueItem(controller.getCurrentTurn(), 'shipyard', 1);
-      controller.simulateTurns(20);
+      controller.simulateTurns(14); // Wait for shipyard (12 turns)
 
       const queueTurn = controller.getCurrentTurn();
 
@@ -323,9 +345,13 @@ describe('Auto-Advance Queue Validation Tests', () => {
     it('should handle cancellation when item is queued but lane is busy', () => {
       const controller = createTestController();
 
+      // Build launch_site first (prerequisite for shipyard)
+      controller.queueItem(controller.getCurrentTurn(), 'launch_site', 1);
+      controller.simulateTurns(10); // Wait for launch_site (8 turns)
+
       // Build shipyard
       controller.queueItem(controller.getCurrentTurn(), 'shipyard', 1);
-      controller.simulateTurns(20);
+      controller.simulateTurns(14); // Wait for shipyard (12 turns)
 
       const queueTurn = controller.getCurrentTurn();
 
