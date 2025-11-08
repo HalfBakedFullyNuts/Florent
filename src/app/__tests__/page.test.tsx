@@ -22,13 +22,13 @@ describe('Home page', () => {
     // Note: Energy appears in "Energy" resource label in PlanetSummary, so skip that check
   });
 
-  it('shows clean header with title and button (Ticket 21)', () => {
-    const { getByText, container } = render(<Home />);
+  it('shows clean header with title and turn controls (Ticket 21)', () => {
+    const { getByText, getByLabelText, container } = render(<Home />);
     // Header should contain title
     expect(getByText(/Infinite Conflict Simulator/i)).toBeInTheDocument();
-    // Header should contain Advance Turn button
-    expect(getByText(/Advance Turn/i)).toBeInTheDocument();
-    // Verify header structure (should only have title and button area)
+    // Turn controls should be present via TurnSlider
+    expect(getByLabelText(/Turn slider/i)).toBeInTheDocument();
+    // Verify header structure
     const header = container.querySelector('header');
     expect(header).toBeInTheDocument();
   });
@@ -50,9 +50,9 @@ describe('Home page', () => {
     expect(getByText(/^Resources$/i)).toBeInTheDocument();
   });
 
-  it('shows advance turn button', () => {
-    const { getByText } = render(<Home />);
-    expect(getByText(/Advance Turn/i)).toBeInTheDocument();
+  it('shows turn navigation controls', () => {
+    const { getByLabelText } = render(<Home />);
+    expect(getByLabelText(/Turn slider/i)).toBeInTheDocument();
   });
 
   it('shows turn slider controls', () => {

@@ -393,9 +393,9 @@ describe('Integration Tests', () => {
       });
 
       // 5. Queue should show the item with proper format
-      const queuedItem = screen.queryByText(/Farm/);
-      if (queuedItem) {
-        expect(queuedItem).toBeInTheDocument();
+      const queuedItems = screen.queryAllByText(/Farm/);
+      if (queuedItems.length > 0) {
+        expect(queuedItems[0]).toBeInTheDocument();
       }
     }
   });

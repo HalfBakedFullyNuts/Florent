@@ -382,50 +382,33 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
           </div>
         </Card>
 
-        {/* Completed Structures Section - Detailed List */}
+        {/* Ships Section - Fleet Overview */}
         <Card className="p-3">
-          <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Completed Structures</h3>
-          {structuresList.length > 0 ? (
-            <div className="space-y-1">
-              {structuresList.map((structure) => (
-                <div
-                  key={structure.id}
-                  className="text-xs font-mono flex items-center"
-                >
-                  <span className="font-semibold text-white w-40 flex-shrink-0">
-                    {structure.name} x{structure.count}
-                  </span>
-
-                  {/* Metal - fixed width column, no letter suffix */}
-                  <span className="text-gray-300 w-16 text-right">
-                    {structure.metalNet !== 0 ? (structure.metalNet > 0 ? '+' : '') + structure.metalNet : ''}
-                  </span>
-
-                  {/* Mineral - fixed width column, no letter suffix */}
-                  <span className="text-red-500 w-16 text-right">
-                    {structure.mineralNet !== 0 ? (structure.mineralNet > 0 ? '+' : '') + structure.mineralNet : ''}
-                  </span>
-
-                  {/* Food - fixed width column, no letter suffix */}
-                  <span className="text-green-500 w-16 text-right">
-                    {structure.foodNet !== 0 ? (structure.foodNet > 0 ? '+' : '') + structure.foodNet : ''}
-                  </span>
-
-                  {/* Energy - fixed width column, no letter suffix */}
-                  <span className="text-blue-400 w-16 text-right">
-                    {structure.energyNet !== 0 ? (structure.energyNet > 0 ? '+' : '') + structure.energyNet : ''}
-                  </span>
-
-                  {/* Space - fixed width column, show OS for orbital, GS for ground */}
-                  <span className="text-pink-nebula-muted w-14 text-right">
-                    {structure.space > 0 ? '-' + structure.space + (structure.isOrbital ? ' OS' : ' GS') : ''}
-                  </span>
-                </div>
-              ))}
-            </div>
+          <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Ships</h3>
+          {shipsList.length > 0 ? (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-xs text-pink-nebula-muted border-b border-pink-nebula-border">
+                  <th className="text-left pb-2">Type</th>
+                  <th className="text-right pb-2">Count</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shipsList.map((ship) => (
+                  <tr key={ship.id} className="border-b border-pink-nebula-border/50 last:border-0">
+                    <td className="py-2 text-pink-nebula-text font-semibold">
+                      {ship.name}
+                    </td>
+                    <td className="text-right py-2 text-pink-nebula-text font-mono">
+                      {ship.count}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           ) : (
             <div className="text-xs text-pink-nebula-muted text-center py-4">
-              No structures built
+              No ships built
             </div>
           )}
         </Card>

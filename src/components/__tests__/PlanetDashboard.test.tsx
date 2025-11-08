@@ -102,7 +102,7 @@ describe('PlanetDashboard', () => {
     });
 
     it('should display population with workers, soldiers, scientists and housing', () => {
-      const { container } = render(<PlanetDashboard summary={mockSummary} />);
+      const { container } = render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
 
       // Population section exists
       expect(screen.getByText(/^Population$/i)).toBeInTheDocument();
@@ -121,7 +121,7 @@ describe('PlanetDashboard', () => {
     });
 
     it('should display space remaining with ground and orbital', () => {
-      const { container } = render(<PlanetDashboard summary={mockSummary} />);
+      const { container } = render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
 
       // Check for Space Remaining section
       expect(screen.getByText(/Space Remaining/i)).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe('PlanetDashboard', () => {
     });
 
     it('should display ships overview', () => {
-      const { container } = render(<PlanetDashboard summary={mockSummary} />);
+      const { container } = render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
 
       // Check for Ships section
       expect(screen.getByText(/^Ships$/i)).toBeInTheDocument();
@@ -161,7 +161,7 @@ describe('PlanetDashboard', () => {
 
   describe('Responsive Design (Ticket 22)', () => {
     it('should have responsive grid classes', () => {
-      const { container } = render(<PlanetDashboard summary={mockSummary} />);
+      const { container } = render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
 
       // Check for Tailwind responsive classes
       const gridContainer = container.querySelector('.grid');
@@ -171,7 +171,7 @@ describe('PlanetDashboard', () => {
 
   describe('Visual Separation (Ticket 22)', () => {
     it('should have visual separation between sections', () => {
-      const { container } = render(<PlanetDashboard summary={mockSummary} />);
+      const { container } = render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
 
       // Check for gap or border classes
       const gridContainer = container.querySelector('.grid');

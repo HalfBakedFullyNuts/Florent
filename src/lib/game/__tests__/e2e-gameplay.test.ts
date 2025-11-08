@@ -135,21 +135,23 @@ describe('E2E Gameplay Tests', () => {
     it('should preserve state when traveling to past', () => {
       const controller = createTestController();
 
-      // Get initial resources
-      const turn0Summary = getPlanetSummary(controller.getCurrentState());
-      const turn0Metal = turn0Summary.stocks.metal;
-
-      // Advance turn (resources will change due to production)
-      controller.nextTurn();
+      // Get initial resources at turn 1 (game starts at T1, not T0)
+      expect(controller.getCurrentTurn()).toBe(1);
       const turn1Summary = getPlanetSummary(controller.getCurrentState());
       const turn1Metal = turn1Summary.stocks.metal;
 
-      // Travel back to turn 0
-      controller.setTurn(0);
-      const backTo0Summary = getPlanetSummary(controller.getCurrentState());
+      // Advance turn (resources will change due to production)
+      controller.nextTurn();
+      expect(controller.getCurrentTurn()).toBe(2);
+      const turn2Summary = getPlanetSummary(controller.getCurrentState());
+      const turn2Metal = turn2Summary.stocks.metal;
 
-      // Should have original resources
-      expect(backTo0Summary.stocks.metal).toBe(turn0Metal);
+      // Travel back to turn 1
+      controller.setTurn(1);
+      const backTo1Summary = getPlanetSummary(controller.getCurrentState());
+
+      // Should have original resources from turn 1
+      expect(backTo1Summary.stocks.metal).toBe(turn1Metal);
     });
   });
 

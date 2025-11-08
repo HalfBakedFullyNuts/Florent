@@ -323,8 +323,9 @@ describe('ItemSelectionPanel', () => {
 
       // 2 building items
       expect(screen.getByText('2')).toBeInTheDocument();
-      // 1 ship item
-      expect(screen.getByText('1')).toBeInTheDocument();
+      // 1 ship item and 1 colonist item (two tabs with count "1")
+      const countOnes = screen.getAllByText('1');
+      expect(countOnes.length).toBe(2); // Ship tab and Colonist tab
     });
   });
 

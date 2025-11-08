@@ -68,15 +68,18 @@ export class Timeline {
   /**
    * Recompute all 200 turns from scratch
    * Optimized with stable state detection
+   * @param fromIndex - Optional starting index for partial recomputation (for mutations)
    */
-  recomputeAll(): void {
+  recomputeAll(fromIndex: number = 1): void {
     const start = performance.now();
     this.stableFromTurn = -1;
 
-    // Reset completion buffer for fresh computation
-    this.completionBuffer.clear();
+    // If recomputing from the beginning, reset completion buffer
+    if (fromIndex === 1) {
+      this.completionBuffer.clear();
+    }
 
-    for (let i = 1; i < Timeline.FIXED_TURNS; i++) {
+    for (let i = fromIndex; i < Timeline.FIXED_TURNS; i++) {
       // Clone previous state and run turn
       this.states[i] = cloneState(this.states[i - 1]);
       runTurn(this.states[i], this.completionBuffer);
@@ -97,7 +100,7 @@ export class Timeline {
 
     const duration = performance.now() - start;
     if (duration > 100) {
-      console.log(`Timeline recompute: ${duration.toFixed(1)}ms, stable from T${this.stableFromTurn}`);
+      console.log(`Timeline recompute from index ${fromIndex}: ${duration.toFixed(1)}ms, stable from T${this.stableFromTurn}`);
     }
   }
 
@@ -152,7 +155,7 @@ export class Timeline {
   }
 
   /**
-   * Apply a state mutation at specific turn and recompute all 200 turns
+   * Apply a state mutation at specific turn and recompute from that point forward
    * This is used by the commands API to apply changes
    */
   mutateAtTurn(turn: number, mutation: (state: PlanetState) => void): boolean {
@@ -170,8 +173,11 @@ export class Timeline {
     // Apply the mutation
     mutation(state);
 
-    // Recompute all 200 turns from the beginning
-    this.recomputeAll();
+    // Recompute from the next index forward (index+1) so the mutation at index is preserved
+    // The mutation affects the state AT this index, so we recompute from the NEXT index
+    if (index + 1 < Timeline.FIXED_TURNS) {
+      this.recomputeAll(index + 1);
+    }
 
     return true;
   }
