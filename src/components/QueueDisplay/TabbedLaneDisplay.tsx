@@ -94,6 +94,9 @@ export function TabbedLaneDisplay({
           const isActive = activeTab === laneId;
           const laneView = config.laneView;
 
+          // Skip if laneView is undefined
+          if (!laneView) return null;
+
           // Calculate newest item
           const nonCompletedEntries = laneView.entries.filter(e => e.status !== 'completed');
           const newestId = nonCompletedEntries.length > 0

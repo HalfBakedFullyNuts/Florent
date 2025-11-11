@@ -68,6 +68,7 @@ export default function Home() {
   const buildingLane = useMemo(() => currentState ? getLaneView(currentState, 'building') : null, [currentState, stateVersion]);
   const shipLane = useMemo(() => currentState ? getLaneView(currentState, 'ship') : null, [currentState, stateVersion]);
   const colonistLane = useMemo(() => currentState ? getLaneView(currentState, 'colonist') : null, [currentState, stateVersion]);
+  const researchLane = useMemo(() => currentState ? getLaneView(currentState, 'research') : null, [currentState, stateVersion]);
   const warnings = useMemo(() => currentState ? getWarnings(currentState) : [], [currentState, stateVersion]);
 
   // Enrich lanes with validation state
@@ -82,6 +83,10 @@ export default function Home() {
   const enrichedColonistLane = useMemo(() =>
     colonistLane ? { ...colonistLane, entries: enrichEntriesWithValidation(colonistLane.entries) } : null,
     [colonistLane, enrichEntriesWithValidation]
+  );
+  const enrichedResearchLane = useMemo(() =>
+    researchLane ? { ...researchLane, entries: enrichEntriesWithValidation(researchLane.entries) } : null,
+    [researchLane, enrichEntriesWithValidation]
   );
 
   // Get available items for each lane - must be before early return
@@ -116,7 +121,7 @@ export default function Home() {
   }, [defs, viewTurn, controller]);
 
   // Guard against undefined state AFTER all hooks are called
-  if (!currentState || !summary || !enrichedBuildingLane || !enrichedShipLane || !enrichedColonistLane) {
+  if (!currentState || !summary || !enrichedBuildingLane || !enrichedShipLane || !enrichedColonistLane || !enrichedResearchLane) {
     return <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text p-6">
       <h1 className="text-2xl font-bold">Error: Invalid turn {viewTurn}</h1>
     </div>;
@@ -414,6 +419,7 @@ export default function Home() {
               buildingLane={enrichedBuildingLane}
               shipLane={enrichedShipLane}
               colonistLane={enrichedColonistLane}
+              researchLane={enrichedResearchLane}
               currentTurn={viewTurn}
               onCancel={(laneId, entry) => handleCancelItem(laneId, entry)}
               onQuantityChange={(laneId, entry, newQty) => handleQuantityChange(laneId, entry, newQty)}
