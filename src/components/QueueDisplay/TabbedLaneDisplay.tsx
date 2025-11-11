@@ -14,6 +14,7 @@ export interface TabbedLaneDisplayProps {
   onCancel: (laneId: LaneId, entry: LaneEntry) => void;
   onQuantityChange?: (laneId: LaneId, entry: LaneEntry, newQuantity: number) => void;
   getMaxQuantity?: (laneId: LaneId, entry: LaneEntry) => number;
+  onReorder?: (laneId: LaneId, entryId: string, newIndex: number) => void;
   disabled?: boolean;
   defs: Record<string, any>;
 }
@@ -34,10 +35,13 @@ export function TabbedLaneDisplay({
   onCancel,
   onQuantityChange,
   getMaxQuantity,
+  onReorder,
   disabled = false,
   defs,
 }: TabbedLaneDisplayProps) {
   const [activeTab, setActiveTab] = useState<LaneId>('building');
+  const [draggedItem, setDraggedItem] = useState<{ laneId: LaneId; entryId: string } | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   const getLaneConfig = (laneId: LaneId) => {
     switch (laneId) {
@@ -123,27 +127,67 @@ export function TabbedLaneDisplay({
                   </div>
                 ) : isActive ? (
                   // Active tab: Full display with all entries (most recent first)
-                  laneView.entries.slice().reverse().map((entry) => {
+                  laneView.entries.slice().reverse().map((entry, displayIndex) => {
                     const isNewest = entry.id === newestId;
                     const def = defs[entry.itemId];
                     const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
                     const showQuantityInput = laneId === 'ship' || laneId === 'colonist';
                     const maxQuantity = getMaxQuantity ? getMaxQuantity(laneId, entry) : undefined;
 
+                    // Calculate actual index in pendingQueue (reversed from display)
+                    const actualIndex = laneView.entries.length - 1 - displayIndex;
+                    const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === laneId;
+                    const canDrag = !disabled && entry.status === 'pending' && !!onReorder;
+
                     return (
-                      <QueueLaneEntry
+                      <div
                         key={entry.id}
-                        entry={entry}
-                        currentTurn={currentTurn}
-                        onCancel={() => onCancel(laneId, entry)}
-                        onQuantityChange={onQuantityChange ? (newQty) => onQuantityChange(laneId, entry, newQty) : undefined}
-                        maxQuantity={maxQuantity}
-                        showQuantityInput={showQuantityInput}
-                        disabled={disabled}
-                        isNewest={isNewest}
-                        def={def}
-                        busyWorkers={busyWorkers}
-                      />
+                        draggable={canDrag}
+                        onDragStart={(e) => {
+                          if (canDrag) {
+                            e.dataTransfer.effectAllowed = 'move';
+                            setDraggedItem({ laneId, entryId: entry.id });
+                          }
+                        }}
+                        onDragOver={(e) => {
+                          if (draggedItem && draggedItem.laneId === laneId && draggedItem.entryId !== entry.id) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setDragOverIndex(displayIndex);
+                          }
+                        }}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (draggedItem && onReorder && draggedItem.laneId === laneId && draggedItem.entryId !== entry.id) {
+                            onReorder(laneId, draggedItem.entryId, actualIndex);
+                          }
+                          setDraggedItem(null);
+                          setDragOverIndex(null);
+                        }}
+                        onDragEnd={() => {
+                          setDraggedItem(null);
+                          setDragOverIndex(null);
+                        }}
+                        className={`
+                          ${isDragging ? 'opacity-50' : ''}
+                          ${dragOverIndex === displayIndex ? 'border-t-2 border-pink-nebula-accent-primary' : ''}
+                          ${canDrag ? 'cursor-move' : ''}
+                        `}
+                      >
+                        <QueueLaneEntry
+                          entry={entry}
+                          currentTurn={currentTurn}
+                          onCancel={() => onCancel(laneId, entry)}
+                          onQuantityChange={onQuantityChange ? (newQty) => onQuantityChange(laneId, entry, newQty) : undefined}
+                          maxQuantity={maxQuantity}
+                          showQuantityInput={showQuantityInput}
+                          disabled={disabled}
+                          isNewest={isNewest}
+                          def={def}
+                          busyWorkers={busyWorkers}
+                        />
+                      </div>
                     );
                   })
                 ) : (

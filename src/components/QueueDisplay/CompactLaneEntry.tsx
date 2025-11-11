@@ -10,6 +10,9 @@ export interface CompactLaneEntryProps {
   disabled?: boolean;
   queuedTurn?: number; // When item was queued
   isNewest?: boolean; // Whether this is the most recently added item
+  // Drag and drop props
+  onDragStart?: () => void;
+  isDragging?: boolean;
 }
 
 /**
@@ -27,6 +30,8 @@ export function CompactLaneEntry({
   disabled = false,
   queuedTurn = 0,
   isNewest = false,
+  onDragStart,
+  isDragging = false,
 }: CompactLaneEntryProps) {
   const [confirmMode, setConfirmMode] = useState(false);
 
@@ -94,18 +99,29 @@ export function CompactLaneEntry({
     }
   };
 
+  // Determine if item is draggable (only pending items)
+  const canDrag = !disabled && entry.status === 'pending' && !!onDragStart;
+
   return (
     <div className="relative group">
       {/* Entry content */}
       <button
         onClick={handleClick}
+        draggable={canDrag}
+        onDragStart={(e) => {
+          if (canDrag && onDragStart) {
+            e.dataTransfer.effectAllowed = 'move';
+            onDragStart();
+          }
+        }}
         className={`
           w-full flex items-center justify-between px-3 py-2 rounded
           border-l-4 transition-all text-sm
           ${confirmMode ? 'bg-red-900/20 border-l-red-500' : getStatusClasses()}
-          cursor-pointer hover:bg-slate-800
+          ${isDragging ? 'opacity-50' : ''}
+          ${canDrag ? 'cursor-move' : 'cursor-pointer'} hover:bg-slate-800
         `}
-        title={confirmMode ? 'Click again to confirm removal' : 'Click to remove from queue'}
+        title={confirmMode ? 'Click again to confirm removal' : canDrag ? 'Drag to reorder, click to remove' : 'Click to remove from queue'}
       >
         {confirmMode ? (
           <>

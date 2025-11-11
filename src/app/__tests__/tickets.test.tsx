@@ -275,14 +275,15 @@ describe('UI-8: Display Completed Structures List', () => {
     // "Solar Generator x2 +60E -2GS"
   });
 
-  it('should show "No structures built" when empty', () => {
+  it('should show buildings list with Outpost', () => {
     render(<Home />);
 
-    // Initially should show no structures built (except Outpost)
-    const noStructuresText = screen.queryByText(/No structures built|Outpost/);
-    if (noStructuresText) {
-      expect(noStructuresText).toBeInTheDocument();
-    }
+    // Initially should show Buildings section with at least Outpost
+    expect(screen.getByText(/^Buildings$/i)).toBeInTheDocument();
+
+    // Outpost should be in the list (may appear multiple times in different sections)
+    const outpostElements = screen.queryAllByText(/Outpost/i);
+    expect(outpostElements.length).toBeGreaterThan(0);
   });
 });
 

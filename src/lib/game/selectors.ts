@@ -138,6 +138,55 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
 }
 
 /**
+ * Calculate turns until housing cap is reached
+ * Returns null if no growth or already at/above cap
+ *
+ * TICKET-4: Housing Cap Warning
+ */
+export function getTurnsUntilHousingCap(
+  state: PlanetState,
+  _completionTurn?: number
+): number | null {
+  const { workersTotal } = state.population;
+  const { housingCap } = state.space;
+
+  // Already at or above cap
+  if (workersTotal >= housingCap) {
+    return null;
+  }
+
+  // No workers means no growth possible
+  if (workersTotal === 0) {
+    return null;
+  }
+
+  // Calculate growth rate
+  const growthBonus = computeGrowthBonus(state);
+  const totalGrowthRate = WORKER_GROWTH_BASE + growthBonus;
+
+  // Calculate projected growth per turn
+  const projectedGrowth = state.stocks.food > 0
+    ? Math.floor(workersTotal * totalGrowthRate)
+    : 0;
+
+  // No growth
+  if (projectedGrowth <= 0 || !isFinite(projectedGrowth)) {
+    return null;
+  }
+
+  // Calculate turns to reach cap
+  const workersNeeded = housingCap - workersTotal;
+  const turnsToHousingCap = Math.ceil(workersNeeded / projectedGrowth);
+
+  // Validate result
+  if (!isFinite(turnsToHousingCap) || turnsToHousingCap <= 0) {
+    return null;
+  }
+
+  return turnsToHousingCap;
+}
+
+/**
  * Get lane view for specific turn
  */
 export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {

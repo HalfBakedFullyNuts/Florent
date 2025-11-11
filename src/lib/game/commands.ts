@@ -19,6 +19,11 @@ export interface CancelResult {
   reason?: 'NOT_FOUND' | 'INVALID_TURN';
 }
 
+export interface ReorderResult {
+  success: boolean;
+  reason?: 'NOT_FOUND' | 'INVALID_TURN' | 'INVALID_LANE' | 'INVALID_INDEX';
+}
+
 /**
  * Game controller - manages timeline and exposes commands
  */
@@ -326,6 +331,43 @@ export class GameController {
    */
   getCurrentState(): PlanetState {
     return this.timeline.getCurrentState();
+  }
+
+  /**
+   * Reorder a queue item to a new position
+   * Only works for pending items, not active ones
+   */
+  reorderQueueItem(turn: number, laneId: LaneId, entryId: string, newIndex: number): ReorderResult {
+    const state = this.timeline.getStateAtTurn(turn);
+    if (!state) {
+      return { success: false, reason: 'INVALID_TURN' };
+    }
+
+    const lane = state.lanes[laneId];
+    if (!lane) {
+      return { success: false, reason: 'INVALID_LANE' };
+    }
+
+    // Find item in pending queue
+    const oldIndex = lane.pendingQueue.findIndex(item => item.id === entryId);
+    if (oldIndex === -1) {
+      return { success: false, reason: 'NOT_FOUND' };
+    }
+
+    // Validate new index (after removal, length will be one less)
+    const queueLengthAfterRemoval = lane.pendingQueue.length - 1;
+    if (newIndex < 0 || newIndex > queueLengthAfterRemoval) {
+      return { success: false, reason: 'INVALID_INDEX' };
+    }
+
+    // Mutate state to reorder
+    this.timeline.mutateAtTurn(turn, (s) => {
+      const lane = s.lanes[laneId];
+      const [item] = lane.pendingQueue.splice(oldIndex, 1);
+      lane.pendingQueue.splice(newIndex, 0, item);
+    });
+
+    return { success: true };
   }
 
   /**

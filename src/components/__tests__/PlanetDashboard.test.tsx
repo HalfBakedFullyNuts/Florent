@@ -81,7 +81,7 @@ describe('PlanetDashboard', () => {
       expect(screen.getByText(/^Resources$/i)).toBeInTheDocument();
       expect(screen.getByText(/^Population$/i)).toBeInTheDocument();
       expect(screen.getByText(/Space Remaining/i)).toBeInTheDocument();
-      expect(screen.getByText(/^Ships$/i)).toBeInTheDocument();
+      expect(screen.getByText(/^Buildings$/i)).toBeInTheDocument();
 
       // Check for grid layout classes (4 columns on desktop)
       const gridContainer = container.querySelector('.grid');
@@ -136,20 +136,16 @@ describe('PlanetDashboard', () => {
       expect(progressBars.length).toBeGreaterThanOrEqual(2); // At least 2 progress bars
     });
 
-    it('should display ships overview', () => {
+    it('should display buildings overview', () => {
       const { container } = render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
 
-      // Check for Ships section
-      expect(screen.getByText(/^Ships$/i)).toBeInTheDocument();
+      // Check for Buildings section
+      expect(screen.getByText(/^Buildings$/i)).toBeInTheDocument();
 
-      // Ships should be displayed with names and counts
+      // Buildings should be displayed with names and counts
       const allText = container.textContent || '';
-      expect(allText).toContain('Fighter');
-      expect(allText).toContain('Corvette');
-      expect(allText).toContain('Destroyer');
-      expect(allText).toContain('10'); // Fighter count
-      expect(allText).toContain('5'); // Corvette count
-      expect(allText).toContain('2'); // Destroyer count
+      expect(allText).toContain('Metal Mine');
+      expect(allText).toContain('×2'); // Metal Mine count
     });
 
     it('should display growth hint', () => {

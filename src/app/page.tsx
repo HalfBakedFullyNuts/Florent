@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback } from 'react';
 import { GameController } from '../lib/game/commands';
-import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem } from '../lib/game/selectors';
+import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap } from '../lib/game/selectors';
 import { validateAllQueueItems, type QueueValidationResult, getValidationMessage } from '../lib/game/validation';
 import { createStandardStart } from '../lib/sim/defs/seed';
 import { loadGameData } from '../lib/sim/defs/adapter.client';
@@ -14,6 +14,7 @@ import { PlanetDashboard } from '../components/PlanetDashboard';
 import { TabbedLaneDisplay } from '../components/QueueDisplay/TabbedLaneDisplay';
 import { TabbedItemGrid } from '../components/LaneBoard/TabbedItemGrid';
 import { WarningsPanel } from '../components/WarningsPanel';
+import { ExportModal } from '../components/ExportModal';
 import { Card } from '@/components/ui/card';
 
 /**
@@ -36,6 +37,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [stateVersion, setStateVersion] = useState(0); // Force re-render when state changes
   const [queueValidation, setQueueValidation] = useState<Map<string, QueueValidationResult>>(new Map());
+  const [showExportModal, setShowExportModal] = useState<'current' | 'full' | null>(null);
 
   // Get current state from controller - re-fetch when viewTurn OR stateVersion changes
   const currentState = controller.getStateAtTurn(viewTurn);
@@ -281,6 +283,24 @@ export default function Home() {
     }
   };
 
+  const handleReorder = (laneId: 'building' | 'ship' | 'colonist', entryId: string, newIndex: number) => {
+    setError(null);
+    try {
+      const result = controller.reorderQueueItem(viewTurn, laneId, entryId, newIndex);
+
+      if (!result.success) {
+        setError(`Cannot reorder: ${result.reason || 'unknown error'}`);
+        return;
+      }
+
+      // Force re-render to show updated queue order
+      setStateVersion(prev => prev + 1);
+    } catch (e) {
+      console.error('Error reordering item:', e);
+      setError((e as Error).message || 'Unknown error');
+    }
+  };
+
   const getMaxQuantity = (laneId: 'building' | 'ship' | 'colonist', entry: any): number => {
     const state = controller.getStateAtTurn(viewTurn);
     if (!state) return entry.quantity;
@@ -350,7 +370,11 @@ export default function Home() {
       )}
 
       {/* Planet Dashboard - Horizontal Overview */}
-      <PlanetDashboard summary={summary} defs={defs} />
+      <PlanetDashboard
+        summary={summary}
+        defs={defs}
+        turnsToHousingCap={currentState ? getTurnsUntilHousingCap(currentState, viewTurn) : null}
+      />
 
       {/* Main Content - Side-by-side Tabbed Displays */}
       <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
@@ -366,8 +390,24 @@ export default function Home() {
           </Card>
 
           {/* Right: Planet Queue (Lane Display) */}
-          <Card className="flex-1 p-6">
-            <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Planet Queue</h2>
+          <Card className="flex-1 p-6" data-export-target="planet-queue">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowExportModal('current')}
+                  className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
+                >
+                  Export Current View
+                </button>
+                <button
+                  onClick={() => setShowExportModal('full')}
+                  className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
+                >
+                  Export Full List
+                </button>
+              </div>
+            </div>
             <TabbedLaneDisplay
               buildingLane={enrichedBuildingLane}
               shipLane={enrichedShipLane}
@@ -376,7 +416,8 @@ export default function Home() {
               onCancel={(laneId, entry) => handleCancelItem(laneId, entry)}
               onQuantityChange={(laneId, entry, newQty) => handleQuantityChange(laneId, entry, newQty)}
               getMaxQuantity={(laneId, entry) => getMaxQuantity(laneId, entry)}
-              disabled={viewTurn < totalTurns - 1}
+              onReorder={(laneId, entryId, newIndex) => handleReorder(laneId, entryId, newIndex)}
+              disabled={false}
               defs={defs}
             />
           </Card>
@@ -387,6 +428,19 @@ export default function Home() {
       <footer className="bg-pink-nebula-panel px-6 py-3 border-t border-pink-nebula-border text-center text-sm text-pink-nebula-muted">
         Turn-based strategy game simulator | Phases 0-5 In Progress | 239/239 tests passing
       </footer>
+
+      {/* Export Modal - TICKET-5 */}
+      {showExportModal !== null && (
+        <ExportModal
+          isOpen={true}
+          onClose={() => setShowExportModal(null)}
+          buildingLane={enrichedBuildingLane || { laneId: 'building' as const, entries: [] }}
+          shipLane={enrichedShipLane || { laneId: 'ship' as const, entries: [] }}
+          colonistLane={enrichedColonistLane || { laneId: 'colonist' as const, entries: [] }}
+          currentTurn={viewTurn}
+          exportMode={showExportModal}
+        />
+      )}
     </div>
   );
 }

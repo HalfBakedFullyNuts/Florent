@@ -24,7 +24,7 @@ export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSlider
 
   const handleTurnInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
-    if (!isNaN(value) && value >= 0 && value < totalTurns) {
+    if (!isNaN(value) && value >= 1 && value <= totalTurns) {
       onTurnChange(value);
     }
   };
@@ -42,20 +42,20 @@ export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSlider
             type="number"
             value={currentTurn}
             onChange={handleTurnInput}
-            min={0}
-            max={totalTurns - 1}
+            min={1}
+            max={totalTurns}
             className="w-20 px-3 py-2 bg-pink-nebula-bg border border-pink-nebula-border rounded text-pink-nebula-text text-center font-bold"
           />
           <span className="text-pink-nebula-muted">
-            / {totalTurns - 1}
+            / {totalTurns}
           </span>
         </div>
 
         {/* Slider */}
         <input
           type="range"
-          min={0}
-          max={totalTurns - 1}
+          min={1}
+          max={totalTurns}
           value={currentTurn}
           onChange={handleSliderChange}
           className="flex-1 h-2 bg-pink-nebula-bg rounded-lg appearance-none cursor-pointer

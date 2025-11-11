@@ -7,6 +7,7 @@ import { Card } from '@/components/ui/card';
 export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
   defs: Record<string, any>;
+  turnsToHousingCap?: number | null;
 }
 
 /**
@@ -19,7 +20,7 @@ export interface PlanetDashboardProps {
  * - Ships: Fleet overview
  * - Growth: Next turn projection
  */
-export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
+export function PlanetDashboard({ summary, defs, turnsToHousingCap }: PlanetDashboardProps) {
   const resources = [
     { id: 'metal', label: 'Metal', color: 'text-gray-300' }, // silver
     { id: 'mineral', label: 'Mineral', color: 'text-red-500' }, // red
@@ -55,51 +56,6 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
   const formatAbundance = (abundance: number) => {
     return `${(abundance * 100).toFixed(0)}%`;
   };
-
-  const getOutputColor = (output: number) => {
-    if (output > 0) return 'text-green-400';
-    if (output < 0) return 'text-red-400';
-    return 'text-pink-nebula-muted';
-  };
-
-  // Calculate turns until population growth stops
-  const turnsUntilGrowthStops = useMemo(() => {
-    // Growth stops when either:
-    // 1. Workers hit housing cap
-    // 2. Food output becomes <= 0
-
-    const foodOutput = summary.outputsPerTurn.food;
-    const currentWorkers = summary.population.workersTotal;
-    const housingCap = summary.housing.workerCap;
-
-    // If food is already <= 0, growth has stopped
-    if (foodOutput <= 0) {
-      return 0;
-    }
-
-    // If at or above housing cap, growth has stopped
-    if (currentWorkers >= housingCap) {
-      return 0;
-    }
-
-    // Calculate turns until housing cap is reached
-    // Assuming constant growth rate from growthHint
-    const growthMatch = summary.growthHint.match(/\+(\d+) workers/);
-    const workersPerTurn = growthMatch ? parseInt(growthMatch[1]) : 0;
-
-    if (workersPerTurn <= 0) {
-      return 0;
-    }
-
-    const turnsToHousingCap = Math.ceil((housingCap - currentWorkers) / workersPerTurn);
-
-    // Calculate turns until food runs out
-    // Food consumption per turn = foodUpkeep
-    const currentFood = summary.stocks.food;
-    const turnsToNoFood = foodOutput > 0 ? Infinity : Math.floor(currentFood / summary.foodUpkeep);
-
-    return Math.min(turnsToHousingCap, turnsToNoFood);
-  }, [summary]);
 
   // Get ship names from item IDs
   const shipsList = Object.entries(summary.ships).map(([shipId, count]) => ({
@@ -185,7 +141,7 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
                     <td className="text-right py-2 text-pink-nebula-muted font-mono w-14">
                       {formatAbundance(abundance)}
                     </td>
-                    <td className={`text-right py-2 font-semibold font-mono w-20 ${getOutputColor(output)}`}>
+                    <td className={`text-right py-2 font-semibold font-mono w-20 ${resource.color}`}>
                       {formatOutput(output)}
                     </td>
                   </tr>
@@ -243,6 +199,12 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
             <div className="text-green-400 font-semibold">
               {summary.growthHint}
             </div>
+            {/* TICKET-4: Housing Cap Warning */}
+            {turnsToHousingCap !== null && turnsToHousingCap !== undefined && turnsToHousingCap <= 6 && (
+              <div className="text-yellow-500 font-semibold pt-1">
+                ⚠️ Workers will reach housing cap in {turnsToHousingCap} turn{turnsToHousingCap !== 1 ? 's' : ''}
+              </div>
+            )}
           </div>
         </Card>
 
@@ -253,14 +215,14 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
             {/* Ground */}
             <div>
               <div className="flex justify-between items-center text-xs mb-1">
-                <span className="text-pink-nebula-text font-semibold">Ground</span>
-                <span className="text-pink-nebula-text font-mono">
+                <span className="text-amber-600 font-semibold">Ground</span>
+                <span className="text-amber-600 font-mono">
                   {summary.space.groundCap - summary.space.groundUsed}
                 </span>
               </div>
               <div className="w-full bg-pink-nebula-panel rounded-full h-2">
                 <div
-                  className="bg-pink-nebula-accent-primary h-2 rounded-full transition-all"
+                  className="bg-amber-600 h-2 rounded-full transition-all"
                   style={{
                     width: `${Math.min(
                       100,
@@ -273,14 +235,14 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
             {/* Orbital */}
             <div>
               <div className="flex justify-between items-center text-xs mb-1">
-                <span className="text-pink-nebula-text font-semibold">Orbital</span>
-                <span className="text-pink-nebula-text font-mono">
+                <span className="text-blue-600 font-semibold">Orbital</span>
+                <span className="text-blue-600 font-mono">
                   {summary.space.orbitalCap - summary.space.orbitalUsed}
                 </span>
               </div>
               <div className="w-full bg-pink-nebula-panel rounded-full h-2">
                 <div
-                  className="bg-pink-nebula-accent-secondary h-2 rounded-full transition-all"
+                  className="bg-blue-600 h-2 rounded-full transition-all"
                   style={{
                     width: `${Math.min(
                       100,
@@ -288,32 +250,6 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
                     )}%`,
                   }}
                 />
-              </div>
-            </div>
-
-            {/* Population Growth Countdown */}
-            <div className="mt-4 pt-3 border-t border-pink-nebula-border/50">
-              <div className="text-xs text-pink-nebula-muted mb-2 font-semibold">Growth Countdown</div>
-              <div className="w-full bg-pink-nebula-panel rounded-full h-3 relative overflow-hidden">
-                {turnsUntilGrowthStops > 0 ? (
-                  <>
-                    <div
-                      className="h-full bg-gradient-to-r from-green-400 to-yellow-400 transition-all"
-                      style={{ width: '100%' }}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xs font-bold text-pink-nebula-bg drop-shadow">
-                        {turnsUntilGrowthStops}T until cap
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="h-full bg-red-900 flex items-center justify-center">
-                    <span className="text-xs font-bold text-red-300">
-                      Growth stopped
-                    </span>
-                  </div>
-                )}
               </div>
             </div>
 
@@ -382,33 +318,92 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
           </div>
         </Card>
 
-        {/* Ships Section - Fleet Overview */}
+        {/* Buildings Section - Structures List */}
         <Card className="p-3">
-          <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Ships</h3>
-          {shipsList.length > 0 ? (
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-xs text-pink-nebula-muted border-b border-pink-nebula-border">
-                  <th className="text-left pb-2">Type</th>
-                  <th className="text-right pb-2">Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shipsList.map((ship) => (
-                  <tr key={ship.id} className="border-b border-pink-nebula-border/50 last:border-0">
-                    <td className="py-2 text-pink-nebula-text font-semibold">
-                      {ship.name}
-                    </td>
-                    <td className="text-right py-2 text-pink-nebula-text font-mono">
-                      {ship.count}
-                    </td>
+          <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Buildings</h3>
+          {structuresList.length > 0 ? (
+            <div className="max-h-[224px] overflow-y-auto"> {/* Header + 7 rows */}
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="text-[10px] text-pink-nebula-muted border-b border-pink-nebula-border sticky top-0 bg-pink-nebula-panel">
+                    <th className="pb-1 pr-2 text-right w-8">Sp</th>
+                    <th className="pb-1 pr-2 text-left w-32">Building</th>
+                    <th className="pb-1 pr-2 text-right w-10">Qty</th>
+                    <th className="pb-1 pr-1 text-right w-12 text-gray-300">M</th>
+                    <th className="pb-1 pr-1 text-right w-12 text-red-500">Mn</th>
+                    <th className="pb-1 pr-1 text-right w-12 text-green-500">F</th>
+                    <th className="pb-1 text-right w-14 text-blue-400">E</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {structuresList.map((structure) => {
+                    // Determine space color based on orbital/ground
+                    const spaceColor = structure.isOrbital ? 'text-blue-600' : 'text-amber-600';
+
+                    // Format space display
+                    const spaceDisplay = structure.space > 0 ? structure.space.toString() : '';
+
+                    // Format resource outputs (only show non-zero)
+                    const resourceOutputs: string[] = [];
+                    if (structure.metalNet !== 0) {
+                      const sign = structure.metalNet > 0 ? '+' : '';
+                      resourceOutputs.push(`${sign}${structure.metalNet}`);
+                    }
+                    if (structure.mineralNet !== 0) {
+                      const sign = structure.mineralNet > 0 ? '+' : '';
+                      resourceOutputs.push(`${sign}${structure.mineralNet}`);
+                    }
+                    if (structure.foodNet !== 0) {
+                      const sign = structure.foodNet > 0 ? '+' : '';
+                      resourceOutputs.push(`${sign}${structure.foodNet}`);
+                    }
+
+                    // Energy output (always show if non-zero)
+                    let energyDisplay = '';
+                    if (structure.energyNet !== 0) {
+                      const sign = structure.energyNet > 0 ? '+' : '';
+                      energyDisplay = `${sign}${structure.energyNet}⚡`;
+                    }
+
+                    return (
+                      <tr key={structure.id} className="border-b border-pink-nebula-border/50 last:border-0">
+                        {/* Space Used */}
+                        <td className={`py-1.5 pr-2 text-right w-8 ${spaceColor} font-semibold`}>
+                          {spaceDisplay}
+                        </td>
+                        {/* Building Name */}
+                        <td className="py-1.5 pr-2 text-pink-nebula-text font-semibold w-32">
+                          {structure.name}
+                        </td>
+                        {/* Count */}
+                        <td className="py-1.5 pr-2 text-right text-pink-nebula-text w-10">
+                          ×{structure.count}
+                        </td>
+                        {/* Metal - gray-300 */}
+                        <td className="py-1.5 pr-1 text-right w-12 text-gray-300">
+                          {structure.metalNet !== 0 ? (structure.metalNet > 0 ? '+' : '') + structure.metalNet : ''}
+                        </td>
+                        {/* Mineral - red-500 */}
+                        <td className="py-1.5 pr-1 text-right w-12 text-red-500">
+                          {structure.mineralNet !== 0 ? (structure.mineralNet > 0 ? '+' : '') + structure.mineralNet : ''}
+                        </td>
+                        {/* Food - green-500 */}
+                        <td className="py-1.5 pr-1 text-right w-12 text-green-500">
+                          {structure.foodNet !== 0 ? (structure.foodNet > 0 ? '+' : '') + structure.foodNet : ''}
+                        </td>
+                        {/* Energy - blue-400 */}
+                        <td className="py-1.5 text-right w-14 text-blue-400">
+                          {energyDisplay}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           ) : (
             <div className="text-xs text-pink-nebula-muted text-center py-4">
-              No ships built
+              No buildings
             </div>
           )}
         </Card>
