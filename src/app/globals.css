@@ -242,6 +242,61 @@ body > .min-h-screen { z-index: 1; position: relative; }
 
 /* Small utility classes for the Florent theme */
 
+/* Vertical Slider Styles - TICKET-9 */
+.vertical-slider {
+  writing-mode: bt-lr; /* For Firefox */
+  -webkit-appearance: slider-vertical; /* For Chrome/Safari */
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+}
+
+/* Webkit browsers (Chrome, Safari) */
+.vertical-slider::-webkit-slider-track {
+  width: 4px;
+  background: rgba(60, 45, 74, 0.5);
+  border-radius: 2px;
+}
+
+.vertical-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  background: #e91e63;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vertical-slider::-webkit-slider-thumb:hover {
+  background: #ff4081;
+  box-shadow: 0 0 10px rgba(233, 30, 99, 0.5);
+}
+
+/* Firefox */
+.vertical-slider::-moz-range-track {
+  width: 4px;
+  background: rgba(60, 45, 74, 0.5);
+  border-radius: 2px;
+}
+
+.vertical-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: #e91e63;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vertical-slider::-moz-range-thumb:hover {
+  background: #ff4081;
+  box-shadow: 0 0 10px rgba(233, 30, 99, 0.5);
+}
+
 /* Token mappings for Tailwind usage (use these in tailwind.config.js theme.extend if desired):
 	--bg-primary -> theme('colors.pink-nebula.bg')
 	--bg-secondary -> theme('colors.pink-nebula.panel')

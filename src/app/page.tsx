@@ -9,7 +9,7 @@ import { loadGameData } from '../lib/sim/defs/adapter.client';
 import gameDataRaw from '../lib/game/game_data.json';
 
 // UI Components
-import { TurnSlider } from '../components/TurnSlider';
+import { VerticalTurnSlider } from '../components/VerticalTurnSlider';
 import { PlanetDashboard } from '../components/PlanetDashboard';
 import { TabbedLaneDisplay } from '../components/QueueDisplay/TabbedLaneDisplay';
 import { TabbedItemGrid } from '../components/LaneBoard/TabbedItemGrid';
@@ -343,41 +343,43 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col">
-      {/* Header */}
-      <header className="bg-pink-nebula-panel px-6 py-4 border-b border-pink-nebula-border">
-        <h1 className="text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
-      </header>
-
-      {/* Turn Slider */}
-      <TurnSlider
+      {/* Vertical Turn Slider - TICKET-9 */}
+      <VerticalTurnSlider
         currentTurn={viewTurn}
         totalTurns={totalTurns}
         onTurnChange={setViewTurn}
       />
 
-      {/* Error Display */}
-      {error && (
-        <div className="mx-auto mt-4 w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl px-6 bg-red-900/20 border border-red-400 rounded p-4 text-red-400">
-          {error}
-        </div>
-      )}
+      {/* Main Content Container - Adjusted for vertical slider */}
+      <div className="flex flex-col flex-1 mr-24">
+        {/* Header */}
+        <header className="bg-pink-nebula-panel px-6 py-4 border-b border-pink-nebula-border">
+          <h1 className="text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
+        </header>
 
-      {/* Warnings Panel */}
-      {warnings.length > 0 && (
-        <div className="px-6 mt-4">
-          <WarningsPanel warnings={warnings} />
-        </div>
-      )}
+        {/* Error Display */}
+        {error && (
+          <div className="mx-auto mt-4 w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl px-6 bg-red-900/20 border border-red-400 rounded p-4 text-red-400">
+            {error}
+          </div>
+        )}
 
-      {/* Planet Dashboard - Horizontal Overview */}
-      <PlanetDashboard
-        summary={summary}
-        defs={defs}
-        turnsToHousingCap={currentState ? getTurnsUntilHousingCap(currentState, viewTurn) : null}
-      />
+        {/* Warnings Panel */}
+        {warnings.length > 0 && (
+          <div className="px-6 mt-4">
+            <WarningsPanel warnings={warnings} />
+          </div>
+        )}
 
-      {/* Main Content - Side-by-side Tabbed Displays */}
-      <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
+        {/* Planet Dashboard - Horizontal Overview */}
+        <PlanetDashboard
+          summary={summary}
+          defs={defs}
+          turnsToHousingCap={currentState ? getTurnsUntilHousingCap(currentState, viewTurn) : null}
+        />
+
+        {/* Main Content - Side-by-side Tabbed Displays */}
+        <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
         <div className="flex gap-6">
           {/* Left: Add to Queue (Item Selection) */}
           <Card className="flex-1 p-6">
@@ -422,12 +424,13 @@ export default function Home() {
             />
           </Card>
         </div>
-      </main>
+        </main>
 
-      {/* Footer */}
-      <footer className="bg-pink-nebula-panel px-6 py-3 border-t border-pink-nebula-border text-center text-sm text-pink-nebula-muted">
-        Turn-based strategy game simulator | Phases 0-5 In Progress | 239/239 tests passing
-      </footer>
+        {/* Footer */}
+        <footer className="bg-pink-nebula-panel px-6 py-3 border-t border-pink-nebula-border text-center text-sm text-pink-nebula-muted">
+          Turn-based strategy game simulator | Phases 0-5 In Progress | 239/239 tests passing
+        </footer>
+      </div>
 
       {/* Export Modal - TICKET-5 */}
       {showExportModal !== null && (

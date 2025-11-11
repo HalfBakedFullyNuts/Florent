@@ -33,7 +33,14 @@
       "Bash(tee:*)",
       "Bash(npm install:*)",
       "Bash(mkdir:*)",
-      "Bash(npx shadcn@latest add:*)"
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(npx grep:*)",
+      "Bash(git push:*)",
+      "Bash(npx tsx test-cancel.ts)",
+      "Bash(curl:*)",
+      "Bash(node scripts/extract-research-data.js:*)",
+      "Bash(head:*)",
+      "Bash(tr:*)"
     ],
     "deny": [],
     "ask": []
