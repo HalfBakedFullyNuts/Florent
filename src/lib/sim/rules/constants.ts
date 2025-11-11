@@ -17,10 +17,10 @@ export const ABUNDANCE_MAX = 2.0; // 200%
 export const ABUNDANCE_DEFAULT = 1.0; // 100%
 
 // Resource types
-export const RESOURCE_TYPES: readonly ResourceId[] = ['metal', 'mineral', 'food', 'energy'] as const;
+export const RESOURCE_TYPES: readonly ResourceId[] = ['metal', 'mineral', 'food', 'energy', 'research_points'] as const;
 
 // Lane order (critical for deterministic execution)
-export const LANE_ORDER: readonly LaneId[] = ['building', 'ship', 'colonist'] as const;
+export const LANE_ORDER: readonly LaneId[] = ['building', 'ship', 'colonist', 'research'] as const;
 
 // Starting state constants
 export const STARTING_STATE = {

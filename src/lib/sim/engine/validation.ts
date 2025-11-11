@@ -8,7 +8,7 @@ import { computeNetOutputsPerTurn } from './outputs';
 
 /**
  * Check if prerequisites are met for queuing an item
- * Checks both completed structures AND queued/active items
+ * Checks completed structures, queued/active items, AND completed research
  */
 export function hasPrereqs(state: PlanetState, def: ItemDefinition): boolean {
   if (!def.prerequisites || def.prerequisites.length === 0) {
@@ -16,14 +16,24 @@ export function hasPrereqs(state: PlanetState, def: ItemDefinition): boolean {
   }
 
   for (const prereqId of def.prerequisites) {
-    // Check completed counts first
+    // Check completed research first (for research items)
+    if (state.completedResearch && state.completedResearch.includes(prereqId)) {
+      continue; // Prerequisite met via completed research
+    }
+
+    // Check completed counts (for structures/units)
     const completedCount = state.completedCounts[prereqId] || 0;
     if (completedCount > 0) {
       continue; // Prerequisite met via completed structures
     }
 
-    // Check all lanes for queued or active items
-    const allLanes = [state.lanes.building, state.lanes.ship, state.lanes.colonist];
+    // Check all lanes for queued or active items (including research)
+    const allLanes = [
+      state.lanes.building,
+      state.lanes.ship,
+      state.lanes.colonist,
+      state.lanes.research
+    ];
     let foundInLane = false;
 
     for (const lane of allLanes) {

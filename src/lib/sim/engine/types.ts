@@ -7,8 +7,8 @@
 // Resource & Lane Types
 // ============================================================================
 
-export type ResourceId = 'metal' | 'mineral' | 'food' | 'energy';
-export type LaneId = 'building' | 'ship' | 'colonist';
+export type ResourceId = 'metal' | 'mineral' | 'food' | 'energy' | 'research_points';
+export type LaneId = 'building' | 'ship' | 'colonist' | 'research';
 export type UnitType = 'structure' | 'ship' | 'soldier' | 'scientist';
 export type Status = 'pending' | 'active' | 'completed';
 
@@ -21,6 +21,7 @@ export interface Costs {
   mineral: number;
   food: number;
   energy: number;
+  research_points: number; // Research points cost
   workers: number; // Workers to reserve during construction
   space: number; // Ground or orbital space (determined by type)
 }
@@ -31,6 +32,7 @@ export interface Effects {
   production_mineral?: number;
   production_food?: number;
   production_energy?: number;
+  production_research_points?: number;
 
   // Housing capacity deltas
   housing_worker_cap?: number;
@@ -40,6 +42,12 @@ export interface Effects {
   // Space capacity deltas
   space_ground_cap?: number;
   space_orbital_cap?: number;
+
+  // Research effects
+  planet_limit?: number; // Increases planet limit (for PL research)
+  unlocks_research?: string[]; // Enables other research
+  unlocks_structure?: string; // Enables a structure
+  unlocks_unit?: string; // Enables a unit
 }
 
 export interface Upkeep {
@@ -125,6 +133,10 @@ export interface PlanetState {
     scientistCap: number;
   };
 
+  // Research & Limits
+  planetLimit: number; // Maximum planets allowed (starts at 4, increased by research)
+  completedResearch: string[]; // List of completed research IDs
+
   // Production queues
   lanes: Record<LaneId, LaneState>;
 
@@ -162,6 +174,7 @@ export interface NetOutputs {
   mineral: number;
   food: number;
   energy: number;
+  research_points: number;
 }
 
 export interface GrowthCalculation {

@@ -26,6 +26,7 @@ export function PlanetDashboard({ summary, defs, turnsToHousingCap }: PlanetDash
     { id: 'mineral', label: 'Mineral', color: 'text-red-500' }, // red
     { id: 'food', label: 'Food', color: 'text-green-500' }, // green
     { id: 'energy', label: 'Energy', color: 'text-blue-400' }, // blue
+    { id: 'research_points', label: 'RP', color: 'text-purple-400' }, // purple
   ] as const;
 
   // Memoize formatting functions for performance
@@ -250,6 +251,27 @@ export function PlanetDashboard({ summary, defs, turnsToHousingCap }: PlanetDash
                     )}%`,
                   }}
                 />
+              </div>
+            </div>
+
+            {/* Planet Limit */}
+            <div className="mt-3">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-purple-500 font-semibold">Planet Limit</span>
+                <span className="text-purple-500 font-mono">
+                  {summary.planetLimit || 4}
+                </span>
+              </div>
+              <div className="w-full bg-pink-nebula-panel rounded-full h-2 mt-1">
+                <div
+                  className="bg-purple-500 h-2 rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, ((summary.planetLimit || 4) / 24) * 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="text-xs text-pink-nebula-muted mt-1">
+                Max planets you can control
               </div>
             </div>
 

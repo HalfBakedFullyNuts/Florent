@@ -9,6 +9,7 @@ import { RESOURCE_TYPES, FOOD_PER_WORKER } from '../rules/constants';
  * Compute net outputs per turn
  * Σ(baseOutputsPerUnit × abundance × count) − Σ(upkeeps) − populationUpkeep
  * Food upkeep is now subtracted from production, not stocks
+ * Scientists produce 1 RP per scientist per turn
  */
 export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
   const netOutputs: NetOutputs = {
@@ -16,6 +17,7 @@ export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
     mineral: 0,
     food: 0,
     energy: 0,
+    research_points: 0,
   };
 
   // Iterate through all completed items
@@ -57,6 +59,9 @@ export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
   const populationFoodUpkeep = calculatePopulationFoodUpkeep(state);
   netOutputs.food -= populationFoodUpkeep;
 
+  // Scientists produce 1 RP per scientist per turn
+  netOutputs.research_points += state.population.scientists;
+
   return netOutputs;
 }
 
@@ -85,4 +90,5 @@ export function addOutputsToStocks(state: PlanetState, outputs: NetOutputs): voi
   state.stocks.mineral += outputs.mineral;
   state.stocks.food += outputs.food;
   state.stocks.energy += outputs.energy;
+  state.stocks.research_points += outputs.research_points;
 }

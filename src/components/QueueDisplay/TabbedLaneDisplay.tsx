@@ -10,6 +10,7 @@ export interface TabbedLaneDisplayProps {
   buildingLane: LaneView;
   shipLane: LaneView;
   colonistLane: LaneView;
+  researchLane: LaneView;
   currentTurn: number;
   onCancel: (laneId: LaneId, entry: LaneEntry) => void;
   onQuantityChange?: (laneId: LaneId, entry: LaneEntry, newQuantity: number) => void;
@@ -22,7 +23,7 @@ export interface TabbedLaneDisplayProps {
 /**
  * TabbedLaneDisplay - Compact tabbed interface for queue schedules
  *
- * - Three tabs: Structures, Ships, Colonists
+ * - Four tabs: Structures, Ships, Colonists, Research
  * - Active tab takes full width
  * - Inactive tabs compressed to 50% width showing minimal info
  * - Total width = 2x single column
@@ -31,6 +32,7 @@ export function TabbedLaneDisplay({
   buildingLane,
   shipLane,
   colonistLane,
+  researchLane,
   currentTurn,
   onCancel,
   onQuantityChange,
@@ -51,6 +53,10 @@ export function TabbedLaneDisplay({
         return { title: 'Ships', icon: '🚀', laneView: shipLane };
       case 'colonist':
         return { title: 'Colonists', icon: '👥', laneView: colonistLane };
+      case 'research':
+        return { title: 'Research', icon: '🔬', laneView: researchLane };
+      default:
+        return { title: 'Unknown', icon: '❓', laneView: buildingLane };
     }
   };
 
@@ -58,7 +64,7 @@ export function TabbedLaneDisplay({
     <div className="w-full max-w-[916px]">
       {/* Tab Headers */}
       <div className="flex gap-2 mb-4">
-        {(['building', 'ship', 'colonist'] as LaneId[]).map((laneId) => {
+        {(['building', 'ship', 'colonist', 'research'] as LaneId[]).map((laneId) => {
           const config = getLaneConfig(laneId);
           const isActive = activeTab === laneId;
 
@@ -83,7 +89,7 @@ export function TabbedLaneDisplay({
 
       {/* Tabbed Content Area */}
       <div className="flex gap-2 h-[600px]">
-        {(['building', 'ship', 'colonist'] as LaneId[]).map((laneId) => {
+        {(['building', 'ship', 'colonist', 'research'] as LaneId[]).map((laneId) => {
           const config = getLaneConfig(laneId);
           const isActive = activeTab === laneId;
           const laneView = config.laneView;

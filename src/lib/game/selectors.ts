@@ -36,6 +36,8 @@ export interface PlanetSummary {
   structures: Record<string, number>; // structureId -> count
   growthHint: string; // "+X workers at end of turn"
   foodUpkeep: number;
+  planetLimit: number; // Maximum number of planets allowed
+  completedResearch: string[]; // List of completed research IDs
 }
 
 export interface LaneEntry {
@@ -134,6 +136,8 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
     structures,
     growthHint,
     foodUpkeep,
+    planetLimit: state.planetLimit || 4,
+    completedResearch: state.completedResearch || [],
   };
 }
 
