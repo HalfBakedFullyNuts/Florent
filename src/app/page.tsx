@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { GameController } from '../lib/game/commands';
 import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap } from '../lib/game/selectors';
 import { validateAllQueueItems, type QueueValidationResult, getValidationMessage } from '../lib/game/validation';
 import { createStandardStart } from '../lib/sim/defs/seed';
 import { loadGameData } from '../lib/sim/defs/adapter.client';
 import gameDataRaw from '../lib/game/game_data.json';
+import { setupLogging } from '../lib/game/logging-utils';
 
 // UI Components
-import { VerticalTurnSlider } from '../components/VerticalTurnSlider';
+import { HorizontalTimeline } from '../components/HorizontalTimeline';
 import { PlanetDashboard } from '../components/PlanetDashboard';
 import { TabbedLaneDisplay } from '../components/QueueDisplay/TabbedLaneDisplay';
 import { TabbedItemGrid } from '../components/LaneBoard/TabbedItemGrid';
@@ -26,6 +27,11 @@ import { Card } from '@/components/ui/card';
  * Phase 3: UI Migration - Tickets 13-19
  */
 export default function Home() {
+  // Initialize logging utilities (disabled by default, enable via console with gameLogger.enable())
+  useEffect(() => {
+    setupLogging();
+  }, []);
+
   // Initialize game engine on first render
   const [controller] = useState(() => {
     const defs = loadGameData(gameDataRaw as any);
@@ -38,6 +44,7 @@ export default function Home() {
   const [stateVersion, setStateVersion] = useState(0); // Force re-render when state changes
   const [queueValidation, setQueueValidation] = useState<Map<string, QueueValidationResult>>(new Map());
   const [showExportModal, setShowExportModal] = useState<'current' | 'full' | null>(null);
+  const [activeTab, setActiveTab] = useState<'building' | 'ship' | 'colonist' | 'research'>('building');
 
   // Get current state from controller - re-fetch when viewTurn OR stateVersion changes
   const currentState = controller.getStateAtTurn(viewTurn);
@@ -347,16 +354,19 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col">
-      {/* Vertical Turn Slider - TICKET-9 */}
-      <VerticalTurnSlider
-        currentTurn={viewTurn}
-        totalTurns={totalTurns}
-        onTurnChange={setViewTurn}
+    <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">
+      {/* Background Overlay */}
+      <div
+        className="fixed inset-0 z-0 bg-cover bg-no-repeat pointer-events-none"
+        style={{
+          backgroundImage: 'url(/BG_Nebula.png)',
+          backgroundPosition: '33% center',
+          opacity: 0.2
+        }}
       />
 
-      {/* Main Content Container - Adjusted for vertical slider */}
-      <div className="flex flex-col flex-1 mr-24">
+      {/* Main Content Container */}
+      <div className="flex flex-col flex-1 relative z-10">
         {/* Header */}
         <header className="bg-pink-nebula-panel px-6 py-4 border-b border-pink-nebula-border">
           <h1 className="text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
@@ -383,6 +393,15 @@ export default function Home() {
           turnsToHousingCap={currentState ? getTurnsUntilHousingCap(currentState, viewTurn) : null}
         />
 
+        {/* Horizontal Timeline - Between dashboard and queues */}
+        <div className="w-full max-w-[1800px] mx-auto px-6">
+          <HorizontalTimeline
+            currentTurn={viewTurn}
+            totalTurns={totalTurns}
+            onTurnChange={setViewTurn}
+          />
+        </div>
+
         {/* Main Content - Side-by-side Tabbed Displays */}
         <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
         <div className="flex gap-6">
@@ -393,6 +412,8 @@ export default function Home() {
               availableItems={availableItems}
               onQueueItem={handleQueueItem}
               canQueueItem={canQueueItem}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
             />
           </Card>
 
@@ -427,15 +448,12 @@ export default function Home() {
               onReorder={(laneId, entryId, newIndex) => handleReorder(laneId, entryId, newIndex)}
               disabled={false}
               defs={defs}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
             />
           </Card>
         </div>
         </main>
-
-        {/* Footer */}
-        <footer className="bg-pink-nebula-panel px-6 py-3 border-t border-pink-nebula-border text-center text-sm text-pink-nebula-muted">
-          Turn-based strategy game simulator | Phases 0-5 In Progress | 239/239 tests passing
-        </footer>
       </div>
 
       {/* Export Modal - TICKET-5 */}

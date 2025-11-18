@@ -57,6 +57,7 @@ describe('Seed Functions', () => {
         building: 0,
         ship: 0,
         colonist: 0,
+        research: 0,
       });
     });
 

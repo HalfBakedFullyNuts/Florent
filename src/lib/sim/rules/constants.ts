@@ -29,12 +29,14 @@ export const STARTING_STATE = {
     mineral: 20000,
     food: 1000,
     energy: 0,
+    research_points: 0,
   },
   abundance: {
     metal: 1.0,
     mineral: 1.0,
     food: 1.0,
     energy: 1.0,
+    research_points: 1.0,
   },
   population: {
     workersTotal: 20000,

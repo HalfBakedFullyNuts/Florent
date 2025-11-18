@@ -70,6 +70,7 @@ export interface ItemDefinition {
   colonistKind?: 'soldier' | 'scientist';
   isAbundanceScaled?: boolean;
   prerequisites: string[]; // structure IDs required
+  maxPerPlanet?: number | null; // Maximum allowed per planet (1 = unique building)
 }
 
 // ============================================================================
@@ -157,7 +158,8 @@ export interface PlanetState {
 export type CanQueueReason =
   | 'REQ_MISSING'
   | 'HOUSING_MISSING'
-  | 'ENERGY_INSUFFICIENT';
+  | 'ENERGY_INSUFFICIENT'
+  | 'PLANET_LIMIT_REACHED';
 
 export interface CanQueueResult {
   allowed: boolean;

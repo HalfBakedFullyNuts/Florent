@@ -7,6 +7,7 @@ import type { PlanetState } from '../sim/engine/types';
 import { simulate, runTurn } from '../sim/engine/turn';
 import { CompletionBuffer } from '../sim/engine/buffers';
 import { cloneState } from '../sim/engine/helpers';
+import { getLogger } from './logger';
 
 /**
  * Timeline state manager with fixed 200-turn architecture
@@ -87,6 +88,11 @@ export class Timeline {
       // Detect stable state (no active items, no pending queues)
       if (this.stableFromTurn === -1 && this.isStableState(this.states[i])) {
         this.stableFromTurn = i;
+        getLogger().logTimelineEvent(
+          this.states[i].currentTurn,
+          'stable_state',
+          `Stable state detected at turn ${this.states[i].currentTurn}, fast-copying ${Timeline.FIXED_TURNS - i - 1} turns`
+        );
         // Fast-copy stable state to remaining turns
         const stableState = this.states[i];
         for (let j = i + 1; j < Timeline.FIXED_TURNS; j++) {
@@ -105,12 +111,28 @@ export class Timeline {
   }
 
   /**
-   * Check if state is stable (no work remaining)
+   * Check if state is stable (no work remaining and no ongoing resource production)
+   * A state is NOT stable if:
+   * - Any lane has active or pending items
+   * - Scientists are producing research points
    */
   private isStableState(state: PlanetState): boolean {
-    return Object.values(state.lanes).every(
+    // Check if any lanes have work
+    const hasLaneWork = !Object.values(state.lanes).every(
       lane => !lane.active && lane.pendingQueue.length === 0
     );
+
+    if (hasLaneWork) {
+      return false;
+    }
+
+    // Check if scientists are producing RP
+    // Even with no queued work, scientists continue producing RP every turn
+    if (state.population.scientists > 0) {
+      return false;
+    }
+
+    return true;
   }
 
   /**
@@ -136,6 +158,11 @@ export class Timeline {
   nextTurn(): PlanetState {
     if (this.currentTurnIndex < Timeline.FIXED_TURNS - 1) {
       this.currentTurnIndex += 1;
+      getLogger().logTimelineEvent(
+        this.getCurrentTurn(),
+        'advance',
+        `Advanced to turn ${this.getCurrentTurn()}`
+      );
     }
     return this.getCurrentState();
   }
@@ -172,6 +199,14 @@ export class Timeline {
 
     // Apply the mutation
     mutation(state);
+
+    // Log the mutation
+    getLogger().logTimelineEvent(
+      turn,
+      'mutation',
+      `State mutated at turn ${turn}`,
+      Timeline.FIXED_TURNS - turn
+    );
 
     // Recompute from the next index forward (index+1) so the mutation at index is preserved
     // The mutation affects the state AT this index, so we recompute from the NEXT index

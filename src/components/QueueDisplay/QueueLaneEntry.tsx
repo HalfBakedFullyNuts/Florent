@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
-import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 
 export interface QueueLaneEntryProps {
   entry: LaneEntry;
@@ -18,10 +17,10 @@ export interface QueueLaneEntryProps {
 }
 
 /**
- * QueueLaneEntry - Planet Queue entry display with Add to Queue styling
+ * QueueLaneEntry - Planet Queue entry display with structured table-like layout
  *
- * Shows: Item name, turns to completion
- * Same font size and style as TabbedItemGrid items
+ * Shows: Item name, quantity, duration, completion turn
+ * Vertically aligned columns for all figures
  */
 export function QueueLaneEntry({
   entry,
@@ -35,7 +34,6 @@ export function QueueLaneEntry({
   busyWorkers = 0,
   showQuantityInput = false,
 }: QueueLaneEntryProps) {
-  const queueable = true; // Always show as queueable in Planet Queue
   const [confirmMode, setConfirmMode] = useState(false);
   const [editingQuantity, setEditingQuantity] = useState(false);
   const [quantityValue, setQuantityValue] = useState(entry.quantity.toString());
@@ -51,11 +49,11 @@ export function QueueLaneEntry({
   }, [confirmMode]);
 
   const handleClick = () => {
+    if (disabled || entry.status === 'completed') return;
+
     if (confirmMode) {
-      // Second click - actually remove
       onCancel();
     } else {
-      // First click - enter confirm mode
       setConfirmMode(true);
     }
   };
@@ -80,21 +78,20 @@ export function QueueLaneEntry({
     }
   };
 
-  // Determine status for border color
-  const status = entry.status === 'active' ? 'active' :
-                 entry.status === 'pending' ? 'pending' :
-                 entry.status === 'completed' ? 'completed' : undefined;
+  // Determine status color
+  const statusColor = entry.status === 'active' ? 'border-l-4 border-l-yellow-500' :
+                      entry.status === 'pending' ? 'border-l-4 border-l-blue-500' :
+                      entry.status === 'completed' ? 'border-l-4 border-l-green-500 opacity-70' : '';
 
   if (confirmMode) {
-    // Confirmation mode: Custom red styling
     return (
       <button
         onClick={handleClick}
-        className="glass-button w-full text-left p-3 border-red-500 bg-red-900/20 ring-2 ring-red-500"
+        className="w-full text-left p-3 bg-red-900/30 border border-red-500 rounded ring-2 ring-red-500 hover:bg-red-900/40 transition-colors"
         title="Click again to confirm removal"
       >
-        <div className="flex items-center gap-2 text-sm flex-wrap">
-          <span className="font-semibold text-red-400 flex-1">
+        <div className="flex items-center justify-between text-sm">
+          <span className="font-semibold text-red-400">
             Remove {entry.itemName}?
           </span>
           <span className="text-red-400 font-bold text-xs">
@@ -106,44 +103,71 @@ export function QueueLaneEntry({
   }
 
   return (
-    <GlassQueueButton
-      itemName={entry.itemName}
-      quantity={editingQuantity ? undefined : entry.quantity}
-      status={status}
-      turnsRemaining={entry.turnsRemaining}
-      startTurn={entry.startTurn}
-      completionTurn={entry.completionTurn}
-      disabled={disabled}
+    <button
       onClick={handleClick}
-      className={entry.status === 'completed' ? 'opacity-90' : ''}
-      invalidWarning={entry.invalid}
-      invalidReason={entry.invalidReason}
+      disabled={disabled || entry.status === 'completed'}
+      className={`
+        w-full text-left p-3 bg-pink-nebula-panel/50 border border-pink-nebula-border rounded
+        hover:bg-pink-nebula-panel/70 transition-colors group
+        ${statusColor}
+        ${entry.invalid ? 'border-orange-500/50 bg-orange-900/10' : ''}
+        ${disabled || entry.status === 'completed' ? 'cursor-default' : 'cursor-pointer'}
+      `}
     >
-      {/* Quantity input for ships/colonists */}
-      {showQuantityInput && !disabled && entry.status !== 'completed' && (
-        <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-          <span className="text-pink-nebula-muted text-xs">×</span>
-          <input
-            type="number"
-            min="1"
-            max={maxQuantity}
-            value={quantityValue}
-            onChange={(e) => setQuantityValue(e.target.value)}
-            onFocus={() => setEditingQuantity(true)}
-            onBlur={handleQuantityBlur}
-            onKeyDown={handleQuantityKeyDown}
-            className="w-14 px-2 py-0.5 bg-pink-nebula-panel border border-pink-nebula-border rounded text-pink-nebula-text text-xs text-center focus:outline-none focus:border-pink-nebula-accent-primary"
-            disabled={disabled}
-          />
+      {/* Structured table-like layout */}
+      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center text-sm font-mono">
+        {/* Item Name */}
+        <div className="text-pink-nebula-text truncate">
+          {entry.itemName}
+        </div>
+
+        {/* Quantity */}
+        <div className="text-pink-nebula-text text-right w-12">
+          {showQuantityInput && !disabled && entry.status !== 'completed' ? (
+            <input
+              type="number"
+              min="1"
+              max={maxQuantity}
+              value={quantityValue}
+              onChange={(e) => setQuantityValue(e.target.value)}
+              onFocus={() => setEditingQuantity(true)}
+              onBlur={handleQuantityBlur}
+              onKeyDown={handleQuantityKeyDown}
+              onClick={(e) => e.stopPropagation()}
+              className="w-12 px-1 py-0 bg-pink-nebula-bg border border-pink-nebula-border rounded text-pink-nebula-text text-sm text-center focus:outline-none focus:border-pink-nebula-accent-primary font-mono"
+              disabled={disabled}
+            />
+          ) : (
+            <span>×{entry.quantity}</span>
+          )}
+        </div>
+
+        {/* Duration */}
+        <div className="text-pink-nebula-text text-right w-10">
+          {entry.turnsRemaining !== undefined ? `${entry.turnsRemaining}T` : `${def?.duration || '—'}T`}
+        </div>
+
+        {/* Completion Turn */}
+        <div className="text-pink-nebula-muted text-right w-32">
+          {entry.completionTurn ? `(Completes T${entry.completionTurn})` : ''}
+        </div>
+
+        {/* Remove indicator */}
+        <div className="w-4 text-right">
+          {!disabled && entry.status !== 'completed' && (
+            <span className="text-gray-500 group-hover:text-pink-nebula-accent-primary transition-colors">
+              ✕
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Invalid warning */}
+      {entry.invalid && entry.invalidReason && (
+        <div className="mt-1 text-xs text-orange-400">
+          ⚠️ {entry.invalidReason}
         </div>
       )}
-
-      {/* Remove indicator - only for pending/active items */}
-      {!disabled && entry.status !== 'completed' && (
-        <span className="ml-auto text-gray-500 group-hover:text-pink-nebula-accent-primary transition-colors text-xs shrink-0">
-          ✕
-        </span>
-      )}
-    </GlassQueueButton>
+    </button>
   );
 }

@@ -133,7 +133,7 @@ body {
 
   /* Resource-specific glows */
   .glow-tyr {
-    box-shadow: 0 0 30px rgba(156, 163, 175, 0.6), 0 0 60px rgba(156, 163, 175, 0.3);
+    box-shadow: 0 0 30px rgba(232, 121, 249, 0.6), 0 0 60px rgba(232, 121, 249, 0.3);
   }
 
   .glow-mineral {

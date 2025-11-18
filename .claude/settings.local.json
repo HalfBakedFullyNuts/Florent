@@ -40,7 +40,9 @@
       "Bash(curl:*)",
       "Bash(node scripts/extract-research-data.js:*)",
       "Bash(head:*)",
-      "Bash(tr:*)"
+      "Bash(tr:*)",
+      "Bash(node scripts/add-research-to-game-data.js:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": [],
     "ask": []

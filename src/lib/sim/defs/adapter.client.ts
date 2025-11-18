@@ -67,6 +67,22 @@ interface RawStructure {
     consumption?: RawConsumption[];
     effects?: RawEffect[];
   };
+  max_per_planet?: number | null;
+}
+
+interface RawResearch {
+  id: string;
+  name: string;
+  category: string;
+  tier: number;
+  build_time_turns: number;
+  cost: RawCost[];
+  build_requirements: {
+    workers_occupied?: number;
+  };
+  requirements: string[];
+  operations?: any[];
+  score_value?: number;
 }
 
 interface RawGameData {
@@ -74,6 +90,7 @@ interface RawGameData {
   resources: any[];
   units: RawUnit[];
   structures: RawStructure[];
+  research?: RawResearch[];
 }
 
 /**
@@ -100,6 +117,7 @@ function convertUnit(raw: RawUnit): ItemDefinition {
     mineral: 0,
     food: 0,
     energy: 0,
+    research_points: 0,
     workers: raw.build_requirements.workers_occupied || 0,
     space: 0, // Ships don't have space cost in the data
   };
@@ -152,6 +170,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     mineral: 0,
     food: 0,
     energy: 0,
+    research_points: 0,
     workers: raw.build_requirements.workers_occupied || 0,
     space: 0,
   };
@@ -246,6 +265,75 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     upkeepPerUnit: upkeep,
     isAbundanceScaled: hasAbundanceScaledProduction,
     prerequisites,
+    maxPerPlanet: raw.max_per_planet,
+  };
+
+  return def;
+}
+
+/**
+ * Convert raw research to ItemDefinition
+ */
+function convertResearch(raw: RawResearch): ItemDefinition {
+  const lane: LaneId = 'research';
+  const type: UnitType = 'structure'; // Research is treated as a special structure type
+
+  // Extract costs - research only costs RP
+  const costs: Costs = {
+    metal: 0,
+    mineral: 0,
+    food: 0,
+    energy: 0,
+    research_points: 0,
+    workers: 0, // Research doesn't require workers
+    space: 0, // Research doesn't use space
+  };
+
+  // Extract RP cost from the cost array
+  for (const cost of raw.cost) {
+    if (cost.type === 'resource' && cost.id === 'research_points') {
+      costs.research_points = cost.amount;
+    }
+  }
+
+  // Extract effects from operations
+  const effects: Effects = {};
+  if (raw.operations) {
+    for (const op of raw.operations) {
+      if (op.type === 'on_complete') {
+        if (op.effect === 'set_planet_limit') {
+          effects.planet_limit = op.value;
+        } else if (op.effect === 'unlock_research') {
+          effects.unlocks_research = op.items;
+        } else if (op.effect === 'unlock_structure') {
+          effects.unlocks_structure = op.item;
+        } else if (op.effect === 'unlock_unit') {
+          effects.unlocks_unit = op.item;
+        }
+      }
+    }
+  }
+
+  // Use requirements as prerequisites
+  const prerequisites: string[] = raw.requirements || [];
+
+  const def: ItemDefinition = {
+    id: raw.id,
+    name: raw.name,
+    lane,
+    type,
+    tier: raw.tier,
+    durationTurns: raw.build_time_turns,
+    costsPerUnit: costs,
+    effectsOnComplete: effects,
+    upkeepPerUnit: {
+      metal: 0,
+      mineral: 0,
+      food: 0,
+      energy: 0,
+    }, // Research has no upkeep
+    isAbundanceScaled: false,
+    prerequisites,
   };
 
   return def;
@@ -267,6 +355,14 @@ export function loadGameData(gameData: RawGameData): Record<string, ItemDefiniti
   for (const structure of gameData.structures) {
     const def = convertStructure(structure);
     defs[def.id] = def;
+  }
+
+  // Convert research (if present)
+  if (gameData.research) {
+    for (const research of gameData.research) {
+      const def = convertResearch(research);
+      defs[def.id] = def;
+    }
   }
 
   return defs;

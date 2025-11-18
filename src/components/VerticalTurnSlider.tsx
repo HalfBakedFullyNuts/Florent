@@ -43,7 +43,7 @@ export function VerticalTurnSlider({ currentTurn, totalTurns, onTurnChange }: Ve
   }
 
   return (
-    <div className="fixed right-0 top-0 h-screen w-24 bg-pink-nebula-panel border-l border-pink-nebula-border flex flex-col z-30">
+    <div className="fixed right-0 top-0 h-screen w-16 bg-pink-nebula-panel border-l border-pink-nebula-border flex flex-col z-30">
       {/* Current Turn Display */}
       <div className="p-4 border-b border-pink-nebula-border">
         <div className="text-pink-nebula-muted text-xs font-semibold mb-1">TURN</div>

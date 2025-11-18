@@ -7,10 +7,10 @@ import { QueueLaneEntry } from './QueueLaneEntry';
 import { Card } from '@/components/ui/card';
 
 export interface TabbedLaneDisplayProps {
-  buildingLane: LaneView;
-  shipLane: LaneView;
-  colonistLane: LaneView;
-  researchLane: LaneView;
+  buildingLane: LaneView | null;
+  shipLane: LaneView | null;
+  colonistLane: LaneView | null;
+  researchLane: LaneView | null;
   currentTurn: number;
   onCancel: (laneId: LaneId, entry: LaneEntry) => void;
   onQuantityChange?: (laneId: LaneId, entry: LaneEntry, newQuantity: number) => void;
@@ -18,15 +18,13 @@ export interface TabbedLaneDisplayProps {
   onReorder?: (laneId: LaneId, entryId: string, newIndex: number) => void;
   disabled?: boolean;
   defs: Record<string, any>;
+  activeTab?: LaneId;
+  onTabChange?: (tab: LaneId) => void;
 }
 
 /**
- * TabbedLaneDisplay - Compact tabbed interface for queue schedules
- *
- * - Four tabs: Structures, Ships, Colonists, Research
- * - Active tab takes full width
- * - Inactive tabs compressed to 50% width showing minimal info
- * - Total width = 2x single column
+ * TabbedLaneDisplay - Tabbed interface for queue schedules
+ * Shows only the active tab's queue entries
  */
 export function TabbedLaneDisplay({
   buildingLane,
@@ -40,10 +38,16 @@ export function TabbedLaneDisplay({
   onReorder,
   disabled = false,
   defs,
+  activeTab: externalActiveTab,
+  onTabChange,
 }: TabbedLaneDisplayProps) {
-  const [activeTab, setActiveTab] = useState<LaneId>('building');
+  const [internalActiveTab, setInternalActiveTab] = useState<LaneId>('building');
   const [draggedItem, setDraggedItem] = useState<{ laneId: LaneId; entryId: string } | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // Use external tab state if provided, otherwise use internal
+  const activeTab = externalActiveTab ?? internalActiveTab;
+  const setActiveTab = onTabChange ?? setInternalActiveTab;
 
   const getLaneConfig = (laneId: LaneId) => {
     switch (laneId) {
@@ -60,12 +64,21 @@ export function TabbedLaneDisplay({
     }
   };
 
+  const config = getLaneConfig(activeTab);
+  const laneView = config.laneView;
+
+  // Calculate newest item
+  const nonCompletedEntries = laneView?.entries.filter(e => e.status !== 'completed') || [];
+  const newestId = nonCompletedEntries.length > 0
+    ? nonCompletedEntries[nonCompletedEntries.length - 1].id
+    : null;
+
   return (
-    <div className="w-full max-w-[916px]">
+    <div className="w-full">
       {/* Tab Headers */}
       <div className="flex gap-2 mb-4">
         {(['building', 'ship', 'colonist', 'research'] as LaneId[]).map((laneId) => {
-          const config = getLaneConfig(laneId);
+          const tabConfig = getLaneConfig(laneId);
           const isActive = activeTab === laneId;
 
           return (
@@ -80,158 +93,108 @@ export function TabbedLaneDisplay({
                 }
               `}
             >
-              <span className="mr-2">{config.icon}</span>
-              {config.title}
+              <span className="mr-2">{tabConfig.icon}</span>
+              {tabConfig.title}
             </button>
           );
         })}
       </div>
 
-      {/* Tabbed Content Area */}
-      <div className="flex gap-2 h-[600px]">
-        {(['building', 'ship', 'colonist', 'research'] as LaneId[]).map((laneId) => {
-          const config = getLaneConfig(laneId);
-          const isActive = activeTab === laneId;
-          const laneView = config.laneView;
+      {/* Active Tab Content */}
+      <Card className="p-4 h-[600px] overflow-y-auto">
+        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-pink-nebula-border">
+          <span className="text-xl">{config.icon}</span>
+          <h3 className="text-lg font-bold text-pink-nebula-text">
+            {config.title}
+          </h3>
+          <span className="ml-auto text-sm text-pink-nebula-muted">
+            {laneView && laneView.entries.length > 0 ? `${laneView.entries.length}` : '—'}
+          </span>
+        </div>
 
-          // Skip if laneView is undefined
-          if (!laneView) return null;
+        <div className="space-y-2">
+          {!laneView || laneView.entries.length === 0 ? (
+            <div className="text-center text-pink-nebula-muted text-base py-8">
+              Queue empty
+            </div>
+          ) : (
+            // Full display with all entries (most recent first)
+            laneView.entries.slice().reverse().map((entry, displayIndex) => {
+              const isNewest = entry.id === newestId;
+              const def = defs[entry.itemId];
+              const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
+              const showQuantityInput = activeTab === 'ship' || activeTab === 'colonist';
+              const maxQuantity = getMaxQuantity ? getMaxQuantity(activeTab, entry) : undefined;
 
-          // Calculate newest item
-          const nonCompletedEntries = laneView.entries.filter(e => e.status !== 'completed');
-          const newestId = nonCompletedEntries.length > 0
-            ? nonCompletedEntries[nonCompletedEntries.length - 1].id
-            : null;
+              // Calculate actual index in pendingQueue (reversed from display)
+              const actualIndex = laneView.entries.length - 1 - displayIndex;
+              const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === activeTab;
+              const canDrag = !disabled && entry.status === 'pending' && !!onReorder;
 
-          return (
-            <Card
-              key={laneId}
-              onClick={() => !isActive && setActiveTab(laneId)}
-              className={`
-                p-4 overflow-y-auto
-                transition-all duration-[350ms] ease-in-out
-                ${isActive ? 'flex-[2.2]' : 'flex-[0.9] cursor-pointer hover:bg-white/10'}
-              `}
-            >
-              {/* Header - visible in all states */}
-              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-pink-nebula-border">
-                <span className="text-xl">{config.icon}</span>
-                {isActive && (
-                  <>
-                    <h3 className="text-lg font-bold text-pink-nebula-text">
-                      {config.title}
-                    </h3>
-                    <span className="ml-auto text-sm text-pink-nebula-muted">
-                      {laneView.entries.length > 0 ? `${laneView.entries.length}` : '—'}
-                    </span>
-                  </>
-                )}
-              </div>
-
-              {/* Content */}
-              <div className="space-y-2">
-                {laneView.entries.length === 0 ? (
-                  <div className="text-center text-pink-nebula-muted text-base py-8">
-                    {isActive ? 'Queue empty' : '—'}
-                  </div>
-                ) : isActive ? (
-                  // Active tab: Full display with all entries (most recent first)
-                  laneView.entries.slice().reverse().map((entry, displayIndex) => {
-                    const isNewest = entry.id === newestId;
-                    const def = defs[entry.itemId];
-                    const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
-                    const showQuantityInput = laneId === 'ship' || laneId === 'colonist';
-                    const maxQuantity = getMaxQuantity ? getMaxQuantity(laneId, entry) : undefined;
-
-                    // Calculate actual index in pendingQueue (reversed from display)
-                    const actualIndex = laneView.entries.length - 1 - displayIndex;
-                    const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === laneId;
-                    const canDrag = !disabled && entry.status === 'pending' && !!onReorder;
-
-                    return (
-                      <div
-                        key={entry.id}
-                        draggable={canDrag}
-                        onDragStart={(e) => {
-                          if (canDrag) {
-                            e.dataTransfer.effectAllowed = 'move';
-                            setDraggedItem({ laneId, entryId: entry.id });
-                          }
-                        }}
-                        onDragOver={(e) => {
-                          if (draggedItem && draggedItem.laneId === laneId && draggedItem.entryId !== entry.id) {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setDragOverIndex(displayIndex);
-                          }
-                        }}
-                        onDrop={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          if (draggedItem && onReorder && draggedItem.laneId === laneId && draggedItem.entryId !== entry.id) {
-                            onReorder(laneId, draggedItem.entryId, actualIndex);
-                          }
-                          setDraggedItem(null);
-                          setDragOverIndex(null);
-                        }}
-                        onDragEnd={() => {
-                          setDraggedItem(null);
-                          setDragOverIndex(null);
-                        }}
-                        className={`
-                          ${isDragging ? 'opacity-50' : ''}
-                          ${dragOverIndex === displayIndex ? 'border-t-2 border-pink-nebula-accent-primary' : ''}
-                          ${canDrag ? 'cursor-move' : ''}
-                        `}
-                      >
-                        <QueueLaneEntry
-                          entry={entry}
-                          currentTurn={currentTurn}
-                          onCancel={() => onCancel(laneId, entry)}
-                          onQuantityChange={onQuantityChange ? (newQty) => onQuantityChange(laneId, entry, newQty) : undefined}
-                          maxQuantity={maxQuantity}
-                          showQuantityInput={showQuantityInput}
-                          disabled={disabled}
-                          isNewest={isNewest}
-                          def={def}
-                          busyWorkers={busyWorkers}
-                        />
-                      </div>
-                    );
-                  })
-                ) : (
-                  // Inactive tab: Compressed display (item names only, most recent first)
-                  laneView.entries.slice().reverse().map((entry) => {
-                    return (
-                      <button
-                        key={entry.id}
-                        onClick={() => setActiveTab(laneId)}
-                        className="text-sm py-1 px-2 w-full text-left hover:bg-slate-700 rounded transition-colors cursor-pointer text-pink-nebula-text"
-                      >
-                        <div className="truncate">
-                          {entry.quantity > 1 && <span className="text-pink-400 font-semibold">{entry.quantity}× </span>}
-                          {entry.itemName}
-                        </div>
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Footer hint - only in active tab */}
-              {isActive && (
-                <div className="mt-4 pt-2 border-t border-pink-nebula-border">
-                  <div className="text-xs text-pink-nebula-muted text-center">
-                    {laneId === 'building' && 'Hover to cancel'}
-                    {laneId === 'ship' && 'Batch production'}
-                    {laneId === 'colonist' && 'Requires housing'}
-                  </div>
+              return (
+                <div
+                  key={entry.id}
+                  draggable={canDrag}
+                  onDragStart={(e) => {
+                    if (canDrag) {
+                      e.dataTransfer.effectAllowed = 'move';
+                      setDraggedItem({ laneId: activeTab, entryId: entry.id });
+                    }
+                  }}
+                  onDragOver={(e) => {
+                    if (draggedItem && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id) {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setDragOverIndex(displayIndex);
+                    }
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (draggedItem && onReorder && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id) {
+                      onReorder(activeTab, draggedItem.entryId, actualIndex);
+                    }
+                    setDraggedItem(null);
+                    setDragOverIndex(null);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedItem(null);
+                    setDragOverIndex(null);
+                  }}
+                  className={`
+                    ${isDragging ? 'opacity-50' : ''}
+                    ${dragOverIndex === displayIndex ? 'border-t-2 border-pink-nebula-accent-primary' : ''}
+                    ${canDrag ? 'cursor-move' : ''}
+                  `}
+                >
+                  <QueueLaneEntry
+                    entry={entry}
+                    currentTurn={currentTurn}
+                    onCancel={() => onCancel(activeTab, entry)}
+                    onQuantityChange={onQuantityChange ? (newQty) => onQuantityChange(activeTab, entry, newQty) : undefined}
+                    maxQuantity={maxQuantity}
+                    showQuantityInput={showQuantityInput}
+                    disabled={disabled}
+                    isNewest={isNewest}
+                    def={def}
+                    busyWorkers={busyWorkers}
+                  />
                 </div>
-              )}
-            </Card>
-          );
-        })}
-      </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Footer hint */}
+        <div className="mt-4 pt-2 border-t border-pink-nebula-border">
+          <div className="text-xs text-pink-nebula-muted text-center">
+            {activeTab === 'building' && 'Hover to cancel'}
+            {activeTab === 'ship' && 'Batch production'}
+            {activeTab === 'colonist' && 'Requires housing'}
+            {activeTab === 'research' && 'Research lane'}
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

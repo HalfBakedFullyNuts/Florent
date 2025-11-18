@@ -7,10 +7,11 @@ import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
 import { canQueue } from '../sim/engine/validation';
 import { generateWorkItemId } from '../sim/engine/helpers';
 import { Timeline } from './state';
+import { getLogger } from './logger';
 
 export interface QueueResult {
   success: boolean;
-  reason?: 'REQ_MISSING' | 'HOUSING_MISSING' | 'ENERGY_INSUFFICIENT' | 'INVALID_LANE';
+  reason?: 'REQ_MISSING' | 'HOUSING_MISSING' | 'ENERGY_INSUFFICIENT' | 'PLANET_LIMIT_REACHED' | 'INVALID_LANE';
   itemId?: string;
 }
 
@@ -83,11 +84,28 @@ export class GameController {
     // Mutate state to add pending item to queue
     const success = this.timeline.mutateAtTurn(turn, (s) => {
       s.lanes[laneId].pendingQueue.push(workItem);
+
+      // Deduct research_points immediately for research items (at queue time, not activation)
+      if (laneId === 'research') {
+        const rpCost = def.costsPerUnit.research_points || 0;
+        s.stocks.research_points -= rpCost * requestedQty;
+      }
     });
 
     if (!success) {
       return { success: false, reason: 'INVALID_LANE' };
     }
+
+    // Log the queue operation
+    getLogger().logQueueOperation(
+      turn,
+      'queue',
+      laneId,
+      itemId,
+      def.name,
+      requestedQty,
+      `Queued at turn ${turn}`
+    );
 
     return { success: true, itemId: workItemId };
   }
@@ -108,8 +126,34 @@ export class GameController {
     // If there's a pending item in queue, remove the first one
     if (lane.pendingQueue.length > 0) {
       this.timeline.mutateAtTurn(turn, (s) => {
+        const pending = s.lanes[laneId].pendingQueue[0];
+        if (pending) {
+          // Refund research_points for pending research items (deducted at queue time)
+          if (laneId === 'research') {
+            const def = s.defs[pending.itemId];
+            if (def) {
+              const rpCost = def.costsPerUnit.research_points || 0;
+              s.stocks.research_points += rpCost * pending.quantity;
+            }
+          }
+        }
         s.lanes[laneId].pendingQueue.shift();
       });
+
+      // Log the cancel operation
+      const def = state.defs[lane.pendingQueue[0]?.itemId];
+      if (def) {
+        getLogger().logQueueOperation(
+          turn,
+          'cancel',
+          laneId,
+          def.id,
+          def.name,
+          undefined,
+          'Cancelled pending item'
+        );
+      }
+
       return { success: true };
     }
 
@@ -128,6 +172,7 @@ export class GameController {
         s.stocks.mineral += costs.mineral * active.quantity;
         s.stocks.food += costs.food * active.quantity;
         s.stocks.energy += costs.energy * active.quantity;
+        s.stocks.research_points += costs.research_points * active.quantity;
 
         // Release workers
         const workersNeeded = costs.workers || 0;
@@ -153,6 +198,20 @@ export class GameController {
         s.lanes[laneId].active = null;
       });
 
+      // Log the cancel operation
+      const def = state.defs[lane.active?.itemId || ''];
+      if (def) {
+        getLogger().logQueueOperation(
+          turn,
+          'cancel',
+          laneId,
+          def.id,
+          def.name,
+          lane.active?.quantity,
+          'Cancelled active item'
+        );
+      }
+
       return { success: true };
     }
 
@@ -175,6 +234,17 @@ export class GameController {
     const pendingIndex = lane.pendingQueue.findIndex(item => item.id === entryId);
     if (pendingIndex !== -1) {
       this.timeline.mutateAtTurn(turn, (s) => {
+        const pending = s.lanes[laneId].pendingQueue[pendingIndex];
+        if (pending) {
+          // Refund research_points for pending research items (deducted at queue time)
+          if (laneId === 'research') {
+            const def = s.defs[pending.itemId];
+            if (def) {
+              const rpCost = def.costsPerUnit.research_points || 0;
+              s.stocks.research_points += rpCost * pending.quantity;
+            }
+          }
+        }
         s.lanes[laneId].pendingQueue.splice(pendingIndex, 1);
       });
       return { success: true };
@@ -195,6 +265,7 @@ export class GameController {
         s.stocks.mineral += costs.mineral * active.quantity;
         s.stocks.food += costs.food * active.quantity;
         s.stocks.energy += costs.energy * active.quantity;
+        s.stocks.research_points += costs.research_points * active.quantity;
 
         // Release workers
         const workersNeeded = costs.workers || 0;
@@ -366,6 +437,23 @@ export class GameController {
       const [item] = lane.pendingQueue.splice(oldIndex, 1);
       lane.pendingQueue.splice(newIndex, 0, item);
     });
+
+    // Log the reorder operation
+    const item = lane.pendingQueue[newIndex];
+    if (item) {
+      const def = state.defs[item.itemId];
+      if (def) {
+        getLogger().logQueueOperation(
+          turn,
+          'reorder',
+          laneId,
+          def.id,
+          def.name,
+          undefined,
+          `Moved from index ${oldIndex} to ${newIndex}`
+        );
+      }
+    }
 
     return { success: true };
   }

@@ -28,12 +28,14 @@ describe('Validation Primitives', () => {
         mineral: 3000,
         food: 500,
         energy: 100,
+        research_points: 0,
       },
       abundance: {
         metal: 1.0,
         mineral: 1.0,
         food: 1.0,
         energy: 1.0,
+        research_points: 1.0,
       },
       population: {
         workersTotal: 10000,
@@ -44,6 +46,7 @@ describe('Validation Primitives', () => {
           building: 0,
           ship: 0,
           colonist: 0,
+          research: 0,
         },
       },
       space: {
@@ -61,6 +64,7 @@ describe('Validation Primitives', () => {
         building: { pendingQueue: [], active: null, maxQueueDepth: 10 },
         ship: { pendingQueue: [], active: null, maxQueueDepth: 10 },
         colonist: { pendingQueue: [], active: null, maxQueueDepth: 10 },
+        research: { pendingQueue: [], active: null, maxQueueDepth: 1 },
       },
       completedCounts: {
         outpost: 1,

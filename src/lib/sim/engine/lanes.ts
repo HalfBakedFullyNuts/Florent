@@ -5,6 +5,7 @@
 
 import type { PlanetState, LaneId, WorkItem } from './types';
 import { clampBatchAtActivation } from './validation';
+import { getLogger } from '../../game/logger';
 
 /**
  * Try to activate next pending item in lane
@@ -39,6 +40,10 @@ export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
   state.stocks.mineral -= costs.mineral * actualQty;
   state.stocks.food -= costs.food * actualQty;
   state.stocks.energy -= costs.energy * actualQty;
+  // Research points are deducted at queue time, not activation time
+  if (laneId !== 'research') {
+    state.stocks.research_points -= costs.research_points * actualQty;
+  }
 
   // Reserve workers
   const workersNeeded = costs.workers || 0;
@@ -69,6 +74,17 @@ export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
     startTurn: state.currentTurn,
     // completionTurn will be set when the item actually completes
   };
+
+  // Log activation
+  getLogger().logQueueOperation(
+    state.currentTurn,
+    'activate',
+    laneId,
+    def.id,
+    def.name,
+    actualQty,
+    `Activated with ${actualQty} quantity (requested: ${pending.quantity})`
+  );
 
   // Remove from pending queue
   lane.pendingQueue.shift();
@@ -117,6 +133,17 @@ export function progressActive(state: PlanetState, laneId: LaneId): WorkItem | n
     active.status = 'completed';
     active.completionTurn = state.currentTurn;
     const completedItem = { ...active };
+
+    // Log completion
+    getLogger().logQueueOperation(
+      state.currentTurn,
+      'complete',
+      laneId,
+      def.id,
+      def.name,
+      active.quantity,
+      `Completed at turn ${state.currentTurn}`
+    );
 
     // Add to completion history for visual display
     lane.completionHistory.push(completedItem);

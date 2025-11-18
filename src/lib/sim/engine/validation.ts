@@ -87,6 +87,46 @@ export function housingExistsForColonist(
 }
 
 /**
+ * Check if building has reached its planet limit
+ * Only applies to buildings with maxPerPlanet set
+ */
+export function isPlanetLimitReached(
+  state: PlanetState,
+  def: ItemDefinition
+): boolean {
+  // If no limit is set, always allow
+  if (def.maxPerPlanet === null || def.maxPerPlanet === undefined) {
+    return false;
+  }
+
+  // Only applies to building lane items
+  if (def.lane !== 'building') {
+    return false;
+  }
+
+  // Count total instances of this item
+  let totalCount = 0;
+
+  // Count completed buildings
+  totalCount += state.completedCounts[def.id] || 0;
+
+  // Count active building in building lane
+  if (state.lanes.building.active?.itemId === def.id) {
+    totalCount += state.lanes.building.active.quantity;
+  }
+
+  // Count pending buildings in building lane
+  for (const item of state.lanes.building.pendingQueue) {
+    if (item.itemId === def.id) {
+      totalCount += item.quantity;
+    }
+  }
+
+  // Check if limit is reached
+  return totalCount >= def.maxPerPlanet;
+}
+
+/**
  * Forward check: ensure energy output per turn won't go negative after completion
  */
 export function energyNonNegativeAfterCompletion(
@@ -113,7 +153,7 @@ export function energyNonNegativeAfterCompletion(
 
 /**
  * Static validation: can we queue this item?
- * Checks prerequisites and energy forward-check only
+ * Checks prerequisites, planet limits, housing, and energy forward-check
  */
 export function canQueue(
   state: PlanetState,
@@ -123,6 +163,11 @@ export function canQueue(
   // Check prerequisites
   if (!hasPrereqs(state, def)) {
     return { allowed: false, reason: 'REQ_MISSING' };
+  }
+
+  // Check planet limit for unique buildings
+  if (isPlanetLimitReached(state, def)) {
+    return { allowed: false, reason: 'PLANET_LIMIT_REACHED' };
   }
 
   // Check housing for colonists
