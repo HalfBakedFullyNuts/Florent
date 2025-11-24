@@ -152,18 +152,8 @@ export function validateQueueEntry(
     }
   }
 
-  // Housing check (for colonists)
-  if (laneId === 'colonist') {
-    const housingRequired = def.costsPerUnit?.housing || 0;
-    const availableHousing = state.housing.workerCap - state.population.workersTotal;
-
-    if (housingRequired > availableHousing) {
-      return {
-        valid: false,
-        reason: `INSUFFICIENT_HOUSING: need ${housingRequired}, have ${availableHousing}`
-      };
-    }
-  }
+  // Note: Housing/worker reservation validation is handled by the engine's validation layer
+  // Colonists require workers (soldiers: 10, scientists: 25) which is checked via Costs.workers
 
   // Resource check - use the canQueue validation which checks resources
   const canAfford = canQueue(state, def, entry.quantity);

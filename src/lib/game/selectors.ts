@@ -152,10 +152,10 @@ export function getTurnsUntilHousingCap(
   _completionTurn?: number
 ): number | null {
   const { workersTotal } = state.population;
-  const { housingCap } = state.space;
+  const { workerCap } = state.housing;
 
   // Already at or above cap
-  if (workersTotal >= housingCap) {
+  if (workersTotal >= workerCap) {
     return null;
   }
 
@@ -179,7 +179,7 @@ export function getTurnsUntilHousingCap(
   }
 
   // Calculate turns to reach cap
-  const workersNeeded = housingCap - workersTotal;
+  const workersNeeded = workerCap - workersTotal;
   const turnsToHousingCap = Math.ceil(workersNeeded / projectedGrowth);
 
   // Validate result
@@ -200,10 +200,12 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   // Add completed items from history (most recent first)
   for (const completed of [...lane.completionHistory].reverse()) {
     const def = state.defs[completed.itemId];
+    // Handle wait items specially
+    const itemName = completed.isWait ? 'Wait' : (def?.name || 'Unknown');
     entries.push({
       id: completed.id,
       itemId: completed.itemId,
-      itemName: def?.name || 'Unknown',
+      itemName,
       status: 'completed',
       quantity: completed.quantity,
       turnsRemaining: 0,
@@ -241,7 +243,9 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   for (let i = 0; i < lane.pendingQueue.length; i++) {
     const pending = lane.pendingQueue[i];
     const def = state.defs[pending.itemId];
-    const duration = def?.durationTurns || 4;
+    // Handle wait items: use turnsRemaining as duration
+    const duration = pending.isWait ? pending.turnsRemaining : (def?.durationTurns || 4);
+    const itemName = pending.isWait ? 'Wait' : (def?.name || 'Unknown');
 
     // Simple continuous scheduling: each item gets duration turns
     const displayStart = scheduleStart;
@@ -250,7 +254,7 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
     entries.push({
       id: pending.id,
       itemId: pending.itemId,
-      itemName: def?.name || 'Unknown',
+      itemName,
       status: 'pending',
       quantity: pending.quantity,
       turnsRemaining: pending.turnsRemaining,
@@ -267,11 +271,12 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   // Add active entry
   if (lane.active) {
     const def = state.defs[lane.active.itemId];
+    const itemName = lane.active.isWait ? 'Wait' : (def?.name || 'Unknown');
     const eta = state.currentTurn + lane.active.turnsRemaining;
     entries.push({
       id: lane.active.id,
       itemId: lane.active.itemId,
-      itemName: def?.name || 'Unknown',
+      itemName,
       status: 'active',
       quantity: lane.active.quantity,
       turnsRemaining: lane.active.turnsRemaining,

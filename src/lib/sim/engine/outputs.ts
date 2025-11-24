@@ -33,7 +33,7 @@ export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
       // Add production (with abundance scaling if applicable)
       for (const resourceId of RESOURCE_TYPES) {
         const productionKey = `production_${resourceId}` as keyof typeof effects;
-        const production = effects[productionKey] || 0;
+        const production = (effects[productionKey] || 0) as number;
 
         if (production > 0) {
           const scaledProduction = def.isAbundanceScaled

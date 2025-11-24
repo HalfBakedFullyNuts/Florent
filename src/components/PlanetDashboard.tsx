@@ -3,6 +3,7 @@
 import React, { useMemo } from 'react';
 import type { PlanetSummary as PlanetSummaryType } from '../lib/game/selectors';
 import { Card } from '@/components/ui/card';
+import { formatNumber as formatNum } from '../lib/utils/formatting';
 
 export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
@@ -19,8 +20,10 @@ export interface PlanetDashboardProps {
  * - Space: Ground/Orbital progress bars
  * - Ships: Fleet overview
  * - Growth: Next turn projection
+ *
+ * Memoized to prevent unnecessary re-renders
  */
-export function PlanetDashboard({ summary, defs, turnsToHousingCap }: PlanetDashboardProps) {
+export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, defs, turnsToHousingCap }: PlanetDashboardProps) {
   const resources = [
     { id: 'metal', label: 'Metal', color: 'text-gray-300' }, // silver
     { id: 'mineral', label: 'Mineral', color: 'text-red-500' }, // red
@@ -369,4 +372,4 @@ export function PlanetDashboard({ summary, defs, turnsToHousingCap }: PlanetDash
       </Card>
     </div>
   );
-}
+});

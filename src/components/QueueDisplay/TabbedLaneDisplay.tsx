@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import type { LaneView, LaneEntry } from '../../lib/game/selectors';
 import type { LaneId } from '../../lib/sim/engine/types';
 import { QueueLaneEntry } from './QueueLaneEntry';
@@ -25,8 +25,9 @@ export interface TabbedLaneDisplayProps {
 /**
  * TabbedLaneDisplay - Tabbed interface for queue schedules
  * Shows only the active tab's queue entries
+ * Memoized to prevent unnecessary re-renders
  */
-export function TabbedLaneDisplay({
+export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   buildingLane,
   shipLane,
   colonistLane,
@@ -197,4 +198,4 @@ export function TabbedLaneDisplay({
       </Card>
     </div>
   );
-}
+});

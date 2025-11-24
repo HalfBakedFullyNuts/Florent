@@ -21,8 +21,10 @@ export interface QueueLaneEntryProps {
  *
  * Shows: Item name, quantity, duration, completion turn
  * Vertically aligned columns for all figures
+ *
+ * Memoized to prevent unnecessary re-renders when entry data hasn't changed
  */
-export function QueueLaneEntry({
+export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   entry,
   currentTurn,
   onCancel,
@@ -170,4 +172,20 @@ export function QueueLaneEntry({
       )}
     </button>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison to optimize re-renders
+  return (
+    prevProps.entry.id === nextProps.entry.id &&
+    prevProps.entry.status === nextProps.entry.status &&
+    prevProps.entry.quantity === nextProps.entry.quantity &&
+    prevProps.entry.eta === nextProps.entry.eta &&
+    prevProps.entry.completionTurn === nextProps.entry.completionTurn &&
+    prevProps.entry.invalid === nextProps.entry.invalid &&
+    prevProps.currentTurn === nextProps.currentTurn &&
+    prevProps.maxQuantity === nextProps.maxQuantity &&
+    prevProps.disabled === nextProps.disabled &&
+    prevProps.isNewest === nextProps.isNewest &&
+    prevProps.busyWorkers === nextProps.busyWorkers &&
+    prevProps.showQuantityInput === nextProps.showQuantityInput
+  );
+});

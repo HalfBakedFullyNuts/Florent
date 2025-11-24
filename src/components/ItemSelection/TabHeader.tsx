@@ -10,6 +10,7 @@ export interface TabHeaderProps {
     building: number;
     ship: number;
     colonist: number;
+    research?: number;
   };
 }
 

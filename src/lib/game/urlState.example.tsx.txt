@@ -1,0 +1,140 @@
+/**
+ * URL State Integration Example
+ * How to integrate URL-based state persistence into page.tsx
+ */
+
+import { useState, useEffect } from 'react';
+import { GameState } from './gameState';
+import { CommandHistory, loadStateFromURL, saveStateToURL, replayCommands } from './urlState';
+
+/**
+ * Example: Modified page.tsx with URL state support
+ */
+export function ExampleGamePage() {
+  // Command history recorder (tracks all user actions)
+  const [commandHistory] = useState(() => new CommandHistory());
+
+  // Initialize game state (check URL first, fallback to initial state)
+  const [gameState, setGameState] = useState<GameState>(() => {
+    const urlSnapshot = loadStateFromURL();
+
+    if (urlSnapshot) {
+      // Reconstruct state from URL commands
+      console.log('Loading from URL:', {
+        planets: urlSnapshot.planets.length,
+        commands: urlSnapshot.cmds.length,
+      });
+
+      // Convert compact planet configs back to full configs
+      const planetConfigs = urlSnapshot.planets.map(expandPlanetConfig);
+
+      // Create initial state with these planets
+      const initialState = createInitialGameState(planetConfigs);
+
+      // Replay all commands to reconstruct exact state
+      return replayCommands(initialState, urlSnapshot.cmds);
+    }
+
+    // No URL state, start fresh
+    return createInitialGameState();
+  });
+
+  // Auto-save to URL on state changes (debounced)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const planetConfigs = extractPlanetConfigs(gameState);
+      const commands = commandHistory.getCommands();
+
+      saveStateToURL(planetConfigs, commands);
+
+      console.log('Saved to URL:', {
+        planets: planetConfigs.length,
+        commands: commands.length,
+        urlLength: window.location.href.length,
+      });
+    }, 500); // Debounce: wait 500ms after last change
+
+    return () => clearTimeout(timer);
+  }, [gameState, commandHistory]);
+
+  // MODIFIED: Queue handler that records commands
+  const handleQueue = (itemId: string, quantity: number) => {
+    if (!controller) return;
+
+    const result = controller.queueItem(viewTurn, itemId, quantity);
+
+    if (result.success) {
+      // Record the command for URL encoding
+      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+      commandHistory.recordQueue(planetIdx, viewTurn, itemId, quantity);
+
+      // Update state as usual
+      setGameState(getCurrentGameState());
+    }
+  };
+
+  // MODIFIED: Cancel handler that records commands
+  const handleCancel = (laneId: LaneId, entryId: string) => {
+    if (!controller) return;
+
+    const result = controller.cancelEntryById(viewTurn, laneId, entryId);
+
+    if (result.success) {
+      // Record the command
+      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+      commandHistory.recordCancel(planetIdx, laneId, entryId);
+
+      // Update state
+      setGameState(getCurrentGameState());
+    }
+  };
+
+  // Similar modifications for: advance, reorder, addPlanet, switchPlanet, queueResearch
+
+  // Share button example
+  const handleShare = () => {
+    const url = window.location.href;
+
+    navigator.clipboard.writeText(url);
+    alert(`Game state copied to clipboard!\n\nURL length: ${url.length} characters\n\nShare this link to load your exact game state.`);
+  };
+
+  return (
+    <div>
+      {/* Share button in UI */}
+      <button onClick={handleShare} className="share-button">
+        📋 Copy Shareable Link
+      </button>
+
+      {/* Show URL size indicator */}
+      <div className="url-size-indicator">
+        Commands: {commandHistory.getCommands().length} |
+        URL: {window.location.href.length} chars
+      </div>
+
+      {/* Rest of your UI... */}
+    </div>
+  );
+}
+
+// Helper functions (implement these in your actual code)
+function expandPlanetConfig(compact: any): any {
+  // Convert compact format back to PlanetConfig
+  // (Already implemented in urlState.ts)
+  return {};
+}
+
+function createInitialGameState(configs?: any[]): GameState {
+  // Your existing implementation
+  return {} as GameState;
+}
+
+function extractPlanetConfigs(gameState: GameState): any[] {
+  // Extract planet configs from game state
+  return [];
+}
+
+function getPlanetIndex(gameState: GameState, planetId: string): number {
+  // Get array index of planet
+  return 0;
+}

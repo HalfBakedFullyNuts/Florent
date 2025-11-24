@@ -15,10 +15,12 @@ import { getLogger } from './logger';
  */
 export class Timeline {
   private static readonly FIXED_TURNS = 200;
+  private static readonly LAZY_COMPUTE_BUFFER = 50; // Compute 50 turns ahead
   private states: PlanetState[];
   private currentTurnIndex: number;
   private completionBuffer: CompletionBuffer;
   private stableFromTurn: number = -1; // Cache for stable state optimization
+  private highestComputedIndex: number = 0; // Track how far we've computed
 
   constructor(initialState: PlanetState) {
     this.states = new Array(Timeline.FIXED_TURNS);
@@ -26,13 +28,16 @@ export class Timeline {
     this.currentTurnIndex = 0;
     this.completionBuffer = new CompletionBuffer();
 
-    // Pre-compute all 200 turns on initialization
-    this.recomputeAll();
+    // Completely lazy initialization - don't compute anything upfront
+    // Only compute when turns are actually requested (on-demand)
+    // This makes initialization instant (0ms instead of 500-1000ms)
+    // When a turn is requested, we compute that turn + 50 more as a buffer
+    this.highestComputedIndex = 0;
   }
 
   /**
    * Get state at specific turn
-   * Returns undefined if turn hasn't been computed yet
+   * Automatically computes turns lazily if not yet computed
    */
   getStateAtTurn(turn: number): PlanetState | undefined {
     // Map turn number to array index (turn 1 = index 0)
@@ -42,6 +47,36 @@ export class Timeline {
     if (index < 0 || index >= this.states.length) {
       return undefined;
     }
+
+    // If we've reached stable state and requesting a turn after it, just clone stable state
+    if (this.stableFromTurn >= 0 && index > this.stableFromTurn) {
+      if (!this.states[index]) {
+        const stableState = this.states[this.stableFromTurn];
+        this.states[index] = cloneState(stableState);
+        this.states[index].currentTurn = stableState.currentTurn + (index - this.stableFromTurn);
+      }
+      return cloneState(this.states[index]);
+    }
+
+    // Lazy computation: if requesting a turn we haven't computed yet, compute up to it + buffer
+    if (index > this.highestComputedIndex) {
+      const targetIndex = Math.min(index + Timeline.LAZY_COMPUTE_BUFFER, Timeline.FIXED_TURNS - 1);
+      this.computeUpToIndex(targetIndex);
+
+      // If we still don't have the state (stable state was detected before reaching index),
+      // create it from stable state template
+      if (!this.states[index] && this.stableFromTurn >= 0 && index > this.stableFromTurn) {
+        const stableState = this.states[this.stableFromTurn];
+        this.states[index] = cloneState(stableState);
+        this.states[index].currentTurn = stableState.currentTurn + (index - this.stableFromTurn);
+      }
+    }
+
+    // Safety check: ensure state exists before cloning
+    if (!this.states[index]) {
+      return undefined;
+    }
+
     return cloneState(this.states[index]);
   }
 
@@ -49,13 +84,24 @@ export class Timeline {
    * Get current turn number (not index)
    */
   getCurrentTurn(): number {
+    // Ensure current state is computed before accessing
+    this.ensureComputedUpTo(this.currentTurnIndex);
     return this.states[this.currentTurnIndex]?.currentTurn || 1;
   }
 
   /**
    * Get current state
+   * Triggers lazy computation if current turn hasn't been computed yet
    */
   getCurrentState(): PlanetState {
+    // Lazy computation: if current turn not yet computed, compute it
+    if (this.currentTurnIndex > this.highestComputedIndex) {
+      const targetIndex = Math.min(
+        this.currentTurnIndex + Timeline.LAZY_COMPUTE_BUFFER,
+        Timeline.FIXED_TURNS - 1
+      );
+      this.computeUpToIndex(targetIndex);
+    }
     return cloneState(this.states[this.currentTurnIndex]);
   }
 
@@ -67,23 +113,37 @@ export class Timeline {
   }
 
   /**
-   * Recompute all 200 turns from scratch
-   * Optimized with stable state detection
-   * @param fromIndex - Optional starting index for partial recomputation (for mutations)
+   * Ensure states are computed up to a given index
+   * @param index - The index to ensure is computed
    */
-  recomputeAll(fromIndex: number = 1): void {
-    const start = performance.now();
-    this.stableFromTurn = -1;
+  private ensureComputedUpTo(index: number): void {
+    if (index > this.highestComputedIndex) {
+      const targetIndex = Math.min(
+        index + Timeline.LAZY_COMPUTE_BUFFER,
+        Timeline.FIXED_TURNS - 1
+      );
+      this.computeUpToIndex(targetIndex);
+    }
+  }
 
-    // If recomputing from the beginning, reset completion buffer
-    if (fromIndex === 1) {
-      this.completionBuffer.clear();
+  /**
+   * Compute turns up to a specific index (lazy computation)
+   * @param targetIndex - The highest index to compute up to
+   */
+  private computeUpToIndex(targetIndex: number): void {
+    if (targetIndex <= this.highestComputedIndex) {
+      return; // Already computed
     }
 
-    for (let i = fromIndex; i < Timeline.FIXED_TURNS; i++) {
+    const start = performance.now();
+    const startIndex = this.highestComputedIndex + 1;
+    let lastComputedIndex = this.highestComputedIndex;
+
+    for (let i = startIndex; i <= targetIndex; i++) {
       // Clone previous state and run turn
       this.states[i] = cloneState(this.states[i - 1]);
       runTurn(this.states[i], this.completionBuffer);
+      lastComputedIndex = i;
 
       // Detect stable state (no active items, no pending queues)
       if (this.stableFromTurn === -1 && this.isStableState(this.states[i])) {
@@ -91,23 +151,49 @@ export class Timeline {
         getLogger().logTimelineEvent(
           this.states[i].currentTurn,
           'stable_state',
-          `Stable state detected at turn ${this.states[i].currentTurn}, fast-copying ${Timeline.FIXED_TURNS - i - 1} turns`
+          `Stable state detected at turn ${this.states[i].currentTurn}`
         );
-        // Fast-copy stable state to remaining turns
-        const stableState = this.states[i];
-        for (let j = i + 1; j < Timeline.FIXED_TURNS; j++) {
-          this.states[j] = cloneState(stableState);
-          // Increment turn counter for each cloned state
-          this.states[j].currentTurn = stableState.currentTurn + (j - i);
-        }
+        // For stable state, we can stop computing - all future turns are the same
+        // We'll compute them on-demand if needed
         break;
       }
     }
 
+    this.highestComputedIndex = lastComputedIndex;
+
     const duration = performance.now() - start;
     if (duration > 100) {
-      console.log(`Timeline recompute from index ${fromIndex}: ${duration.toFixed(1)}ms, stable from T${this.stableFromTurn}`);
+      getLogger().logTimelineEvent(
+        this.states[this.highestComputedIndex]?.currentTurn || 0,
+        'recompute',
+        `Computed turns ${startIndex}-${this.highestComputedIndex} in ${duration.toFixed(1)}ms${this.stableFromTurn >= 0 ? `, stable from T${this.stableFromTurn}` : ''}`
+      );
     }
+  }
+
+  /**
+   * Recompute from a specific index (for mutations)
+   * @param fromIndex - Starting index for recomputation
+   */
+  recomputeAll(fromIndex: number = 1): void {
+    // Reset stable state detection when recomputing
+    this.stableFromTurn = -1;
+
+    // If recomputing from the beginning, reset completion buffer
+    if (fromIndex === 1) {
+      this.completionBuffer.clear();
+      this.highestComputedIndex = 0;
+    } else {
+      // When recomputing from a mutation, only reset computed index to just before mutation
+      this.highestComputedIndex = Math.max(0, fromIndex - 1);
+    }
+
+    // Compute up to where we were before, or at least to the lazy buffer
+    const targetIndex = Math.max(
+      this.highestComputedIndex + Timeline.LAZY_COMPUTE_BUFFER,
+      Timeline.LAZY_COMPUTE_BUFFER
+    );
+    this.computeUpToIndex(Math.min(targetIndex, Timeline.FIXED_TURNS - 1));
   }
 
   /**
@@ -147,6 +233,9 @@ export class Timeline {
     if (index < 0 || index >= this.states.length) {
       return false;
     }
+
+    // Ensure the target turn is computed before switching to it
+    this.ensureComputedUpTo(index);
     this.currentTurnIndex = index;
     return true;
   }
@@ -169,16 +258,16 @@ export class Timeline {
 
   /**
    * Simulate N turns by advancing the view (backward compatibility)
-   * All 200 turns are already pre-computed; this just moves the view forward
+   * Triggers lazy computation as needed
    */
   simulateTurns(count: number): void {
     // Advance current turn index by count (max at 199)
     const newIndex = this.currentTurnIndex + count;
-    if (newIndex < Timeline.FIXED_TURNS) {
-      this.currentTurnIndex = newIndex;
-    } else {
-      this.currentTurnIndex = Timeline.FIXED_TURNS - 1;
-    }
+    const targetIndex = Math.min(newIndex, Timeline.FIXED_TURNS - 1);
+
+    // Ensure target turn is computed
+    this.ensureComputedUpTo(targetIndex);
+    this.currentTurnIndex = targetIndex;
   }
 
   /**
@@ -192,6 +281,16 @@ export class Timeline {
 
     if (index < 0 || index >= Timeline.FIXED_TURNS) {
       return false;
+    }
+
+    // Ensure the state at the target turn is computed
+    this.ensureComputedUpTo(index);
+
+    // If state still doesn't exist (stable state detected), create from template
+    if (!this.states[index] && this.stableFromTurn >= 0 && index > this.stableFromTurn) {
+      const stableState = this.states[this.stableFromTurn];
+      this.states[index] = cloneState(stableState);
+      this.states[index].currentTurn = stableState.currentTurn + (index - this.stableFromTurn);
     }
 
     // Get the state at the target turn
@@ -233,6 +332,20 @@ export class Timeline {
    * Returns clones to prevent mutation
    */
   getAllStates(): PlanetState[] {
+    // Ensure all states are computed before returning
+    this.ensureComputedUpTo(Timeline.FIXED_TURNS - 1);
+
+    // Fill in any missing states from stable state template
+    if (this.stableFromTurn >= 0) {
+      const stableState = this.states[this.stableFromTurn];
+      for (let i = this.stableFromTurn + 1; i < Timeline.FIXED_TURNS; i++) {
+        if (!this.states[i]) {
+          this.states[i] = cloneState(stableState);
+          this.states[i].currentTurn = stableState.currentTurn + (i - this.stableFromTurn);
+        }
+      }
+    }
+
     return this.states.map((s) => cloneState(s));
   }
 }

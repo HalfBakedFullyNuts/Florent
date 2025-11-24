@@ -42,7 +42,17 @@
       "Bash(head:*)",
       "Bash(tr:*)",
       "Bash(node scripts/add-research-to-game-data.js:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "mcp__chrome-devtools__new_page",
+      "mcp__chrome-devtools__select_page",
+      "Bash(taskkill:*)",
+      "Bash(nul)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(timeout 10 bash:*)",
+      "Bash(timeout 5 bash:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

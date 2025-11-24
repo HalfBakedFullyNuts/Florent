@@ -6,8 +6,9 @@ export interface ItemCardProps {
   itemId: string;
   itemDef: any; // ItemDefinition
   available: boolean;
-  insufficientResources: boolean;
   locked: boolean;
+  queueableWithWait?: boolean; // Can be queued with auto-wait
+  waitTurnsNeeded?: number; // How many wait turns needed
   onQueueItem: (itemId: string, quantity: number) => void;
   currentState?: any; // For tooltip details
 }
@@ -16,8 +17,8 @@ export interface ItemCardProps {
  * ItemCard - Display individual buildable item with status
  *
  * States:
- * - ✅ Available (green border, clickable)
- * - ⚠️ Insufficient resources (yellow border, shows missing)
+ * - ✅ Available (green border, clickable immediately)
+ * - ⏸️ Queueable with wait (blue border, clickable with auto-wait)
  * - 🔒 Locked (gray border, shows prerequisites)
  *
  * Ticket 25: Item selection card component
@@ -26,22 +27,23 @@ export function ItemCard({
   itemId,
   itemDef,
   available,
-  insufficientResources,
   locked,
+  queueableWithWait = false,
+  waitTurnsNeeded = 0,
   onQueueItem,
   currentState,
 }: ItemCardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   const handleClick = () => {
-    if (available) {
+    if (available || queueableWithWait) {
       onQueueItem(itemId, 1);
     }
   };
 
   const getStatusIcon = () => {
     if (available) return '✅';
-    if (insufficientResources) return '⚠️';
+    if (queueableWithWait) return '⏸️';
     if (locked) return '🔒';
     return '';
   };
@@ -52,8 +54,8 @@ export function ItemCard({
     if (available) {
       return `${base} border-green-500 hover:bg-green-500/10 hover:shadow-lg`;
     }
-    if (insufficientResources) {
-      return `${base} border-yellow-500 opacity-75 cursor-not-allowed`;
+    if (queueableWithWait) {
+      return `${base} border-blue-500 hover:bg-blue-500/10 hover:shadow-lg`;
     }
     if (locked) {
       return `${base} border-gray-500 opacity-50 cursor-not-allowed`;
@@ -102,13 +104,21 @@ export function ItemCard({
         {formatDuration(itemDef.durationTurns || 0)}
       </div>
 
+      {/* Wait indicator badge */}
+      {queueableWithWait && waitTurnsNeeded > 0 && (
+        <div className="absolute bottom-1 right-1 px-2 py-0.5 bg-blue-600 rounded text-[10px] font-bold text-white">
+          +{waitTurnsNeeded}T
+        </div>
+      )}
+
       {/* Tooltip on hover */}
       {showTooltip && (
         <ItemTooltip
           itemDef={itemDef}
           available={available}
-          insufficientResources={insufficientResources}
           locked={locked}
+          queueableWithWait={queueableWithWait}
+          waitTurnsNeeded={waitTurnsNeeded}
           currentState={currentState}
         />
       )}
@@ -122,12 +132,13 @@ export function ItemCard({
 interface ItemTooltipProps {
   itemDef: any;
   available: boolean;
-  insufficientResources: boolean;
   locked: boolean;
+  queueableWithWait?: boolean;
+  waitTurnsNeeded?: number;
   currentState?: any;
 }
 
-function ItemTooltip({ itemDef, available, insufficientResources, locked, currentState }: ItemTooltipProps) {
+function ItemTooltip({ itemDef, available, locked, queueableWithWait, waitTurnsNeeded, currentState }: ItemTooltipProps) {
   return (
     <div className="absolute z-10 bg-gray-900 border border-pink-nebula-border p-3 rounded shadow-xl w-64 top-full mt-2 left-0">
       <h4 className="font-bold text-pink-nebula-text mb-2">{itemDef.name}</h4>
@@ -158,9 +169,9 @@ function ItemTooltip({ itemDef, available, insufficientResources, locked, curren
           🔒 Missing prerequisites
         </div>
       )}
-      {insufficientResources && !locked && (
-        <div className="text-xs text-yellow-400 mt-2 pt-2 border-t border-pink-nebula-border">
-          ⚠️ Insufficient resources
+      {queueableWithWait && !available && (
+        <div className="text-xs text-blue-400 mt-2 pt-2 border-t border-pink-nebula-border">
+          ⏸️ Queueable with {waitTurnsNeeded} wait turn{waitTurnsNeeded !== 1 ? 's' : ''}
         </div>
       )}
       {available && (

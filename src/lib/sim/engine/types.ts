@@ -55,6 +55,7 @@ export interface Upkeep {
   mineral: number;
   food: number;
   energy: number;
+  research_points: number;
 }
 
 export interface ItemDefinition {
@@ -79,13 +80,14 @@ export interface ItemDefinition {
 
 export interface WorkItem {
   id: string; // unique identifier
-  itemId: string; // references ItemDefinition
+  itemId: string; // references ItemDefinition (or '__wait__' for wait items)
   status: Status;
   quantity: number; // final quantity after clamping
   turnsRemaining: number;
   queuedTurn?: number; // Turn when item was queued
   startTurn?: number; // Turn when work started (set when activated)
   completionTurn?: number; // Turn when work completed (set when finished)
+  isWait?: boolean; // True for wait items (pauses lane for N turns)
 }
 
 // ============================================================================

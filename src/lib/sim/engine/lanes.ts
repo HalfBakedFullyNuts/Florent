@@ -20,6 +20,33 @@ export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
   }
 
   const pending = lane.pendingQueue[0];
+
+  // Handle wait items (no resources needed, always activates)
+  if (pending.isWait) {
+    lane.active = {
+      ...pending,
+      status: 'active',
+      startTurn: state.currentTurn,
+      // completionTurn will be set when the item actually completes
+    };
+
+    // Log activation
+    getLogger().logQueueOperation(
+      state.currentTurn,
+      'activate',
+      laneId,
+      '__wait__',
+      'Wait',
+      pending.quantity,
+      `Wait activated for ${pending.turnsRemaining} turns`
+    );
+
+    // Remove from pending queue
+    lane.pendingQueue.shift();
+    return;
+  }
+
+  // Handle normal items
   const def = state.defs[pending.itemId];
   if (!def) {
     console.error(`Definition not found for item: ${pending.itemId}`);
@@ -104,17 +131,43 @@ export function progressActive(state: PlanetState, laneId: LaneId): WorkItem | n
   }
 
   const active = lane.active;
-  const def = state.defs[active.itemId];
-  if (!def) {
-    console.error(`Definition not found for item: ${active.itemId}`);
-    return null;
-  }
 
   // Decrement turns remaining
   active.turnsRemaining -= 1;
 
   // Check if completed
   if (active.turnsRemaining <= 0) {
+    // Handle wait items (no workers to return, no effects to apply)
+    if (active.isWait) {
+      active.status = 'completed';
+      active.completionTurn = state.currentTurn;
+      const completedItem = { ...active };
+
+      // Log completion
+      getLogger().logQueueOperation(
+        state.currentTurn,
+        'complete',
+        laneId,
+        '__wait__',
+        'Wait',
+        active.quantity,
+        `Wait completed at turn ${state.currentTurn}`
+      );
+
+      // Add to completion history for visual display
+      lane.completionHistory.push(completedItem);
+
+      lane.active = null;
+      return completedItem;
+    }
+
+    // Handle normal items
+    const def = state.defs[active.itemId];
+    if (!def) {
+      console.error(`Definition not found for item: ${active.itemId}`);
+      return null;
+    }
+
     // Return workers to idle pool
     const workersNeeded = def.costsPerUnit.workers || 0;
     if (workersNeeded > 0) {

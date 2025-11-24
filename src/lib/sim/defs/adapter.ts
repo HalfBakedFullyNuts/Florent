@@ -116,6 +116,7 @@ function convertUnit(raw: RawUnit): ItemDefinition {
     mineral: 0,
     food: 0,
     energy: 0,
+    research_points: 0,
     workers: raw.build_requirements.workers_occupied || 0,
     space: 0, // Ships don't have space cost in the data
   };
@@ -146,6 +147,7 @@ function convertUnit(raw: RawUnit): ItemDefinition {
       mineral: 0,
       food: 0,
       energy: 0,
+      research_points: 0,
     }, // Units don't have upkeep
     colonistKind,
     isAbundanceScaled: false, // Units don't have abundance-scaled production
@@ -168,6 +170,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     mineral: 0,
     food: 0,
     energy: 0,
+    research_points: 0,
     workers: raw.build_requirements.workers_occupied || 0,
     space: 0,
   };
@@ -221,7 +224,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
   if (raw.operations?.production) {
     for (const prod of raw.operations.production) {
       const key = `production_${prod.type}` as keyof Effects;
-      effects[key] = prod.base_amount;
+      (effects as any)[key] = prod.base_amount;
       if (prod.is_abundance_scaled) {
         hasAbundanceScaledProduction = true;
       }
@@ -234,6 +237,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     mineral: 0,
     food: 0,
     energy: 0,
+    research_points: 0,
   };
 
   if (raw.operations?.consumption) {
@@ -327,6 +331,7 @@ function convertResearch(raw: RawResearch): ItemDefinition {
       mineral: 0,
       food: 0,
       energy: 0,
+      research_points: 0,
     }, // Research has no upkeep
     isAbundanceScaled: false,
     prerequisites,
