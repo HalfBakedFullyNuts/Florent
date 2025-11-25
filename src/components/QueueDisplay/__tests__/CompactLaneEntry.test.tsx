@@ -181,7 +181,7 @@ describe('CompactLaneEntry', () => {
 
     it('should not show cancel button when disabled', () => {
       const entry = createMockEntry();
-      const { container } = render(
+      render(
         <CompactLaneEntry
           entry={entry}
           currentTurn={1}
@@ -190,8 +190,13 @@ describe('CompactLaneEntry', () => {
         />
       );
 
-      // No cancel button should be rendered
-      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+      // Entry button should exist but not trigger cancel when clicked
+      const entryButton = screen.getByRole('button');
+      expect(entryButton).toBeInTheDocument();
+
+      // Click should not trigger cancel callback when disabled
+      fireEvent.click(entryButton);
+      expect(mockOnCancel).not.toHaveBeenCalled();
     });
   });
 });

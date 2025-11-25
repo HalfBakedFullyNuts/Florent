@@ -24,7 +24,7 @@ describe('Seed Functions', () => {
       const state = createInitialState(defs);
 
       expect(state).toBeDefined();
-      expect(state.currentTurn).toBe(0);
+      expect(state.currentTurn).toBe(1); // Initial state starts at turn 1
       expect(state.defs).toBe(defs);
     });
 
@@ -57,6 +57,7 @@ describe('Seed Functions', () => {
         building: 0,
         ship: 0,
         colonist: 0,
+        research: 0,
       });
     });
 
@@ -213,7 +214,7 @@ describe('Seed Functions', () => {
       const state = createStandardStart(defs);
 
       expect(state).toBeDefined();
-      expect(state.currentTurn).toBe(0);
+      expect(state.currentTurn).toBe(1); // Initial state starts at turn 1
     });
 
     it('should have standard starting resources', () => {
@@ -265,7 +266,7 @@ describe('Seed Functions', () => {
       const state = createMinimalStart(defs);
 
       expect(state).toBeDefined();
-      expect(state.currentTurn).toBe(0);
+      expect(state.currentTurn).toBe(1); // Initial state starts at turn 1
     });
 
     it('should have minimal starting resources', () => {

@@ -17,21 +17,6 @@ export interface TurnSliderProps {
  * Ticket 13: UI component for timeline navigation
  */
 export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSliderProps) {
-  const canGoPrevious = currentTurn > 0;
-  const canGoNext = currentTurn < totalTurns - 1;
-
-  const handlePrevious = () => {
-    if (canGoPrevious) {
-      onTurnChange(currentTurn - 1);
-    }
-  };
-
-  const handleNext = () => {
-    if (canGoNext) {
-      onTurnChange(currentTurn + 1);
-    }
-  };
-
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTurn = parseInt(e.target.value, 10);
     onTurnChange(newTurn);
@@ -39,7 +24,7 @@ export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSlider
 
   const handleTurnInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
-    if (!isNaN(value) && value >= 0 && value < totalTurns) {
+    if (!isNaN(value) && value >= 1 && value <= totalTurns) {
       onTurnChange(value);
     }
   };
@@ -47,20 +32,6 @@ export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSlider
   return (
     <div className="w-full bg-pink-nebula-panel border-b border-pink-nebula-border">
       <div className="max-w-[1800px] mx-auto px-6 py-4 flex items-center gap-4">
-        {/* Previous Turn Button */}
-        <button
-          onClick={handlePrevious}
-          disabled={!canGoPrevious}
-          className={`px-4 py-2 rounded font-semibold transition-colors ${
-            canGoPrevious
-              ? 'bg-pink-nebula-accent-primary text-pink-nebula-text hover:bg-pink-nebula-accent-secondary'
-              : 'bg-pink-nebula-bg text-pink-nebula-muted cursor-not-allowed'
-          }`}
-          aria-label="Previous turn"
-        >
-          ← Previous
-        </button>
-
         {/* Turn Display and Input */}
         <div className="flex items-center gap-2">
           <label htmlFor="turn-input" className="text-pink-nebula-muted font-semibold">
@@ -71,20 +42,20 @@ export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSlider
             type="number"
             value={currentTurn}
             onChange={handleTurnInput}
-            min={0}
-            max={totalTurns - 1}
+            min={1}
+            max={totalTurns}
             className="w-20 px-3 py-2 bg-pink-nebula-bg border border-pink-nebula-border rounded text-pink-nebula-text text-center font-bold"
           />
           <span className="text-pink-nebula-muted">
-            / {totalTurns - 1}
+            / {totalTurns}
           </span>
         </div>
 
         {/* Slider */}
         <input
           type="range"
-          min={0}
-          max={totalTurns - 1}
+          min={1}
+          max={totalTurns}
           value={currentTurn}
           onChange={handleSliderChange}
           className="flex-1 h-2 bg-pink-nebula-bg rounded-lg appearance-none cursor-pointer
@@ -100,20 +71,6 @@ export function TurnSlider({ currentTurn, totalTurns, onTurnChange }: TurnSlider
                      [&::-moz-range-thumb]:border-0"
           aria-label="Turn slider"
         />
-
-        {/* Next Turn Button */}
-        <button
-          onClick={handleNext}
-          disabled={!canGoNext}
-          className={`px-4 py-2 rounded font-semibold transition-colors ${
-            canGoNext
-              ? 'bg-pink-nebula-accent-primary text-pink-nebula-text hover:bg-pink-nebula-accent-secondary'
-              : 'bg-pink-nebula-bg text-pink-nebula-muted cursor-not-allowed'
-          }`}
-          aria-label="Next turn"
-        >
-          Next →
-        </button>
       </div>
     </div>
   );

@@ -44,6 +44,7 @@ export function createInitialState(
     mineral: config.stocks?.mineral ?? STARTING_STATE.stocks.mineral,
     food: config.stocks?.food ?? STARTING_STATE.stocks.food,
     energy: config.stocks?.energy ?? STARTING_STATE.stocks.energy,
+    research_points: 0, // Research points start at 0
   };
 
   const abundance = {
@@ -51,6 +52,7 @@ export function createInitialState(
     mineral: config.abundance?.mineral ?? STARTING_STATE.abundance.mineral,
     food: config.abundance?.food ?? STARTING_STATE.abundance.food,
     energy: config.abundance?.energy ?? STARTING_STATE.abundance.energy,
+    research_points: 1.0, // RP doesn't use abundance but we need it in the record
   };
 
   const workersTotal = config.population?.workersTotal ?? STARTING_STATE.population.workersTotal;
@@ -113,6 +115,7 @@ export function createInitialState(
         building: 0,
         ship: 0,
         colonist: 0,
+        research: 0, // No workers reserved for research
       },
     },
     space: {
@@ -126,24 +129,32 @@ export function createInitialState(
       soldierCap: housingSoldierCap,
       scientistCap: housingScientistCap,
     },
+    planetLimit: 4, // Default starting planet limit
+    completedResearch: [], // No research completed initially
     lanes: {
       building: {
         pendingQueue: [],
         active: null,
         completionHistory: [],
-        maxQueueDepth: 10,
+        maxQueueDepth: 75,
       },
       ship: {
         pendingQueue: [],
         active: null,
         completionHistory: [],
-        maxQueueDepth: 10,
+        maxQueueDepth: 75,
       },
       colonist: {
         pendingQueue: [],
         active: null,
         completionHistory: [],
-        maxQueueDepth: 10,
+        maxQueueDepth: 75,
+      },
+      research: {
+        pendingQueue: [],
+        active: null,
+        completionHistory: [],
+        maxQueueDepth: 1, // Only 1 research at a time
       },
     },
     completedCounts,

@@ -1,14 +1,14 @@
 /**
  * Turn runner - implements deterministic turn sequencing
- * Canonical order: building → ship → colonist → colonist conversion → production → growth → food upkeep
+ * Canonical order: building → ship → colonist → colonist conversion → production (includes upkeep) → growth
  */
 
-import type { PlanetState } from './types';
-import { LANE_ORDER } from '../rules/constants';
+import type { PlanetState, WorkItem } from './types';
+import { LANE_ORDER, RESOURCE_TYPES } from '../rules/constants';
 import { tryActivateNext, progressActive } from './lanes';
 import { processCompletions, applyColonistConversions } from './completions';
 import { computeNetOutputsPerTurn, addOutputsToStocks } from './outputs';
-import { applyWorkerGrowth, applyFoodUpkeep } from './growth_food';
+import { applyWorkerGrowth } from './growth_food';
 import { CompletionBuffer } from './buffers';
 import { cloneState } from './helpers';
 
@@ -19,9 +19,9 @@ import { cloneState } from './helpers';
  * 3. Ship lane (activation & progression)
  * 4. Colonist lane (activation & progression)
  * 5. Colonist conversions (same turn)
- * 6. Resource production (with abundance scaling)
- * 7. Worker growth (if food > 0)
- * 8. Food upkeep (clamped at 0)
+ * 6. Resource production (with abundance scaling and population upkeep subtracted)
+ * 7. Clamp stocks to 0 minimum
+ * 8. Worker growth (only if food > 0)
  */
 export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer): void {
   const currentTurn = state.currentTurn;
@@ -59,15 +59,20 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
   // Phase 5: Process colonist conversions (same-turn completion)
   applyColonistConversions(state);
 
-  // Phase 6: Resource production
+  // Phase 6: Resource production (includes population food upkeep)
   const outputs = computeNetOutputsPerTurn(state);
   addOutputsToStocks(state, outputs);
 
-  // Phase 7: Worker growth (only if food > 0)
+  // Phase 7: Clamp stocks to 0 minimum (cannot go negative)
+  for (const resourceId of RESOURCE_TYPES) {
+    state.stocks[resourceId] = Math.max(0, state.stocks[resourceId]);
+  }
+
+  // Phase 8: Worker growth (only if food > 0)
   applyWorkerGrowth(state);
 
-  // Phase 8: Food upkeep (clamped at 0)
-  applyFoodUpkeep(state);
+  // NOTE: Food upkeep is now handled in computeNetOutputsPerTurn
+  // No separate applyFoodUpkeep call to avoid double deduction
 
   // Increment turn counter
   state.currentTurn += 1;

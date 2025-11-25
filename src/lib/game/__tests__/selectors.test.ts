@@ -26,7 +26,7 @@ describe('Selectors', () => {
     it('should return complete planet summary', () => {
       const summary = getPlanetSummary(state);
 
-      expect(summary.turn).toBe(0);
+      expect(summary.turn).toBe(1); // Initial state starts at turn 1
       expect(summary.stocks).toEqual(state.stocks);
       expect(summary.space).toEqual(state.space);
       expect(summary.housing).toEqual(state.housing);
@@ -36,9 +36,10 @@ describe('Selectors', () => {
       const summary = getPlanetSummary(state);
 
       // Outpost produces 300 metal, 200 mineral, 100 food, 100 energy
+      // Population upkeep: 10000 workers * 0.002 = 20 food
       expect(summary.outputsPerTurn.metal).toBe(300);
       expect(summary.outputsPerTurn.mineral).toBe(200);
-      expect(summary.outputsPerTurn.food).toBe(100);
+      expect(summary.outputsPerTurn.food).toBe(80); // 100 production - 20 upkeep
       expect(summary.outputsPerTurn.energy).toBe(100);
     });
 
@@ -94,7 +95,7 @@ describe('Selectors', () => {
       expect(view.entries).toHaveLength(0);
     });
 
-    it('should include pending entry with no ETA', () => {
+    it('should include pending entry with calculated ETA', () => {
       state.lanes.building.pendingQueue = [{
         id: 'pending_1',
         itemId: 'metal_mine',
@@ -108,7 +109,8 @@ describe('Selectors', () => {
       expect(view.entries).toHaveLength(1);
       expect(view.entries[0].status).toBe('pending');
       expect(view.entries[0].itemName).toBe('Metal Mine');
-      expect(view.entries[0].eta).toBeNull();
+      // Pending items have ETAs - scheduled from turn 1, metal_mine takes 4 turns, completes at turn 4
+      expect(view.entries[0].eta).toBe(4);
       expect(view.entries[0].turnsRemaining).toBe(4);
     });
 
@@ -150,8 +152,9 @@ describe('Selectors', () => {
       const view = getLaneView(state, 'building');
 
       expect(view.entries).toHaveLength(2);
-      expect(view.entries[0].status).toBe('pending');
-      expect(view.entries[1].status).toBe('active');
+      // Entries are reversed, so active (added last) appears first
+      expect(view.entries[0].status).toBe('active');
+      expect(view.entries[1].status).toBe('pending');
     });
 
     it('should work for all lane types', () => {
@@ -285,8 +288,8 @@ describe('Selectors', () => {
     });
 
     it('should return false when queue is full', () => {
-      // Fill queue to max depth
-      state.lanes.building.pendingQueue = Array(10).fill(null).map((_, i) => ({
+      // Fill queue to max depth (75 items)
+      state.lanes.building.pendingQueue = Array(75).fill(null).map((_, i) => ({
         id: `pending_${i}`,
         itemId: 'farm',
         status: 'pending' as const,

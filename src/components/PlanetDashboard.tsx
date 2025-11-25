@@ -2,10 +2,13 @@
 
 import React, { useMemo } from 'react';
 import type { PlanetSummary as PlanetSummaryType } from '../lib/game/selectors';
+import { Card } from '@/components/ui/card';
+import { formatNumber as formatNum } from '../lib/utils/formatting';
 
 export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
   defs: Record<string, any>;
+  turnsToHousingCap?: number | null;
 }
 
 /**
@@ -17,13 +20,16 @@ export interface PlanetDashboardProps {
  * - Space: Ground/Orbital progress bars
  * - Ships: Fleet overview
  * - Growth: Next turn projection
+ *
+ * Memoized to prevent unnecessary re-renders
  */
-export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
+export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, defs, turnsToHousingCap }: PlanetDashboardProps) {
   const resources = [
     { id: 'metal', label: 'Metal', color: 'text-gray-300' }, // silver
     { id: 'mineral', label: 'Mineral', color: 'text-red-500' }, // red
     { id: 'food', label: 'Food', color: 'text-green-500' }, // green
     { id: 'energy', label: 'Energy', color: 'text-blue-400' }, // blue
+    { id: 'research_points', label: 'RP', color: 'text-purple-400' }, // purple
   ] as const;
 
   // Memoize formatting functions for performance
@@ -55,51 +61,6 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
     return `${(abundance * 100).toFixed(0)}%`;
   };
 
-  const getOutputColor = (output: number) => {
-    if (output > 0) return 'text-green-400';
-    if (output < 0) return 'text-red-400';
-    return 'text-pink-nebula-muted';
-  };
-
-  // Calculate turns until population growth stops
-  const turnsUntilGrowthStops = useMemo(() => {
-    // Growth stops when either:
-    // 1. Workers hit housing cap
-    // 2. Food output becomes <= 0
-
-    const foodOutput = summary.outputsPerTurn.food;
-    const currentWorkers = summary.population.workersTotal;
-    const housingCap = summary.housing.workerCap;
-
-    // If food is already <= 0, growth has stopped
-    if (foodOutput <= 0) {
-      return 0;
-    }
-
-    // If at or above housing cap, growth has stopped
-    if (currentWorkers >= housingCap) {
-      return 0;
-    }
-
-    // Calculate turns until housing cap is reached
-    // Assuming constant growth rate from growthHint
-    const growthMatch = summary.growthHint.match(/\+(\d+) workers/);
-    const workersPerTurn = growthMatch ? parseInt(growthMatch[1]) : 0;
-
-    if (workersPerTurn <= 0) {
-      return 0;
-    }
-
-    const turnsToHousingCap = Math.ceil((housingCap - currentWorkers) / workersPerTurn);
-
-    // Calculate turns until food runs out
-    // Food consumption per turn = foodUpkeep
-    const currentFood = summary.stocks.food;
-    const turnsToNoFood = foodOutput > 0 ? Infinity : Math.floor(currentFood / summary.foodUpkeep);
-
-    return Math.min(turnsToHousingCap, turnsToNoFood);
-  }, [summary]);
-
   // Get ship names from item IDs
   const shipsList = Object.entries(summary.ships).map(([shipId, count]) => ({
     id: shipId,
@@ -123,6 +84,10 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
       const foodIn = def?.upkeepPerUnit?.food || 0;
       const energyIn = def?.upkeepPerUnit?.energy || 0;
 
+      // Determine if this structure uses orbital space (orbital_facility subcategory)
+      const isOrbital = def?.subcategory === 'orbital_facility';
+      const spaceAmount = (def?.costsPerUnit?.space || 0) * count;
+
       return {
         id: structureId,
         name,
@@ -134,7 +99,8 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
         mineralNet: (mineralOut - mineralIn) * count,
         foodNet: (foodOut - foodIn) * count,
         energyNet: (energyOut - energyIn) * count,
-        space: (def?.costsPerUnit?.space || 0) * count,
+        space: spaceAmount,
+        isOrbital,
       };
     });
 
@@ -150,9 +116,9 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
 
   return (
     <div className="w-full max-w-[1800px] mx-auto px-6 my-4">
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 bg-pink-nebula-panel rounded-lg p-4 border border-pink-nebula-border">
+      <Card className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 p-4 glow-tyr border-gray-400/30">
         {/* Resources Section - Table Layout */}
-        <div className="bg-pink-nebula-bg rounded-lg p-3">
+        <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Resources</h3>
           <table className="w-full text-sm">
             <thead>
@@ -179,7 +145,7 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
                     <td className="text-right py-2 text-pink-nebula-muted font-mono w-14">
                       {formatAbundance(abundance)}
                     </td>
-                    <td className={`text-right py-2 font-semibold font-mono w-20 ${getOutputColor(output)}`}>
+                    <td className={`text-right py-2 font-semibold font-mono w-20 ${resource.color}`}>
                       {formatOutput(output)}
                     </td>
                   </tr>
@@ -187,10 +153,10 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
               })}
             </tbody>
           </table>
-        </div>
+        </Card>
 
         {/* Population + Housing Section - Table Layout */}
-        <div className="bg-pink-nebula-bg rounded-lg p-3">
+        <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Population</h3>
           <table className="w-full text-sm">
             <thead>
@@ -237,24 +203,30 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
             <div className="text-green-400 font-semibold">
               {summary.growthHint}
             </div>
+            {/* TICKET-4: Housing Cap Warning */}
+            {turnsToHousingCap !== null && turnsToHousingCap !== undefined && turnsToHousingCap <= 6 && (
+              <div className="text-yellow-500 font-semibold pt-1">
+                ⚠️ Workers will reach housing cap in {turnsToHousingCap} turn{turnsToHousingCap !== 1 ? 's' : ''}
+              </div>
+            )}
           </div>
-        </div>
+        </Card>
 
         {/* Space Section */}
-        <div className="bg-pink-nebula-bg rounded-lg p-3">
+        <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Space Remaining</h3>
           <div className="space-y-3">
             {/* Ground */}
             <div>
               <div className="flex justify-between items-center text-xs mb-1">
-                <span className="text-pink-nebula-text font-semibold">Ground</span>
-                <span className="text-pink-nebula-text font-mono">
+                <span className="text-amber-600 font-semibold">Ground</span>
+                <span className="text-amber-600 font-mono">
                   {summary.space.groundCap - summary.space.groundUsed}
                 </span>
               </div>
               <div className="w-full bg-pink-nebula-panel rounded-full h-2">
                 <div
-                  className="bg-pink-nebula-accent-primary h-2 rounded-full transition-all"
+                  className="bg-amber-600 h-2 rounded-full transition-all"
                   style={{
                     width: `${Math.min(
                       100,
@@ -267,14 +239,14 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
             {/* Orbital */}
             <div>
               <div className="flex justify-between items-center text-xs mb-1">
-                <span className="text-pink-nebula-text font-semibold">Orbital</span>
-                <span className="text-pink-nebula-text font-mono">
+                <span className="text-blue-600 font-semibold">Orbital</span>
+                <span className="text-blue-600 font-mono">
                   {summary.space.orbitalCap - summary.space.orbitalUsed}
                 </span>
               </div>
               <div className="w-full bg-pink-nebula-panel rounded-full h-2">
                 <div
-                  className="bg-pink-nebula-accent-secondary h-2 rounded-full transition-all"
+                  className="bg-blue-600 h-2 rounded-full transition-all"
                   style={{
                     width: `${Math.min(
                       100,
@@ -285,145 +257,119 @@ export function PlanetDashboard({ summary, defs }: PlanetDashboardProps) {
               </div>
             </div>
 
-            {/* Population Growth Countdown */}
-            <div className="mt-4 pt-3 border-t border-pink-nebula-border/50">
-              <div className="text-xs text-pink-nebula-muted mb-2 font-semibold">Growth Countdown</div>
-              <div className="w-full bg-pink-nebula-panel rounded-full h-3 relative overflow-hidden">
-                {turnsUntilGrowthStops > 0 ? (
-                  <>
-                    <div
-                      className="h-full bg-gradient-to-r from-green-400 to-yellow-400 transition-all"
-                      style={{ width: '100%' }}
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <span className="text-xs font-bold text-pink-nebula-bg drop-shadow">
-                        {turnsUntilGrowthStops}T until cap
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="h-full bg-red-900 flex items-center justify-center">
-                    <span className="text-xs font-bold text-red-300">
-                      Growth stopped
-                    </span>
-                  </div>
-                )}
+            {/* Planet Limit */}
+            <div className="mt-3">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-purple-500 font-semibold">Planet Limit</span>
+                <span className="text-purple-500 font-mono">
+                  {summary.planetLimit || 4}
+                </span>
               </div>
-            </div>
-
-            {/* Colonist Population Bars (UI-3) */}
-            <div className="mt-4 pt-3 border-t border-pink-nebula-border/50">
-              <div className="text-xs text-pink-nebula-muted mb-2 font-semibold">Population Capacity</div>
-              <div className="flex items-end justify-between gap-2 h-24">
-                {/* Workers Bar */}
-                <div className="flex-1 flex flex-col items-center gap-1">
-                  <div className="w-full flex-1 flex flex-col justify-end">
-                    <div
-                      className="w-full bg-pink-nebula-text rounded-t transition-all"
-                      style={{
-                        height: `${Math.min(
-                          100,
-                          (summary.population.workersTotal / summary.housing.workerCap) * 100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="text-xs text-pink-nebula-text font-mono">
-                    {formatWithK(summary.population.workersTotal)}
-                  </div>
-                  <div className="text-xs text-pink-nebula-muted">Workers</div>
-                </div>
-
-                {/* Soldiers Bar */}
-                <div className="flex-1 flex flex-col items-center gap-1">
-                  <div className="w-full flex-1 flex flex-col justify-end">
-                    <div
-                      className="w-full bg-pink-500 rounded-t transition-all"
-                      style={{
-                        height: `${Math.min(
-                          100,
-                          (summary.population.soldiers / summary.housing.soldierCap) * 100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="text-xs text-pink-500 font-mono">
-                    {formatWithK(summary.population.soldiers)}
-                  </div>
-                  <div className="text-xs text-pink-nebula-muted">Soldiers</div>
-                </div>
-
-                {/* Scientists Bar */}
-                <div className="flex-1 flex flex-col items-center gap-1">
-                  <div className="w-full flex-1 flex flex-col justify-end">
-                    <div
-                      className="w-full bg-blue-400 rounded-t transition-all"
-                      style={{
-                        height: `${Math.min(
-                          100,
-                          (summary.population.scientists / summary.housing.scientistCap) * 100
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="text-xs text-blue-400 font-mono">
-                    {formatWithK(summary.population.scientists)}
-                  </div>
-                  <div className="text-xs text-pink-nebula-muted">Scientists</div>
-                </div>
+              <div className="w-full bg-pink-nebula-panel rounded-full h-2 mt-1">
+                <div
+                  className="bg-purple-500 h-2 rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, ((summary.planetLimit || 4) / 24) * 100)}%`,
+                  }}
+                />
+              </div>
+              <div className="text-xs text-pink-nebula-muted mt-1">
+                Max planets you can control
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
-        {/* Completed Structures Section - Detailed List */}
-        <div className="bg-pink-nebula-bg rounded-lg p-3">
-          <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Completed Structures</h3>
+        {/* Buildings Section - Structures List */}
+        <Card className="p-3">
+          <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Buildings</h3>
           {structuresList.length > 0 ? (
-            <div className="space-y-1">
-              {structuresList.map((structure) => (
-                <div
-                  key={structure.id}
-                  className="text-xs font-mono flex items-center"
-                >
-                  <span className="font-semibold text-white w-40 flex-shrink-0">
-                    {structure.name} x{structure.count}
-                  </span>
+            <div className="max-h-[224px] overflow-y-auto"> {/* Header + 7 rows */}
+              <table className="w-full text-xs font-mono">
+                <thead>
+                  <tr className="text-[10px] text-pink-nebula-muted border-b border-pink-nebula-border sticky top-0 bg-pink-nebula-panel">
+                    <th className="pb-1 pr-2 text-right w-8">Sp</th>
+                    <th className="pb-1 pr-2 text-left w-32">Building</th>
+                    <th className="pb-1 pr-2 text-right w-10">Qty</th>
+                    <th className="pb-1 pr-1 text-right w-12 text-gray-300">M</th>
+                    <th className="pb-1 pr-1 text-right w-12 text-red-500">Mn</th>
+                    <th className="pb-1 pr-1 text-right w-12 text-green-500">F</th>
+                    <th className="pb-1 text-right w-14 text-blue-400">E</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {structuresList.map((structure) => {
+                    // Determine space color based on orbital/ground
+                    const spaceColor = structure.isOrbital ? 'text-blue-600' : 'text-amber-600';
 
-                  {/* Metal - fixed width column */}
-                  <span className="text-gray-300 w-16 text-right">
-                    {structure.metalNet !== 0 ? (structure.metalNet > 0 ? '+' : '') + structure.metalNet + 'M' : ''}
-                  </span>
+                    // Format space display
+                    const spaceDisplay = structure.space > 0 ? structure.space.toString() : '';
 
-                  {/* Mineral - fixed width column */}
-                  <span className="text-red-500 w-16 text-right">
-                    {structure.mineralNet !== 0 ? (structure.mineralNet > 0 ? '+' : '') + structure.mineralNet + 'Min' : ''}
-                  </span>
+                    // Format resource outputs (only show non-zero)
+                    const resourceOutputs: string[] = [];
+                    if (structure.metalNet !== 0) {
+                      const sign = structure.metalNet > 0 ? '+' : '';
+                      resourceOutputs.push(`${sign}${structure.metalNet}`);
+                    }
+                    if (structure.mineralNet !== 0) {
+                      const sign = structure.mineralNet > 0 ? '+' : '';
+                      resourceOutputs.push(`${sign}${structure.mineralNet}`);
+                    }
+                    if (structure.foodNet !== 0) {
+                      const sign = structure.foodNet > 0 ? '+' : '';
+                      resourceOutputs.push(`${sign}${structure.foodNet}`);
+                    }
 
-                  {/* Food - fixed width column */}
-                  <span className="text-green-500 w-16 text-right">
-                    {structure.foodNet !== 0 ? (structure.foodNet > 0 ? '+' : '') + structure.foodNet + 'F' : ''}
-                  </span>
+                    // Energy output (always show if non-zero)
+                    let energyDisplay = '';
+                    if (structure.energyNet !== 0) {
+                      const sign = structure.energyNet > 0 ? '+' : '';
+                      energyDisplay = `${sign}${structure.energyNet}⚡`;
+                    }
 
-                  {/* Energy - fixed width column */}
-                  <span className="text-blue-400 w-16 text-right">
-                    {structure.energyNet !== 0 ? (structure.energyNet > 0 ? '+' : '') + structure.energyNet + 'E' : ''}
-                  </span>
-
-                  {/* Space - fixed width column */}
-                  <span className="text-pink-nebula-muted w-14 text-right">
-                    {structure.space > 0 ? '-' + structure.space + 'GS' : ''}
-                  </span>
-                </div>
-              ))}
+                    return (
+                      <tr key={structure.id} className="border-b border-pink-nebula-border/50 last:border-0">
+                        {/* Space Used */}
+                        <td className={`py-1.5 pr-2 text-right w-8 ${spaceColor} font-semibold`}>
+                          {spaceDisplay}
+                        </td>
+                        {/* Building Name */}
+                        <td className="py-1.5 pr-2 text-pink-nebula-text font-semibold w-32">
+                          {structure.name}
+                        </td>
+                        {/* Count */}
+                        <td className="py-1.5 pr-2 text-right text-pink-nebula-text w-10">
+                          ×{structure.count}
+                        </td>
+                        {/* Metal - gray-300 */}
+                        <td className="py-1.5 pr-1 text-right w-12 text-gray-300">
+                          {structure.metalNet !== 0 ? (structure.metalNet > 0 ? '+' : '') + structure.metalNet : ''}
+                        </td>
+                        {/* Mineral - red-500 */}
+                        <td className="py-1.5 pr-1 text-right w-12 text-red-500">
+                          {structure.mineralNet !== 0 ? (structure.mineralNet > 0 ? '+' : '') + structure.mineralNet : ''}
+                        </td>
+                        {/* Food - green-500 */}
+                        <td className="py-1.5 pr-1 text-right w-12 text-green-500">
+                          {structure.foodNet !== 0 ? (structure.foodNet > 0 ? '+' : '') + structure.foodNet : ''}
+                        </td>
+                        {/* Energy - blue-400 */}
+                        <td className="py-1.5 text-right w-14 text-blue-400">
+                          {energyDisplay}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           ) : (
             <div className="text-xs text-pink-nebula-muted text-center py-4">
-              No structures built
+              No buildings
             </div>
           )}
-        </div>
-      </div>
+        </Card>
+      </Card>
     </div>
   );
-}
+});

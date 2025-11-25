@@ -25,6 +25,7 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
     { id: 'mineral', label: 'Mineral', color: 'text-blue-400' },
     { id: 'food', label: 'Food', color: 'text-green-400' },
     { id: 'energy', label: 'Energy', color: 'text-yellow-400' },
+    { id: 'research_points', label: 'Research', color: 'text-purple-400' },
   ] as const;
 
   const formatNumber = (num: number) => {

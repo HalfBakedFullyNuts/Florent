@@ -7,8 +7,8 @@
 // Resource & Lane Types
 // ============================================================================
 
-export type ResourceId = 'metal' | 'mineral' | 'food' | 'energy';
-export type LaneId = 'building' | 'ship' | 'colonist';
+export type ResourceId = 'metal' | 'mineral' | 'food' | 'energy' | 'research_points';
+export type LaneId = 'building' | 'ship' | 'colonist' | 'research';
 export type UnitType = 'structure' | 'ship' | 'soldier' | 'scientist';
 export type Status = 'pending' | 'active' | 'completed';
 
@@ -21,6 +21,7 @@ export interface Costs {
   mineral: number;
   food: number;
   energy: number;
+  research_points: number; // Research points cost
   workers: number; // Workers to reserve during construction
   space: number; // Ground or orbital space (determined by type)
 }
@@ -31,6 +32,7 @@ export interface Effects {
   production_mineral?: number;
   production_food?: number;
   production_energy?: number;
+  production_research_points?: number;
 
   // Housing capacity deltas
   housing_worker_cap?: number;
@@ -40,6 +42,12 @@ export interface Effects {
   // Space capacity deltas
   space_ground_cap?: number;
   space_orbital_cap?: number;
+
+  // Research effects
+  planet_limit?: number; // Increases planet limit (for PL research)
+  unlocks_research?: string[]; // Enables other research
+  unlocks_structure?: string; // Enables a structure
+  unlocks_unit?: string; // Enables a unit
 }
 
 export interface Upkeep {
@@ -47,6 +55,7 @@ export interface Upkeep {
   mineral: number;
   food: number;
   energy: number;
+  research_points: number;
 }
 
 export interface ItemDefinition {
@@ -62,6 +71,7 @@ export interface ItemDefinition {
   colonistKind?: 'soldier' | 'scientist';
   isAbundanceScaled?: boolean;
   prerequisites: string[]; // structure IDs required
+  maxPerPlanet?: number | null; // Maximum allowed per planet (1 = unique building)
 }
 
 // ============================================================================
@@ -70,13 +80,14 @@ export interface ItemDefinition {
 
 export interface WorkItem {
   id: string; // unique identifier
-  itemId: string; // references ItemDefinition
+  itemId: string; // references ItemDefinition (or '__wait__' for wait items)
   status: Status;
   quantity: number; // final quantity after clamping
   turnsRemaining: number;
   queuedTurn?: number; // Turn when item was queued
   startTurn?: number; // Turn when work started (set when activated)
   completionTurn?: number; // Turn when work completed (set when finished)
+  isWait?: boolean; // True for wait items (pauses lane for N turns)
 }
 
 // ============================================================================
@@ -125,6 +136,10 @@ export interface PlanetState {
     scientistCap: number;
   };
 
+  // Research & Limits
+  planetLimit: number; // Maximum planets allowed (starts at 4, increased by research)
+  completedResearch: string[]; // List of completed research IDs
+
   // Production queues
   lanes: Record<LaneId, LaneState>;
 
@@ -145,7 +160,8 @@ export interface PlanetState {
 export type CanQueueReason =
   | 'REQ_MISSING'
   | 'HOUSING_MISSING'
-  | 'ENERGY_INSUFFICIENT';
+  | 'ENERGY_INSUFFICIENT'
+  | 'PLANET_LIMIT_REACHED';
 
 export interface CanQueueResult {
   allowed: boolean;
@@ -162,6 +178,7 @@ export interface NetOutputs {
   mineral: number;
   food: number;
   energy: number;
+  research_points: number;
 }
 
 export interface GrowthCalculation {

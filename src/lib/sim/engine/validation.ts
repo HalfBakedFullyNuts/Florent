@@ -8,7 +8,7 @@ import { computeNetOutputsPerTurn } from './outputs';
 
 /**
  * Check if prerequisites are met for queuing an item
- * Checks both completed structures AND queued/active items
+ * Checks completed structures, queued/active items, AND completed research
  */
 export function hasPrereqs(state: PlanetState, def: ItemDefinition): boolean {
   if (!def.prerequisites || def.prerequisites.length === 0) {
@@ -16,14 +16,24 @@ export function hasPrereqs(state: PlanetState, def: ItemDefinition): boolean {
   }
 
   for (const prereqId of def.prerequisites) {
-    // Check completed counts first
+    // Check completed research first (for research items)
+    if (state.completedResearch && state.completedResearch.includes(prereqId)) {
+      continue; // Prerequisite met via completed research
+    }
+
+    // Check completed counts (for structures/units)
     const completedCount = state.completedCounts[prereqId] || 0;
     if (completedCount > 0) {
       continue; // Prerequisite met via completed structures
     }
 
-    // Check all lanes for queued or active items
-    const allLanes = [state.lanes.building, state.lanes.ship, state.lanes.colonist];
+    // Check all lanes for queued or active items (including research)
+    const allLanes = [
+      state.lanes.building,
+      state.lanes.ship,
+      state.lanes.colonist,
+      state.lanes.research
+    ];
     let foundInLane = false;
 
     for (const lane of allLanes) {
@@ -77,6 +87,46 @@ export function housingExistsForColonist(
 }
 
 /**
+ * Check if building has reached its planet limit
+ * Only applies to buildings with maxPerPlanet set
+ */
+export function isPlanetLimitReached(
+  state: PlanetState,
+  def: ItemDefinition
+): boolean {
+  // If no limit is set, always allow
+  if (def.maxPerPlanet === null || def.maxPerPlanet === undefined) {
+    return false;
+  }
+
+  // Only applies to building lane items
+  if (def.lane !== 'building') {
+    return false;
+  }
+
+  // Count total instances of this item
+  let totalCount = 0;
+
+  // Count completed buildings
+  totalCount += state.completedCounts[def.id] || 0;
+
+  // Count active building in building lane
+  if (state.lanes.building.active?.itemId === def.id) {
+    totalCount += state.lanes.building.active.quantity;
+  }
+
+  // Count pending buildings in building lane
+  for (const item of state.lanes.building.pendingQueue) {
+    if (item.itemId === def.id) {
+      totalCount += item.quantity;
+    }
+  }
+
+  // Check if limit is reached
+  return totalCount >= def.maxPerPlanet;
+}
+
+/**
  * Forward check: ensure energy output per turn won't go negative after completion
  */
 export function energyNonNegativeAfterCompletion(
@@ -103,7 +153,7 @@ export function energyNonNegativeAfterCompletion(
 
 /**
  * Static validation: can we queue this item?
- * Checks prerequisites and energy forward-check only
+ * Checks prerequisites, planet limits, housing, and energy forward-check
  */
 export function canQueue(
   state: PlanetState,
@@ -113,6 +163,11 @@ export function canQueue(
   // Check prerequisites
   if (!hasPrereqs(state, def)) {
     return { allowed: false, reason: 'REQ_MISSING' };
+  }
+
+  // Check planet limit for unique buildings
+  if (isPlanetLimitReached(state, def)) {
+    return { allowed: false, reason: 'PLANET_LIMIT_REACHED' };
   }
 
   // Check housing for colonists

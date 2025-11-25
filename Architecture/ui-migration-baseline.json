@@ -1,0 +1,55 @@
+{
+  "timestamp": "2025-10-29T21:45:49.238Z",
+  "phase": "Pre-Migration Baseline",
+  "build": {
+    "status": "success",
+    "mainRoute": {
+      "size": "14.7 kB",
+      "firstLoadJS": "102 kB"
+    },
+    "sharedJS": "87.2 kB",
+    "routes": {
+      "/": {
+        "size": "14.7 kB",
+        "firstLoadJS": "102 kB"
+      },
+      "/_not-found": {
+        "size": "142 B",
+        "firstLoadJS": "87.4 kB"
+      }
+    },
+    "chunks": {
+      "117": "31.7 kB",
+      "fd9d1056": "53.6 kB",
+      "other": "1.86 kB"
+    }
+  },
+  "tests": {
+    "testFiles": {
+      "failed": 11,
+      "passed": 11,
+      "total": 22
+    },
+    "tests": {
+      "failed": 64,
+      "passed": 275,
+      "skipped": 1,
+      "total": 340
+    },
+    "duration": "5.53s"
+  },
+  "notes": [
+    "Build completed successfully after fixing TypeScript errors",
+    "Test failures exist but are pre-existing (not migration related)",
+    "Bundle sizes recorded for comparison after migration",
+    "Main route is 102 kB first load - target to keep increase < 100KB"
+  ],
+  "fixes_applied": [
+    "Excluded 'New CSS' folder from tsconfig",
+    "Fixed ItemGrid.tsx: removed non-existent config.color property",
+    "Fixed TabbedItemGrid.tsx: added type cast for amount",
+    "Added tier property to adapter.ts (convertUnit and convertStructure)",
+    "Added tier property to test fixtures in minimal.ts",
+    "Added WorkItem import to turn.ts"
+  ]
+}

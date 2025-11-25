@@ -1,6 +1,6 @@
 /**
- * Tests for Timeline management
- * Ticket 9: Timeline & recomputation
+ * Tests for Timeline management - Fixed 200-turn architecture
+ * TICKET-3: Refactored for fixed 200-turn pre-computed timeline
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
@@ -10,7 +10,7 @@ import type { PlanetState } from '../../sim/engine/types';
 import { minimalState } from '../../../test/fixtures/minimal';
 import { cloneState } from '../../sim/engine/helpers';
 
-describe('Timeline', () => {
+describe('Timeline - Fixed 200-Turn Architecture', () => {
   let timeline: Timeline;
   let initialState: PlanetState;
 
@@ -20,37 +20,45 @@ describe('Timeline', () => {
   });
 
   describe('initialization', () => {
-    it('should store initial state', () => {
-      const state = timeline.getStateAtTurn(0);
+    it('should store initial state at turn 1', () => {
+      const state = timeline.getStateAtTurn(1);
       expect(state).toBeDefined();
-      expect(state?.currentTurn).toBe(0);
+      expect(state?.currentTurn).toBe(1);
     });
 
-    it('should start at turn 0', () => {
-      expect(timeline.getCurrentTurn()).toBe(0);
+    it('should start at turn 1', () => {
+      expect(timeline.getCurrentTurn()).toBe(1);
     });
 
-    it('should have 1 computed state initially', () => {
-      expect(timeline.getTotalTurns()).toBe(1);
+    it('should always have exactly 200 pre-computed turns', () => {
+      expect(timeline.getTotalTurns()).toBe(200);
+    });
+
+    it('should pre-compute all 200 turns immediately', () => {
+      // All turns should be accessible
+      const turn100 = timeline.getStateAtTurn(100);
+      const turn200 = timeline.getStateAtTurn(200);
+
+      expect(turn100).toBeDefined();
+      expect(turn200).toBeDefined();
+      expect(turn100?.currentTurn).toBe(100);
+      expect(turn200?.currentTurn).toBe(200);
     });
   });
 
   describe('time travel', () => {
-    beforeEach(() => {
-      // Simulate ahead to create history
-      timeline.simulateTurns(5);
-    });
-
-    it('should allow setting current turn within bounds', () => {
-      const success = timeline.setCurrentTurn(3);
+    it('should allow setting current turn within bounds (1-200)', () => {
+      const success = timeline.setCurrentTurn(50);
       expect(success).toBe(true);
-      expect(timeline.getCurrentTurn()).toBe(3);
+      expect(timeline.getCurrentTurn()).toBe(50);
     });
 
-    it('should reject setting turn out of bounds', () => {
-      const success = timeline.setCurrentTurn(10);
+    it('should reject setting turn beyond 200', () => {
+      const currentBefore = timeline.getCurrentTurn();
+      const success = timeline.setCurrentTurn(201);
+
       expect(success).toBe(false);
-      expect(timeline.getCurrentTurn()).toBe(0); // Should remain unchanged
+      expect(timeline.getCurrentTurn()).toBe(currentBefore); // Should remain unchanged
     });
 
     it('should reject negative turns', () => {
@@ -58,147 +66,97 @@ describe('Timeline', () => {
       expect(success).toBe(false);
     });
 
-    it('should get state at any computed turn', () => {
-      const state = timeline.getStateAtTurn(3);
-      expect(state).toBeDefined();
-      expect(state?.currentTurn).toBe(3);
+    it('should reject turn 0', () => {
+      const success = timeline.setCurrentTurn(0);
+      expect(success).toBe(false);
     });
 
-    it('should return undefined for uncomputed turns', () => {
-      const state = timeline.getStateAtTurn(10);
+    it('should get state at any turn (1-200)', () => {
+      const state50 = timeline.getStateAtTurn(50);
+      const state150 = timeline.getStateAtTurn(150);
+
+      expect(state50).toBeDefined();
+      expect(state150).toBeDefined();
+      expect(state50?.currentTurn).toBe(50);
+      expect(state150?.currentTurn).toBe(150);
+    });
+
+    it('should return undefined for turns beyond 200', () => {
+      const state = timeline.getStateAtTurn(201);
       expect(state).toBeUndefined();
     });
   });
 
   describe('next turn', () => {
-    it('should compute new turn when at end of timeline', () => {
-      const initialTotal = timeline.getTotalTurns();
-      timeline.nextTurn();
-
-      expect(timeline.getCurrentTurn()).toBe(1);
-      expect(timeline.getTotalTurns()).toBe(initialTotal + 1);
-    });
-
-    it('should advance index when not at end', () => {
-      timeline.simulateTurns(5);
-      timeline.setCurrentTurn(0);
-
-      const totalBefore = timeline.getTotalTurns();
-      timeline.nextTurn();
-
-      expect(timeline.getCurrentTurn()).toBe(1);
-      expect(timeline.getTotalTurns()).toBe(totalBefore); // No new computation
-    });
-
-    it('should return current state after advancing', () => {
+    it('should advance to next turn', () => {
       const state = timeline.nextTurn();
-      expect(state.currentTurn).toBe(1);
+
+      expect(timeline.getCurrentTurn()).toBe(2);
+      expect(state.currentTurn).toBe(2);
+    });
+
+    it('should not exceed turn 200', () => {
+      timeline.setCurrentTurn(200);
+      timeline.nextTurn();
+
+      expect(timeline.getCurrentTurn()).toBe(200); // Should stay at 200
+    });
+
+    it('should always maintain 200 total turns', () => {
+      timeline.nextTurn();
+      timeline.nextTurn();
+
+      expect(timeline.getTotalTurns()).toBe(200); // Never changes
     });
   });
 
-  describe('simulate turns', () => {
-    it('should extend timeline by N turns', () => {
-      const initialTotal = timeline.getTotalTurns();
-      timeline.simulateTurns(5);
-
-      expect(timeline.getTotalTurns()).toBe(initialTotal + 5);
+  describe('simulate turns (backward compatibility)', () => {
+    it('should not change total turns (always 200)', () => {
+      timeline.simulateTurns(50);
+      expect(timeline.getTotalTurns()).toBe(200);
     });
 
-    it('should not change current turn index', () => {
+    it('should advance view by N turns', () => {
       const currentBefore = timeline.getCurrentTurn();
-      timeline.simulateTurns(5);
-
-      expect(timeline.getCurrentTurn()).toBe(currentBefore);
-    });
-
-    it('should handle zero turns', () => {
-      const totalBefore = timeline.getTotalTurns();
-      timeline.simulateTurns(0);
-
-      expect(timeline.getTotalTurns()).toBe(totalBefore);
-    });
-
-    it('should compute each turn sequentially', () => {
-      timeline.simulateTurns(3);
-
-      const state1 = timeline.getStateAtTurn(1);
-      const state2 = timeline.getStateAtTurn(2);
-      const state3 = timeline.getStateAtTurn(3);
-
-      expect(state1?.currentTurn).toBe(1);
-      expect(state2?.currentTurn).toBe(2);
-      expect(state3?.currentTurn).toBe(3);
-    });
-  });
-
-  describe('recompute from turn', () => {
-    beforeEach(() => {
       timeline.simulateTurns(10);
+
+      expect(timeline.getCurrentTurn()).toBe(currentBefore + 10);
     });
 
-    it('should truncate timeline at specified turn', () => {
-      timeline.recomputeFromTurn(5);
+    it('should not exceed turn 200', () => {
+      timeline.setCurrentTurn(195);
+      timeline.simulateTurns(10); // Try to go to 205
 
-      expect(timeline.getTotalTurns()).toBe(6); // Turns 0-5
-    });
-
-    it('should reset current turn if beyond truncation point', () => {
-      timeline.setCurrentTurn(8);
-      timeline.recomputeFromTurn(5);
-
-      expect(timeline.getCurrentTurn()).toBe(5);
-    });
-
-    it('should preserve current turn if before truncation point', () => {
-      timeline.setCurrentTurn(3);
-      timeline.recomputeFromTurn(5);
-
-      expect(timeline.getCurrentTurn()).toBe(3);
-    });
-
-    it('should make future turns uncomputed', () => {
-      timeline.recomputeFromTurn(5);
-
-      const state6 = timeline.getStateAtTurn(6);
-      expect(state6).toBeUndefined();
-    });
-
-    it('should handle edge case of truncating at turn 0', () => {
-      timeline.recomputeFromTurn(0);
-
-      expect(timeline.getTotalTurns()).toBe(1);
-      expect(timeline.getCurrentTurn()).toBe(0);
+      expect(timeline.getCurrentTurn()).toBe(200); // Capped at 200
     });
   });
 
   describe('mutate at turn', () => {
-    beforeEach(() => {
-      timeline.simulateTurns(10);
-    });
-
     it('should apply mutation to specified turn', () => {
-      const success = timeline.mutateAtTurn(5, (state) => {
+      const success = timeline.mutateAtTurn(50, (state) => {
         state.stocks.metal += 1000;
       });
 
       expect(success).toBe(true);
 
-      const state = timeline.getStateAtTurn(5);
+      const state = timeline.getStateAtTurn(50);
       expect(state?.stocks.metal).toBeGreaterThan(initialState.stocks.metal);
     });
 
-    it('should trigger recomputation after mutation', () => {
-      const totalBefore = timeline.getTotalTurns();
-      timeline.mutateAtTurn(5, (state) => {
+    it('should trigger full recomputation (all 200 turns)', () => {
+      timeline.mutateAtTurn(50, (state) => {
         state.stocks.metal += 1000;
       });
 
-      // Should truncate at turn 5, so total turns becomes 6 (0-5)
-      expect(timeline.getTotalTurns()).toBe(6);
+      // All turns after mutation should reflect the change
+      expect(timeline.getTotalTurns()).toBe(200); // Still 200 turns
+
+      const state100 = timeline.getStateAtTurn(100);
+      expect(state100?.stocks.metal).toBeGreaterThan(initialState.stocks.metal);
     });
 
-    it('should reject mutation at invalid turn', () => {
-      const success = timeline.mutateAtTurn(20, (state) => {
+    it('should reject mutation beyond turn 200', () => {
+      const success = timeline.mutateAtTurn(201, (state) => {
         state.stocks.metal += 1000;
       });
 
@@ -212,14 +170,17 @@ describe('Timeline', () => {
 
       expect(success).toBe(false);
     });
+
+    it('should reject turn 0', () => {
+      const success = timeline.mutateAtTurn(0, (state) => {
+        state.stocks.metal += 1000;
+      });
+
+      expect(success).toBe(false);
+    });
   });
 
   describe('reset', () => {
-    beforeEach(() => {
-      timeline.simulateTurns(10);
-      timeline.setCurrentTurn(5);
-    });
-
     it('should reset to new initial state', () => {
       const newState = cloneState(initialState);
       newState.stocks.metal = 99999;
@@ -230,33 +191,70 @@ describe('Timeline', () => {
       expect(state.stocks.metal).toBe(99999);
     });
 
-    it('should reset to turn 0', () => {
+    it('should reset to turn 1', () => {
+      timeline.setCurrentTurn(50);
       timeline.reset(initialState);
-      expect(timeline.getCurrentTurn()).toBe(0);
+
+      expect(timeline.getCurrentTurn()).toBe(1);
     });
 
-    it('should clear all history', () => {
+    it('should maintain exactly 200 turns after reset', () => {
       timeline.reset(initialState);
-      expect(timeline.getTotalTurns()).toBe(1);
+      expect(timeline.getTotalTurns()).toBe(200);
+    });
+
+    it('should recompute all 200 turns after reset', () => {
+      const newState = cloneState(initialState);
+      newState.stocks.metal = 99999;
+
+      timeline.reset(newState);
+
+      // All turns should reflect new initial state
+      const turn100 = timeline.getStateAtTurn(100);
+      expect(turn100).toBeDefined();
+      expect(turn100?.stocks.metal).toBeGreaterThan(initialState.stocks.metal);
     });
   });
 
   describe('get all states', () => {
-    it('should return clones of all states', () => {
-      timeline.simulateTurns(5);
+    it('should return all 200 states', () => {
+      const states = timeline.getAllStates();
+      expect(states).toHaveLength(200);
+    });
+
+    it('should return clones (mutations do not affect timeline)', () => {
       const states = timeline.getAllStates();
 
-      expect(states).toHaveLength(6); // 0-5
+      // Mutate returned state
+      states[50].stocks.metal = 999999;
 
-      // Mutating returned state should not affect timeline
-      states[3].stocks.metal = 999999;
-      const originalState = timeline.getStateAtTurn(3);
+      // Original should be unchanged
+      const originalState = timeline.getStateAtTurn(51); // states[50] is turn 51 (1-indexed)
       expect(originalState?.stocks.metal).not.toBe(999999);
+    });
+  });
+
+  describe('stable state optimization', () => {
+    it('should detect stable state when all lanes are idle', () => {
+      // Timeline should eventually reach stable state (no work remaining)
+      // Check that later turns are identical (optimization working)
+      const turn180 = timeline.getStateAtTurn(180);
+      const turn190 = timeline.getStateAtTurn(190);
+      const turn200 = timeline.getStateAtTurn(200);
+
+      // If optimization worked, these should be identical except for turn number
+      expect(turn180?.lanes.building.active).toBeNull();
+      expect(turn190?.lanes.building.active).toBeNull();
+      expect(turn200?.lanes.building.active).toBeNull();
+
+      expect(turn180?.lanes.building.pendingQueue).toEqual([]);
+      expect(turn190?.lanes.building.pendingQueue).toEqual([]);
+      expect(turn200?.lanes.building.pendingQueue).toEqual([]);
     });
   });
 });
 
-describe('GameController', () => {
+describe('GameController - Fixed 200-Turn Architecture', () => {
   let controller: GameController;
   let initialState: PlanetState;
 
@@ -267,63 +265,53 @@ describe('GameController', () => {
 
   describe('queue item', () => {
     it('should queue valid item when energy available', () => {
-      // Create a new controller with energy
       const stateWithEnergy = cloneState(initialState);
       stateWithEnergy.stocks.energy = 100;
       const ctrl = new GameController(stateWithEnergy);
 
-      const result = ctrl.queueItem(0, 'metal_mine', 1);
+      const result = ctrl.queueItem(1, 'metal_mine', 1); // Turn 1, not 0
 
       expect(result.success).toBe(true);
       expect(result.itemId).toBeDefined();
     });
 
     it('should reject item with missing prerequisites', () => {
-      // Soldier requires barracks
-      const result = controller.queueItem(0, 'soldier', 1);
+      const result = controller.queueItem(1, 'soldier', 1);
 
       expect(result.success).toBe(false);
       expect(result.reason).toBe('REQ_MISSING');
     });
 
     it('should allow queueing multiple items when lane is idle', () => {
-      // Create controller with energy
       const stateWithEnergy = cloneState(initialState);
       stateWithEnergy.stocks.energy = 100;
       const ctrl = new GameController(stateWithEnergy);
 
-      // Queue first item
-      const result1 = ctrl.queueItem(0, 'metal_mine', 1);
+      const result1 = ctrl.queueItem(1, 'metal_mine', 1);
       expect(result1.success).toBe(true);
 
-      // Queue second item in same lane - should succeed (new queue system allows multiple)
-      const result2 = ctrl.queueItem(0, 'farm', 1);
+      const result2 = ctrl.queueItem(1, 'farm', 1);
       expect(result2.success).toBe(true);
     });
   });
 
   describe('cancel entry', () => {
     it('should cancel pending item', () => {
-      // Create controller with energy
       const stateWithEnergy = cloneState(initialState);
       stateWithEnergy.stocks.energy = 100;
       const ctrl = new GameController(stateWithEnergy);
 
-      // Queue an item
-      ctrl.queueItem(0, 'metal_mine', 1);
-
-      // Cancel it
-      const result = ctrl.cancelEntry(0, 'building');
+      ctrl.queueItem(1, 'metal_mine', 1);
+      const result = ctrl.cancelEntry(1, 'building');
 
       expect(result.success).toBe(true);
 
-      // Lane should be clear
-      const finalState = ctrl.getStateAtTurn(0);
+      const finalState = ctrl.getStateAtTurn(1);
       expect(finalState?.lanes.building.pendingQueue).toEqual([]);
     });
 
     it('should return false when no item to cancel', () => {
-      const result = controller.cancelEntry(0, 'building');
+      const result = controller.cancelEntry(1, 'building');
 
       expect(result.success).toBe(false);
       expect(result.reason).toBe('NOT_FOUND');
@@ -334,27 +322,25 @@ describe('GameController', () => {
     it('should advance to next turn', () => {
       const state = controller.nextTurn();
 
-      expect(state.currentTurn).toBe(1);
-      expect(controller.getCurrentTurn()).toBe(1);
+      expect(state.currentTurn).toBe(2);
+      expect(controller.getCurrentTurn()).toBe(2);
     });
 
-    it('should simulate multiple turns ahead', () => {
-      controller.simulateTurns(5);
-
-      expect(controller.getTotalTurns()).toBe(6); // 0-5
+    it('should always have 200 total turns (simulateTurns is no-op)', () => {
+      controller.simulateTurns(50);
+      expect(controller.getTotalTurns()).toBe(200);
     });
 
-    it('should allow time travel', () => {
-      controller.simulateTurns(5);
-      const success = controller.setTurn(3);
+    it('should allow time travel within 1-200 range', () => {
+      const success = controller.setTurn(100);
 
       expect(success).toBe(true);
-      expect(controller.getCurrentTurn()).toBe(3);
+      expect(controller.getCurrentTurn()).toBe(100);
     });
   });
 
   describe('scenario loading', () => {
-    it('should load new scenario', () => {
+    it('should load new scenario and reset to turn 1', () => {
       const newState = cloneState(initialState);
       newState.stocks.metal = 99999;
 
@@ -362,7 +348,12 @@ describe('GameController', () => {
 
       const state = controller.getCurrentState();
       expect(state.stocks.metal).toBe(99999);
-      expect(controller.getCurrentTurn()).toBe(0);
+      expect(controller.getCurrentTurn()).toBe(1); // Resets to turn 1
+    });
+
+    it('should maintain 200 turns after scenario load', () => {
+      controller.loadScenario(initialState);
+      expect(controller.getTotalTurns()).toBe(200);
     });
   });
 });

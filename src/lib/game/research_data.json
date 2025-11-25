@@ -1,0 +1,495 @@
+[
+  {
+    "id": "planet_management",
+    "name": "Planet Management",
+    "tier": 1,
+    "rpCost": 100,
+    "turnsToComplete": 24,
+    "prerequisites": [],
+    "effects": {
+      "unlocksResearch": [
+        "pl_6"
+      ]
+    }
+  },
+  {
+    "id": "resource_collection",
+    "name": "Resource Collection",
+    "tier": 1,
+    "rpCost": 100,
+    "turnsToComplete": 24,
+    "prerequisites": [],
+    "effects": {
+      "unlocksResearch": [
+        "core_metal_mine_research",
+        "core_mineral_extractor_research",
+        "hydroponics_lab_research",
+        "solar_array_research",
+        "mass_production",
+        "land_enhancement"
+      ]
+    }
+  },
+  {
+    "id": "fleet_technology",
+    "name": "Fleet Technology",
+    "tier": 1,
+    "rpCost": 100,
+    "turnsToComplete": 24,
+    "prerequisites": [],
+    "effects": {
+      "unlocksResearch": [
+        "merchant_research",
+        "trader_research",
+        "war_ship_design",
+        "warp_theory"
+      ]
+    }
+  },
+  {
+    "id": "pl_6",
+    "name": "PL 6",
+    "tier": 1.5,
+    "rpCost": 500,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "planet_management"
+    ],
+    "effects": {
+      "planetLimit": 6
+    }
+  },
+  {
+    "id": "pl_8",
+    "name": "PL 8",
+    "tier": 1.5,
+    "rpCost": 100,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "pl_6"
+    ],
+    "effects": {
+      "planetLimit": 8
+    }
+  },
+  {
+    "id": "pl_10",
+    "name": "PL 10",
+    "tier": 1.5,
+    "rpCost": 2000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "pl_8"
+    ],
+    "effects": {
+      "planetLimit": 10
+    }
+  },
+  {
+    "id": "pl_12",
+    "name": "PL 12",
+    "tier": 1.5,
+    "rpCost": 5000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "pl_10"
+    ],
+    "effects": {
+      "planetLimit": 12
+    }
+  },
+  {
+    "id": "pl_14",
+    "name": "PL 14",
+    "tier": 1.5,
+    "rpCost": 5000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "pl_12"
+    ],
+    "effects": {
+      "planetLimit": 14
+    }
+  },
+  {
+    "id": "pl_16",
+    "name": "PL 16",
+    "tier": 1.5,
+    "rpCost": 10000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "pl_14"
+    ],
+    "effects": {
+      "planetLimit": 16
+    }
+  },
+  {
+    "id": "pl_18",
+    "name": "PL 18",
+    "tier": 1.5,
+    "rpCost": 10000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "pl_16"
+    ],
+    "effects": {
+      "planetLimit": 18
+    }
+  },
+  {
+    "id": "pl_20",
+    "name": "PL 20",
+    "tier": 1.5,
+    "rpCost": 25000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "pl_18"
+    ],
+    "effects": {
+      "planetLimit": 20
+    }
+  },
+  {
+    "id": "pl_22",
+    "name": "PL 22",
+    "tier": 1.5,
+    "rpCost": 25000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "pl_20"
+    ],
+    "effects": {
+      "planetLimit": 22
+    }
+  },
+  {
+    "id": "pl_24",
+    "name": "PL 24",
+    "tier": 1.5,
+    "rpCost": 25000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "pl_22"
+    ],
+    "effects": {
+      "planetLimit": 24
+    }
+  },
+  {
+    "id": "merchant_research",
+    "name": "Merchant Research",
+    "tier": 1.5,
+    "rpCost": 10000,
+    "turnsToComplete": 48,
+    "prerequisites": [
+      "fleet_technology"
+    ],
+    "effects": {
+      "unlocksStructure": "merchant"
+    }
+  },
+  {
+    "id": "trader_research",
+    "name": "Trader Research",
+    "tier": 1.5,
+    "rpCost": 50000,
+    "turnsToComplete": 72,
+    "prerequisites": [
+      "fleet_technology"
+    ],
+    "effects": {
+      "unlocksStructure": "trader"
+    }
+  },
+  {
+    "id": "war_ship_design",
+    "name": "War Ship Design",
+    "tier": 1.5,
+    "rpCost": 2000,
+    "turnsToComplete": 48,
+    "prerequisites": [
+      "fleet_technology"
+    ],
+    "effects": {
+      "unlocksResearch": [
+        "destroyer_research",
+        "cruiser_research",
+        "battleship_research"
+      ]
+    }
+  },
+  {
+    "id": "warp_theory",
+    "name": "Warp Theory",
+    "tier": 1.5,
+    "rpCost": 5000,
+    "turnsToComplete": 48,
+    "prerequisites": [
+      "fleet_technology"
+    ],
+    "effects": {
+      "unlocksResearch": [
+        "hyperspace_beacon_research",
+        "jump_gate_research"
+      ]
+    }
+  },
+  {
+    "id": "destroyer_research",
+    "name": "Destroyer Research",
+    "tier": 2,
+    "rpCost": 20000,
+    "turnsToComplete": 96,
+    "prerequisites": [
+      "war_ship_design"
+    ],
+    "effects": {
+      "unlocksStructure": "destroyer"
+    }
+  },
+  {
+    "id": "cruiser_research",
+    "name": "Cruiser Research",
+    "tier": 2,
+    "rpCost": 100000,
+    "turnsToComplete": 96,
+    "prerequisites": [
+      "war_ship_design"
+    ],
+    "effects": {
+      "unlocksStructure": "cruiser"
+    }
+  },
+  {
+    "id": "battleship_research",
+    "name": "Battleship Research",
+    "tier": 2,
+    "rpCost": 500000,
+    "turnsToComplete": 144,
+    "prerequisites": [
+      "war_ship_design"
+    ],
+    "effects": {
+      "unlocksStructure": "battleship"
+    }
+  },
+  {
+    "id": "hyperspace_beacon_research",
+    "name": "Hyperspace Beacon Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 96,
+    "prerequisites": [
+      "warp_theory"
+    ],
+    "effects": {
+      "unlocksStructure": "hyperspace_beacon"
+    }
+  },
+  {
+    "id": "jump_gate_research",
+    "name": "Jump Gate Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 96,
+    "prerequisites": [
+      "warp_theory"
+    ],
+    "effects": {
+      "unlocksStructure": "jump_gate"
+    }
+  },
+  {
+    "id": "core_metal_mine_research",
+    "name": "Core Metal Mine Research",
+    "tier": 1.5,
+    "rpCost": 5000,
+    "turnsToComplete": 48,
+    "prerequisites": [
+      "resource_collection"
+    ],
+    "effects": {
+      "unlocksStructure": "core_metal_mine"
+    }
+  },
+  {
+    "id": "core_mineral_extractor_research",
+    "name": "Core Mineral Extractor Research",
+    "tier": 1.5,
+    "rpCost": 5000,
+    "turnsToComplete": 48,
+    "prerequisites": [
+      "resource_collection"
+    ],
+    "effects": {
+      "unlocksStructure": "core_mineral_extractor"
+    }
+  },
+  {
+    "id": "hydroponics_lab_research",
+    "name": "Hydroponics Lab Research",
+    "tier": 1.5,
+    "rpCost": 5000,
+    "turnsToComplete": 48,
+    "prerequisites": [
+      "resource_collection"
+    ],
+    "effects": {
+      "unlocksStructure": "hydroponics_lab"
+    }
+  },
+  {
+    "id": "solar_array_research",
+    "name": "Solar Array Research",
+    "tier": 1.5,
+    "rpCost": 5000,
+    "turnsToComplete": 48,
+    "prerequisites": [
+      "resource_collection"
+    ],
+    "effects": {
+      "unlocksStructure": "solar_array"
+    }
+  },
+  {
+    "id": "mass_production",
+    "name": "Mass Production",
+    "tier": 1.5,
+    "rpCost": 12000,
+    "turnsToComplete": 48,
+    "prerequisites": [
+      "resource_collection"
+    ],
+    "effects": {
+      "unlocksResearch": [
+        "strip_metal_mine_research",
+        "strip_mineral_extractor_research",
+        "hydroponics_dome_research",
+        "solar_station_research"
+      ]
+    }
+  },
+  {
+    "id": "land_enhancement",
+    "name": "Land Enhancement",
+    "tier": 1.5,
+    "rpCost": 25000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "resource_collection"
+    ],
+    "effects": {
+      "unlocksResearch": [
+        "metal_refinery_research",
+        "mineral_processor_research",
+        "food_purifier_research",
+        "energy_booster_research"
+      ]
+    }
+  },
+  {
+    "id": "metal_refinery_research",
+    "name": "Metal Refinery Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "land_enhancement"
+    ],
+    "effects": {
+      "unlocksStructure": "metal_refinery"
+    }
+  },
+  {
+    "id": "mineral_processor_research",
+    "name": "Mineral Processor Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "land_enhancement"
+    ],
+    "effects": {
+      "unlocksStructure": "mineral_processor"
+    }
+  },
+  {
+    "id": "food_purifier_research",
+    "name": "Food Purifier Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "land_enhancement"
+    ],
+    "effects": {
+      "unlocksStructure": "food_purifier"
+    }
+  },
+  {
+    "id": "energy_booster_research",
+    "name": "Energy Booster Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 24,
+    "prerequisites": [
+      "land_enhancement"
+    ],
+    "effects": {
+      "unlocksStructure": "energy_booster"
+    }
+  },
+  {
+    "id": "strip_metal_mine_research",
+    "name": "Strip Metal Mine Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 96,
+    "prerequisites": [
+      "mass_production"
+    ],
+    "effects": {
+      "unlocksStructure": "strip_metal_mine"
+    }
+  },
+  {
+    "id": "strip_mineral_extractor_research",
+    "name": "Strip Mineral Extractor Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 96,
+    "prerequisites": [
+      "mass_production"
+    ],
+    "effects": {
+      "unlocksStructure": "strip_mineral_extractor"
+    }
+  },
+  {
+    "id": "hydroponics_dome_research",
+    "name": "Hydroponics Dome Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 96,
+    "prerequisites": [
+      "mass_production"
+    ],
+    "effects": {
+      "unlocksStructure": "hydroponics_dome"
+    }
+  },
+  {
+    "id": "solar_station_research",
+    "name": "Solar Station Research",
+    "tier": 2,
+    "rpCost": 50000,
+    "turnsToComplete": 96,
+    "prerequisites": [
+      "mass_production"
+    ],
+    "effects": {
+      "unlocksStructure": "solar_station"
+    }
+  }
+]

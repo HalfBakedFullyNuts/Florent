@@ -6,8 +6,8 @@
 import type { PlanetState, WorkItem } from './types';
 
 /**
- * Apply effects when structure/ship completes
- * Releases workers/space, updates counts, applies housing/space deltas
+ * Apply effects when structure/ship/research completes
+ * Releases workers/space, updates counts, applies housing/space deltas, research effects
  */
 export function applyStructureCompletion(state: PlanetState, item: WorkItem): void {
   const def = state.defs[item.itemId];
@@ -16,8 +16,18 @@ export function applyStructureCompletion(state: PlanetState, item: WorkItem): vo
     return;
   }
 
-  // Update completed counts
-  state.completedCounts[item.itemId] = (state.completedCounts[item.itemId] || 0) + item.quantity;
+  // For research items, add to completedResearch instead of completedCounts
+  if (def.lane === 'research') {
+    if (!state.completedResearch) {
+      state.completedResearch = [];
+    }
+    if (!state.completedResearch.includes(item.itemId)) {
+      state.completedResearch.push(item.itemId);
+    }
+  } else {
+    // Update completed counts for non-research items
+    state.completedCounts[item.itemId] = (state.completedCounts[item.itemId] || 0) + item.quantity;
+  }
 
   // Apply effects from completion
   const effects = def.effectsOnComplete;
@@ -44,8 +54,14 @@ export function applyStructureCompletion(state: PlanetState, item: WorkItem): vo
     state.space.orbitalCap += effects.space_orbital_cap * item.quantity;
   }
 
+  // Apply research-specific effects
+  if (effects.planet_limit && state.planetLimit !== undefined) {
+    state.planetLimit = effects.planet_limit; // Set new planet limit
+  }
+
   // Note: Workers are already released in progressActive()
   // Space used is permanent (structures/ships occupy space)
+  // Research doesn't consume workers or space
 }
 
 /**

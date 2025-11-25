@@ -10,14 +10,6 @@ export default function Header() {
           <button className="px-3 py-1 rounded text-pink-nebula-muted border border-pink-nebula-border">+</button>
         </nav>
       </div>
-
-      <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-pink-nebula-panel rounded-full" />
-          <div className="text-sm text-pink-nebula-text">30,000</div>
-          <div className="text-sm text-pink-nebula-muted">+1,200/t</div>
-        </div>
-      </div>
     </header>
   )
 }

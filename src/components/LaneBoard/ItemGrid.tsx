@@ -227,14 +227,6 @@ export function ItemGrid({
                           }`}>
                             {item.name}
                           </span>
-                          <span className={queueable ? 'text-pink-nebula-muted' : 'text-pink-nebula-muted/60'}>
-                            ⏱️ {item.durationTurns}T
-                          </span>
-                          {formatCost(item).map(({ resource, amount, color }) => (
-                            <span key={resource} className={queueable ? color : `${color}/60`}>
-                              {resource.charAt(0).toUpperCase()}:{amount}
-                            </span>
-                          ))}
                         </div>
                       </button>
                     );
@@ -256,7 +248,7 @@ export function ItemGrid({
           return (
             <div
               key={laneId}
-              className={`bg-pink-nebula-panel rounded-lg border-2 ${config.color}`}
+              className="bg-pink-nebula-panel rounded-lg border-2 border-pink-nebula-border"
             >
               {/* Accordion Header */}
               <button
@@ -305,14 +297,6 @@ export function ItemGrid({
                             }`}>
                               {item.name}
                             </span>
-                            <span className={queueable ? 'text-pink-nebula-muted' : 'text-pink-nebula-muted/60'}>
-                              ⏱️ {item.durationTurns}T
-                            </span>
-                            {formatCost(item).map(({ resource, amount, color }) => (
-                              <span key={resource} className={queueable ? color : `${color}/60`}>
-                                {resource.charAt(0).toUpperCase()}:{amount}
-                              </span>
-                            ))}
                           </div>
                         </button>
                       );

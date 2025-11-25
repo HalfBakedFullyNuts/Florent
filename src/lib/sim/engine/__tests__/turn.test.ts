@@ -69,6 +69,34 @@ describe('Turn Runner', () => {
       expect(state.population.workersTotal).toBe(initialWorkers);
     });
 
+    it('should clamp worker growth to housing cap', () => {
+      const initialWorkers = state.population.workersTotal;
+      state.stocks.food = 1000; // Ensure food > 0 for growth
+
+      // Set housing cap to only allow 50 more workers
+      state.housing.workerCap = initialWorkers + 50;
+
+      runTurn(state, buffer);
+
+      // Growth would be 1% of initialWorkers (100 workers)
+      // But housing only allows 50 more
+      expect(state.population.workersTotal).toBe(state.housing.workerCap);
+      expect(state.population.workersTotal).toBe(initialWorkers + 50);
+    });
+
+    it('should not grow workers when at housing cap', () => {
+      const initialWorkers = state.population.workersTotal;
+      state.stocks.food = 1000; // Ensure food > 0 for growth
+
+      // Set housing cap equal to current workers
+      state.housing.workerCap = initialWorkers;
+
+      runTurn(state, buffer);
+
+      // No growth should occur since we're at cap
+      expect(state.population.workersTotal).toBe(initialWorkers);
+    });
+
     it('should clamp food at 0', () => {
       state.stocks.food = 10; // Low food that will go negative after upkeep
       state.population.workersTotal = 100000; // High workers = high upkeep
@@ -97,10 +125,11 @@ describe('Turn Runner', () => {
     it('should produce different states for each turn', () => {
       const states = simulate(state, 3);
 
-      expect(states[0].currentTurn).toBe(0);
-      expect(states[1].currentTurn).toBe(1);
-      expect(states[2].currentTurn).toBe(2);
-      expect(states[3].currentTurn).toBe(3);
+      // Initial state starts at turn 1, not 0
+      expect(states[0].currentTurn).toBe(1);
+      expect(states[1].currentTurn).toBe(2);
+      expect(states[2].currentTurn).toBe(3);
+      expect(states[3].currentTurn).toBe(4);
     });
 
     it('should accumulate resources over multiple turns', () => {
@@ -204,17 +233,16 @@ describe('Turn Runner', () => {
       state.population.workersIdle -= 5000;
       state.space.groundUsed += 1;
 
-      const currentTurn = state.currentTurn;
+      const initialMetal = state.stocks.metal;
       runTurn(state, buffer);
 
       // Active should be cleared
       expect(state.lanes.building.active).toBeNull();
 
-      // Should be in buffer for next turn (turn increments from 0 to 1, completion queued for turn 1)
-      const nextTurn = state.currentTurn; // This is now 1
-      const buffered = buffer.drain(nextTurn);
-      expect(buffered).toHaveLength(1);
-      expect(buffered[0].itemId).toBe('metal_mine');
+      // Structures complete same-turn, so metal should increase immediately
+      // metal_mine produces 300 metal per turn
+      expect(state.stocks.metal).toBeGreaterThan(initialMetal);
+      expect(state.completedCounts.metal_mine).toBe(1);
     });
   });
 });

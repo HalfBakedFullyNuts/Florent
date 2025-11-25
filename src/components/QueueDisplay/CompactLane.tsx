@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import type { LaneView, LaneEntry } from '../../lib/game/selectors';
 import type { LaneId } from '../../lib/sim/engine/types';
 import { CompactLaneEntry } from './CompactLaneEntry';
@@ -10,6 +10,7 @@ export interface CompactLaneProps {
   laneView: LaneView;
   currentTurn: number;
   onCancel: (entry: LaneEntry) => void;
+  onReorder?: (laneId: LaneId, entryId: string, newIndex: number) => void;
   disabled?: boolean;
 }
 
@@ -27,8 +28,12 @@ export function CompactLane({
   laneView,
   currentTurn,
   onCancel,
+  onReorder,
   disabled = false,
 }: CompactLaneProps) {
+  const [draggedItem, setDraggedItem] = useState<string | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
   const getLaneTitle = () => {
     switch (laneId) {
       case 'building':
@@ -73,7 +78,19 @@ export function CompactLane({
       </div>
 
       {/* Queue entries with scroll */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[1200px]">
+      <div
+        className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[1200px]"
+        onDragOver={(e) => {
+          if (draggedItem) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+          }
+        }}
+        onDrop={() => {
+          setDraggedItem(null);
+          setDragOverIndex(null);
+        }}
+      >
         {laneView.entries.length === 0 ? (
           <div className="text-center text-pink-nebula-muted py-8 text-sm">
             Queue empty
@@ -86,14 +103,36 @@ export function CompactLane({
                            entry.id === nonCompletedEntries[nonCompletedEntries.length - 1].id;
 
             return (
-              <CompactLaneEntry
+              <div
                 key={entry.id}
-                entry={entry}
-                currentTurn={currentTurn}
-                onCancel={() => onCancel(entry)}
-                disabled={disabled}
-                isNewest={isNewest}
-              />
+                onDragOver={(e) => {
+                  if (draggedItem && draggedItem !== entry.id) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setDragOverIndex(index);
+                  }
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (draggedItem && onReorder && draggedItem !== entry.id) {
+                    onReorder(laneId, draggedItem, index);
+                  }
+                  setDraggedItem(null);
+                  setDragOverIndex(null);
+                }}
+                className={dragOverIndex === index ? 'border-t-2 border-pink-nebula-accent-primary' : ''}
+              >
+                <CompactLaneEntry
+                  entry={entry}
+                  currentTurn={currentTurn}
+                  onCancel={() => onCancel(entry)}
+                  disabled={disabled}
+                  isNewest={isNewest}
+                  onDragStart={() => setDraggedItem(entry.id)}
+                  isDragging={draggedItem === entry.id}
+                />
+              </div>
             );
           })
         )}

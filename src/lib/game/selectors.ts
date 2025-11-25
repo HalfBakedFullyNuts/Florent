@@ -4,9 +4,9 @@
  */
 
 import type { PlanetState, LaneId, NetOutputs, ResourceId } from '../sim/engine/types';
-import { computeNetOutputsPerTurn } from '../sim/engine/outputs';
+import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep } from '../sim/engine/outputs';
 import { computeGrowthBonus } from '../sim/engine/growth_food';
-import { WORKER_GROWTH_BASE, FOOD_PER_WORKER } from '../sim/rules/constants';
+import { WORKER_GROWTH_BASE } from '../sim/rules/constants';
 import { canQueue } from '../sim/engine/validation';
 
 export interface PlanetSummary {
@@ -36,6 +36,8 @@ export interface PlanetSummary {
   structures: Record<string, number>; // structureId -> count
   growthHint: string; // "+X workers at end of turn"
   foodUpkeep: number;
+  planetLimit: number; // Maximum number of planets allowed
+  completedResearch: string[]; // List of completed research IDs
 }
 
 export interface LaneEntry {
@@ -49,6 +51,9 @@ export interface LaneEntry {
   queuedTurn?: number; // Turn when item was queued
   startTurn?: number; // Turn when work started
   completionTurn?: number; // Turn when work completed
+  invalid?: boolean; // Whether this item is invalid (fails validation)
+  invalidReason?: string; // Human-readable reason for invalidity
+  missingPrereqs?: string[]; // List of missing prerequisites
 }
 
 export interface LaneView {
@@ -91,8 +96,8 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
     0
   );
 
-  // Calculate food upkeep
-  const foodUpkeep = state.population.workersTotal * FOOD_PER_WORKER;
+  // Use engine's upkeep calculation for consistency
+  const foodUpkeep = calculatePopulationFoodUpkeep(state);
 
   // Extract ship counts from completedCounts
   const ships: Record<string, number> = {};
@@ -131,7 +136,58 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
     structures,
     growthHint,
     foodUpkeep,
+    planetLimit: state.planetLimit || 4,
+    completedResearch: state.completedResearch || [],
   };
+}
+
+/**
+ * Calculate turns until housing cap is reached
+ * Returns null if no growth or already at/above cap
+ *
+ * TICKET-4: Housing Cap Warning
+ */
+export function getTurnsUntilHousingCap(
+  state: PlanetState,
+  _completionTurn?: number
+): number | null {
+  const { workersTotal } = state.population;
+  const { workerCap } = state.housing;
+
+  // Already at or above cap
+  if (workersTotal >= workerCap) {
+    return null;
+  }
+
+  // No workers means no growth possible
+  if (workersTotal === 0) {
+    return null;
+  }
+
+  // Calculate growth rate
+  const growthBonus = computeGrowthBonus(state);
+  const totalGrowthRate = WORKER_GROWTH_BASE + growthBonus;
+
+  // Calculate projected growth per turn
+  const projectedGrowth = state.stocks.food > 0
+    ? Math.floor(workersTotal * totalGrowthRate)
+    : 0;
+
+  // No growth
+  if (projectedGrowth <= 0 || !isFinite(projectedGrowth)) {
+    return null;
+  }
+
+  // Calculate turns to reach cap
+  const workersNeeded = workerCap - workersTotal;
+  const turnsToHousingCap = Math.ceil(workersNeeded / projectedGrowth);
+
+  // Validate result
+  if (!isFinite(turnsToHousingCap) || turnsToHousingCap <= 0) {
+    return null;
+  }
+
+  return turnsToHousingCap;
 }
 
 /**
@@ -144,10 +200,12 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   // Add completed items from history (most recent first)
   for (const completed of [...lane.completionHistory].reverse()) {
     const def = state.defs[completed.itemId];
+    // Handle wait items specially
+    const itemName = completed.isWait ? 'Wait' : (def?.name || 'Unknown');
     entries.push({
       id: completed.id,
       itemId: completed.itemId,
-      itemName: def?.name || 'Unknown',
+      itemName,
       status: 'completed',
       quantity: completed.quantity,
       turnsRemaining: 0,
@@ -185,7 +243,9 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   for (let i = 0; i < lane.pendingQueue.length; i++) {
     const pending = lane.pendingQueue[i];
     const def = state.defs[pending.itemId];
-    const duration = def?.durationTurns || 4;
+    // Handle wait items: use turnsRemaining as duration
+    const duration = pending.isWait ? pending.turnsRemaining : (def?.durationTurns || 4);
+    const itemName = pending.isWait ? 'Wait' : (def?.name || 'Unknown');
 
     // Simple continuous scheduling: each item gets duration turns
     const displayStart = scheduleStart;
@@ -194,12 +254,12 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
     entries.push({
       id: pending.id,
       itemId: pending.itemId,
-      itemName: def?.name || 'Unknown',
+      itemName,
       status: 'pending',
       quantity: pending.quantity,
       turnsRemaining: pending.turnsRemaining,
       eta: displayEnd,
-      queuedTurn: displayStart, // For display purposes
+      queuedTurn: pending.queuedTurn, // Preserve actual queue turn for cancellation
       startTurn: displayStart,
       completionTurn: displayEnd,
     });
@@ -211,11 +271,12 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   // Add active entry
   if (lane.active) {
     const def = state.defs[lane.active.itemId];
+    const itemName = lane.active.isWait ? 'Wait' : (def?.name || 'Unknown');
     const eta = state.currentTurn + lane.active.turnsRemaining;
     entries.push({
       id: lane.active.id,
       itemId: lane.active.itemId,
-      itemName: def?.name || 'Unknown',
+      itemName,
       status: 'active',
       quantity: lane.active.quantity,
       turnsRemaining: lane.active.turnsRemaining,
@@ -225,6 +286,9 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
       completionTurn: lane.active.completionTurn,
     });
   }
+
+  // Reverse the entire array so latest activity appears at top
+  entries.reverse();
 
   return {
     laneId,

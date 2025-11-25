@@ -1,17 +1,39 @@
 {
   "meta": {
-    "version": "3.0.0",
-    "description": "Complete game definition from Infinite Conflict Units CSV. All unit and structure data sourced from official game manual.",
-    "generated_at": "2025-10-25T17:00:00Z"
+    "version": "3.1.0",
+    "description": "Complete game definition from Infinite Conflict Units CSV. All unit and structure data sourced from official game manual. Research system added with 36 research items.",
+    "generated_at": "2025-10-25T17:00:00Z",
+    "updated_at": "2025-11-11T19:09:37.077Z"
   },
   "resources": [
-    { "id": "metal", "name": "Metal" },
-    { "id": "mineral", "name": "Mineral" },
-    { "id": "food", "name": "Food" },
-    { "id": "energy", "name": "Energy" },
-    { "id": "ground_space", "name": "Ground Space" },
-    { "id": "orbital_space", "name": "Orbital Space" },
-    { "id": "research_points", "name": "Research Points" }
+    {
+      "id": "metal",
+      "name": "Metal"
+    },
+    {
+      "id": "mineral",
+      "name": "Mineral"
+    },
+    {
+      "id": "food",
+      "name": "Food"
+    },
+    {
+      "id": "energy",
+      "name": "Energy"
+    },
+    {
+      "id": "ground_space",
+      "name": "Ground Space"
+    },
+    {
+      "id": "orbital_space",
+      "name": "Orbital Space"
+    },
+    {
+      "id": "research_points",
+      "name": "Research Points"
+    }
   ],
   "units": [
     {
@@ -23,8 +45,16 @@
       "cost": [],
       "build_requirements": {},
       "consumption": [
-        { "type": "resource", "id": "food", "amount_per_100_pop": 1 },
-        { "type": "housing", "category": "worker", "amount": 1 }
+        {
+          "type": "resource",
+          "id": "food",
+          "amount_per_100_pop": 1
+        },
+        {
+          "type": "housing",
+          "category": "worker",
+          "amount": 1
+        }
       ],
       "requirements": [],
       "score_value": 1
@@ -36,19 +66,49 @@
       "tier": 2,
       "build_time_turns": 4,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 12 },
-        { "type": "resource", "id": "mineral", "amount": 8 },
-        { "type": "resource", "id": "food", "amount": 20 },
-        { "type": "unit", "id": "worker", "amount": 1, "is_consumed": true }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 12
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 8
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 20
+        },
+        {
+          "type": "unit",
+          "id": "worker",
+          "amount": 1,
+          "is_consumed": true
+        }
       ],
       "build_requirements": {
         "workers_occupied": 10
       },
       "consumption": [
-        { "type": "resource", "id": "food", "amount_per_100_pop": 1 },
-        { "type": "housing", "category": "soldier", "amount": 1 }
+        {
+          "type": "resource",
+          "id": "food",
+          "amount_per_100_pop": 1
+        },
+        {
+          "type": "housing",
+          "category": "soldier",
+          "amount": 1
+        }
       ],
-      "requirements": [{ "type": "structure", "id": "army_barracks" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "army_barracks"
+        }
+      ],
       "score_value": 104
     },
     {
@@ -58,19 +118,49 @@
       "tier": 1,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 5 },
-        { "type": "resource", "id": "mineral", "amount": 20 },
-        { "type": "resource", "id": "food", "amount": 25 },
-        { "type": "unit", "id": "worker", "amount": 1, "is_consumed": true }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 5
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 20
+        },
+        {
+          "type": "resource",
+          "id": "food",
+          "amount": 25
+        },
+        {
+          "type": "unit",
+          "id": "worker",
+          "amount": 1,
+          "is_consumed": true
+        }
       ],
       "build_requirements": {
         "workers_occupied": 25
       },
       "consumption": [
-        { "type": "resource", "id": "food", "amount_per_100_pop": 1 },
-        { "type": "housing", "category": "scientist", "amount": 1 }
+        {
+          "type": "resource",
+          "id": "food",
+          "amount_per_100_pop": 1
+        },
+        {
+          "type": "housing",
+          "category": "scientist",
+          "amount": 1
+        }
       ],
-      "requirements": [{ "type": "structure", "id": "research_lab" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "research_lab"
+        }
+      ],
       "score_value": 208
     },
     {
@@ -81,16 +171,30 @@
       "tier": 2,
       "build_time_turns": 4,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 1500 },
-        { "type": "resource", "id": "mineral", "amount": 350 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1500
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 350
+        }
       ],
       "build_requirements": {
         "workers_occupied": 500
       },
       "consumption": [],
       "requirements": [
-        { "type": "structure", "id": "shipyard" },
-        { "type": "structure", "id": "light_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "shipyard"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
       ],
       "score_value": 5
     },
@@ -102,16 +206,30 @@
       "tier": 2,
       "build_time_turns": 6,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 1500 },
-        { "type": "resource", "id": "mineral", "amount": 3000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1500
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 3000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 1500
       },
       "consumption": [],
       "requirements": [
-        { "type": "structure", "id": "shipyard" },
-        { "type": "structure", "id": "light_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "shipyard"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
       ],
       "score_value": 10
     },
@@ -123,16 +241,30 @@
       "tier": 2,
       "build_time_turns": 10,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 17000 },
-        { "type": "resource", "id": "mineral", "amount": 3800 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 17000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 3800
+        }
       ],
       "build_requirements": {
         "workers_occupied": 5000
       },
       "consumption": [],
       "requirements": [
-        { "type": "structure", "id": "shipyard" },
-        { "type": "structure", "id": "light_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "shipyard"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
       ],
       "score_value": 25
     },
@@ -144,14 +276,27 @@
       "tier": 1,
       "build_time_turns": 16,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 30000 },
-        { "type": "resource", "id": "mineral", "amount": 20000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 30000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 20000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 50000
       },
       "consumption": [],
-      "requirements": [{ "type": "structure", "id": "shipyard" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "shipyard"
+        }
+      ],
       "score_value": 100
     },
     {
@@ -162,16 +307,30 @@
       "tier": 2,
       "build_time_turns": 16,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 25000 },
-        { "type": "resource", "id": "mineral", "amount": 18000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 25000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 18000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 40000
       },
       "consumption": [],
       "requirements": [
-        { "type": "structure", "id": "shipyard" },
-        { "type": "structure", "id": "light_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "shipyard"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
       ],
       "score_value": 80
     },
@@ -183,14 +342,27 @@
       "tier": 1,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 24000 },
-        { "type": "resource", "id": "mineral", "amount": 16000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 24000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 16000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 20000
       },
       "consumption": [],
-      "requirements": [{ "type": "structure", "id": "shipyard" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "shipyard"
+        }
+      ],
       "special": "Stores up to 120000 metal and 80000 mineral; capacity of 40000 shared for energy, food and colonists",
       "score_value": 50
     },
@@ -202,16 +374,30 @@
       "tier": 3,
       "build_time_turns": 20,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 160000 },
-        { "type": "resource", "id": "mineral", "amount": 37000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 160000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 37000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 50000
       },
       "consumption": [],
       "requirements": [
-        { "type": "structure", "id": "space_dock" },
-        { "type": "structure", "id": "light_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "space_dock"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
       ],
       "score_value": 200
     },
@@ -223,16 +409,30 @@
       "tier": 3,
       "build_time_turns": 14,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 25000 },
-        { "type": "resource", "id": "mineral", "amount": 50000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 25000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 25000
       },
       "consumption": [],
       "requirements": [
-        { "type": "structure", "id": "shipyard" },
-        { "type": "structure", "id": "heavy_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "shipyard"
+        },
+        {
+          "type": "structure",
+          "id": "heavy_weapons_factory"
+        }
       ],
       "score_value": 100
     },
@@ -244,16 +444,30 @@
       "tier": 3,
       "build_time_turns": 26,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 30000 },
-        { "type": "resource", "id": "mineral", "amount": 600000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 30000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 600000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 300000
       },
       "consumption": [],
       "requirements": [
-        { "type": "structure", "id": "space_dock" },
-        { "type": "structure", "id": "heavy_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "space_dock"
+        },
+        {
+          "type": "structure",
+          "id": "heavy_weapons_factory"
+        }
       ],
       "score_value": 800
     },
@@ -265,16 +479,30 @@
       "tier": 3,
       "build_time_turns": 48,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 1200000 },
-        { "type": "resource", "id": "mineral", "amount": 800000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1200000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 800000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 500000
       },
       "consumption": [],
       "requirements": [
-        { "type": "structure", "id": "space_dock" },
-        { "type": "structure", "id": "heavy_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "space_dock"
+        },
+        {
+          "type": "structure",
+          "id": "heavy_weapons_factory"
+        }
       ],
       "score_value": 2000
     },
@@ -286,14 +514,27 @@
       "tier": 1,
       "build_time_turns": 10,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 48000 },
-        { "type": "resource", "id": "mineral", "amount": 32000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 48000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 32000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 36000
       },
       "consumption": [],
-      "requirements": [{ "type": "structure", "id": "shipyard" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "shipyard"
+        }
+      ],
       "special": "Stores up to 240000 metal and 160000 mineral; capacity of 80000 shared for energy, food and colonists",
       "score_value": 100
     },
@@ -305,14 +546,27 @@
       "tier": 3,
       "build_time_turns": 12,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 72000 },
-        { "type": "resource", "id": "mineral", "amount": 48000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 72000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 48000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 60000
       },
       "consumption": [],
-      "requirements": [{ "type": "structure", "id": "space_dock" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "space_dock"
+        }
+      ],
       "special": "Stores up to 480000 metal and 320000 mineral; capacity of 160000 shared for energy, food and colonists",
       "score_value": 150
     }
@@ -332,15 +586,39 @@
       "requirements": [],
       "operations": {
         "production": [
-          { "type": "metal", "base_amount": 300, "is_abundance_scaled": true },
-          { "type": "mineral", "base_amount": 200, "is_abundance_scaled": true },
-          { "type": "food", "base_amount": 100, "is_abundance_scaled": true },
-          { "type": "energy", "base_amount": 100, "is_abundance_scaled": false }
+          {
+            "type": "metal",
+            "base_amount": 300,
+            "is_abundance_scaled": true
+          },
+          {
+            "type": "mineral",
+            "base_amount": 200,
+            "is_abundance_scaled": true
+          },
+          {
+            "type": "food",
+            "base_amount": 100,
+            "is_abundance_scaled": true
+          },
+          {
+            "type": "energy",
+            "base_amount": 100,
+            "is_abundance_scaled": false
+          }
         ],
         "consumption": [],
         "effects": [
-          { "type": "PROVIDE_HOUSING", "category": "worker", "amount": 50000 },
-          { "type": "PROVIDE_HOUSING", "category": "soldier", "amount": 100000 }
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 50000
+          },
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "soldier",
+            "amount": 100000
+          }
         ]
       },
       "max_per_planet": 1,
@@ -353,20 +631,46 @@
       "is_advanced": false,
       "build_time_turns": 4,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 1500 },
-        { "type": "resource", "id": "mineral", "amount": 1000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1500
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 1000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 5000,
-        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "outpost" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "food", "base_amount": 100, "is_abundance_scaled": true }
+          {
+            "type": "food",
+            "base_amount": 100,
+            "is_abundance_scaled": true
+          }
         ],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": []
       },
@@ -379,21 +683,46 @@
       "is_advanced": true,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 15000 },
-        { "type": "resource", "id": "mineral", "amount": 10000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 15000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 10000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 25000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "outpost" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": [
-          { "type": "UNLOCK_CATEGORY", "category": "orbital_buildings" }
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "orbital_buildings"
+          }
         ]
       },
       "max_per_planet": 1,
@@ -406,21 +735,47 @@
       "is_advanced": true,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 12000 },
-        { "type": "resource", "id": "mineral", "amount": 8000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 12000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 8000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 10000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "outpost" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": [
-          { "type": "MODIFY_ATTRIBUTE", "attribute": "growth_bonus", "value": 0.005 }
+          {
+            "type": "MODIFY_ATTRIBUTE",
+            "attribute": "growth_bonus",
+            "value": 0.005
+          }
         ]
       },
       "max_per_planet": 1,
@@ -433,21 +788,47 @@
       "is_advanced": false,
       "build_time_turns": 6,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 2400 },
-        { "type": "resource", "id": "mineral", "amount": 1600 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 2400
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 1600
+        }
       ],
       "build_requirements": {
         "workers_occupied": 25000,
-        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "outpost" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": [
-          { "type": "PROVIDE_HOUSING", "category": "worker", "amount": 50000 }
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 50000
+          }
         ]
       },
       "max_per_planet": null
@@ -459,20 +840,46 @@
       "is_advanced": false,
       "build_time_turns": 4,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 600 },
-        { "type": "resource", "id": "mineral", "amount": 2000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 600
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 2000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 5000,
-        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "outpost" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "metal", "base_amount": 300, "is_abundance_scaled": true }
+          {
+            "type": "metal",
+            "base_amount": 300,
+            "is_abundance_scaled": true
+          }
         ],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": []
       },
@@ -485,20 +892,46 @@
       "is_advanced": false,
       "build_time_turns": 4,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 3000 },
-        { "type": "resource", "id": "mineral", "amount": 400 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 3000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 400
+        }
       ],
       "build_requirements": {
         "workers_occupied": 5000,
-        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "outpost" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "mineral", "base_amount": 200, "is_abundance_scaled": true }
+          {
+            "type": "mineral",
+            "base_amount": 200,
+            "is_abundance_scaled": true
+          }
         ],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": []
       },
@@ -511,17 +944,39 @@
       "is_advanced": false,
       "build_time_turns": 4,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 1500 },
-        { "type": "resource", "id": "mineral", "amount": 1000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 1500
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 1000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 5000,
-        "space_cost": [{ "type": "ground_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 1
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "outpost" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "energy", "base_amount": 100, "is_abundance_scaled": false }
+          {
+            "type": "energy",
+            "base_amount": 100,
+            "is_abundance_scaled": false
+          }
         ],
         "consumption": [],
         "effects": []
@@ -535,22 +990,51 @@
       "is_advanced": true,
       "build_time_turns": 14,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 24000 },
-        { "type": "resource", "id": "mineral", "amount": 16000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 24000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 16000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 25000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "outpost" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": [
-          { "type": "PROVIDE_HOUSING", "category": "scientist", "amount": 25000 },
-          { "type": "UNLOCK_CATEGORY", "category": "scientist_training" }
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "scientist",
+            "amount": 25000
+          },
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "scientist_training"
+          }
         ]
       },
       "max_per_planet": 1,
@@ -563,21 +1047,46 @@
       "is_advanced": true,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 33000 },
-        { "type": "resource", "id": "mineral", "amount": 22000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 33000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 22000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 40000,
-        "space_cost": [{ "type": "orbital_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "launch_site" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "launch_site"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": [
-          { "type": "UNLOCK_CATEGORY", "category": "radar_scanning" }
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "radar_scanning"
+          }
         ]
       },
       "max_per_planet": 1,
@@ -590,21 +1099,47 @@
       "is_advanced": false,
       "build_time_turns": 6,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 4800 },
-        { "type": "resource", "id": "mineral", "amount": 3200 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 4800
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 3200
+        }
       ],
       "build_requirements": {
         "workers_occupied": 25000,
-        "space_cost": [{ "type": "orbital_space", "amount": 1 }]
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 1
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "launch_site" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "launch_site"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 20 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
         ],
         "effects": [
-          { "type": "PROVIDE_HOUSING", "category": "worker", "amount": 50000 }
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 50000
+          }
         ]
       },
       "max_per_planet": null
@@ -616,21 +1151,46 @@
       "is_advanced": true,
       "build_time_turns": 12,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 48000 },
-        { "type": "resource", "id": "mineral", "amount": 32000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 48000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 32000
+        }
       ],
       "build_requirements": {
-        "workers_occupied": 25000,
-        "space_cost": [{ "type": "orbital_space", "amount": 2 }]
+        "workers_occupied": 60000,
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "launch_site" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "launch_site"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": [
-          { "type": "UNLOCK_CATEGORY", "category": "ship_building" }
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "ship_building"
+          }
         ]
       },
       "max_per_planet": 1,
@@ -643,20 +1203,45 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 60000 },
-        { "type": "resource", "id": "mineral", "amount": 40000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 60000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 40000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 50000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "outpost" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [],
         "effects": [
-          { "type": "PROVIDE_HOUSING", "category": "worker", "amount": 100000 },
-          { "type": "UNLOCK_CATEGORY", "category": "tier_2_buildings" }
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 100000
+          },
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "tier_2_buildings"
+          }
         ]
       },
       "max_per_planet": 1,
@@ -669,20 +1254,46 @@
       "is_advanced": false,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 3600 },
-        { "type": "resource", "id": "mineral", "amount": 12000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 3600
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 12000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 40000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "colony" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "metal", "base_amount": 900, "is_abundance_scaled": true }
+          {
+            "type": "metal",
+            "base_amount": 900,
+            "is_abundance_scaled": true
+          }
         ],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 20 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
         ],
         "effects": []
       },
@@ -695,20 +1306,46 @@
       "is_advanced": false,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 18000 },
-        { "type": "resource", "id": "mineral", "amount": 2400 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 18000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 2400
+        }
       ],
       "build_requirements": {
         "workers_occupied": 40000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "colony" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "mineral", "base_amount": 600, "is_abundance_scaled": true }
+          {
+            "type": "mineral",
+            "base_amount": 600,
+            "is_abundance_scaled": true
+          }
         ],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 20 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
         ],
         "effects": []
       },
@@ -721,23 +1358,50 @@
       "is_advanced": false,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 9000 },
-        { "type": "resource", "id": "mineral", "amount": 6000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 9000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 6000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 40000,
-        "space_cost": [{ "type": "orbital_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
       },
       "requirements": [
-        { "type": "structure", "id": "launch_site" },
-        { "type": "structure", "id": "colony" }
+        {
+          "type": "structure",
+          "id": "launch_site"
+        },
+        {
+          "type": "structure",
+          "id": "colony"
+        }
       ],
       "operations": {
         "production": [
-          { "type": "food", "base_amount": 300, "is_abundance_scaled": true }
+          {
+            "type": "food",
+            "base_amount": 300,
+            "is_abundance_scaled": true
+          }
         ],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 20 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
         ],
         "effects": []
       },
@@ -750,21 +1414,46 @@
       "is_advanced": true,
       "build_time_turns": 12,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 30000 },
-        { "type": "resource", "id": "mineral", "amount": 20000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 30000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 20000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 40000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "colony" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": [
-          { "type": "UNLOCK_CATEGORY", "category": "warships_barracks" }
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "warships_barracks"
+          }
         ]
       },
       "max_per_planet": 1,
@@ -777,20 +1466,43 @@
       "is_advanced": false,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 9000 },
-        { "type": "resource", "id": "mineral", "amount": 6000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 9000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 6000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 40000,
-        "space_cost": [{ "type": "orbital_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
       },
       "requirements": [
-        { "type": "structure", "id": "launch_site" },
-        { "type": "structure", "id": "colony" }
+        {
+          "type": "structure",
+          "id": "launch_site"
+        },
+        {
+          "type": "structure",
+          "id": "colony"
+        }
       ],
       "operations": {
         "production": [
-          { "type": "energy", "base_amount": 300, "is_abundance_scaled": false }
+          {
+            "type": "energy",
+            "base_amount": 300,
+            "is_abundance_scaled": false
+          }
         ],
         "consumption": [],
         "effects": []
@@ -804,22 +1516,51 @@
       "is_advanced": true,
       "build_time_turns": 8,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 12000 },
-        { "type": "resource", "id": "mineral", "amount": 8000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 12000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 8000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 25000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "light_weapons_factory" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": [
-          { "type": "PROVIDE_HOUSING", "category": "soldier", "amount": 400000 },
-          { "type": "UNLOCK_CATEGORY", "category": "soldier_production" }
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "soldier",
+            "amount": 400000
+          },
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "soldier_production"
+          }
         ]
       },
       "max_per_planet": null,
@@ -832,24 +1573,51 @@
       "is_advanced": true,
       "build_time_turns": 16,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 39000 },
-        { "type": "resource", "id": "mineral", "amount": 26000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 39000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 26000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 40000,
-        "space_cost": [{ "type": "orbital_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 2
+          }
+        ]
       },
       "requirements": [
-        { "type": "structure", "id": "launch_site" },
-        { "type": "structure", "id": "colony" }
+        {
+          "type": "structure",
+          "id": "launch_site"
+        },
+        {
+          "type": "structure",
+          "id": "colony"
+        }
       ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 20 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
         ],
         "effects": [
-          { "type": "MODIFY_ATTRIBUTE", "attribute": "travel_time_reduction", "value": 0.5 }
+          {
+            "type": "MODIFY_ATTRIBUTE",
+            "attribute": "travel_time_reduction",
+            "value": 0.5
+          }
         ]
       },
       "max_per_planet": 1,
@@ -862,24 +1630,51 @@
       "is_advanced": true,
       "build_time_turns": 10,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 36000 },
-        { "type": "resource", "id": "mineral", "amount": 24000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 36000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 24000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 20000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
       "requirements": [
-        { "type": "structure", "id": "leisure_centre" },
-        { "type": "structure", "id": "colony" }
+        {
+          "type": "structure",
+          "id": "leisure_centre"
+        },
+        {
+          "type": "structure",
+          "id": "colony"
+        }
       ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 20 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 20
+          }
         ],
         "effects": [
-          { "type": "MODIFY_ATTRIBUTE", "attribute": "growth_bonus", "value": 0.005 }
+          {
+            "type": "MODIFY_ATTRIBUTE",
+            "attribute": "growth_bonus",
+            "value": 0.005
+          }
         ]
       },
       "max_per_planet": 1,
@@ -892,21 +1687,47 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 75000 },
-        { "type": "resource", "id": "mineral", "amount": 50000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 75000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 100000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "colony" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 40 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 40
+          }
         ],
         "effects": [
-          { "type": "MODIFY_ATTRIBUTE", "attribute": "metal_abundance", "value": 0.30 }
+          {
+            "type": "MODIFY_ATTRIBUTE",
+            "attribute": "metal_abundance",
+            "value": 0.3
+          }
         ]
       },
       "max_per_planet": 1,
@@ -919,21 +1740,47 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 75000 },
-        { "type": "resource", "id": "mineral", "amount": 50000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 75000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 100000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "colony" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 40 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 40
+          }
         ],
         "effects": [
-          { "type": "MODIFY_ATTRIBUTE", "attribute": "mineral_abundance", "value": 0.30 }
+          {
+            "type": "MODIFY_ATTRIBUTE",
+            "attribute": "mineral_abundance",
+            "value": 0.3
+          }
         ]
       },
       "max_per_planet": 1,
@@ -946,21 +1793,47 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 75000 },
-        { "type": "resource", "id": "mineral", "amount": 50000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 75000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 100000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "colony" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 40 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 40
+          }
         ],
         "effects": [
-          { "type": "MODIFY_ATTRIBUTE", "attribute": "food_abundance", "value": 0.30 }
+          {
+            "type": "MODIFY_ATTRIBUTE",
+            "attribute": "food_abundance",
+            "value": 0.3
+          }
         ]
       },
       "max_per_planet": 1,
@@ -973,21 +1846,47 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 75000 },
-        { "type": "resource", "id": "mineral", "amount": 50000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 75000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 50000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 100000,
-        "space_cost": [{ "type": "ground_space", "amount": 2 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "colony" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 40 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 40
+          }
         ],
         "effects": [
-          { "type": "MODIFY_ATTRIBUTE", "attribute": "energy_abundance", "value": 0.30 }
+          {
+            "type": "MODIFY_ATTRIBUTE",
+            "attribute": "energy_abundance",
+            "value": 0.3
+          }
         ]
       },
       "max_per_planet": 1,
@@ -1000,20 +1899,45 @@
       "is_advanced": true,
       "build_time_turns": 48,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 120000 },
-        { "type": "resource", "id": "mineral", "amount": 80000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 120000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 80000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 160000,
-        "space_cost": [{ "type": "ground_space", "amount": 4 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 4
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "colony" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "colony"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [],
         "effects": [
-          { "type": "PROVIDE_HOUSING", "category": "worker", "amount": 200000 },
-          { "type": "UNLOCK_CATEGORY", "category": "tier_3_buildings" }
+          {
+            "type": "PROVIDE_HOUSING",
+            "category": "worker",
+            "amount": 200000
+          },
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "tier_3_buildings"
+          }
         ]
       },
       "max_per_planet": 1,
@@ -1026,22 +1950,39 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 144000 },
-        { "type": "resource", "id": "mineral", "amount": 96000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 144000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 96000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 240000,
         "space_cost": []
       },
       "requirements": [
-        { "type": "structure", "id": "metropolis" },
-        { "type": "structure", "id": "shipyard" }
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "structure",
+          "id": "shipyard"
+        }
       ],
       "operations": {
         "production": [],
         "consumption": [],
         "effects": [
-          { "type": "UNLOCK_CATEGORY", "category": "advanced_ships" }
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "advanced_ships"
+          }
         ]
       },
       "max_per_planet": null,
@@ -1054,24 +1995,50 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 90000 },
-        { "type": "resource", "id": "mineral", "amount": 60000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 90000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 60000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 200000,
-        "space_cost": [{ "type": "ground_space", "amount": 4 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 4
+          }
+        ]
       },
       "requirements": [
-        { "type": "structure", "id": "metropolis" },
-        { "type": "structure", "id": "light_weapons_factory" }
+        {
+          "type": "structure",
+          "id": "metropolis"
+        },
+        {
+          "type": "structure",
+          "id": "light_weapons_factory"
+        }
       ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 10 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
         ],
         "effects": [
-          { "type": "UNLOCK_CATEGORY", "category": "heavy_warships" }
+          {
+            "type": "UNLOCK_CATEGORY",
+            "category": "heavy_warships"
+          }
         ]
       },
       "max_per_planet": 1,
@@ -1088,12 +2055,21 @@
         "workers_occupied": 100000,
         "space_cost": []
       },
-      "requirements": [{ "type": "structure", "id": "metropolis" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [],
         "effects": [
-          { "type": "PROVIDE_SPACE", "space_type": "ground", "amount": 1 }
+          {
+            "type": "PROVIDE_SPACE",
+            "space_type": "ground",
+            "amount": 1
+          }
         ]
       },
       "max_per_planet": null,
@@ -1110,12 +2086,21 @@
         "workers_occupied": 100000,
         "space_cost": []
       },
-      "requirements": [{ "type": "structure", "id": "metropolis" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        }
+      ],
       "operations": {
         "production": [],
         "consumption": [],
         "effects": [
-          { "type": "PROVIDE_SPACE", "space_type": "orbital", "amount": 1 }
+          {
+            "type": "PROVIDE_SPACE",
+            "space_type": "orbital",
+            "amount": 1
+          }
         ]
       },
       "max_per_planet": null,
@@ -1128,24 +2113,51 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 156000 },
-        { "type": "resource", "id": "mineral", "amount": 104000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 156000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 104000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 160000,
-        "space_cost": [{ "type": "orbital_space", "amount": 4 }]
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 4
+          }
+        ]
       },
       "requirements": [
-        { "type": "structure", "id": "launch_site" },
-        { "type": "structure", "id": "metropolis" }
+        {
+          "type": "structure",
+          "id": "launch_site"
+        },
+        {
+          "type": "structure",
+          "id": "metropolis"
+        }
       ],
       "operations": {
         "production": [],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 40 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 40
+          }
         ],
         "effects": [
-          { "type": "MODIFY_ATTRIBUTE", "attribute": "jump_gate_active", "value": 1 }
+          {
+            "type": "MODIFY_ATTRIBUTE",
+            "attribute": "jump_gate_active",
+            "value": 1
+          }
         ]
       },
       "max_per_planet": 1,
@@ -1158,20 +2170,46 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 72000 },
-        { "type": "resource", "id": "mineral", "amount": 240000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 72000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 240000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 200000,
-        "space_cost": [{ "type": "ground_space", "amount": 6 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 6
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "metropolis" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "metal", "base_amount": 9000, "is_abundance_scaled": true }
+          {
+            "type": "metal",
+            "base_amount": 9000,
+            "is_abundance_scaled": true
+          }
         ],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 60 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 60
+          }
         ],
         "effects": []
       },
@@ -1184,20 +2222,46 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 360000 },
-        { "type": "resource", "id": "mineral", "amount": 48000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 360000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 48000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 200000,
-        "space_cost": [{ "type": "ground_space", "amount": 6 }]
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 6
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "metropolis" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "mineral", "base_amount": 6000, "is_abundance_scaled": true }
+          {
+            "type": "mineral",
+            "base_amount": 6000,
+            "is_abundance_scaled": true
+          }
         ],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 60 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 60
+          }
         ],
         "effects": []
       },
@@ -1210,20 +2274,46 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 180000 },
-        { "type": "resource", "id": "mineral", "amount": 120000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 180000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 120000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 200000,
-        "space_cost": [{ "type": "orbital_space", "amount": 6 }]
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 6
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "metropolis" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "food", "base_amount": 3000, "is_abundance_scaled": true }
+          {
+            "type": "food",
+            "base_amount": 3000,
+            "is_abundance_scaled": true
+          }
         ],
         "consumption": [
-          { "type": "resource", "id": "energy", "amount": 60 }
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 60
+          }
         ],
         "effects": []
       },
@@ -1236,25 +2326,1115 @@
       "is_advanced": true,
       "build_time_turns": 24,
       "cost": [
-        { "type": "resource", "id": "metal", "amount": 180000 },
-        { "type": "resource", "id": "mineral", "amount": 120000 }
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 180000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 120000
+        }
       ],
       "build_requirements": {
         "workers_occupied": 200000,
-        "space_cost": [{ "type": "orbital_space", "amount": 6 }]
+        "space_cost": [
+          {
+            "type": "orbital_space",
+            "amount": 6
+          }
+        ]
       },
-      "requirements": [{ "type": "structure", "id": "metropolis" }],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "metropolis"
+        }
+      ],
       "operations": {
         "production": [
-          { "type": "energy", "base_amount": 3000, "is_abundance_scaled": false }
+          {
+            "type": "energy",
+            "base_amount": 3000,
+            "is_abundance_scaled": false
+          }
         ],
         "consumption": [],
         "effects": []
       },
       "max_per_planet": 1
     }
+  ],
+  "research": [
+    {
+      "id": "planet_management",
+      "name": "Planet Management",
+      "category": "research",
+      "tier": 1,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 100
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_research",
+          "items": [
+            "pl_6"
+          ]
+        }
+      ],
+      "score_value": 1
+    },
+    {
+      "id": "resource_collection",
+      "name": "Resource Collection",
+      "category": "research",
+      "tier": 1,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 100
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_research",
+          "items": [
+            "core_metal_mine_research",
+            "core_mineral_extractor_research",
+            "hydroponics_lab_research",
+            "solar_array_research",
+            "mass_production",
+            "land_enhancement"
+          ]
+        }
+      ],
+      "score_value": 1
+    },
+    {
+      "id": "fleet_technology",
+      "name": "Fleet Technology",
+      "category": "research",
+      "tier": 1,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 100
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_research",
+          "items": [
+            "merchant_research",
+            "trader_research",
+            "war_ship_design",
+            "warp_theory"
+          ]
+        }
+      ],
+      "score_value": 1
+    },
+    {
+      "id": "pl_6",
+      "name": "PL 6",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 500
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "planet_management"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 6
+        }
+      ],
+      "score_value": 5
+    },
+    {
+      "id": "pl_8",
+      "name": "PL 8",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 100
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "pl_6"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 8
+        }
+      ],
+      "score_value": 1
+    },
+    {
+      "id": "pl_10",
+      "name": "PL 10",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 2000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "pl_8"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 10
+        }
+      ],
+      "score_value": 20
+    },
+    {
+      "id": "pl_12",
+      "name": "PL 12",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 5000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "pl_10"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 12
+        }
+      ],
+      "score_value": 50
+    },
+    {
+      "id": "pl_14",
+      "name": "PL 14",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 5000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "pl_12"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 14
+        }
+      ],
+      "score_value": 50
+    },
+    {
+      "id": "pl_16",
+      "name": "PL 16",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 10000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "pl_14"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 16
+        }
+      ],
+      "score_value": 100
+    },
+    {
+      "id": "pl_18",
+      "name": "PL 18",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 10000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "pl_16"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 18
+        }
+      ],
+      "score_value": 100
+    },
+    {
+      "id": "pl_20",
+      "name": "PL 20",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 25000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "pl_18"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 20
+        }
+      ],
+      "score_value": 250
+    },
+    {
+      "id": "pl_22",
+      "name": "PL 22",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 25000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "pl_20"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 22
+        }
+      ],
+      "score_value": 250
+    },
+    {
+      "id": "pl_24",
+      "name": "PL 24",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 25000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "pl_22"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_planet_limit",
+          "value": 24
+        }
+      ],
+      "score_value": 250
+    },
+    {
+      "id": "merchant_research",
+      "name": "Merchant Research",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 10000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "fleet_technology"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "merchant"
+        }
+      ],
+      "score_value": 100
+    },
+    {
+      "id": "trader_research",
+      "name": "Trader Research",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 72,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "fleet_technology"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "trader"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "war_ship_design",
+      "name": "War Ship Design",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 2000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "fleet_technology"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_research",
+          "items": [
+            "destroyer_research",
+            "cruiser_research",
+            "battleship_research"
+          ]
+        }
+      ],
+      "score_value": 20
+    },
+    {
+      "id": "warp_theory",
+      "name": "Warp Theory",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 5000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "fleet_technology"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_research",
+          "items": [
+            "hyperspace_beacon_research",
+            "jump_gate_research"
+          ]
+        }
+      ],
+      "score_value": 50
+    },
+    {
+      "id": "destroyer_research",
+      "name": "Destroyer Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 96,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 20000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "war_ship_design"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "destroyer"
+        }
+      ],
+      "score_value": 200
+    },
+    {
+      "id": "cruiser_research",
+      "name": "Cruiser Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 96,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 100000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "war_ship_design"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "cruiser"
+        }
+      ],
+      "score_value": 1000
+    },
+    {
+      "id": "battleship_research",
+      "name": "Battleship Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 144,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 500000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "war_ship_design"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "battleship"
+        }
+      ],
+      "score_value": 5000
+    },
+    {
+      "id": "hyperspace_beacon_research",
+      "name": "Hyperspace Beacon Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 96,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "warp_theory"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "hyperspace_beacon"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "jump_gate_research",
+      "name": "Jump Gate Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 96,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "warp_theory"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "jump_gate"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "core_metal_mine_research",
+      "name": "Core Metal Mine Research",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 5000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "resource_collection"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "core_metal_mine"
+        }
+      ],
+      "score_value": 50
+    },
+    {
+      "id": "core_mineral_extractor_research",
+      "name": "Core Mineral Extractor Research",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 5000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "resource_collection"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "core_mineral_extractor"
+        }
+      ],
+      "score_value": 50
+    },
+    {
+      "id": "hydroponics_lab_research",
+      "name": "Hydroponics Lab Research",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 5000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "resource_collection"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "hydroponics_lab"
+        }
+      ],
+      "score_value": 50
+    },
+    {
+      "id": "solar_array_research",
+      "name": "Solar Array Research",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 5000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "resource_collection"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "solar_array"
+        }
+      ],
+      "score_value": 50
+    },
+    {
+      "id": "mass_production",
+      "name": "Mass Production",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 48,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 12000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "resource_collection"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_research",
+          "items": [
+            "strip_metal_mine_research",
+            "strip_mineral_extractor_research",
+            "hydroponics_dome_research",
+            "solar_station_research"
+          ]
+        }
+      ],
+      "score_value": 120
+    },
+    {
+      "id": "land_enhancement",
+      "name": "Land Enhancement",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 25000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "resource_collection"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_research",
+          "items": [
+            "metal_refinery_research",
+            "mineral_processor_research",
+            "food_purifier_research",
+            "energy_booster_research"
+          ]
+        }
+      ],
+      "score_value": 250
+    },
+    {
+      "id": "metal_refinery_research",
+      "name": "Metal Refinery Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "land_enhancement"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "metal_refinery"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "mineral_processor_research",
+      "name": "Mineral Processor Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "land_enhancement"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "mineral_processor"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "food_purifier_research",
+      "name": "Food Purifier Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "land_enhancement"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "food_purifier"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "energy_booster_research",
+      "name": "Energy Booster Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "land_enhancement"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "energy_booster"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "strip_metal_mine_research",
+      "name": "Strip Metal Mine Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 96,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "mass_production"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "strip_metal_mine"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "strip_mineral_extractor_research",
+      "name": "Strip Mineral Extractor Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 96,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "mass_production"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "strip_mineral_extractor"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "hydroponics_dome_research",
+      "name": "Hydroponics Dome Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 96,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "mass_production"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "hydroponics_dome"
+        }
+      ],
+      "score_value": 500
+    },
+    {
+      "id": "solar_station_research",
+      "name": "Solar Station Research",
+      "category": "research",
+      "tier": 2,
+      "build_time_turns": 96,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "mass_production"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "solar_station"
+        }
+      ],
+      "score_value": 500
+    }
   ]
 }
-
-
-##generic comment for testing purposes
