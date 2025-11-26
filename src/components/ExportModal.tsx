@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState } from 'react';
-import html2canvas from 'html2canvas';
 import type { LaneView } from '../lib/game/selectors';
-import { formatAsText, formatAsDiscord, copyToClipboard } from '../lib/export/formatters';
+import { formatAsText, formatAsDiscord, copyToClipboard, extractQueueItems } from '../lib/export/formatters';
 
 export interface ExportModalProps {
   isOpen: boolean;
@@ -22,7 +21,7 @@ export interface ExportModalProps {
  * Supports three export types:
  * - Plain Text: Simple list format
  * - Discord: Formatted table with character limit check
- * - Image: PNG screenshot (requires html2canvas)
+ * - Image: PNG rendered via canvas with watermark
  */
 export function ExportModal({
   isOpen,
@@ -78,21 +77,83 @@ export function ExportModal({
 
   const handleExportImage = async () => {
     try {
-      // Find the Planet Queue section to capture
-      const queueSection = document.querySelector('[data-export-target="planet-queue"]');
+      const items = extractQueueItems(laneViews, maxTurn);
 
-      if (!queueSection) {
-        showNotification('✗ Could not find queue display');
+      if (items.length === 0) {
+        showNotification('Queue is empty - nothing to export');
         return;
       }
 
-      // Capture the element as canvas
-      const canvas = await html2canvas(queueSection as HTMLElement, {
-        backgroundColor: '#1a1625', // Match pink-nebula-bg
-        scale: 2, // Higher quality
+      // Group items by turn
+      const turnGroups = new Map<number, typeof items>();
+      items.forEach(item => {
+        if (!turnGroups.has(item.turn)) {
+          turnGroups.set(item.turn, []);
+        }
+        turnGroups.get(item.turn)!.push(item);
       });
 
-      // Convert to blob and download
+      const sortedTurns = Array.from(turnGroups.keys()).sort((a, b) => a - b);
+
+      // Canvas setup
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d')!;
+
+      // Sizing
+      const padding = 40;
+      const lineHeight = 28;
+      const headerHeight = 60;
+      const watermarkHeight = 40;
+      const canvasWidth = 500;
+      const canvasHeight = headerHeight + (sortedTurns.length * lineHeight) + watermarkHeight + padding * 2;
+
+      canvas.width = canvasWidth;
+      canvas.height = canvasHeight;
+
+      // Background
+      ctx.fillStyle = '#1a1625';
+      ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+      // Header
+      ctx.fillStyle = '#e0d4f7';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillText('Build Order', padding, padding + 24);
+
+      ctx.fillStyle = '#9d8ec2';
+      ctx.font = '14px sans-serif';
+      ctx.fillText(`Turn ${currentTurn}`, padding, padding + 48);
+
+      // Build list
+      let y = padding + headerHeight;
+      ctx.font = '16px monospace';
+
+      sortedTurns.forEach(turn => {
+        const turnItems = turnGroups.get(turn)!;
+
+        // Format: [Turn] - Building, Ship, Colonist
+        const parts: string[] = [];
+
+        const building = turnItems.find(i => i.lane === 'building');
+        const ship = turnItems.find(i => i.lane === 'ship');
+        const colonist = turnItems.find(i => i.lane === 'colonist');
+
+        if (building) parts.push(building.name);
+        if (ship) parts.push(`${ship.quantity}x ${ship.name}`);
+        if (colonist) parts.push(`${colonist.quantity}x ${colonist.name}`);
+
+        const text = `[${String(turn).padStart(3)}] ${parts.join(', ')}`;
+
+        ctx.fillStyle = '#c4b5e0';
+        ctx.fillText(text, padding, y);
+        y += lineHeight;
+      });
+
+      // Watermark
+      ctx.fillStyle = '#6b5a8e';
+      ctx.font = 'italic 12px sans-serif';
+      ctx.fillText('Infinite Conflict Build Planner', padding, canvasHeight - 20);
+
+      // Download
       canvas.toBlob((blob) => {
         if (!blob) {
           showNotification('✗ Failed to generate image');
@@ -107,7 +168,7 @@ export function ExportModal({
         URL.revokeObjectURL(url);
 
         showNotification('✓ Image downloaded!');
-      });
+      }, 'image/png');
     } catch (error) {
       console.error('Image export error:', error);
       showNotification('✗ Failed to export image');
