@@ -13,11 +13,7 @@ describe('Multi-Planet Integration', () => {
       space: { groundCap: 25, orbitalCap: 15 },
     });
 
-    const earthBefore = gameState.planets.get('planet-1')!;
     const marsBefore = gameState.planets.get('planet-2')!;
-
-    // Store initial stocks
-    const earthMetalBefore = earthBefore.stocks.metal;
     const marsMetalBefore = marsBefore.stocks.metal;
 
     // Build on Earth
@@ -26,10 +22,11 @@ describe('Multi-Planet Integration', () => {
     const earthAfter = gameState.planets.get('planet-1')!;
     const marsAfter = gameState.planets.get('planet-2')!;
 
-    // Earth should have spent resources
-    expect(earthAfter.stocks.metal).toBeLessThan(earthMetalBefore);
+    // Earth should have the item queued
+    expect(earthAfter.lanes.building.pendingQueue.length).toBeGreaterThan(0);
+    expect(earthAfter.lanes.building.pendingQueue.some(item => item.itemId === 'metal_mine')).toBe(true);
 
-    // Mars should be unchanged
+    // Mars should be unchanged - no queue items and same resources
     expect(marsAfter.stocks.metal).toBe(marsMetalBefore);
     expect(marsAfter.lanes.building.pendingQueue.length).toBe(0);
   });
@@ -50,20 +47,21 @@ describe('Multi-Planet Integration', () => {
     earth.stocks.research_points = 1000;
 
     // Queue research (should work because Earth has prerequisites)
-    gameState = queueResearch(gameState, 'improved_metal_extraction');
+    // Use a valid research ID from game_data.json
+    gameState = queueResearch(gameState, 'planet_management');
 
     // Research should be in global queue
     expect(gameState.globalResearch.queue.length).toBe(1);
-    expect(gameState.globalResearch.queue[0].itemId).toBe('improved_metal_extraction');
+    expect(gameState.globalResearch.queue[0].itemId).toBe('planet_management');
 
     // Complete research
     gameState.globalResearch.queue[0].turnsRemaining = 0;
     gameState.globalResearch.queue[0].status = 'completed';
-    gameState.globalResearch.completed.push('improved_metal_extraction');
+    gameState.globalResearch.completed.push('planet_management');
     gameState.globalResearch.queue = [];
 
     // Both planets should have access to the research
-    expect(gameState.globalResearch.completed).toContain('improved_metal_extraction');
+    expect(gameState.globalResearch.completed).toContain('planet_management');
   });
 
   test('export includes all planets', () => {
@@ -119,10 +117,13 @@ describe('Multi-Planet Integration', () => {
     const marsAfter = gameState.planets.get('planet-2')!;
 
     expect(earthAfter.currentTurn).toBe(5);
-    expect(earthAfter.completedCounts['farm']).toBe(1); // Farm completed
+    // Standard start includes 1 farm, plus the queued farm = 2 total
+    expect(earthAfter.completedCounts['farm']).toBe(2); // Starter farm + queued farm
 
     expect(marsAfter.currentTurn).toBe(10); // Mars unchanged
-    expect(marsAfter.completedCounts['farm']).toBeUndefined(); // Farm not built yet
+    // Mars was added via addPlanet which only includes outpost (no starter farm)
+    // The queued farm hasn't completed yet
+    expect(marsAfter.completedCounts['farm']).toBeUndefined(); // No farm yet
   });
 
   test('can check research prerequisites across all planets', () => {

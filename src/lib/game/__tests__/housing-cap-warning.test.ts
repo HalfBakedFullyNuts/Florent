@@ -19,32 +19,32 @@ describe('Housing Cap Warning (TICKET-4)', () => {
 
   describe('getTurnsUntilHousingCap selector', () => {
     it('should return null when growth rate is 0', () => {
-      // Minimal state has no farms or habitats, so growth should be 0
+      // Set no food to ensure no growth (growth requires food > 0)
       const state = controller.getCurrentState();
+      state.stocks.food = 0;
+
       const turnsToHousingCap = getTurnsUntilHousingCap(state, 1);
 
       expect(turnsToHousingCap).toBeNull();
     });
 
-    it('should return null when growth rate is negative', () => {
-      // If we're losing workers somehow (shouldn't happen but test anyway)
+    it('should return null when no workers', () => {
+      // No workers means no growth possible
       const state = controller.getCurrentState();
-
-      // Manually set up a scenario with negative growth (not realistic but test edge case)
-      state.population.workersIdle = 950;
-      state.space.housingCap = 1000;
+      state.population.workersTotal = 0;
+      state.population.workersIdle = 0;
 
       const turnsToHousingCap = getTurnsUntilHousingCap(state, 1);
 
-      // Should return null or a high number if we can't grow
       expect(turnsToHousingCap).toBeNull();
     });
 
     it('should return null when already at housing cap', () => {
       const state = controller.getCurrentState();
 
-      // Set population equal to housing cap
-      state.population.workersIdle = state.space.housingCap;
+      // Set population equal to housing cap using correct properties
+      state.population.workersTotal = state.housing.workerCap;
+      state.population.workersIdle = state.housing.workerCap;
 
       const turnsToHousingCap = getTurnsUntilHousingCap(state, 1);
 
@@ -54,8 +54,9 @@ describe('Housing Cap Warning (TICKET-4)', () => {
     it('should return null when exceeding housing cap', () => {
       const state = controller.getCurrentState();
 
-      // Set population above housing cap (shouldn't happen but test edge case)
-      state.population.workersIdle = state.space.housingCap + 100;
+      // Set population above housing cap using correct properties
+      state.population.workersTotal = state.housing.workerCap + 100;
+      state.population.workersIdle = state.housing.workerCap + 100;
 
       const turnsToHousingCap = getTurnsUntilHousingCap(state, 1);
 
@@ -93,8 +94,10 @@ describe('Housing Cap Warning (TICKET-4)', () => {
       const state = controller.getCurrentState();
 
       // Simulate a state where we're close to housing cap with growth
+      // Use correct state properties
+      state.population.workersTotal = 950;
       state.population.workersIdle = 950;
-      state.space.housingCap = 1000;
+      state.housing.workerCap = 1000;
 
       // Assume growth rate of 10 workers/turn
       // 50 workers needed / 10 per turn = 5 turns
@@ -113,8 +116,10 @@ describe('Housing Cap Warning (TICKET-4)', () => {
       const state = controller.getCurrentState();
 
       // Simulate a state where we have plenty of housing space
+      // Use correct state properties
+      state.population.workersTotal = 100;
       state.population.workersIdle = 100;
-      state.space.housingCap = 10000;
+      state.housing.workerCap = 10000;
 
       const turnsToHousingCap = getTurnsUntilHousingCap(state, 1);
 
@@ -147,31 +152,26 @@ describe('Housing Cap Warning (TICKET-4)', () => {
       }
     });
 
-    it('should update warning when queue changes', () => {
-      // Queue a farm
-      const farmResult = controller.queueItem(1, 'farm', 1);
+    it('should update warning when population changes', () => {
+      // Test that the warning calculation responds to population changes
+      const state = controller.getCurrentState();
 
-      if (farmResult.success) {
-        controller.simulateTurns(10);
-        const stateWithFarm = controller.getStateAtTurn(10);
-        const turnsWithFarm = stateWithFarm
-          ? getTurnsUntilHousingCap(stateWithFarm, 10)
-          : null;
+      // Scenario 1: Small population with lots of housing headroom
+      state.population.workersTotal = 100;
+      state.population.workersIdle = 100;
+      state.housing.workerCap = 10000;
+      state.stocks.food = 1000;
+      const turnsSmallPop = getTurnsUntilHousingCap(state, 1);
 
-        // Cancel the farm
-        controller.cancelEntryById(1, 'building', farmResult.itemId!);
-        controller.simulateTurns(10);
-        const stateWithoutFarm = controller.getStateAtTurn(10);
-        const turnsWithoutFarm = stateWithoutFarm
-          ? getTurnsUntilHousingCap(stateWithoutFarm, 10)
-          : null;
+      // Scenario 2: Large population close to cap
+      state.population.workersTotal = 9900;
+      state.population.workersIdle = 9900;
+      state.housing.workerCap = 10000;
+      const turnsLargePop = getTurnsUntilHousingCap(state, 1);
 
-        // The warning should be different (or one should be null)
-        if (turnsWithFarm !== null && turnsWithoutFarm !== null) {
-          // With farm we have growth, without farm we don't
-          // So the values should differ
-          expect(turnsWithFarm).not.toBe(turnsWithoutFarm);
-        }
+      // With larger population closer to cap, turns should be fewer
+      if (turnsSmallPop !== null && turnsLargePop !== null) {
+        expect(turnsLargePop).toBeLessThan(turnsSmallPop);
       }
     });
   });

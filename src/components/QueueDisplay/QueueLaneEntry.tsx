@@ -117,7 +117,16 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
       `}
     >
       {/* Structured table-like layout */}
-      <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-x-4 items-center text-sm font-mono">
+      <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 items-center text-sm font-mono">
+        {/* Turn Range: Tx - Ty */}
+        <div className="text-pink-nebula-muted w-24">
+          {(() => {
+            const startT = entry.startTurn ?? entry.queuedTurn ?? '?';
+            const endT = entry.completionTurn ?? (entry.eta !== null ? entry.eta : '?');
+            return `T${startT} - T${endT}`;
+          })()}
+        </div>
+
         {/* Item Name */}
         <div className="text-pink-nebula-text truncate">
           {entry.itemName}
@@ -149,11 +158,6 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
           {entry.turnsRemaining !== undefined ? `${entry.turnsRemaining}T` : `${def?.duration || '—'}T`}
         </div>
 
-        {/* Completion Turn */}
-        <div className="text-pink-nebula-muted text-right w-32">
-          {entry.completionTurn ? `(Completes T${entry.completionTurn})` : ''}
-        </div>
-
         {/* Remove indicator */}
         <div className="w-4 text-right">
           {!disabled && entry.status !== 'completed' && (
@@ -179,6 +183,8 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.entry.status === nextProps.entry.status &&
     prevProps.entry.quantity === nextProps.entry.quantity &&
     prevProps.entry.eta === nextProps.entry.eta &&
+    prevProps.entry.startTurn === nextProps.entry.startTurn &&
+    prevProps.entry.queuedTurn === nextProps.entry.queuedTurn &&
     prevProps.entry.completionTurn === nextProps.entry.completionTurn &&
     prevProps.entry.invalid === nextProps.entry.invalid &&
     prevProps.currentTurn === nextProps.currentTurn &&

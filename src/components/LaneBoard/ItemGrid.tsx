@@ -350,7 +350,7 @@ export function ItemGrid({
               Object.entries(availableItems[batchingItem].costsPerUnit).map(([k, v]) => [k, (v as number) * batchQuantity])
             ) : {}}).map(({ resource, amount, color }) => (
               <span key={resource} className={color}>
-                {resource.charAt(0).toUpperCase()}:{amount}
+                {resource.charAt(0).toUpperCase()}:{amount.toLocaleString('de-DE')}
               </span>
             ))}
           </div>

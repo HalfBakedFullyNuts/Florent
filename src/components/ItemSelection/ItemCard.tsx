@@ -139,6 +139,23 @@ interface ItemTooltipProps {
 }
 
 function ItemTooltip({ itemDef, available, locked, queueableWithWait, waitTurnsNeeded, currentState }: ItemTooltipProps) {
+  const getResourceColor = (resource: string): string => {
+    switch (resource) {
+      case 'metal': return 'text-gray-300'; // silver
+      case 'mineral': return 'text-red-500'; // red
+      case 'food': return 'text-green-500'; // green
+      case 'energy': return 'text-blue-400'; // blue
+      case 'research_points': return 'text-purple-400';
+      case 'workers': return 'text-orange-400'; // orange
+      case 'space': return 'text-amber-600'; // brown
+      default: return 'text-pink-nebula-muted';
+    }
+  };
+
+  const formatNumber = (num: number): string => {
+    return num.toLocaleString('de-DE');
+  };
+
   return (
     <div className="absolute z-10 bg-gray-900 border border-pink-nebula-border p-3 rounded shadow-xl w-64 top-full mt-2 left-0">
       <h4 className="font-bold text-pink-nebula-text mb-2">{itemDef.name}</h4>
@@ -154,9 +171,10 @@ function ItemTooltip({ itemDef, available, locked, queueableWithWait, waitTurnsN
           <div className="font-semibold text-pink-nebula-text">Costs:</div>
           {Object.entries(itemDef.costsPerUnit.resources || {}).map(([resource, amount]: [string, any]) => {
             const sufficient = !currentState || (currentState.stocks?.[resource] || 0) >= amount;
+            const baseColor = getResourceColor(resource);
             return (
-              <div key={resource} className={sufficient ? 'text-pink-nebula-muted' : 'text-red-400'}>
-                {resource}: {amount} {!sufficient && `(Need ${amount - (currentState?.stocks?.[resource] || 0)})`}
+              <div key={resource} className={sufficient ? baseColor : 'text-red-400'}>
+                {resource}: {formatNumber(amount)} {!sufficient && `(Need ${formatNumber(amount - (currentState?.stocks?.[resource] || 0))})`}
               </div>
             );
           })}

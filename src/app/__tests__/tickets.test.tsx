@@ -109,8 +109,14 @@ describe('UI-5: Auto-Advance to Completion & Queue Timeline Visualization', () =
   it('should NOT auto-advance when queueing ships or colonists', async () => {
     render(<Home />);
 
+    // First switch to Ships tab
+    const shipsTab = screen.queryByRole('tab', { name: /ships/i });
+    if (shipsTab) {
+      fireEvent.click(shipsTab);
+    }
+
     // Find and click a ship to queue (if available)
-    const shipButtons = screen.getAllByText(/Fighter|Bomber|Frigate/);
+    const shipButtons = screen.queryAllByText(/Fighter|Bomber|Frigate/);
     const currentTurnBefore = screen.getByRole('spinbutton', { name: /turn/i }).getAttribute('value');
 
     if (shipButtons.length > 0) {

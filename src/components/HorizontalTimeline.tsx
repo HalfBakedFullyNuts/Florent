@@ -49,6 +49,7 @@ export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange }: Ho
             onChange={handleTurnInput}
             min={1}
             max={totalTurns}
+            aria-label="Turn"
             className="w-16 px-2 py-1 bg-pink-nebula-bg border border-pink-nebula-border rounded text-pink-nebula-text text-center font-bold"
           />
           <span className="text-pink-nebula-muted text-xs">/ {totalTurns}</span>

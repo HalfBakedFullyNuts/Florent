@@ -102,22 +102,20 @@ export function TabbedItemGrid({
   const getResourceColor = (resource: string): string => {
     switch (resource) {
       case 'metal': return 'text-gray-300'; // silver
-      case 'mineral': return 'text-red-400'; // red
-      case 'food': return 'text-green-400'; // green
+      case 'mineral': return 'text-red-500'; // red
+      case 'food': return 'text-green-500'; // green
       case 'energy': return 'text-blue-400'; // blue
       case 'research_points': return 'text-purple-400';
       case 'workers': return 'text-orange-400'; // orange
-      case 'ground_space': return 'text-amber-700'; // brown
-      case 'orbital_space': return 'text-blue-800'; // dark blue
-      case 'space': return 'text-amber-700'; // default to ground space color
+      case 'ground_space': return 'text-amber-600'; // brown
+      case 'orbital_space': return 'text-blue-600'; // blue
+      case 'space': return 'text-amber-600'; // default to ground space color
       default: return 'text-pink-nebula-muted';
     }
   };
 
   const formatNumber = (num: number): string => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-    return num.toString();
+    return num.toLocaleString('de-DE');
   };
 
   // Define column order for costs (aligned across all items)
@@ -216,6 +214,7 @@ export function TabbedItemGrid({
             items.map((item) => {
               const queueable = isItemQueueable(item.id);
               const costsMap = item.costsPerUnit || {};
+              const energyUpkeep = item.upkeepPerUnit?.energy || 0;
 
               return (
                 <div
@@ -242,13 +241,21 @@ export function TabbedItemGrid({
                       return (
                         <div
                           key={resource}
-                          className={`w-12 text-right ${amount > 0 ? getResourceColor(resource) : 'text-transparent'}`}
+                          className={`w-16 text-right ${amount > 0 ? getResourceColor(resource) : 'text-transparent'}`}
                           title={resource}
                         >
                           {amount > 0 ? formatNumber(amount) : '-'}
                         </div>
                       );
                     })}
+
+                    {/* Energy Upkeep (consumption per turn after completion) */}
+                    <div
+                      className={`w-12 text-right ${energyUpkeep > 0 ? 'text-blue-400' : 'text-transparent'}`}
+                      title="Energy consumption per turn"
+                    >
+                      {energyUpkeep > 0 ? `-${formatNumber(energyUpkeep)}⚡` : '-'}
+                    </div>
 
                     {/* Spacer */}
                     <div className="flex-1" />

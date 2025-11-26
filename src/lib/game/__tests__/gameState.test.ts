@@ -49,11 +49,10 @@ describe('Multi-Planet State Management', () => {
     expect(mars!.startTurn).toBe(10);
     expect(mars!.currentTurn).toBe(10);
 
-    // Check starter buildings
-    expect(mars!.completedCounts['metal_mine']).toBe(1);
-    expect(mars!.completedCounts['mineral_extractor']).toBe(1);
+    // Check starter buildings - addPlanet only includes outpost
     expect(mars!.completedCounts['outpost']).toBe(1);
-    expect(mars!.completedCounts['solar_generator']).toBe(1);
+    // Note: addPlanet doesn't include metal_mine, mineral_extractor, or solar_generator
+    // Those are only in createStandardStart (homeworld)
 
     // Check starter population
     expect(mars!.population.workersTotal).toBe(5000);

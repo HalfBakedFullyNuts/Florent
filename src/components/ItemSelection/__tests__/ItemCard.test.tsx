@@ -44,7 +44,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={true}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
@@ -59,7 +59,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={true}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
@@ -77,7 +77,7 @@ describe('ItemCard', () => {
           itemId="quick_item"
           itemDef={itemDef}
           available={true}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
@@ -95,7 +95,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={true}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
@@ -104,19 +104,19 @@ describe('ItemCard', () => {
       expect(container.textContent).toContain('✅');
     });
 
-    it('should show ⚠️ for insufficient resources', () => {
+    it('should show ⏸️ for queueable with wait items', () => {
       const { container } = render(
         <ItemCard
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={false}
-          insufficientResources={true}
+          queueableWithWait={true}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
       );
 
-      expect(container.textContent).toContain('⚠️');
+      expect(container.textContent).toContain('⏸️');
     });
 
     it('should show 🔒 for locked items', () => {
@@ -125,7 +125,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={false}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={true}
           onQueueItem={mockOnQueueItem}
         />
@@ -142,7 +142,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={true}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
@@ -152,19 +152,19 @@ describe('ItemCard', () => {
       expect(card).toBeInTheDocument();
     });
 
-    it('should have yellow border for insufficient resources', () => {
+    it('should have blue border for queueable with wait items', () => {
       const { container } = render(
         <ItemCard
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={false}
-          insufficientResources={true}
+          queueableWithWait={true}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
       );
 
-      const card = container.querySelector('.border-yellow-500');
+      const card = container.querySelector('.border-blue-500');
       expect(card).toBeInTheDocument();
     });
 
@@ -174,7 +174,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={false}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={true}
           onQueueItem={mockOnQueueItem}
         />
@@ -192,7 +192,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={true}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
@@ -210,7 +210,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={false}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={true}
           onQueueItem={mockOnQueueItem}
         />
@@ -222,13 +222,15 @@ describe('ItemCard', () => {
       expect(mockOnQueueItem).not.toHaveBeenCalled();
     });
 
-    it('should not call onQueueItem when insufficient resources item is clicked', () => {
+    it('should call onQueueItem when queueableWithWait item is clicked (triggers modal)', () => {
+      // In the new implementation, queueableWithWait items ARE clickable
+      // They trigger onQueueItem which then shows a confirmation modal
       render(
         <ItemCard
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={false}
-          insufficientResources={true}
+          queueableWithWait={true}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
@@ -237,7 +239,7 @@ describe('ItemCard', () => {
       const card = screen.getByRole('button');
       fireEvent.click(card);
 
-      expect(mockOnQueueItem).not.toHaveBeenCalled();
+      expect(mockOnQueueItem).toHaveBeenCalledWith('metal_mine', 1);
     });
   });
 
@@ -248,7 +250,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={true}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
@@ -264,7 +266,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={false}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={true}
           onQueueItem={mockOnQueueItem}
         />
@@ -280,7 +282,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={true}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />
@@ -298,7 +300,7 @@ describe('ItemCard', () => {
           itemId="metal_mine"
           itemDef={mockItemDef}
           available={true}
-          insufficientResources={false}
+          queueableWithWait={false}
           locked={false}
           onQueueItem={mockOnQueueItem}
         />

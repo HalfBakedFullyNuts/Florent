@@ -160,6 +160,7 @@ describe('Data Adapter', () => {
           mineral: 0,
           food: 0,
           energy: 0,
+          research_points: 0,
         });
 
         expect(fighter.upkeepPerUnit).toEqual({
@@ -167,6 +168,7 @@ describe('Data Adapter', () => {
           mineral: 0,
           food: 0,
           energy: 0,
+          research_points: 0,
         });
       });
     });
@@ -297,6 +299,7 @@ describe('Data Adapter', () => {
           mineral: 0,
           food: 0,
           energy: 0,
+          research_points: 0,
         });
       });
     });

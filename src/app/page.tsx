@@ -81,12 +81,8 @@ export default function Home() {
     return new GameController(currentPlanet, currentPlanet.timeline);
   }, [currentPlanetId]); // Only recreate when planet ID changes, not when planet state changes
 
-  // Update view turn when switching planets
-  useEffect(() => {
-    if (currentPlanet) {
-      setViewTurn(currentPlanet.currentTurn);
-    }
-  }, [currentPlanetId]); // Only update when switching planets
+  // Note: viewTurn is synced synchronously in handlePlanetSwitch/handleCreatePlanet
+  // to avoid render timing issues with planets that have different start turns
 
   // Auto-save to URL on state changes (debounced)
   useEffect(() => {
@@ -253,8 +249,13 @@ export default function Home() {
 
   // Planet management handlers
   const handlePlanetSwitch = useCallback((planetId: string) => {
+    // Sync viewTurn BEFORE switching to avoid render timing issues
+    const planet = gameState.planets.get(planetId);
+    if (planet) {
+      setViewTurn(planet.currentTurn);
+    }
     setGameState(prev => switchPlanet(prev, planetId));
-  }, []);
+  }, [gameState.planets]);
 
   const handleAddPlanet = useCallback(() => {
     if (gameState.planets.size < gameState.maxPlanets) {
@@ -265,9 +266,10 @@ export default function Home() {
   const handleCreatePlanet = useCallback((config: PlanetConfig) => {
     try {
       const newGameState = addPlanet(gameState, config);
-      setGameState(newGameState);
-      // Switch to the newly created planet
       const newPlanetId = `planet-${newGameState.nextPlanetId - 1}`;
+      // Sync viewTurn to new planet's start turn BEFORE switching
+      // This prevents render timing issues with controller.getStateAtTurn()
+      setViewTurn(config.startTurn);
       setGameState(switchPlanet(newGameState, newPlanetId));
     } catch (e) {
       setError((e as Error).message || 'Failed to create planet');

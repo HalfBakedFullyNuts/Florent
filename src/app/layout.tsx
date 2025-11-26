@@ -1,6 +1,5 @@
 ﻿import type { Metadata } from 'next'
 import './globals.css'
-import Header from '../components/Header'
 
 export const metadata: Metadata = {
   title: 'Florent - Build Planner for Infinite Conflict',
@@ -30,8 +29,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div id="stars1" />
         <div id="stars2" />
         <div id="stars3" />
-
-        <Header />
 
         {/* Vibrant gradient background to show blur effect */}
         <div className="fixed inset-0 -z-10 bg-gradient-to-br from-purple-900 via-pink-900 to-blue-900" />
