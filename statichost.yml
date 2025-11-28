@@ -1,6 +1,6 @@
 image: node:20
 build:
   cmd: |
-    npm install
+    npm ci
     npm run build
-  output: out
+  output: ./out
