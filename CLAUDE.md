@@ -178,3 +178,18 @@ When working with this codebase:
 - ADR tracker: `ARCHITECTURAL_DECISIONS.md`
 - LLM/Developer guidelines: `LLM_AND_DEV_GUIDELINES.md`
 - UI specification: `UI_SPEC_Florent.md`
+
+## Hosting
+
+### StaticHost.eu
+
+This project is configured for hosting on [StaticHost.eu](https://statichost.eu).
+
+1.  **Configuration**:
+    - `next.config.js` is set to `output: 'export'` for static site generation.
+    - `statichost.yml` defines the build command (`npm install && npm run build`) and output directory (`out`).
+
+2.  **Deployment**:
+    - Push changes to the `main` branch on GitHub.
+    - Connect the repository in the StaticHost.eu dashboard.
+    - Deployment is automatic on push.
