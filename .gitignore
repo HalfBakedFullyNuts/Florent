@@ -28,7 +28,6 @@ Thumbs.db
 # Build
 dist/
 build/
-out/
 
 # Mac
 *.swp
