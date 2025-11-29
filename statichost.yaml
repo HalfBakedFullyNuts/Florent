@@ -1,6 +1,8 @@
+# Docker image to use for building
 image: node:20
-build:
-  cmd: |
-    npm ci
-    npm run build
-  output: ./out
+
+# Build command
+command: npm ci && npm run build
+
+# Public directory
+public: out
