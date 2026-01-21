@@ -1,0 +1,27 @@
+# Dockerfile.dev - Development image with hot reload support
+# Use this for local development with docker compose up dev
+
+FROM node:20-alpine
+
+# Add libc6-compat for Alpine compatibility
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install all dependencies (including devDependencies)
+RUN npm ci
+
+# Copy source code (will be overridden by volume mount in dev)
+COPY . .
+
+# Expose Next.js dev server port
+EXPOSE 3000
+
+# Set hostname for external access
+ENV HOSTNAME="0.0.0.0"
+
+# Start development server with hot reload
+CMD ["npm", "run", "dev"]

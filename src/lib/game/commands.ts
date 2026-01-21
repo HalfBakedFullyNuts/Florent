@@ -5,7 +5,7 @@
 
 import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
 import { canQueue } from '../sim/engine/validation';
-import { generateWorkItemId } from '../sim/engine/helpers';
+import { generateWorkItemId, refundActivationCosts } from '../sim/engine/helpers';
 import { Timeline } from './state';
 import { getLogger } from './logger';
 
@@ -22,7 +22,7 @@ export interface CancelResult {
 
 export interface ReorderResult {
   success: boolean;
-  reason?: 'NOT_FOUND' | 'INVALID_TURN' | 'INVALID_LANE' | 'INVALID_INDEX';
+  reason?: 'NOT_FOUND' | 'INVALID_TURN' | 'INVALID_LANE' | 'INVALID_INDEX' | 'CANNOT_REORDER_WAIT' | 'INVALID_ITEM';
 }
 
 /**
@@ -235,33 +235,8 @@ export class GameController {
         const def = s.defs[active.itemId];
         if (!def) return;
 
-        // Refund resources
-        const costs = def.costsPerUnit;
-        s.stocks.metal += costs.metal * active.quantity;
-        s.stocks.mineral += costs.mineral * active.quantity;
-        s.stocks.food += costs.food * active.quantity;
-        s.stocks.energy += costs.energy * active.quantity;
-        s.stocks.research_points += costs.research_points * active.quantity;
-
-        // Release workers
-        const workersNeeded = costs.workers || 0;
-        if (workersNeeded > 0) {
-          const totalWorkers = workersNeeded * active.quantity;
-          s.population.workersIdle += totalWorkers;
-          s.population.busyByLane[laneId] =
-            (s.population.busyByLane[laneId] || 0) - totalWorkers;
-        }
-
-        // Release space
-        const spaceNeeded = costs.space || 0;
-        if (spaceNeeded > 0) {
-          const totalSpace = spaceNeeded * active.quantity;
-          if (def.type === 'structure') {
-            s.space.groundUsed -= totalSpace;
-          } else {
-            s.space.orbitalUsed -= totalSpace;
-          }
-        }
+        // Refund resources, workers, and space
+        refundActivationCosts(s, def, active.quantity, laneId);
 
         // Clear active slot
         s.lanes[laneId].active = null;
@@ -334,33 +309,8 @@ export class GameController {
         const def = s.defs[active.itemId];
         if (!def) return;
 
-        // Refund resources
-        const costs = def.costsPerUnit;
-        s.stocks.metal += costs.metal * active.quantity;
-        s.stocks.mineral += costs.mineral * active.quantity;
-        s.stocks.food += costs.food * active.quantity;
-        s.stocks.energy += costs.energy * active.quantity;
-        s.stocks.research_points += costs.research_points * active.quantity;
-
-        // Release workers
-        const workersNeeded = costs.workers || 0;
-        if (workersNeeded > 0) {
-          const totalWorkers = workersNeeded * active.quantity;
-          s.population.workersIdle += totalWorkers;
-          s.population.busyByLane[laneId] =
-            (s.population.busyByLane[laneId] || 0) - totalWorkers;
-        }
-
-        // Release space
-        const spaceNeeded = costs.space || 0;
-        if (spaceNeeded > 0) {
-          const totalSpace = spaceNeeded * active.quantity;
-          if (def.type === 'structure') {
-            s.space.groundUsed -= totalSpace;
-          } else {
-            s.space.orbitalUsed -= totalSpace;
-          }
-        }
+        // Refund resources, workers, and space
+        refundActivationCosts(s, def, active.quantity, laneId);
 
         // Clear active slot
         s.lanes[laneId].active = null;
@@ -481,7 +431,8 @@ export class GameController {
 
   /**
    * Reorder a queue item to a new position
-   * Only works for pending items, not active ones
+   * Works for both pending and active items.
+   * Active items are deactivated (refunded) and re-added to pending queue.
    */
   reorderQueueItem(turn: number, laneId: LaneId, entryId: string, newIndex: number): ReorderResult {
     const state = this.timeline.getStateAtTurn(turn);
@@ -492,6 +443,14 @@ export class GameController {
     const lane = state.lanes[laneId];
     if (!lane) {
       return { success: false, reason: 'INVALID_LANE' };
+    }
+
+    // Check if item is active
+    const isActiveItem = lane.active?.id === entryId;
+
+    if (isActiveItem) {
+      // Handle active item: deactivate and requeue
+      return this.reorderActiveItem(turn, laneId, entryId, newIndex);
     }
 
     // Find item in pending queue
@@ -529,6 +488,79 @@ export class GameController {
         );
       }
     }
+
+    return { success: true };
+  }
+
+  /**
+   * Reorder an active item by deactivating it and re-adding to pending queue
+   * Refunds resources/workers, then inserts at specified position
+   */
+  private reorderActiveItem(turn: number, laneId: LaneId, entryId: string, newIndex: number): ReorderResult {
+    const state = this.timeline.getStateAtTurn(turn);
+    if (!state) {
+      return { success: false, reason: 'INVALID_TURN' };
+    }
+
+    const lane = state.lanes[laneId];
+    const active = lane.active;
+    if (!active || active.id !== entryId) {
+      return { success: false, reason: 'NOT_FOUND' };
+    }
+
+    // Don't allow reordering wait items
+    if (active.isWait) {
+      return { success: false, reason: 'CANNOT_REORDER_WAIT' };
+    }
+
+    const def = state.defs[active.itemId];
+    if (!def) {
+      return { success: false, reason: 'INVALID_ITEM' };
+    }
+
+    // Validate new index (active will become pending, so queue grows by 1)
+    const newQueueLength = lane.pendingQueue.length + 1;
+    if (newIndex < 0 || newIndex >= newQueueLength) {
+      return { success: false, reason: 'INVALID_INDEX' };
+    }
+
+    // Mutate state: deactivate and requeue
+    this.timeline.mutateAtTurn(turn, (s) => {
+      const lane = s.lanes[laneId];
+      const active = lane.active;
+      if (!active) return;
+
+      const def = s.defs[active.itemId];
+      if (!def) return;
+
+      // Refund resources, workers, and space
+      refundActivationCosts(s, def, active.quantity, laneId);
+
+      // Create new pending item with reset duration
+      const newPendingItem = {
+        id: active.id,
+        itemId: active.itemId,
+        quantity: active.quantity,
+        status: 'pending' as const,
+        turnsRemaining: def.durationTurns, // Reset to full duration
+        queuedTurn: turn,
+      };
+
+      // Clear active and insert into pending queue at position
+      lane.active = null;
+      lane.pendingQueue.splice(newIndex, 0, newPendingItem);
+    });
+
+    // Log the reorder operation
+    getLogger().logQueueOperation(
+      turn,
+      'reorder',
+      laneId,
+      def.id,
+      def.name,
+      active.quantity,
+      `Deactivated and moved to pending queue at index ${newIndex}`
+    );
 
     return { success: true };
   }

@@ -1,20 +1,19 @@
 "use client";
 
 import React, { useState } from 'react';
-import type { ItemDefinition } from '../../lib/sim/engine/types';
+import type { ItemDefinition, LaneId } from '../../lib/sim/engine/types';
 import { Card } from '@/components/ui/card';
 import { GlassQueueButton } from '@/components/ui/glass-queue-button';
+import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
 
 export interface TabbedItemGridProps {
   availableItems: Record<string, any>;
   onQueueItem: (itemId: string, quantity: number) => void;
   canQueueItem: (itemId: string, quantity: number) => { allowed: boolean; reason?: string };
-  activeTab?: 'building' | 'ship' | 'colonist' | 'research';
-  onTabChange?: (tab: 'building' | 'ship' | 'colonist' | 'research') => void;
+  activeTab?: LaneId;
+  onTabChange?: (tab: LaneId) => void;
   currentTurn?: number;
 }
-
-type LaneId = 'building' | 'ship' | 'colonist' | 'research';
 
 /**
  * TabbedItemGrid - Tabbed interface for queue items
@@ -69,21 +68,6 @@ export function TabbedItemGrid({
       return a.name.localeCompare(b.name);
     });
   });
-
-  const getLaneConfig = (laneId: LaneId) => {
-    switch (laneId) {
-      case 'building':
-        return { title: 'Structures', icon: '🏗️' };
-      case 'ship':
-        return { title: 'Ships', icon: '🚀' };
-      case 'colonist':
-        return { title: 'Colonists', icon: '👥' };
-      case 'research':
-        return { title: 'Research', icon: '🔬' };
-      default:
-        return { title: 'Unknown', icon: '❓' };
-    }
-  };
 
   const isItemQueueable = (itemId: string): boolean => {
     return canQueueItem(itemId, 1).allowed;
@@ -164,14 +148,14 @@ export function TabbedItemGrid({
   };
 
   const items = itemsByLane[activeTab] || [];
-  const config = getLaneConfig(activeTab);
+  const config = LANE_CONFIG[activeTab];
 
   return (
     <div className="w-full">
       {/* Tab Headers */}
       <div className="flex gap-2 mb-4">
-        {(['building', 'ship', 'colonist', 'research'] as LaneId[]).map((laneId) => {
-          const tabConfig = getLaneConfig(laneId);
+        {ALL_LANES.map((laneId) => {
+          const tabConfig = LANE_CONFIG[laneId];
           const isActive = activeTab === laneId;
 
           return (
@@ -215,15 +199,19 @@ export function TabbedItemGrid({
               const queueable = isItemQueueable(item.id);
               const costsMap = item.costsPerUnit || {};
               const energyUpkeep = item.upkeepPerUnit?.energy || 0;
+              const isBatchable = activeTab === 'ship' || activeTab === 'colonist';
 
               return (
                 <div
                   key={item.id}
+                  onClick={() => !isBatchable && queueable && handleItemClick(item.id, activeTab)}
                   className={`
                     w-full text-left p-2 bg-pink-nebula-panel/50 border border-pink-nebula-border rounded
                     transition-colors group
                     ${queueable
-                      ? 'hover:bg-pink-nebula-panel/70'
+                      ? isBatchable
+                        ? 'hover:bg-pink-nebula-panel/70'
+                        : 'hover:bg-pink-nebula-panel/70 cursor-pointer'
                       : 'opacity-50'
                     }
                   `}
@@ -260,46 +248,49 @@ export function TabbedItemGrid({
                     {/* Spacer */}
                     <div className="flex-1" />
 
-                    {/* Quantity input for ships/colonists */}
-                    {(activeTab === 'ship' || activeTab === 'colonist') && (
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={itemQuantities[item.id] || '1'}
-                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                        onKeyDown={(e) => handleQuantityKeyDown(e, item.id)}
-                        onClick={(e) => e.stopPropagation()}
-                        disabled={!queueable}
-                        className={`
-                          w-14 px-2 py-0.5 bg-pink-nebula-bg border border-pink-nebula-border rounded
-                          text-pink-nebula-text text-sm text-center font-mono
-                          focus:outline-none focus:border-pink-nebula-accent-primary
-                          ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
-                        `}
-                        placeholder="1"
-                      />
-                    )}
-
                     {/* Duration */}
                     <div className="text-pink-nebula-muted whitespace-nowrap w-8 text-right">
                       {item.durationTurns}T
                     </div>
 
-                    {/* Add to Queue Button */}
-                    <button
-                      onClick={() => handleItemClick(item.id, activeTab)}
-                      disabled={!queueable}
-                      className={`
-                        px-2 py-0.5 rounded text-sm
-                        ${queueable
-                          ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
-                          : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                        }
-                      `}
-                    >
-                      +
-                    </button>
+                    {/* Quantity input + Button for batchable items (ships/colonists) */}
+                    {isBatchable && (
+                      <>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={itemQuantities[item.id] || '1'}
+                          onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                          onKeyDown={(e) => handleQuantityKeyDown(e, item.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          disabled={!queueable}
+                          className={`
+                            w-14 px-2 py-0.5 bg-pink-nebula-bg border border-pink-nebula-border rounded
+                            text-pink-nebula-text text-sm text-center font-mono
+                            focus:outline-none focus:border-pink-nebula-accent-primary
+                            ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
+                          `}
+                          placeholder="1"
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleItemClick(item.id, activeTab);
+                          }}
+                          disabled={!queueable}
+                          className={`
+                            px-2 py-0.5 rounded text-sm
+                            ${queueable
+                              ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
+                              : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                            }
+                          `}
+                        >
+                          +
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               );

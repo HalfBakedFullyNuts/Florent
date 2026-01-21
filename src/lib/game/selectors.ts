@@ -3,7 +3,7 @@
  * Pure functions that derive views from game state
  */
 
-import type { PlanetState, LaneId, NetOutputs, ResourceId } from '../sim/engine/types';
+import type { PlanetState, LaneId, NetOutputs, ResourceId, WorkItem } from '../sim/engine/types';
 import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep } from '../sim/engine/outputs';
 import { computeGrowthBonus } from '../sim/engine/growth_food';
 import { WORKER_GROWTH_BASE } from '../sim/rules/constants';
@@ -74,49 +74,81 @@ export interface Warning {
 }
 
 /**
- * Get planet summary for specific turn
+ * Calculate projected worker growth for a given population count.
+ * Returns 0 if no food available or growth rate is invalid.
  */
-export function getPlanetSummary(state: PlanetState): PlanetSummary {
-  const outputs = computeNetOutputsPerTurn(state);
-
-  // Calculate worker growth hint
+function calculateProjectedGrowth(state: PlanetState, workerCount: number): number {
+  if (!state.stocks || state.stocks.food <= 0) {
+    return 0;
+  }
   const growthBonus = computeGrowthBonus(state);
   const totalGrowthRate = WORKER_GROWTH_BASE + growthBonus;
-  const projectedGrowth = state.stocks.food > 0
-    ? Math.floor(state.population.workersTotal * totalGrowthRate)
-    : 0;
+  return Math.floor(workerCount * totalGrowthRate);
+}
 
-  const growthHint = projectedGrowth > 0
+/**
+ * Calculate worker growth hint based on current food and population.
+ * Returns a human-readable string describing expected growth.
+ */
+function calculateGrowthHint(state: PlanetState): string {
+  if (!state.stocks || !state.population) {
+    return 'No growth data available';
+  }
+  if (state.population.workersTotal < 0) {
+    console.error('calculateGrowthHint: negative worker count');
+    return 'Invalid population';
+  }
+
+  const projectedGrowth = calculateProjectedGrowth(state, state.population.workersTotal);
+
+  return projectedGrowth > 0
     ? `+${projectedGrowth} workers at end of turn`
     : 'No growth (need food > 0)';
+}
 
-  // Calculate total busy workers
+/**
+ * Extract counts of completed items by type from completedCounts.
+ * Filters state.completedCounts to return only items matching the given type.
+ */
+function extractCompletedByType(
+  state: PlanetState,
+  type: 'ship' | 'structure'
+): Record<string, number> {
+  if (!state.completedCounts) {
+    return {};
+  }
+  if (!state.defs) {
+    console.error('extractCompletedByType: missing defs');
+    return {};
+  }
+
+  const result: Record<string, number> = {};
+  Object.entries(state.completedCounts).forEach(([itemId, count]) => {
+    const def = state.defs[itemId];
+    if (def && def.type === type && count > 0) {
+      result[itemId] = count;
+    }
+  });
+  return result;
+}
+
+/**
+ * Get planet summary for specific turn.
+ * Aggregates all relevant state into a UI-friendly summary object.
+ */
+export function getPlanetSummary(state: PlanetState): PlanetSummary {
+  if (!state) {
+    throw new Error('PlanetState is required');
+  }
+
+  const outputs = computeNetOutputsPerTurn(state);
+  const growthHint = calculateGrowthHint(state);
+  const foodUpkeep = calculatePopulationFoodUpkeep(state);
+
   const workersBusy = Object.values(state.population.busyByLane).reduce(
     (sum, count) => sum + (count || 0),
     0
   );
-
-  // Use engine's upkeep calculation for consistency
-  const foodUpkeep = calculatePopulationFoodUpkeep(state);
-
-  // Extract ship counts from completedCounts
-  const ships: Record<string, number> = {};
-  Object.entries(state.completedCounts).forEach(([itemId, count]) => {
-    const def = state.defs[itemId];
-    if (def && def.type === 'ship' && count > 0) {
-      ships[itemId] = count;
-    }
-  });
-
-  // Extract structure counts from completedCounts (single source of truth)
-  const structures: Record<string, number> = {};
-
-  Object.entries(state.completedCounts).forEach(([itemId, count]) => {
-    const def = state.defs[itemId];
-    if (def && def.type === 'structure' && count > 0) {
-      structures[itemId] = count;
-    }
-  });
 
   return {
     turn: state.currentTurn,
@@ -132,8 +164,8 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
       soldiers: state.population.soldiers,
       scientists: state.population.scientists,
     },
-    ships,
-    structures,
+    ships: extractCompletedByType(state, 'ship'),
+    structures: extractCompletedByType(state, 'structure'),
     growthHint,
     foodUpkeep,
     planetLimit: state.planetLimit || 4,
@@ -164,14 +196,8 @@ export function getTurnsUntilHousingCap(
     return null;
   }
 
-  // Calculate growth rate
-  const growthBonus = computeGrowthBonus(state);
-  const totalGrowthRate = WORKER_GROWTH_BASE + growthBonus;
-
-  // Calculate projected growth per turn
-  const projectedGrowth = state.stocks.food > 0
-    ? Math.floor(workersTotal * totalGrowthRate)
-    : 0;
+  // Calculate projected growth per turn using shared helper
+  const projectedGrowth = calculateProjectedGrowth(state, workersTotal);
 
   // No growth
   if (projectedGrowth <= 0 || !isFinite(projectedGrowth)) {
@@ -191,118 +217,185 @@ export function getTurnsUntilHousingCap(
 }
 
 /**
- * Get lane view for specific turn
+ * Convert a WorkItem to a LaneEntry for display.
+ * Handles both wait items and normal items with appropriate naming.
  */
-export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
-  const lane = state.lanes[laneId];
-  const entries: LaneEntry[] = [];
-
-  // Add completed items from history (most recent first)
-  for (const completed of [...lane.completionHistory].reverse()) {
-    const def = state.defs[completed.itemId];
-    // Handle wait items specially
-    const itemName = completed.isWait ? 'Wait' : (def?.name || 'Unknown');
-    entries.push({
-      id: completed.id,
-      itemId: completed.itemId,
-      itemName,
-      status: 'completed',
-      quantity: completed.quantity,
+function workItemToLaneEntry(
+  item: WorkItem,
+  defs: PlanetState['defs'],
+  status: 'pending' | 'active' | 'completed',
+  overrides?: Partial<LaneEntry>
+): LaneEntry {
+  if (!item || !item.id) {
+    console.error('workItemToLaneEntry: invalid item');
+    return {
+      id: 'error',
+      itemId: 'unknown',
+      itemName: 'Error',
+      status,
+      quantity: 0,
       turnsRemaining: 0,
-      eta: null, // Already completed
-      queuedTurn: completed.queuedTurn,
-      startTurn: completed.startTurn,
-      completionTurn: completed.completionTurn,
-    });
+      eta: null,
+    };
   }
 
-  // Calculate the schedule starting point based on what's already scheduled
-  let scheduleStart = 1; // Default to T1
+  const def = defs[item.itemId];
+  const itemName = item.isWait ? 'Wait' : (def?.name || 'Unknown');
 
-  // Check if there are completed items to continue from
-  if (lane.completionHistory.length > 0) {
-    // Find the latest completion
+  return {
+    id: item.id,
+    itemId: item.itemId,
+    itemName,
+    status,
+    quantity: item.quantity,
+    turnsRemaining: item.turnsRemaining,
+    eta: overrides?.eta ?? null,
+    queuedTurn: item.queuedTurn,
+    startTurn: overrides?.startTurn ?? item.startTurn,
+    completionTurn: overrides?.completionTurn ?? item.completionTurn,
+  };
+}
+
+/**
+ * Calculate the schedule start turn for pending items.
+ * Based on last completion or active item completion time.
+ */
+function calculateScheduleStart(
+  lane: PlanetState['lanes'][LaneId],
+  currentTurn: number
+): number {
+  if (!lane) {
+    console.error('calculateScheduleStart: lane is required');
+    return 1;
+  }
+  if (currentTurn < 0) {
+    console.error('calculateScheduleStart: currentTurn must be non-negative');
+    return 1;
+  }
+
+  let scheduleStart = 1;
+
+  if (lane.completionHistory && lane.completionHistory.length > 0) {
     const lastCompleted = lane.completionHistory[lane.completionHistory.length - 1];
     if (lastCompleted.completionTurn) {
       scheduleStart = lastCompleted.completionTurn + 1;
     }
   }
 
-  // If there's an active item, next slot starts after it completes
   if (lane.active) {
-    // For active items, we know when they'll complete
-    if (lane.active.completionTurn) {
-      scheduleStart = lane.active.completionTurn + 1;
-    } else {
-      // Fall back to calculating based on current turn and remaining
-      scheduleStart = state.currentTurn + lane.active.turnsRemaining;
-    }
+    scheduleStart = lane.active.completionTurn
+      ? lane.active.completionTurn + 1
+      : currentTurn + lane.active.turnsRemaining;
   }
 
-  // Build continuous timeline for pending items
-  for (let i = 0; i < lane.pendingQueue.length; i++) {
-    const pending = lane.pendingQueue[i];
-    const def = state.defs[pending.itemId];
-    // Handle wait items: use turnsRemaining as duration
-    const duration = pending.isWait ? pending.turnsRemaining : (def?.durationTurns || 4);
-    const itemName = pending.isWait ? 'Wait' : (def?.name || 'Unknown');
+  return scheduleStart;
+}
 
-    // Simple continuous scheduling: each item gets duration turns
-    const displayStart = scheduleStart;
+/**
+ * Get lane view for specific turn.
+ * Builds a display-ready list of entries from completed, active, and pending items.
+ */
+export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
+  if (!state || !state.lanes[laneId]) {
+    return { laneId, entries: [] };
+  }
+
+  const lane = state.lanes[laneId];
+  const entries: LaneEntry[] = [];
+
+  // Add completed items (most recent first)
+  for (const completed of [...lane.completionHistory].reverse()) {
+    entries.push(workItemToLaneEntry(completed, state.defs, 'completed'));
+  }
+
+  // Build timeline for pending items
+  let scheduleStart = calculateScheduleStart(lane, state.currentTurn);
+
+  for (const pending of lane.pendingQueue) {
+    const def = state.defs[pending.itemId];
+    const duration = pending.isWait ? pending.turnsRemaining : (def?.durationTurns || 4);
     const displayEnd = scheduleStart + duration - 1;
 
-    entries.push({
-      id: pending.id,
-      itemId: pending.itemId,
-      itemName,
-      status: 'pending',
-      quantity: pending.quantity,
-      turnsRemaining: pending.turnsRemaining,
+    entries.push(workItemToLaneEntry(pending, state.defs, 'pending', {
       eta: displayEnd,
-      queuedTurn: pending.queuedTurn, // Preserve actual queue turn for cancellation
-      startTurn: displayStart,
+      startTurn: scheduleStart,
       completionTurn: displayEnd,
-    });
+    }));
 
-    // Next item starts immediately after this one completes
     scheduleStart = displayEnd + 1;
   }
 
   // Add active entry
   if (lane.active) {
-    const def = state.defs[lane.active.itemId];
-    const itemName = lane.active.isWait ? 'Wait' : (def?.name || 'Unknown');
     const eta = state.currentTurn + lane.active.turnsRemaining;
-    entries.push({
-      id: lane.active.id,
-      itemId: lane.active.itemId,
-      itemName,
-      status: 'active',
-      quantity: lane.active.quantity,
-      turnsRemaining: lane.active.turnsRemaining,
-      eta,
-      queuedTurn: lane.active.queuedTurn,
-      startTurn: lane.active.startTurn,
-      completionTurn: lane.active.completionTurn,
-    });
+    entries.push(workItemToLaneEntry(lane.active, state.defs, 'active', { eta }));
   }
 
-  // Reverse the entire array so latest activity appears at top
   entries.reverse();
+  return { laneId, entries };
+}
 
-  return {
-    laneId,
-    entries,
-  };
+/** Threshold for capacity warnings (95%). */
+const CAPACITY_WARNING_THRESHOLD = 0.95;
+
+/**
+ * Check if usage ratio exceeds warning threshold.
+ * Returns false if capacity is zero to avoid division errors.
+ */
+function isNearCapacity(used: number, cap: number): boolean {
+  if (cap <= 0) return false;
+  return used / cap >= CAPACITY_WARNING_THRESHOLD;
 }
 
 /**
- * Get warnings for specific turn
+ * Check housing capacity for all population types.
+ * Returns warnings for any housing type near capacity.
+ */
+function checkHousingWarnings(state: PlanetState): Warning[] {
+  if (!state.population || !state.housing) {
+    console.error('checkHousingWarnings: missing population or housing data');
+    return [];
+  }
+
+  const warnings: Warning[] = [];
+  const { population, housing } = state;
+
+  if (isNearCapacity(population.workersTotal, housing.workerCap)) {
+    warnings.push({
+      type: 'HOUSING_FULL',
+      message: 'Worker housing near capacity. Build more housing.',
+      severity: 'warning',
+    });
+  }
+
+  if (isNearCapacity(population.soldiers, housing.soldierCap)) {
+    warnings.push({
+      type: 'HOUSING_FULL',
+      message: 'Soldier housing near capacity.',
+      severity: 'warning',
+    });
+  }
+
+  if (isNearCapacity(population.scientists, housing.scientistCap)) {
+    warnings.push({
+      type: 'HOUSING_FULL',
+      message: 'Scientist housing near capacity.',
+      severity: 'warning',
+    });
+  }
+
+  return warnings;
+}
+
+/**
+ * Get warnings for specific turn.
+ * Checks resources, housing, and space capacity.
  */
 export function getWarnings(state: PlanetState): Warning[] {
+  if (!state) return [];
+
   const warnings: Warning[] = [];
 
-  // Check for negative energy
   if (state.stocks.energy < 0) {
     warnings.push({
       type: 'NEGATIVE_ENERGY',
@@ -311,7 +404,6 @@ export function getWarnings(state: PlanetState): Warning[] {
     });
   }
 
-  // Check for no food
   if (state.stocks.food <= 0) {
     warnings.push({
       type: 'NO_FOOD',
@@ -320,37 +412,9 @@ export function getWarnings(state: PlanetState): Warning[] {
     });
   }
 
-  // Check for full housing
-  const workerHousingUsage = state.population.workersTotal / state.housing.workerCap;
-  if (workerHousingUsage >= 0.95) {
-    warnings.push({
-      type: 'HOUSING_FULL',
-      message: 'Worker housing near capacity. Build more housing.',
-      severity: 'warning',
-    });
-  }
+  warnings.push(...checkHousingWarnings(state));
 
-  const soldierHousingUsage = state.population.soldiers / state.housing.soldierCap;
-  if (soldierHousingUsage >= 0.95 && state.housing.soldierCap > 0) {
-    warnings.push({
-      type: 'HOUSING_FULL',
-      message: 'Soldier housing near capacity.',
-      severity: 'warning',
-    });
-  }
-
-  const scientistHousingUsage = state.population.scientists / state.housing.scientistCap;
-  if (scientistHousingUsage >= 0.95 && state.housing.scientistCap > 0) {
-    warnings.push({
-      type: 'HOUSING_FULL',
-      message: 'Scientist housing near capacity.',
-      severity: 'warning',
-    });
-  }
-
-  // Check for full space
-  const groundUsage = state.space.groundUsed / state.space.groundCap;
-  if (groundUsage >= 0.95) {
+  if (isNearCapacity(state.space.groundUsed, state.space.groundCap)) {
     warnings.push({
       type: 'SPACE_FULL',
       message: 'Ground space near capacity.',
@@ -358,8 +422,7 @@ export function getWarnings(state: PlanetState): Warning[] {
     });
   }
 
-  const orbitalUsage = state.space.orbitalUsed / state.space.orbitalCap;
-  if (orbitalUsage >= 0.95) {
+  if (isNearCapacity(state.space.orbitalUsed, state.space.orbitalCap)) {
     warnings.push({
       type: 'SPACE_FULL',
       message: 'Orbital space near capacity.',
@@ -403,4 +466,73 @@ export function canQueueItem(
 
   // Use validation logic which checks prerequisites and energy
   return canQueue(state, def, quantity);
+}
+
+/**
+ * Check if a lane is empty (no active or pending items)
+ */
+export function isLaneEmpty(state: PlanetState, laneId: LaneId): boolean {
+  const lane = state.lanes[laneId];
+  return !lane.active && lane.pendingQueue.length === 0;
+}
+
+/**
+ * Find the first turn where a specific lane becomes empty
+ * Returns null if no lane activity at all, or current turn if already empty
+ */
+export function getFirstEmptyTurnForLane(
+  getStateAtTurn: (turn: number) => PlanetState | undefined,
+  laneId: LaneId,
+  currentTurn: number,
+  maxTurn: number
+): number | null {
+  // Check current turn first - if lane is already empty, return current turn
+  const currentState = getStateAtTurn(currentTurn);
+  if (!currentState) return null;
+
+  const currentLane = currentState.lanes[laneId];
+  if (!currentLane.active && currentLane.pendingQueue.length === 0) {
+    // Already empty at current turn
+    return currentTurn;
+  }
+
+  // Lane has work - find when it becomes empty
+  // Binary search would be faster but linear is simpler and max 200 turns
+  const MAX_ITERATIONS = 200;
+  let iterations = 0;
+
+  for (let turn = currentTurn + 1; turn <= maxTurn && iterations < MAX_ITERATIONS; turn++) {
+    iterations++;
+    const state = getStateAtTurn(turn);
+    if (!state) continue;
+
+    const lane = state.lanes[laneId];
+    if (!lane.active && lane.pendingQueue.length === 0) {
+      return turn;
+    }
+  }
+
+  // Lane never becomes empty within simulation range
+  return null;
+}
+
+export interface FirstEmptyTurns {
+  building: number | null;
+  ship: number | null;
+  colonist: number | null;
+}
+
+/**
+ * Get first empty turn for all three production lanes
+ */
+export function getFirstEmptyTurns(
+  getStateAtTurn: (turn: number) => PlanetState | undefined,
+  currentTurn: number,
+  maxTurn: number
+): FirstEmptyTurns {
+  return {
+    building: getFirstEmptyTurnForLane(getStateAtTurn, 'building', currentTurn, maxTurn),
+    ship: getFirstEmptyTurnForLane(getStateAtTurn, 'ship', currentTurn, maxTurn),
+    colonist: getFirstEmptyTurnForLane(getStateAtTurn, 'colonist', currentTurn, maxTurn),
+  };
 }

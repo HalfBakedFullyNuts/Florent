@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { GameController, queueResearch } from '../lib/game/commands';
 import { createInitialGameState, addPlanet, switchPlanet, getCurrentPlanet, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
-import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap } from '../lib/game/selectors';
+import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns } from '../lib/game/selectors';
 import { validateAllQueueItems, type QueueValidationResult, getValidationMessage } from '../lib/game/validation';
 import { loadGameData } from '../lib/sim/defs/adapter.client';
 import gameDataRaw from '../lib/game/game_data.json';
@@ -113,7 +113,12 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [gameState, commandHistory]);
 
-  const currentState = controller?.getStateAtTurn(viewTurn);
+  // Memoize currentState to ensure React detects changes when viewTurn changes
+  // Note: We pass viewTurn directly - controller.getStateAtTurn returns a cloned state
+  const currentState = useMemo(() => {
+    if (!controller) return undefined;
+    return controller.getStateAtTurn(viewTurn);
+  }, [controller, viewTurn]);
   const totalTurns = controller?.getTotalTurns() || 200;
 
   const defs = currentState?.defs || loadGameData(gameDataRaw as any);
@@ -143,6 +148,14 @@ export default function Home() {
   const colonistLane = useMemo(() => currentState ? getLaneView(currentState, 'colonist') : null, [currentState]);
   const researchLane = useMemo(() => currentState ? getLaneView(currentState, 'research') : null, [currentState]);
   const warnings = useMemo(() => currentState ? getWarnings(currentState) : [], [currentState]);
+
+  // Calculate first empty turn for each lane (for timeline quick jump buttons)
+  // Always search from turn 1, not from viewTurn, so the button shows a consistent target
+  const firstEmptyTurns = useMemo(() => {
+    if (!controller) return { building: null, ship: null, colonist: null };
+    const getState = (turn: number) => controller.getStateAtTurn(turn);
+    return getFirstEmptyTurns(getState, 1, totalTurns);
+  }, [controller, totalTurns]);
 
   // Enrich all lanes with validation state in a single useMemo
   const enrichedLanes = useMemo(() => ({
@@ -582,6 +595,7 @@ export default function Home() {
             currentTurn={viewTurn}
             totalTurns={totalTurns}
             onTurnChange={setViewTurn}
+            firstEmptyTurns={firstEmptyTurns}
           />
         </div>
 

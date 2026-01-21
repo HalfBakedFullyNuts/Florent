@@ -3,106 +3,150 @@
  * Handles queue management for building, ship, and colonist lanes
  */
 
-import type { PlanetState, LaneId, WorkItem } from './types';
+import type { PlanetState, LaneId, WorkItem, ItemDefinition } from './types';
 import { clampBatchAtActivation } from './validation';
 import { getLogger } from '../../game/logger';
 
 /**
- * Try to activate next pending item in lane
- * Deducts resources and reserves workers/space at activation
+ * Activate a wait item in the lane.
+ * Wait items have no resource costs and always activate immediately.
  */
-export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
-  const lane = state.lanes[laneId];
-
-  // Check if there's a pending item and no active item
-  if (lane.pendingQueue.length === 0 || lane.active) {
+function activateWaitItem(
+  state: PlanetState,
+  lane: PlanetState['lanes'][LaneId],
+  laneId: LaneId,
+  pending: WorkItem
+): void {
+  if (!pending.isWait) {
+    console.error('activateWaitItem called with non-wait item');
+    return;
+  }
+  if (pending.turnsRemaining <= 0) {
+    console.error('Wait item must have positive turnsRemaining');
     return;
   }
 
-  const pending = lane.pendingQueue[0];
+  lane.active = {
+    ...pending,
+    status: 'active',
+    startTurn: state.currentTurn,
+  };
 
-  // Handle wait items (no resources needed, always activates)
-  if (pending.isWait) {
-    lane.active = {
-      ...pending,
-      status: 'active',
-      startTurn: state.currentTurn,
-      // completionTurn will be set when the item actually completes
-    };
+  getLogger().logQueueOperation(
+    state.currentTurn,
+    'activate',
+    laneId,
+    '__wait__',
+    'Wait',
+    pending.quantity,
+    `Wait activated for ${pending.turnsRemaining} turns`
+  );
 
-    // Log activation
-    getLogger().logQueueOperation(
-      state.currentTurn,
-      'activate',
-      laneId,
-      '__wait__',
-      'Wait',
-      pending.quantity,
-      `Wait activated for ${pending.turnsRemaining} turns`
-    );
+  lane.pendingQueue.shift();
+}
 
-    // Remove from pending queue
-    lane.pendingQueue.shift();
+/**
+ * Deduct resource costs from state for activating an item.
+ * Modifies state.stocks in place based on costs and quantity.
+ */
+function deductActivationCosts(
+  state: PlanetState,
+  def: ItemDefinition,
+  quantity: number,
+  laneId: LaneId
+): void {
+  if (quantity <= 0) {
+    console.error('deductActivationCosts: quantity must be positive');
+    return;
+  }
+  if (!def.costsPerUnit) {
+    console.error('deductActivationCosts: definition missing costsPerUnit');
     return;
   }
 
-  // Handle normal items
-  const def = state.defs[pending.itemId];
-  if (!def) {
-    console.error(`Definition not found for item: ${pending.itemId}`);
-    return;
-  }
-
-  // Clamp batch size based on available resources
-  const actualQty = clampBatchAtActivation(state, def, pending.quantity);
-
-  // If we can't afford any, keep it pending
-  if (actualQty === 0) {
-    return;
-  }
-
-  // Deduct resources from stocks
   const costs = def.costsPerUnit;
-  state.stocks.metal -= costs.metal * actualQty;
-  state.stocks.mineral -= costs.mineral * actualQty;
-  state.stocks.food -= costs.food * actualQty;
-  state.stocks.energy -= costs.energy * actualQty;
-  // Research points are deducted at queue time, not activation time
-  if (laneId !== 'research') {
-    state.stocks.research_points -= costs.research_points * actualQty;
-  }
+  state.stocks.metal -= costs.metal * quantity;
+  state.stocks.mineral -= costs.mineral * quantity;
+  state.stocks.food -= costs.food * quantity;
+  state.stocks.energy -= costs.energy * quantity;
 
-  // Reserve workers
-  const workersNeeded = costs.workers || 0;
+  if (laneId !== 'research') {
+    state.stocks.research_points -= costs.research_points * quantity;
+  }
+}
+
+/**
+ * Reserve workers and space for an activating item.
+ * Updates population.busyByLane and space usage.
+ */
+function reserveWorkersAndSpace(
+  state: PlanetState,
+  def: ItemDefinition,
+  quantity: number,
+  laneId: LaneId
+): void {
+  if (quantity <= 0) return;
+  if (!def.costsPerUnit) return;
+
+  const workersNeeded = def.costsPerUnit.workers || 0;
   if (workersNeeded > 0) {
-    const totalWorkers = workersNeeded * actualQty;
+    const totalWorkers = workersNeeded * quantity;
+    if (totalWorkers > state.population.workersIdle) {
+      console.error('reserveWorkersAndSpace: insufficient idle workers');
+    }
     state.population.workersIdle -= totalWorkers;
     state.population.busyByLane[laneId] =
       (state.population.busyByLane[laneId] || 0) + totalWorkers;
   }
 
-  // Reserve space
-  const spaceNeeded = costs.space || 0;
+  const spaceNeeded = def.costsPerUnit.space || 0;
   if (spaceNeeded > 0) {
-    const totalSpace = spaceNeeded * actualQty;
+    const totalSpace = spaceNeeded * quantity;
     if (def.type === 'structure') {
       state.space.groundUsed += totalSpace;
     } else {
       state.space.orbitalUsed += totalSpace;
     }
   }
+}
 
-  // Move item from pending to active with turn tracking
+/**
+ * Try to activate next pending item in lane.
+ * Deducts resources and reserves workers/space at activation.
+ */
+export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
+  if (!state || !state.lanes[laneId]) return;
+
+  const lane = state.lanes[laneId];
+  if (lane.pendingQueue.length === 0 || lane.active) return;
+
+  const pending = lane.pendingQueue[0];
+
+  if (pending.isWait) {
+    activateWaitItem(state, lane, laneId, pending);
+    return;
+  }
+
+  const def = state.defs[pending.itemId];
+  if (!def) {
+    console.error(`Definition not found for item: ${pending.itemId}`);
+    return;
+  }
+
+  const actualQty = clampBatchAtActivation(state, def, pending.quantity);
+  if (actualQty === 0) return;
+
+  deductActivationCosts(state, def, actualQty, laneId);
+  reserveWorkersAndSpace(state, def, actualQty, laneId);
+
   lane.active = {
     ...pending,
     quantity: actualQty,
     status: 'active',
     turnsRemaining: def.durationTurns,
     startTurn: state.currentTurn,
-    // completionTurn will be set when the item actually completes
   };
 
-  // Log activation
   getLogger().logQueueOperation(
     state.currentTurn,
     'activate',
@@ -113,103 +157,118 @@ export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
     `Activated with ${actualQty} quantity (requested: ${pending.quantity})`
   );
 
-  // Remove from pending queue
   lane.pendingQueue.shift();
 }
 
 /**
- * Progress active item in lane (decrement turnsRemaining)
- * Marks for completion when turnsRemaining reaches 0
- * Returns the completed item if it finished this turn, null otherwise
+ * Complete a wait item and record in history.
+ * Returns the completed item for tracking.
  */
-export function progressActive(state: PlanetState, laneId: LaneId): WorkItem | null {
-  const lane = state.lanes[laneId];
+function completeWaitItem(
+  state: PlanetState,
+  lane: PlanetState['lanes'][LaneId],
+  laneId: LaneId,
+  active: WorkItem
+): WorkItem {
+  active.status = 'completed';
+  active.completionTurn = state.currentTurn;
+  const completedItem = { ...active };
 
-  // No active item to progress
-  if (!lane.active) {
+  getLogger().logQueueOperation(
+    state.currentTurn,
+    'complete',
+    laneId,
+    '__wait__',
+    'Wait',
+    active.quantity,
+    `Wait completed at turn ${state.currentTurn}`
+  );
+
+  lane.completionHistory.push(completedItem);
+  lane.active = null;
+  return completedItem;
+}
+
+/**
+ * Return workers to idle pool after item completion.
+ * Colonists don't return workers (handled by conversion logic).
+ */
+function returnWorkersOnCompletion(
+  state: PlanetState,
+  def: ItemDefinition,
+  quantity: number,
+  laneId: LaneId
+): void {
+  const workersNeeded = def.costsPerUnit.workers || 0;
+  if (workersNeeded <= 0) return;
+
+  const totalWorkers = workersNeeded * quantity;
+  state.population.busyByLane[laneId] =
+    (state.population.busyByLane[laneId] || 0) - totalWorkers;
+
+  if (!def.colonistKind) {
+    state.population.workersIdle += totalWorkers;
+  }
+}
+
+/**
+ * Complete a normal (non-wait) item and record in history.
+ * Returns the completed item, or null if definition not found.
+ */
+function completeNormalItem(
+  state: PlanetState,
+  lane: PlanetState['lanes'][LaneId],
+  laneId: LaneId,
+  active: WorkItem
+): WorkItem | null {
+  const def = state.defs[active.itemId];
+  if (!def) {
+    console.error(`Definition not found for item: ${active.itemId}`);
     return null;
   }
 
-  const active = lane.active;
+  returnWorkersOnCompletion(state, def, active.quantity, laneId);
 
-  // Decrement turns remaining
-  active.turnsRemaining -= 1;
+  active.status = 'completed';
+  active.completionTurn = state.currentTurn;
+  const completedItem = { ...active };
 
-  // Check if completed
-  if (active.turnsRemaining <= 0) {
-    // Handle wait items (no workers to return, no effects to apply)
-    if (active.isWait) {
-      active.status = 'completed';
-      active.completionTurn = state.currentTurn;
-      const completedItem = { ...active };
+  getLogger().logQueueOperation(
+    state.currentTurn,
+    'complete',
+    laneId,
+    def.id,
+    def.name,
+    active.quantity,
+    `Completed at turn ${state.currentTurn}`
+  );
 
-      // Log completion
-      getLogger().logQueueOperation(
-        state.currentTurn,
-        'complete',
-        laneId,
-        '__wait__',
-        'Wait',
-        active.quantity,
-        `Wait completed at turn ${state.currentTurn}`
-      );
+  lane.completionHistory.push(completedItem);
+  lane.active = null;
 
-      // Add to completion history for visual display
-      lane.completionHistory.push(completedItem);
-
-      lane.active = null;
-      return completedItem;
-    }
-
-    // Handle normal items
-    const def = state.defs[active.itemId];
-    if (!def) {
-      console.error(`Definition not found for item: ${active.itemId}`);
-      return null;
-    }
-
-    // Return workers to idle pool
-    const workersNeeded = def.costsPerUnit.workers || 0;
-    if (workersNeeded > 0) {
-      const totalWorkers = workersNeeded * active.quantity;
-      state.population.busyByLane[laneId] =
-        (state.population.busyByLane[laneId] || 0) - totalWorkers;
-
-      // For colonists, we don't return all workers (n-1 pattern handled in conversions)
-      // For structures/ships, return all workers
-      if (!def.colonistKind) {
-        state.population.workersIdle += totalWorkers;
-      }
-    }
-
-    // Mark as completed and set completion turn
-    active.status = 'completed';
-    active.completionTurn = state.currentTurn;
-    const completedItem = { ...active };
-
-    // Log completion
-    getLogger().logQueueOperation(
-      state.currentTurn,
-      'complete',
-      laneId,
-      def.id,
-      def.name,
-      active.quantity,
-      `Completed at turn ${state.currentTurn}`
-    );
-
-    // Add to completion history for visual display
-    lane.completionHistory.push(completedItem);
-
-    lane.active = null;
-
-    // For colonists, add to pending conversions (same-turn completion)
-    if (def.colonistKind) {
-      state.pendingColonistConversions.push(completedItem);
-    }
-
-    return completedItem;
+  if (def.colonistKind) {
+    state.pendingColonistConversions.push(completedItem);
   }
 
-  return null;
+  return completedItem;
+}
+
+/**
+ * Progress active item in lane (decrement turnsRemaining).
+ * Returns completed item if finished this turn, null otherwise.
+ */
+export function progressActive(state: PlanetState, laneId: LaneId): WorkItem | null {
+  if (!state || !state.lanes[laneId]) return null;
+
+  const lane = state.lanes[laneId];
+  if (!lane.active) return null;
+
+  const active = lane.active;
+  active.turnsRemaining -= 1;
+
+  if (active.turnsRemaining > 0) return null;
+
+  return active.isWait
+    ? completeWaitItem(state, lane, laneId, active)
+    : completeNormalItem(state, lane, laneId, active);
 }

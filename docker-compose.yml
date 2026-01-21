@@ -1,0 +1,64 @@
+# Docker Compose for Infinite Conflict Turn-Based Strategy Simulator
+#
+# Usage:
+#   Development:  docker compose up dev
+#   Production:   docker compose up app
+#   Build:        docker compose build
+#
+# See DOCKER.md for full documentation
+
+services:
+  # ==========================================================================
+  # Production Service
+  # ==========================================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ==========================================================================
+  # Development Service (with hot reload)
+  # ==========================================================================
+  dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      # Prevent node_modules from being overwritten by mount
+      - /app/node_modules
+      # Mount .next for faster rebuilds
+      - /app/.next
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
+    stdin_open: true
+    tty: true
+
+  # ==========================================================================
+  # Test Runner Service
+  # ==========================================================================
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=test
+    command: npm run test

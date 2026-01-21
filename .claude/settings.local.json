@@ -57,7 +57,22 @@
       "Bash(src/components/ItemSelection/__tests__/ItemCard.test.tsx )",
       "Bash(src/components/ItemSelection/__tests__/TabHeader.test.tsx)",
       "Bash(src/lib/game/__tests__/agent.test.ts.skip )",
-      "Bash(src/lib/game/__tests__/integration.test.ts.skip)"
+      "Bash(src/lib/game/__tests__/integration.test.ts.skip)",
+      "Bash(timeout 10 npm run dev:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(pipx install:*)",
+      "Bash(./install.sh:*)",
+      "Bash(brew list:*)",
+      "Bash(PATH=\"/opt/homebrew/bin:$PATH\" ./install.sh:*)",
+      "Bash(PATH=\"/Users/jjankus/.local/bin:/opt/homebrew/bin:$PATH\" ./install.sh:*)",
+      "Bash(PATH=\"/Users/jjankus/.local/bin:/opt/homebrew/bin:$PATH\" uv tool install:*)",
+      "Bash(PATH=\"/Users/jjankus/.local/bin:/opt/homebrew/bin:$PATH\" superclaude install:*)",
+      "Bash(node -e:*)",
+      "Bash(cd:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker compose restart dev)",
+      "Bash(docker compose:*)",
+      "Bash(docker logs:*)"
     ],
     "deny": [],
     "ask": []

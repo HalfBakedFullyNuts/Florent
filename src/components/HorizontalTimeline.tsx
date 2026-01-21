@@ -1,11 +1,18 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
+export interface FirstEmptyTurns {
+  building: number | null;
+  ship: number | null;
+  colonist: number | null;
+}
 
 export interface HorizontalTimelineProps {
   currentTurn: number;
   totalTurns: number;
   onTurnChange: (turn: number) => void;
+  firstEmptyTurns?: FirstEmptyTurns;
 }
 
 /**
@@ -13,24 +20,35 @@ export interface HorizontalTimelineProps {
  *
  * - Simple timeline style
  * - Turn input, slider, and quick jump buttons
+ * - First empty turn buttons for each lane
  * - Fits between Population and Space Remaining sections width-wise
  */
-export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange }: HorizontalTimelineProps) {
+export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange, firstEmptyTurns }: HorizontalTimelineProps) {
   const [hoveredTurn, setHoveredTurn] = useState<number | null>(null);
+  // Local state for slider to prevent "snap-back" during fast dragging
+  const [localTurn, setLocalTurn] = useState(currentTurn);
+
+  // Sync local state when prop changes from external source
+  useEffect(() => {
+    setLocalTurn(currentTurn);
+  }, [currentTurn]);
 
   const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newTurn = parseInt(e.target.value, 10);
-    onTurnChange(newTurn);
+    setLocalTurn(newTurn); // Update local state immediately for smooth slider
+    onTurnChange(newTurn); // Propagate to parent
   };
 
   const handleTurnInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value, 10);
     if (!isNaN(value) && value >= 1 && value <= totalTurns) {
+      setLocalTurn(value);
       onTurnChange(value);
     }
   };
 
-  const handleLabelClick = (turn: number) => {
+  const handleButtonClick = (turn: number) => {
+    setLocalTurn(turn);
     onTurnChange(turn);
   };
 
@@ -40,18 +58,34 @@ export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange }: Ho
   return (
     <div className="w-full bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border p-4">
       <div className="flex items-center gap-4">
-        {/* Current Turn Input */}
+        {/* Current Turn Input with Step Buttons */}
         <div className="flex items-center gap-2">
           <span className="text-pink-nebula-muted text-xs font-semibold">TURN</span>
+          <button
+            onClick={() => handleButtonClick(Math.max(1, localTurn - 1))}
+            disabled={localTurn <= 1}
+            className="w-8 h-8 flex items-center justify-center bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Previous turn"
+          >
+            ◀
+          </button>
           <input
             type="number"
-            value={currentTurn}
+            value={localTurn}
             onChange={handleTurnInput}
             min={1}
             max={totalTurns}
             aria-label="Turn"
             className="w-16 px-2 py-1 bg-pink-nebula-bg border border-pink-nebula-border rounded text-pink-nebula-text text-center font-bold"
           />
+          <button
+            onClick={() => handleButtonClick(Math.min(totalTurns, localTurn + 1))}
+            disabled={localTurn >= totalTurns}
+            className="w-8 h-8 flex items-center justify-center bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Next turn"
+          >
+            ▶
+          </button>
           <span className="text-pink-nebula-muted text-xs">/ {totalTurns}</span>
         </div>
 
@@ -61,14 +95,14 @@ export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange }: Ho
           <div className="relative h-6 mb-1">
             {turnLabels.map((turn) => {
               const position = ((turn - 1) / (totalTurns - 1)) * 100;
-              const isCurrentTurn = turn === currentTurn;
+              const isCurrentTurn = turn === localTurn;
 
               return (
                 <div
                   key={turn}
                   className="absolute flex flex-col items-center cursor-pointer hover:text-pink-nebula-text transition-colors"
                   style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
-                  onClick={() => handleLabelClick(turn)}
+                  onClick={() => handleButtonClick(turn)}
                 >
                   <span
                     className={`text-xs font-mono ${
@@ -104,7 +138,7 @@ export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange }: Ho
             <div
               className="absolute top-[-6px] w-[3px] h-3 bg-pink-nebula-accent-primary rounded pointer-events-none"
               style={{
-                left: `${((currentTurn - 1) / (totalTurns - 1)) * 100}%`,
+                left: `${((localTurn - 1) / (totalTurns - 1)) * 100}%`,
                 transform: 'translateX(-50%)'
               }}
             />
@@ -114,7 +148,7 @@ export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange }: Ho
               min={1}
               max={totalTurns}
               step={1}
-              value={currentTurn}
+              value={localTurn}
               onChange={handleSliderChange}
               onMouseMove={(e) => {
                 const rect = e.currentTarget.getBoundingClientRect();
@@ -145,24 +179,72 @@ export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange }: Ho
         {/* Quick Jump Buttons */}
         <div className="flex gap-1">
           <button
-            onClick={() => onTurnChange(1)}
+            onClick={() => handleButtonClick(1)}
             className="text-xs py-1 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
           >
             Start
           </button>
           <button
-            onClick={() => onTurnChange(Math.round(totalTurns / 2))}
+            onClick={() => handleButtonClick(Math.round(totalTurns / 2))}
             className="text-xs py-1 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
           >
             Mid
           </button>
           <button
-            onClick={() => onTurnChange(totalTurns)}
+            onClick={() => handleButtonClick(totalTurns)}
             className="text-xs py-1 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
           >
             End
           </button>
         </div>
+
+        {/* First Empty Turn Buttons */}
+        {firstEmptyTurns && (
+          <div className="flex gap-1 ml-2 pl-2 border-l border-pink-nebula-border">
+            {firstEmptyTurns.building !== null && (
+              <button
+                onClick={() => handleButtonClick(firstEmptyTurns.building!)}
+                title={`First turn where building lane is empty (T${firstEmptyTurns.building})`}
+                className={`text-xs py-1 px-2 border rounded transition-colors flex items-center gap-1 ${
+                  localTurn === firstEmptyTurns.building
+                    ? 'bg-amber-600/30 border-amber-500 text-amber-300'
+                    : 'bg-pink-nebula-bg hover:bg-amber-600/20 border-pink-nebula-border hover:border-amber-500'
+                }`}
+              >
+                <span>🏗️</span>
+                <span className="font-mono">T{firstEmptyTurns.building}</span>
+              </button>
+            )}
+            {firstEmptyTurns.ship !== null && (
+              <button
+                onClick={() => handleButtonClick(firstEmptyTurns.ship!)}
+                title={`First turn where ship lane is empty (T${firstEmptyTurns.ship})`}
+                className={`text-xs py-1 px-2 border rounded transition-colors flex items-center gap-1 ${
+                  localTurn === firstEmptyTurns.ship
+                    ? 'bg-blue-600/30 border-blue-500 text-blue-300'
+                    : 'bg-pink-nebula-bg hover:bg-blue-600/20 border-pink-nebula-border hover:border-blue-500'
+                }`}
+              >
+                <span>🚀</span>
+                <span className="font-mono">T{firstEmptyTurns.ship}</span>
+              </button>
+            )}
+            {firstEmptyTurns.colonist !== null && (
+              <button
+                onClick={() => handleButtonClick(firstEmptyTurns.colonist!)}
+                title={`First turn where colonist lane is empty (T${firstEmptyTurns.colonist})`}
+                className={`text-xs py-1 px-2 border rounded transition-colors flex items-center gap-1 ${
+                  localTurn === firstEmptyTurns.colonist
+                    ? 'bg-green-600/30 border-green-500 text-green-300'
+                    : 'bg-pink-nebula-bg hover:bg-green-600/20 border-pink-nebula-border hover:border-green-500'
+                }`}
+              >
+                <span>👥</span>
+                <span className="font-mono">T{firstEmptyTurns.colonist}</span>
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

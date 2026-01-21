@@ -197,28 +197,25 @@ export class Timeline {
   }
 
   /**
-   * Check if state is stable (no work remaining and no ongoing resource production)
-   * A state is NOT stable if:
-   * - Any lane has active or pending items
-   * - Scientists are producing research points
+   * Check if state is stable (no changes will occur in future turns)
+   *
+   * IMPORTANT: Stable state optimization is currently DISABLED.
+   *
+   * The optimization was causing bugs because resource production comes from
+   * completed structures, not just workers. A planet with 0 workers but completed
+   * mines/farms will still produce resources every turn.
+   *
+   * To properly implement this, we'd need to check:
+   * - No lane has active or pending items
+   * - No scientists (producing RP)
+   * - No workers (no population growth)
+   * - No completed structures with production effects
+   *
+   * For now, we always return false to ensure all 200 turns are computed correctly.
    */
-  private isStableState(state: PlanetState): boolean {
-    // Check if any lanes have work
-    const hasLaneWork = !Object.values(state.lanes).every(
-      lane => !lane.active && lane.pendingQueue.length === 0
-    );
-
-    if (hasLaneWork) {
-      return false;
-    }
-
-    // Check if scientists are producing RP
-    // Even with no queued work, scientists continue producing RP every turn
-    if (state.population.scientists > 0) {
-      return false;
-    }
-
-    return true;
+  private isStableState(_state: PlanetState): boolean {
+    // Disabled: always compute all turns to ensure correctness
+    return false;
   }
 
   /**

@@ -5,6 +5,7 @@ import type { LaneView, LaneEntry } from '../../lib/game/selectors';
 import type { LaneId } from '../../lib/sim/engine/types';
 import { QueueLaneEntry } from './QueueLaneEntry';
 import { Card } from '@/components/ui/card';
+import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
 
 export interface TabbedLaneDisplayProps {
   buildingLane: LaneView | null;
@@ -50,23 +51,16 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   const activeTab = externalActiveTab ?? internalActiveTab;
   const setActiveTab = onTabChange ?? setInternalActiveTab;
 
-  const getLaneConfig = (laneId: LaneId) => {
-    switch (laneId) {
-      case 'building':
-        return { title: 'Structures', icon: '🏗️', laneView: buildingLane };
-      case 'ship':
-        return { title: 'Ships', icon: '🚀', laneView: shipLane };
-      case 'colonist':
-        return { title: 'Colonists', icon: '👥', laneView: colonistLane };
-      case 'research':
-        return { title: 'Research', icon: '🔬', laneView: researchLane };
-      default:
-        return { title: 'Unknown', icon: '❓', laneView: buildingLane };
-    }
+  // Map laneId to its lane view
+  const laneViews: Record<LaneId, LaneView | null> = {
+    building: buildingLane,
+    ship: shipLane,
+    colonist: colonistLane,
+    research: researchLane,
   };
 
-  const config = getLaneConfig(activeTab);
-  const laneView = config.laneView;
+  const config = LANE_CONFIG[activeTab];
+  const laneView = laneViews[activeTab];
 
   // Calculate newest item
   const nonCompletedEntries = laneView?.entries.filter(e => e.status !== 'completed') || [];
@@ -78,8 +72,8 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
     <div className="w-full">
       {/* Tab Headers */}
       <div className="flex gap-2 mb-4">
-        {(['building', 'ship', 'colonist', 'research'] as LaneId[]).map((laneId) => {
-          const tabConfig = getLaneConfig(laneId);
+        {ALL_LANES.map((laneId) => {
+          const tabConfig = LANE_CONFIG[laneId];
           const isActive = activeTab === laneId;
 
           return (
@@ -113,7 +107,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
           </span>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-1">
           {!laneView || laneView.entries.length === 0 ? (
             <div className="text-center text-pink-nebula-muted text-base py-8">
               Queue empty
@@ -128,9 +122,13 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
               const maxQuantity = getMaxQuantity ? getMaxQuantity(activeTab, entry) : undefined;
 
               // Calculate actual index in pendingQueue (reversed from display)
+              // Display is reversed: displayIndex 0 = last item in queue (newest)
+              // To place BEFORE an item in display = place AFTER it in actual queue
               const actualIndex = laneView.entries.length - 1 - displayIndex;
               const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === activeTab;
-              const canDrag = !disabled && entry.status === 'pending' && !!onReorder;
+              // Allow dragging both pending and active items (active will be deactivated on drop)
+              const canDrag = !disabled && (entry.status === 'pending' || entry.status === 'active') && !!onReorder;
+              const isDropTarget = dragOverIndex === displayIndex && draggedItem && draggedItem.entryId !== entry.id;
 
               return (
                 <div
@@ -139,6 +137,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                   onDragStart={(e) => {
                     if (canDrag) {
                       e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.setData('text/plain', entry.id);
                       setDraggedItem({ laneId: activeTab, entryId: entry.id });
                     }
                   }}
@@ -149,10 +148,18 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                       setDragOverIndex(displayIndex);
                     }
                   }}
+                  onDragLeave={(e) => {
+                    // Only clear if leaving the container entirely
+                    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                      setDragOverIndex(null);
+                    }
+                  }}
                   onDrop={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
                     if (draggedItem && onReorder && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id) {
+                      // Convert display index back to actual queue index
+                      // Since display is reversed, dropping at displayIndex N means placing at actualIndex
                       onReorder(activeTab, draggedItem.entryId, actualIndex);
                     }
                     setDraggedItem(null);
@@ -163,23 +170,39 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                     setDragOverIndex(null);
                   }}
                   className={`
-                    ${isDragging ? 'opacity-50' : ''}
-                    ${dragOverIndex === displayIndex ? 'border-t-2 border-pink-nebula-accent-primary' : ''}
-                    ${canDrag ? 'cursor-move' : ''}
+                    relative flex items-center gap-2
+                    ${isDragging ? 'opacity-40 scale-95' : ''}
+                    ${canDrag ? 'cursor-grab active:cursor-grabbing' : ''}
+                    transition-all duration-150
                   `}
                 >
-                  <QueueLaneEntry
-                    entry={entry}
-                    currentTurn={currentTurn}
-                    onCancel={() => onCancel(activeTab, entry)}
-                    onQuantityChange={onQuantityChange ? (newQty) => onQuantityChange(activeTab, entry, newQty) : undefined}
-                    maxQuantity={maxQuantity}
-                    showQuantityInput={showQuantityInput}
-                    disabled={disabled}
-                    isNewest={isNewest}
-                    def={def}
-                    busyWorkers={busyWorkers}
-                  />
+                  {/* Drop indicator line */}
+                  {isDropTarget && (
+                    <div className="absolute -top-1 left-0 right-0 h-0.5 bg-pink-nebula-accent-primary rounded-full z-10" />
+                  )}
+
+                  {/* Drag handle */}
+                  {canDrag && (
+                    <div className="flex-shrink-0 w-6 flex flex-col items-center justify-center text-pink-nebula-muted hover:text-pink-nebula-text opacity-50 hover:opacity-100 transition-opacity">
+                      <span className="text-xs leading-none">⋮⋮</span>
+                    </div>
+                  )}
+
+                  {/* Queue entry */}
+                  <div className="flex-1">
+                    <QueueLaneEntry
+                      entry={entry}
+                      currentTurn={currentTurn}
+                      onCancel={() => onCancel(activeTab, entry)}
+                      onQuantityChange={onQuantityChange ? (newQty) => onQuantityChange(activeTab, entry, newQty) : undefined}
+                      maxQuantity={maxQuantity}
+                      showQuantityInput={showQuantityInput}
+                      disabled={disabled}
+                      isNewest={isNewest}
+                      def={def}
+                      busyWorkers={busyWorkers}
+                    />
+                  </div>
                 </div>
               );
             })
@@ -189,10 +212,10 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
         {/* Footer hint */}
         <div className="mt-4 pt-2 border-t border-pink-nebula-border">
           <div className="text-xs text-pink-nebula-muted text-center">
-            {activeTab === 'building' && 'Hover to cancel'}
-            {activeTab === 'ship' && 'Batch production'}
-            {activeTab === 'colonist' && 'Requires housing'}
-            {activeTab === 'research' && 'Research lane'}
+            {activeTab === 'building' && 'Drag ⋮⋮ to reorder (active items reset) • Click to cancel'}
+            {activeTab === 'ship' && 'Drag ⋮⋮ to reorder (active items reset) • Batch production'}
+            {activeTab === 'colonist' && 'Drag ⋮⋮ to reorder (active items reset) • Requires housing'}
+            {activeTab === 'research' && 'Drag ⋮⋮ to reorder (active items reset) • Research lane'}
           </div>
         </div>
       </Card>
