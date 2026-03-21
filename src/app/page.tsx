@@ -4,7 +4,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { GameController, queueResearch } from '../lib/game/commands';
 import { createInitialGameState, addPlanet, switchPlanet, getCurrentPlanet, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
 import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns } from '../lib/game/selectors';
-import { validateAllQueueItems, type QueueValidationResult, getValidationMessage } from '../lib/game/validation';
+import { validateAllQueueItems, type QueueValidationResult, getValidationMessage, getDependentQueueItems } from '../lib/game/validation';
 import { loadGameData } from '../lib/sim/defs/adapter.client';
 import gameDataRaw from '../lib/game/game_data.json';
 import { setupLogging } from '../lib/game/logging-utils';
@@ -20,6 +20,7 @@ import { ExportModal } from '../components/ExportModal';
 import { PlanetTabs } from '../components/PlanetTabs';
 import { AddPlanetModal, type PlanetConfig } from '../components/AddPlanetModal';
 import { Card } from '@/components/ui/card';
+import { DependencyWarningModal } from '../components/DependencyWarningModal';
 
 /**
  * Main game page - Multi-planet support
@@ -33,9 +34,13 @@ export default function Home() {
     setupLogging();
   }, []);
 
-  // Command history for URL encoding
   const [commandHistory] = useState(() => new CommandHistory());
   const [urlStateLoaded, setUrlStateLoaded] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Initialize multi-planet game state (check URL first)
   const [gameState, setGameState] = useState<GameState>(() => {
@@ -62,6 +67,11 @@ export default function Home() {
   const [queueValidation, setQueueValidation] = useState<Map<string, QueueValidationResult>>(new Map());
   const [showExportModal, setShowExportModal] = useState<'current' | 'full' | null>(null);
   const [activeTab, setActiveTab] = useState<'building' | 'ship' | 'colonist' | 'research'>('building');
+  const [pendingCancellation, setPendingCancellation] = useState<{
+    laneId: 'building' | 'ship' | 'colonist' | 'research';
+    entry: any;
+    brokenDependencies: any[];
+  } | null>(null);
 
   // Get current planet ID (only changes when switching planets, not on every mutation)
   const currentPlanetId = gameState.currentPlanetId;
@@ -143,10 +153,41 @@ export default function Home() {
   // Use selectors for UI data - re-compute when state changes
   // These hooks must be called unconditionally (Rules of Hooks)
   const summary = useMemo(() => currentState ? getPlanetSummary(currentState) : null, [currentState]);
-  const buildingLane = useMemo(() => currentState ? getLaneView(currentState, 'building') : null, [currentState]);
-  const shipLane = useMemo(() => currentState ? getLaneView(currentState, 'ship') : null, [currentState]);
-  const colonistLane = useMemo(() => currentState ? getLaneView(currentState, 'colonist') : null, [currentState]);
-  const researchLane = useMemo(() => currentState ? getLaneView(currentState, 'research') : null, [currentState]);
+
+  // To display the global queue regardless of the turn slider, we pull the timeline's final state
+  const fullPlanState = useMemo(() => {
+    if (!controller) return undefined;
+    return controller.getStateAtTurn(199);
+  }, [controller, viewTurn]); // include viewTurn to force re-evaluation when timeline mutates
+
+  // Helper to adjust the status of the global queue items relative to the current viewTurn
+  const getAdjustedLaneView = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research') => {
+    if (!fullPlanState) return null;
+    const view = getLaneView(fullPlanState, laneId);
+
+    view.entries = view.entries.map(entry => {
+      let status = entry.status;
+      const start = entry.startTurn ?? entry.queuedTurn ?? 0;
+      const finish = entry.completionTurn ?? entry.eta ?? 999;
+
+      if (finish <= viewTurn) {
+        status = 'completed';
+      } else if (start <= viewTurn && viewTurn < finish) {
+        status = 'active';
+      } else {
+        status = 'pending';
+      }
+      return { ...entry, status };
+    });
+
+    return view;
+  }, [fullPlanState, viewTurn]);
+
+  const buildingLane = useMemo(() => getAdjustedLaneView('building'), [getAdjustedLaneView]);
+  const shipLane = useMemo(() => getAdjustedLaneView('ship'), [getAdjustedLaneView]);
+  const colonistLane = useMemo(() => getAdjustedLaneView('colonist'), [getAdjustedLaneView]);
+  const researchLane = useMemo(() => getAdjustedLaneView('research'), [getAdjustedLaneView]);
+
   const warnings = useMemo(() => currentState ? getWarnings(currentState) : [], [currentState]);
 
   // Calculate first empty turn for each lane (for timeline quick jump buttons)
@@ -310,8 +351,8 @@ export default function Home() {
         return;
       }
 
-      // For other items, queue to current planet at view turn
-      const result = controller.queueItem(viewTurn, itemId, quantity);
+      // For other items, queue to current planet universally at Turn 1
+      const result = controller.queueItem(1, itemId, quantity);
       if (!result.success) {
         setError(result.reason || 'Cannot queue item');
         return;
@@ -319,7 +360,7 @@ export default function Home() {
 
       // Record command for URL encoding
       const planetIdx = getPlanetIndex(gameState, currentPlanetId);
-      commandHistory.recordQueue(planetIdx, viewTurn, itemId, quantity);
+      commandHistory.recordQueue(planetIdx, 1, itemId, quantity);
 
       // Update the planet in game state
       const updatedPlanet = controller.getStateAtTurn(viewTurn);
@@ -331,26 +372,20 @@ export default function Home() {
         });
       }
 
-      // AUTO-ADVANCE: For buildings, move to completion turn
+      // AUTO-ADVANCE: Move to the completion turn of the item we just added
+      // We know it's at the end of the global plan's timeline
       if (def && def.lane === 'building') {
-        const state = controller.getStateAtTurn(viewTurn);
-        if (state) {
-          const lane = state.lanes[def.lane];
-
-          // Calculate total duration in this lane
-          let totalDuration = 0;
-          if (lane.active) {
-            totalDuration += lane.active.turnsRemaining;
+        const finalState = controller.getStateAtTurn(199);
+        if (finalState) {
+          const laneView = getLaneView(finalState, def.lane);
+          // The newly added item is at the end of the timeline
+          // In getLaneView, completed items are reversed, active is appended, but pending is appended?
+          // Wait, getLaneView reverses the entire array before returning. So the newest pending item is at index 0.
+          if (laneView.entries.length > 0) {
+            const newlyAdded = laneView.entries[0];
+            const endTurn = newlyAdded.completionTurn || newlyAdded.eta || viewTurn;
+            setViewTurn(Math.min(endTurn + 1, 199));
           }
-          for (const pending of lane.pendingQueue) {
-            const pendingDef = defs[pending.itemId];
-            if (pendingDef) {
-              totalDuration += pendingDef.durationTurns;
-            }
-          }
-
-          const completionTurn = Math.min(viewTurn + totalDuration, 199); // Cap at turn 199
-          setViewTurn(completionTurn);
         }
       }
       // Ships/colonists stay at viewTurn (no auto-advance)
@@ -358,7 +393,101 @@ export default function Home() {
       console.error('Error in handleQueueItem:', e);
       setError((e as Error).message || 'Unknown error');
     }
-  }, [currentPlanet, controller, defs, viewTurn, gameState]);
+  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory]);
+
+  const handleQueueWait = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', waitTurns: number) => {
+    setError(null);
+    if (!currentPlanet || !controller) {
+      setError('No planet selected');
+      return;
+    }
+
+    try {
+      const result = controller.queueWaitItem(1, laneId, waitTurns, false);
+      if (!result.success) {
+        setError(result.reason || 'Cannot queue wait item');
+        return;
+      }
+
+      // Record command for URL encoding (we'd need to extend URL encoder for wait items if we want it perfect, 
+      // but for MVP we just queue it locally)
+      // commandHistory.recordQueueWait(...)
+
+      // Update the planet in game state
+      const updatedPlanet = controller.getStateAtTurn(viewTurn);
+      if (updatedPlanet) {
+        setGameState(prev => {
+          const newPlanets = new Map(prev.planets);
+          newPlanets.set(gameState.currentPlanetId, updatedPlanet as ExtendedPlanetState);
+          return { ...prev, planets: newPlanets };
+        });
+      }
+    } catch (e) {
+      console.error('Error in handleQueueWait:', e);
+      setError((e as Error).message || 'Unknown error');
+    }
+  }, [currentPlanet, controller, viewTurn, gameState]);
+
+  // Core execution function to instantly cancel and auto-collapse queues
+  const executeCancellation = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
+    // Cancel the item universally at turn 1
+    const result = controller!.cancelEntryByIdSmart(1, laneId, entry.id);
+
+    if (!result.success) {
+      if (result.reason === 'NOT_FOUND') {
+        setError('Item cannot be canceled (may be completed or non-existent)');
+      } else {
+        setError(result.reason || 'Cannot cancel item');
+      }
+      return;
+    }
+
+    // Feature: Queue Auto-Collapse
+    // After cancelling, we repack the queue forward to fill gaps.
+    controller!.repackQueue(1, laneId);
+
+    // Update the planet in game state
+    const updatedPlanet = controller!.getStateAtTurn(viewTurn);
+    if (updatedPlanet) {
+      setGameState(prev => {
+        const newPlanets = new Map(prev.planets);
+        newPlanets.set(gameState.currentPlanetId, updatedPlanet as ExtendedPlanetState);
+        return { ...prev, planets: newPlanets };
+      });
+
+      // Validate all remaining queue items after removal
+      const getLaneEntries = (state: any, lId: 'building' | 'ship' | 'colonist' | 'research') => {
+        return getLaneView(state, lId).entries;
+      };
+
+      const validationResults = validateAllQueueItems(updatedPlanet, getLaneEntries);
+
+      // Convert validation results to Map for efficient lookup
+      const validationMap = new Map<string, QueueValidationResult>();
+      for (const res of validationResults) {
+        validationMap.set(res.entryId, res);
+      }
+
+      setQueueValidation(validationMap);
+    }
+  }, [controller, viewTurn, gameState, setGameState]);
+
+  const confirmPendingCancellation = useCallback(() => {
+    if (!pendingCancellation || !controller) return;
+
+    // Cancel all broken dependencies (most recent future ones first is safest to avoid weird chronological cascading bugs, though GameController handles it robustly)
+    const sortedBroken = [...pendingCancellation.brokenDependencies].sort((a, b) => (b.queuedTurn || 0) - (a.queuedTurn || 0));
+
+    for (const dep of sortedBroken) {
+      controller.cancelEntryByIdSmart(1, dep.laneId as 'building' | 'ship' | 'colonist' | 'research', dep.id);
+    }
+
+    // Finally cancel the root element the user actually clicked
+    executeCancellation(pendingCancellation.laneId, pendingCancellation.entry);
+
+    // Close modal
+    setPendingCancellation(null);
+  }, [pendingCancellation, controller, viewTurn, executeCancellation]);
 
   const handleCancelItem = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
     setError(null);
@@ -368,47 +497,31 @@ export default function Home() {
     }
 
     try {
-      // Cancel the item (timeline always has 200 turns, no need to extend)
-      const cancelTurn = entry.queuedTurn || viewTurn;
-      const result = controller.cancelEntryByIdSmart(cancelTurn, laneId, entry.id);
+      // 1. Dependency Analysis for prerequisites
+      // Need to validate the full timeline to catch future breakages
+      const state = controller.getStateAtTurn(199);
+      if (state) {
+        const getLaneEntries = (s: any, lId: 'building' | 'ship' | 'colonist' | 'research') => getLaneView(s, lId).entries;
+        const brokenDependencies = getDependentQueueItems(state, entry, laneId, getLaneEntries);
 
-      if (!result.success) {
-        if (result.reason === 'NOT_FOUND') {
-          setError('Item cannot be canceled (may be completed)');
-        } else {
-          setError(result.reason || 'Cannot cancel item');
+        // If there are broken things down the line, halt and show warning modal
+        if (brokenDependencies.length > 0) {
+          setPendingCancellation({
+            laneId,
+            entry,
+            brokenDependencies
+          });
+          return; // Abort standard cancellation
         }
-        return;
       }
 
-      // Update the planet in game state
-      const updatedPlanet = controller.getStateAtTurn(viewTurn);
-      if (updatedPlanet) {
-        setGameState(prev => {
-          const newPlanets = new Map(prev.planets);
-          newPlanets.set(gameState.currentPlanetId, updatedPlanet as ExtendedPlanetState);
-          return { ...prev, planets: newPlanets };
-        });
+      // 2. Standard Cancellation Execution
+      executeCancellation(laneId, entry);
 
-        // Validate all remaining queue items after removal
-        const getLaneEntries = (state: any, laneId: 'building' | 'ship' | 'colonist' | 'research') => {
-          return getLaneView(state, laneId).entries;
-        };
-
-        const validationResults = validateAllQueueItems(updatedPlanet, getLaneEntries);
-
-        // Convert validation results to Map for efficient lookup
-        const validationMap = new Map<string, QueueValidationResult>();
-        for (const result of validationResults) {
-          validationMap.set(result.entryId, result);
-        }
-
-        setQueueValidation(validationMap);
-      }
     } catch (e) {
       setError((e as Error).message || 'Unknown error');
     }
-  }, [controller, viewTurn, gameState]);
+  }, [controller, viewTurn, executeCancellation]);
 
   const handleQuantityChange = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any, newQuantity: number) => {
     setError(null);
@@ -418,22 +531,12 @@ export default function Home() {
     }
 
     try {
-      // Cancel existing entry
-      const cancelTurn = entry.queuedTurn || viewTurn;
-      const cancelResult = controller.cancelEntryByIdSmart(cancelTurn, laneId, entry.id);
+      // Update quantity preserving position
+      const updateResult = controller.updateItemQuantity(1, laneId, entry.id, newQuantity);
 
-      if (!cancelResult.success) {
-        setError('Failed to update quantity');
+      if (!updateResult.success) {
+        setError(`Failed to update quantity: ${updateResult.reason}`);
         return;
-      }
-
-      // Re-queue with new quantity
-      const queueResult = controller.queueItem(viewTurn, entry.itemId, newQuantity);
-
-      if (!queueResult.success) {
-        setError(`Cannot set quantity to ${newQuantity}: ${queueResult.reason || 'validation failed'}`);
-        // Try to restore original quantity
-        controller.queueItem(viewTurn, entry.itemId, entry.quantity);
       }
 
       // Update the planet in game state
@@ -458,12 +561,15 @@ export default function Home() {
     }
 
     try {
-      const result = controller.reorderQueueItem(viewTurn, laneId, entryId, newIndex);
+      const result = controller.reorderQueueItem(1, laneId, entryId, newIndex);
 
       if (!result.success) {
         setError(`Cannot reorder: ${result.reason || 'unknown error'}`);
         return;
       }
+
+      // We should repack the queue following a reorder so items lock into their new places mathematically
+      controller.repackQueue(1, laneId);
 
       // Update the planet in game state
       const updatedPlanet = controller.getStateAtTurn(viewTurn);
@@ -482,7 +588,7 @@ export default function Home() {
 
   const getMaxQuantity = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any): number => {
     if (!controller) return entry.quantity;
-    const state = controller.getStateAtTurn(viewTurn);
+    const state = controller.getStateAtTurn(199);
     if (!state) return entry.quantity;
 
     const def = state.defs[entry.itemId];
@@ -601,80 +707,82 @@ export default function Home() {
 
         {/* Main Content - Side-by-side Tabbed Displays */}
         <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
-        <div className="flex gap-6">
-          {/* Left: Add to Queue (Item Selection) */}
-          <Card className="flex-1 p-6">
-            <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Add to Queue</h2>
-            <TabbedItemGrid
-              availableItems={availableItems}
-              onQueueItem={handleQueueItem}
-              canQueueItem={canQueueItem}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-            />
-          </Card>
+          <div className="flex gap-6">
+            {/* Left: Add to Queue (Item Selection) */}
+            <Card className="flex-1 p-6">
+              <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Add to Queue</h2>
+              <TabbedItemGrid
+                availableItems={availableItems}
+                onQueueItem={handleQueueItem}
+                onQueueWait={handleQueueWait}
+                canQueueItem={canQueueItem}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+              />
+            </Card>
 
-          {/* Right: Planet Queue (Lane Display) */}
-          <Card className="flex-1 p-6" data-export-target="planet-queue">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-4">
-                <h2 className="text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
-                {/* URL Size Indicator */}
-                {commandHistory.getCommands().length > 0 && (
-                  <div className="text-sm text-pink-nebula-text-secondary">
-                    <span className="font-mono">
-                      {commandHistory.getCommands().length} cmds | {typeof window !== 'undefined' ? window.location.href.length : 0} chars
-                    </span>
-                  </div>
-                )}
+            {/* Right: Planet Queue (Lane Display) */}
+            <Card className="flex-1 p-6" data-export-target="planet-queue">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-4">
+                  <h2 className="text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
+                  {/* URL Size Indicator */}
+                  {commandHistory.getCommands().length > 0 && (
+                    <div className="text-sm text-pink-nebula-text-secondary">
+                      <span className="font-mono">
+                        {commandHistory.getCommands().length} cmds | {isMounted ? window.location.href.length : 0} chars
+                      </span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const url = window.location.href;
+                      navigator.clipboard.writeText(url).then(() => {
+                        alert(`✅ Shareable link copied!\n\nURL: ${url.length} characters\nCommands: ${commandHistory.getCommands().length}\n\nPaste this link to reload your exact game state.`);
+                      }).catch(() => {
+                        alert(`Share this URL:\n\n${url}`);
+                      });
+                    }}
+                    className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                    title="Copy shareable link with game state"
+                  >
+                    <span>📋</span>
+                    <span>Share Link</span>
+                  </button>
+                  <button
+                    onClick={() => setShowExportModal('current')}
+                    className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
+                  >
+                    Export Current View
+                  </button>
+                  <button
+                    onClick={() => setShowExportModal('full')}
+                    className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
+                  >
+                    Export Full List
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => {
-                    const url = window.location.href;
-                    navigator.clipboard.writeText(url).then(() => {
-                      alert(`✅ Shareable link copied!\n\nURL: ${url.length} characters\nCommands: ${commandHistory.getCommands().length}\n\nPaste this link to reload your exact game state.`);
-                    }).catch(() => {
-                      alert(`Share this URL:\n\n${url}`);
-                    });
-                  }}
-                  className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-                  title="Copy shareable link with game state"
-                >
-                  <span>📋</span>
-                  <span>Share Link</span>
-                </button>
-                <button
-                  onClick={() => setShowExportModal('current')}
-                  className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
-                >
-                  Export Current View
-                </button>
-                <button
-                  onClick={() => setShowExportModal('full')}
-                  className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
-                >
-                  Export Full List
-                </button>
-              </div>
-            </div>
-            <TabbedLaneDisplay
-              buildingLane={enrichedBuildingLane}
-              shipLane={enrichedShipLane}
-              colonistLane={enrichedColonistLane}
-              researchLane={enrichedResearchLane}
-              currentTurn={viewTurn}
-              onCancel={(laneId, entry) => handleCancelItem(laneId, entry)}
-              onQuantityChange={(laneId, entry, newQty) => handleQuantityChange(laneId, entry, newQty)}
-              getMaxQuantity={(laneId, entry) => getMaxQuantity(laneId, entry)}
-              onReorder={(laneId, entryId, newIndex) => handleReorder(laneId, entryId, newIndex)}
-              disabled={false}
-              defs={defs}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-            />
-          </Card>
-        </div>
+              <TabbedLaneDisplay
+                buildingLane={enrichedBuildingLane}
+                shipLane={enrichedShipLane}
+                colonistLane={enrichedColonistLane}
+                researchLane={enrichedResearchLane}
+                currentTurn={viewTurn}
+                onCancel={(laneId, entry) => handleCancelItem(laneId, entry)}
+                onQuantityChange={(laneId, entry, newQty) => handleQuantityChange(laneId, entry, newQty)}
+                getMaxQuantity={(laneId, entry) => getMaxQuantity(laneId, entry)}
+                onReorder={(laneId, entryId, newIndex) => handleReorder(laneId, entryId, newIndex)}
+                disabled={false}
+                defs={defs}
+                activeTab={activeTab}
+                onTabChange={setActiveTab}
+                onTurnClick={setViewTurn}
+              />
+            </Card>
+          </div>
         </main>
       </div>
 

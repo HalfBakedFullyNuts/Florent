@@ -7,6 +7,7 @@
 
 import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
 import { canQueue } from '../sim/engine/validation';
+import { cloneState } from '../sim/engine/helpers';
 import type { LaneEntry } from './selectors';
 
 export interface QueueValidationResult {
@@ -197,4 +198,59 @@ export function getValidationMessage(result: QueueValidationResult): string {
     default:
       return reason;
   }
+}
+
+/**
+ * Checks for downstream dependencies that would break if an item is cancelled.
+ *
+ * @param state The current reference state.
+ * @param entryToCancel The item being proposed for cancellation.
+ * @param cancelLaneId The lane of the item being cancelled.
+ * @param getLaneEntries The selector to get formatted lane entries.
+ * @returns An array of LaneEntry objects that definitively require the cancelled item.
+ */
+export function getDependentQueueItems(
+  state: PlanetState,
+  entryToCancel: LaneEntry,
+  cancelLaneId: LaneId,
+  getLaneEntries: (state: PlanetState, laneId: LaneId) => LaneEntry[]
+): LaneEntry[] {
+  // 1. Clone the state to avoid mutating real timeline
+  const cloned = cloneState(state);
+
+  // 2. Erase the item from the cloned timeline
+  const lane = cloned.lanes[cancelLaneId];
+  if (lane) {
+    if (lane.active && lane.active.id === entryToCancel.id) {
+      lane.active = null;
+    } else {
+      lane.pendingQueue = lane.pendingQueue.filter(item => item.id !== entryToCancel.id);
+    }
+  }
+
+  // 3. Re-validate all remaining queue items against this new timeline
+  const results = validateAllQueueItems(cloned, getLaneEntries);
+  const brokenItems: LaneEntry[] = [];
+
+  // 4. Identify items that specifically broke due to missing this prerequisite
+  // (We check REQ_MISSING precisely)
+  for (const validation of results) {
+    if (!validation.valid && validation.reason?.startsWith('REQ_MISSING') && validation.missingPrereqs) {
+      // It broke. But did it break because of OUR cancelled item?
+      const cancelledDef = state.defs[entryToCancel.itemId];
+      if (cancelledDef && validation.missingPrereqs.includes(cancelledDef.id)) {
+        // Find the canonical entry from the original state to return
+        for (const targetLaneId of ['building', 'ship', 'colonist'] as LaneId[]) {
+          const origEntries = getLaneEntries(state, targetLaneId);
+          const found = origEntries.find(e => e.id === validation.entryId);
+          if (found) {
+            brokenItems.push(found);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  return brokenItems;
 }

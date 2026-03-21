@@ -9,6 +9,7 @@ import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
 export interface TabbedItemGridProps {
   availableItems: Record<string, any>;
   onQueueItem: (itemId: string, quantity: number) => void;
+  onQueueWait?: (laneId: LaneId, waitTurns: number) => void;
   canQueueItem: (itemId: string, quantity: number) => { allowed: boolean; reason?: string };
   activeTab?: LaneId;
   onTabChange?: (tab: LaneId) => void;
@@ -22,12 +23,14 @@ export interface TabbedItemGridProps {
 export function TabbedItemGrid({
   availableItems,
   onQueueItem,
+  onQueueWait,
   canQueueItem,
   activeTab: externalActiveTab,
   onTabChange,
   currentTurn = 1,
 }: TabbedItemGridProps) {
   const [internalActiveTab, setInternalActiveTab] = useState<LaneId>('building');
+  const [waitTurnsInput, setWaitTurnsInput] = useState<string>('5');
 
   // Use external tab state if provided, otherwise use internal
   const activeTab = externalActiveTab ?? internalActiveTab;
@@ -68,6 +71,15 @@ export function TabbedItemGrid({
       return a.name.localeCompare(b.name);
     });
   });
+
+  const handleQueueWait = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const turns = parseInt(waitTurnsInput, 10);
+    if (!isNaN(turns) && turns > 0 && onQueueWait) {
+      onQueueWait(activeTab, turns);
+      setWaitTurnsInput('5'); // Reset to default
+    }
+  };
 
   const isItemQueueable = (itemId: string): boolean => {
     return canQueueItem(itemId, 1).allowed;
@@ -190,6 +202,32 @@ export function TabbedItemGrid({
         </div>
 
         <div className="space-y-2">
+          {/* Manual Wait Controls Row */}
+          {onQueueWait && (
+            <div className="w-full flex items-center gap-4 p-3 bg-pink-nebula-panel border border-pink-nebula-border rounded mb-4 shadow-sm">
+              <div className="text-pink-nebula-text font-semibold flex-1">
+                Wait (Pause Queue)
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  className="w-16 bg-slate-800 text-pink-nebula-text border border-pink-nebula-border rounded px-2 py-1 text-center"
+                  value={waitTurnsInput}
+                  onChange={(e) => setWaitTurnsInput(e.target.value)}
+                />
+                <span className="text-pink-nebula-muted text-sm mr-2">turns</span>
+                <button
+                  onClick={handleQueueWait}
+                  className="px-4 py-1 bg-slate-700 hover:bg-slate-600 text-pink-nebula-text rounded border border-pink-nebula-border transition-colors text-sm font-semibold"
+                >
+                  Inject Wait
+                </button>
+              </div>
+            </div>
+          )}
+
           {items.length === 0 ? (
             <div className="text-center text-pink-nebula-muted text-base py-4">
               No items available

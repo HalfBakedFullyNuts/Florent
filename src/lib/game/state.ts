@@ -8,6 +8,7 @@ import { simulate, runTurn } from '../sim/engine/turn';
 import { CompletionBuffer } from '../sim/engine/buffers';
 import { cloneState } from '../sim/engine/helpers';
 import { getLogger } from './logger';
+import { computeNetOutputsPerTurn } from '../sim/engine/outputs';
 
 /**
  * Timeline state manager with fixed 200-turn architecture
@@ -198,24 +199,51 @@ export class Timeline {
 
   /**
    * Check if state is stable (no changes will occur in future turns)
-   *
-   * IMPORTANT: Stable state optimization is currently DISABLED.
-   *
-   * The optimization was causing bugs because resource production comes from
-   * completed structures, not just workers. A planet with 0 workers but completed
-   * mines/farms will still produce resources every turn.
-   *
-   * To properly implement this, we'd need to check:
-   * - No lane has active or pending items
-   * - No scientists (producing RP)
-   * - No workers (no population growth)
-   * - No completed structures with production effects
-   *
-   * For now, we always return false to ensure all 200 turns are computed correctly.
+   * 
+   * A state is stable if and only if ALL of the following are true:
+   * 1. All production lanes are completely empty (no active items, no pending items).
+   * 2. There are no pending colonist conversions.
+   * 3. Net resource outputs per turn are exactly zero for all resources.
+   *    (If production > 0, stocks will grow; if production < 0, stocks will shrink and eventually hit bounds)
+   * 4. Worker growth is zero (either because food is 0, or workers are at the housing cap, or no workers exist).
    */
-  private isStableState(_state: PlanetState): boolean {
-    // Disabled: always compute all turns to ensure correctness
-    return false;
+  private isStableState(state: PlanetState): boolean {
+    // 1. Check if all lanes are empty
+    for (const lane of Object.values(state.lanes)) {
+      if (lane.active !== null || lane.pendingQueue.length > 0) {
+        return false;
+      }
+    }
+
+    // 2. Check pending colonist conversions
+    if (state.pendingColonistConversions && state.pendingColonistConversions.length > 0) {
+      return false;
+    }
+
+    // 3. Check net resource outputs (must all be exactly 0)
+    const outputs = computeNetOutputsPerTurn(state);
+    if (
+      outputs.metal !== 0 ||
+      outputs.mineral !== 0 ||
+      outputs.food !== 0 ||
+      outputs.energy !== 0 ||
+      outputs.research_points !== 0
+    ) {
+      return false;
+    }
+
+    // 4. Check worker growth
+    // Growth condition:
+    if (state.stocks.food > 0 && state.population.workersTotal > 0) {
+      const availableHousing = state.housing.workerCap - state.population.workersTotal;
+      if (availableHousing > 0) {
+        // There is food, there are workers, and there is housing capacity. Growth will occur.
+        return false;
+      }
+    }
+
+    // If all checks pass, the state is mathematically stable.
+    return true;
   }
 
   /**

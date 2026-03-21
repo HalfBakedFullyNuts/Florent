@@ -140,34 +140,7 @@ export function enqueueItem(player: PlayerState, itemId: string, itemType: 'stru
   return { ok: true }
 }
 
-// Backwards-compatible enqueueUnit (keeps previous test behavior)
-export function enqueueUnit(player: PlayerState, factoryId: string, unit: { name: string; cost?: { mass?: number; energy?: number; time?: number }; prerequisites?: Array<{ type: string; name: string }> }, count = 1) {
-  // validate prereqs (unit.prerequisites uses old shape)
-  const v = validatePrereqs(player, unit.prerequisites)
-  if (!v.ok) return v
 
-  // ensure factory exists
-  if (!player.ownedBuildings.some(b => b.id === factoryId)) return { ok: false, reason: 'Factory not owned' }
-
-  const queue = player.unitQueueByFactory[factoryId] ||= []
-  for (let i = 0; i < count; i++) {
-    const mass = unit.cost?.mass || 0
-    if (player.resources.mass < mass) return { ok: false, reason: 'Insufficient resources to reserve' }
-    player.resources.mass -= mass
-    const qi: QueueItem = {
-      id: uuidv4(),
-      name: unit.name,
-      type: 'Unit',
-      remainingTime: unit.cost?.time || 1,
-      massReserved: mass,
-      energyReserved: unit.cost?.energy || 0,
-      meta: { legacy: true }
-    }
-    queue.push(qi)
-    player.buildQueue.push(qi)
-  }
-  return { ok: true }
-}
 
 // Cancel queue item and refund costs by re-adding resources from the def
 export function cancelQueueItemImpl(player: PlayerState, itemId: string) {
@@ -185,19 +158,7 @@ export function cancelQueueItemImpl(player: PlayerState, itemId: string) {
   return { ok: true }
 }
 
-// Backwards-compatible cancel signature: (player, factoryId, itemId)
-export function cancelQueueItemLegacy(player: PlayerState, factoryId: string, itemId: string) {
-  // remove from factory queue if present
-  const fq = player.unitQueueByFactory[factoryId]
-  if (fq) {
-    const idx = fq.findIndex(q => q.id === itemId)
-    if (idx !== -1) fq.splice(idx, 1)
-  }
-  return cancelQueueItemImpl(player, itemId)
-}
 
-// Export legacy name to keep tests working (they call cancelQueueItem with 3 args)
-export { cancelQueueItemLegacy as cancelQueueItem }
 
 // Move item within buildQueue (simple reorder)
 // New global reorder by item id
@@ -209,16 +170,7 @@ export function moveQueueItemGlobal(player: PlayerState, itemId: string, toIndex
   return { ok: true }
 }
 
-// Backwards-compatible legacy factory move: (player, factoryId, itemId, toIndex)
-export function moveQueueItem(player: PlayerState, factoryId: string, itemId: string, toIndex: number) {
-  const fq = player.unitQueueByFactory[factoryId]
-  if (!fq) return { ok: false, reason: 'Factory queue not found' }
-  const idx = fq.findIndex(q => q.id === itemId)
-  if (idx === -1) return { ok: false, reason: 'Item not found' }
-  const [it] = fq.splice(idx, 1)
-  fq.splice(Math.max(0, Math.min(fq.length, toIndex)), 0, it)
-  return { ok: true }
-}
+
 
 // Process one game tick: apply upkeep (consumption), production, and decrement build timers
 export function processTick(player: PlayerState, planetAbundances: { metal: number; mineral: number; food: number }, delta = 1) {
@@ -253,9 +205,9 @@ export function processTick(player: PlayerState, planetAbundances: { metal: numb
         if (p.type === 'mineral') amt *= planetAbundances.mineral
         if (p.type === 'food') amt *= planetAbundances.food
       }
-  if (p.type === 'metal') player.resources.mass += Math.round(amt * delta)
-  else if (p.type === 'mineral') player.resources.mineral += Math.round(amt * delta)
-  else if (p.type === 'food') player.resources.food += Math.round(amt * delta)
+      if (p.type === 'metal') player.resources.mass += Math.round(amt * delta)
+      else if (p.type === 'mineral') player.resources.mineral += Math.round(amt * delta)
+      else if (p.type === 'food') player.resources.food += Math.round(amt * delta)
       else {
         // producing units (e.g., workers) - produce integer units per tick
         const unitId = p.type
@@ -299,9 +251,9 @@ export function completeQueueItem(player: PlayerState, qi: QueueItem) {
     // Add OwnedBuilding entry. Use def.id if available, otherwise use the queued name.
     player.ownedBuildings.push({ id: qi.id, name: def ? def.id : qi.name, builtAtTick: player.tick })
     // apply effects if definition exists
-        if (def && 'operations' in def && def.operations && def.operations.effects) {
-          for (const e of def.operations.effects) applyEffect(player, e)
-        }
+    if (def && 'operations' in def && def.operations && def.operations.effects) {
+      for (const e of def.operations.effects) applyEffect(player, e)
+    }
   } else if (itemType === 'unit') {
     // Add produced unit to population counts
     if (def && def.id) {
@@ -309,9 +261,9 @@ export function completeQueueItem(player: PlayerState, qi: QueueItem) {
       player.unitCounts[def.id] = (player.unitCounts[def.id] || 0) + 1
     }
     // apply any unit effects if present
-      if (def && 'operations' in def && def.operations && def.operations.effects) {
-        for (const e of def.operations.effects) applyEffect(player, e)
-      }
+    if (def && 'operations' in def && def.operations && def.operations.effects) {
+      for (const e of def.operations.effects) applyEffect(player, e)
+    }
   } else if (itemType === 'research') {
     // Add research completion by name
     player.completedResearch.push(qi.name)

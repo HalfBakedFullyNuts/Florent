@@ -54,6 +54,8 @@ export interface LaneEntry {
   invalid?: boolean; // Whether this item is invalid (fails validation)
   invalidReason?: string; // Human-readable reason for invalidity
   missingPrereqs?: string[]; // List of missing prerequisites
+  isWait?: boolean; // True for wait items
+  isAutoWait?: boolean; // True for auto-inserted wait items
 }
 
 export interface LaneView {
@@ -253,6 +255,8 @@ function workItemToLaneEntry(
     queuedTurn: item.queuedTurn,
     startTurn: overrides?.startTurn ?? item.startTurn,
     completionTurn: overrides?.completionTurn ?? item.completionTurn,
+    isWait: item.isWait,
+    isAutoWait: item.isAutoWait,
   };
 }
 

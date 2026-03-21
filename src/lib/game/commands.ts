@@ -40,7 +40,7 @@ export class GameController {
    * Queue an item in a lane at specific turn
    * Validates prerequisites and energy forward-check before queueing
    */
-  queueItem(turn: number, itemId: string, requestedQty: number): QueueResult {
+  queueItem(turn: number, itemId: string, requestedQty: number, options?: { force?: boolean }): QueueResult {
     const state = this.timeline.getStateAtTurn(turn);
     if (!state) {
       return { success: false, reason: 'INVALID_LANE' };
@@ -55,20 +55,22 @@ export class GameController {
     const laneId = def.lane;
     const lane = state.lanes[laneId];
 
-    // Check if lane is busy with active work
-    if (lane.active) {
-      return { success: false, reason: 'INVALID_LANE' };
-    }
+    if (!options?.force) {
+      // Check if lane is busy with active work
+      if (lane.active) {
+        return { success: false, reason: 'INVALID_LANE' };
+      }
 
-    // Check if queue is full (max 10 items)
-    if (lane.pendingQueue.length >= lane.maxQueueDepth) {
-      return { success: false, reason: 'INVALID_LANE' };
-    }
+      // Check if queue is full (max 10 items)
+      if (lane.pendingQueue.length >= lane.maxQueueDepth) {
+        return { success: false, reason: 'INVALID_LANE' };
+      }
 
-    // Validate queue operation
-    const validation = canQueue(state, def, requestedQty);
-    if (!validation.allowed) {
-      return { success: false, reason: validation.reason };
+      // Validate queue operation
+      const validation = canQueue(state, def, requestedQty);
+      if (!validation.allowed) {
+        return { success: false, reason: validation.reason };
+      }
     }
 
     // Create work item with queue turn tracking
@@ -115,7 +117,7 @@ export class GameController {
    * Queue a wait item in a lane at specific turn
    * Wait items pause lane activity for N turns without resource costs
    */
-  queueWaitItem(turn: number, laneId: LaneId, waitTurns: number): QueueResult {
+  queueWaitItem(turn: number, laneId: LaneId, waitTurns: number, isAutoWait: boolean = false, options?: { force?: boolean }): QueueResult {
     const state = this.timeline.getStateAtTurn(turn);
     if (!state) {
       return { success: false, reason: 'INVALID_LANE' };
@@ -123,14 +125,16 @@ export class GameController {
 
     const lane = state.lanes[laneId];
 
-    // Check if lane is busy with active work
-    if (lane.active) {
-      return { success: false, reason: 'INVALID_LANE' };
-    }
+    if (!options?.force) {
+      // Check if lane is busy with active work
+      if (lane.active) {
+        return { success: false, reason: 'INVALID_LANE' };
+      }
 
-    // Check if queue is full
-    if (lane.pendingQueue.length >= lane.maxQueueDepth) {
-      return { success: false, reason: 'INVALID_LANE' };
+      // Check if queue is full
+      if (lane.pendingQueue.length >= lane.maxQueueDepth) {
+        return { success: false, reason: 'INVALID_LANE' };
+      }
     }
 
     // Validate wait turns (must be positive)
@@ -148,6 +152,7 @@ export class GameController {
       turnsRemaining: waitTurns,
       queuedTurn: turn,
       isWait: true,
+      isAutoWait,
     };
 
     // Mutate state to add wait item to queue
@@ -430,6 +435,73 @@ export class GameController {
   }
 
   /**
+   * Update the quantity of an existing item in the queue preserving its position.
+   */
+  updateItemQuantity(turn: number, laneId: LaneId, entryId: string, newQuantity: number): CancelResult {
+    // We only need to check turn 1 since everything is queued universally now.
+    const state = this.timeline.getStateAtTurn(turn);
+    if (!state) return { success: false, reason: 'INVALID_TURN' };
+
+    const lane = state.lanes[laneId];
+
+    // Check pending queue
+    const pendingIndex = lane.pendingQueue.findIndex(item => item.id === entryId);
+    if (pendingIndex !== -1) {
+      this.timeline.mutateAtTurn(turn, (s) => {
+        const item = s.lanes[laneId].pendingQueue[pendingIndex];
+        if (item) {
+          // Adjust research points if applicable
+          if (laneId === 'research') {
+            const def = s.defs[item.itemId];
+            if (def) {
+              const rpCost = def.costsPerUnit.research_points || 0;
+              // Refund old, deduct new
+              s.stocks.research_points += rpCost * item.quantity;
+              s.stocks.research_points -= rpCost * newQuantity;
+            }
+          }
+          item.quantity = newQuantity;
+        }
+      });
+      // Optionally repack to re-verify dynamic validators
+      this.repackQueue(turn, laneId);
+      return { success: true };
+    }
+
+    // Check active item
+    if (lane.active && lane.active.id === entryId) {
+      this.timeline.mutateAtTurn(turn, (s) => {
+        const active = s.lanes[laneId].active;
+        if (!active) return;
+        const def = s.defs[active.itemId];
+        if (!def) return;
+
+        // Refund old costs
+        refundActivationCosts(s, def, active.quantity, laneId);
+
+        // Update quantity
+        active.quantity = newQuantity;
+
+        // Re-deduct new costs? Wait, active items are activated during phase transitions.
+        // It's safer to deactivate it and repack.
+        // Or we can just adjust the costs if we import deductActivationCosts.
+        // For simplicity, we can just deactivate it, push it to front of pending, and repack.
+        s.lanes[laneId].active = null;
+        s.lanes[laneId].pendingQueue.unshift({
+          ...active,
+          status: 'pending',
+          turnsRemaining: def.durationTurns,
+        });
+      });
+      // Repack processes the pending queue.
+      this.repackQueue(turn, laneId);
+      return { success: true };
+    }
+
+    return { success: false, reason: 'NOT_FOUND' };
+  }
+
+  /**
    * Reorder a queue item to a new position
    * Works for both pending and active items.
    * Active items are deactivated (refunded) and re-added to pending queue.
@@ -563,6 +635,106 @@ export class GameController {
     );
 
     return { success: true };
+  }
+
+  /**
+   * Auto-collapse a lane's queue by pulling items forward as early as possible.
+   * If an item is delayed by prerequisites, inserts an autoWait item.
+   * 
+   * @param turn The turn to start repacking from (usually viewTurn)
+   * @param laneId The lane to repack
+   */
+  repackQueue(turn: number, laneId: LaneId): boolean {
+    const startState = this.timeline.getStateAtTurn(turn);
+    if (!startState) return false;
+
+    const lane = startState.lanes[laneId];
+    if (lane.pendingQueue.length === 0) return true; // Nothing to repack
+
+    // 1. Extract and clone all items that are NOT auto-waits
+    const extractedItems = lane.pendingQueue
+      .filter(item => !item.isAutoWait)
+      .map(item => ({ ...item })); // Clone to avoid mutation references
+
+    // 2. Clear the queue from the timeline starting at `turn`
+    this.timeline.mutateAtTurn(turn, (s) => {
+      s.lanes[laneId].pendingQueue = [];
+      // Also refund any queued research points for research items as we're going to re-queue them
+      if (laneId === 'research') {
+        let totalRefund = 0;
+        for (const item of extractedItems) {
+          if (item.isWait) continue;
+          const def = s.defs[item.itemId];
+          if (def) totalRefund += (def.costsPerUnit.research_points || 0) * item.quantity;
+        }
+        s.stocks.research_points += totalRefund;
+      }
+    });
+
+    // 3. Re-insert items sequentially at the earliest valid turn
+    let cursorTurn = turn;
+
+    // We need to figure out when the lane actually becomes available.
+    if (lane.active) {
+      let foundEmptyTurn = cursorTurn;
+      const maxTurns = this.getTotalTurns();
+      for (let i = cursorTurn; i < maxTurns; i++) {
+        const tState = this.timeline.getStateAtTurn(i);
+        if (tState && !tState.lanes[laneId].active) {
+          foundEmptyTurn = i;
+          break;
+        }
+      }
+      cursorTurn = foundEmptyTurn;
+    }
+
+    const totalTurns = this.getTotalTurns();
+
+    for (const item of extractedItems) {
+      if (item.isWait) {
+        // Manual waits just take up time natively. Push to pendingQueue at T=turn
+        this.queueWaitItem(turn, laneId, item.turnsRemaining, false, { force: true });
+        cursorTurn += item.turnsRemaining;
+        continue;
+      }
+
+      // It's a normal item. Find the earliest turn it's valid.
+      let validTurn = -1;
+      const def = startState.defs[item.itemId];
+      if (!def) continue;
+
+      // Search forward from cursorTurn until we can queue it
+      for (let searchTurn = cursorTurn; searchTurn < totalTurns; searchTurn++) {
+        const checkState = this.timeline.getStateAtTurn(searchTurn);
+        if (!checkState) break;
+
+        const validation = canQueue(checkState, def, item.quantity);
+        if (validation.allowed) {
+          validTurn = searchTurn;
+          break;
+        }
+      }
+
+      if (validTurn === -1) {
+        // We cannot queue this item before the end of time. 
+        validTurn = cursorTurn;
+      }
+
+      // Did we have to wait?
+      const gap = validTurn - cursorTurn;
+      if (gap > 0) {
+        // Insert autoWait at T=turn
+        this.queueWaitItem(turn, laneId, gap, true, { force: true });
+      }
+
+      // Queue the actual item universally at T=turn
+      this.queueItem(turn, item.itemId, item.quantity, { force: true });
+
+      // Advance cursor
+      cursorTurn = validTurn + def.durationTurns;
+    }
+
+    return true;
   }
 
   /**

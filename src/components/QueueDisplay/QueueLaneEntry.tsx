@@ -14,6 +14,7 @@ export interface QueueLaneEntryProps {
   def?: any; // ItemDefinition
   busyWorkers?: number;
   showQuantityInput?: boolean;
+  onTurnClick?: (turn: number) => void;
 }
 
 /**
@@ -35,30 +36,10 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   def,
   busyWorkers = 0,
   showQuantityInput = false,
+  onTurnClick,
 }: QueueLaneEntryProps) {
-  const [confirmMode, setConfirmMode] = useState(false);
   const [editingQuantity, setEditingQuantity] = useState(false);
   const [quantityValue, setQuantityValue] = useState(entry.quantity.toString());
-
-  // Reset confirmation mode after 3 seconds
-  useEffect(() => {
-    if (confirmMode) {
-      const timer = setTimeout(() => {
-        setConfirmMode(false);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [confirmMode]);
-
-  const handleClick = () => {
-    if (disabled || entry.status === 'completed') return;
-
-    if (confirmMode) {
-      onCancel();
-    } else {
-      setConfirmMode(true);
-    }
-  };
 
   const handleQuantityBlur = () => {
     setEditingQuantity(false);
@@ -82,59 +63,57 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
 
   // Determine status color
   const statusColor = entry.status === 'active' ? 'border-l-4 border-l-yellow-500' :
-                      entry.status === 'pending' ? 'border-l-4 border-l-blue-500' :
-                      entry.status === 'completed' ? 'border-l-4 border-l-green-500 opacity-70' : '';
+    entry.status === 'pending' ? 'border-l-4 border-l-blue-500' :
+      entry.status === 'completed' ? 'border-l-4 border-l-green-500 opacity-70' : '';
 
-  if (confirmMode) {
-    return (
-      <button
-        onClick={handleClick}
-        className="w-full text-left p-3 bg-red-900/30 border border-red-500 rounded ring-2 ring-red-500 hover:bg-red-900/40 transition-colors"
-        title="Click again to confirm removal"
-      >
-        <div className="flex items-center justify-between text-sm">
-          <span className="font-semibold text-red-400">
-            Remove {entry.itemName}?
-          </span>
-          <span className="text-red-400 font-bold text-xs">
-            CLICK TO CONFIRM
-          </span>
-        </div>
-      </button>
-    );
-  }
+  const isAutoWait = entry.isAutoWait;
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={disabled || entry.status === 'completed'}
+    <div
       className={`
-        w-full text-left p-3 bg-pink-nebula-panel/50 border border-pink-nebula-border rounded
-        hover:bg-pink-nebula-panel/70 transition-colors group
+        w-full text-left p-3 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : 'bg-pink-nebula-panel/50'} border border-pink-nebula-border rounded
+        transition-colors group
         ${statusColor}
         ${entry.invalid ? 'border-orange-500/50 bg-orange-900/10' : ''}
-        ${disabled || entry.status === 'completed' ? 'cursor-default' : 'cursor-pointer'}
       `}
     >
       {/* Structured table-like layout */}
       <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 items-center text-sm font-mono">
         {/* Turn Range: Tx - Ty */}
-        <div className="text-pink-nebula-muted w-24">
+        <div className="text-pink-nebula-muted w-24 flex items-center gap-1">
           {(() => {
             const startT = entry.startTurn ?? entry.queuedTurn ?? '?';
             const endT = entry.completionTurn ?? (entry.eta !== null ? entry.eta : '?');
-            return `T${startT} - T${endT}`;
+            return (
+              <>
+                <button
+                  className="hover:text-pink-nebula-accent-primary hover:underline"
+                  onClick={(e) => { e.stopPropagation(); if (startT !== '?' && onTurnClick) onTurnClick(startT as number); }}
+                  title="Jump to start turn"
+                >
+                  T{startT}
+                </button>
+                <span>-</span>
+                <button
+                  className="hover:text-pink-nebula-accent-primary hover:underline"
+                  onClick={(e) => { e.stopPropagation(); if (endT !== '?' && onTurnClick) onTurnClick(Math.min((endT as number), 199)); }}
+                  title="Jump to completion turn"
+                >
+                  T{endT}
+                </button>
+              </>
+            );
           })()}
         </div>
 
         {/* Item Name */}
-        <div className="text-pink-nebula-text truncate">
-          {entry.itemName}
+        <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : 'text-pink-nebula-text'}`}>
+          {isAutoWait ? '[Waiting for Prerequisites]' : entry.itemName}
         </div>
 
         {/* Quantity */}
         <div className="text-pink-nebula-text text-right w-12">
-          {showQuantityInput && !disabled && entry.status !== 'completed' ? (
+          {showQuantityInput && !disabled ? (
             <input
               type="number"
               min="1"
@@ -159,11 +138,19 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
         </div>
 
         {/* Remove indicator */}
-        <div className="w-4 text-right">
-          {!disabled && entry.status !== 'completed' && (
-            <span className="text-gray-500 group-hover:text-pink-nebula-accent-primary transition-colors">
+        <div className="w-8 text-right flex items-center justify-end">
+          {!disabled && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onCancel();
+              }}
+              className="text-red-400 bg-red-900/30 rounded px-2 py-1 hover:bg-red-500 hover:text-white transition-all cursor-pointer text-lg font-bold leading-none"
+              title="Remove from queue"
+            >
               ✕
-            </span>
+            </button>
           )}
         </div>
       </div>
@@ -174,7 +161,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
           ⚠️ {entry.invalidReason}
         </div>
       )}
-    </button>
+    </div>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison to optimize re-renders
@@ -183,6 +170,9 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.entry.status === nextProps.entry.status &&
     prevProps.entry.quantity === nextProps.entry.quantity &&
     prevProps.entry.eta === nextProps.entry.eta &&
+    prevProps.entry.invalid === nextProps.entry.invalid &&
+    prevProps.entry.isAutoWait === nextProps.entry.isAutoWait &&
+    prevProps.currentTurn === nextProps.currentTurn &&
     prevProps.entry.startTurn === nextProps.entry.startTurn &&
     prevProps.entry.queuedTurn === nextProps.entry.queuedTurn &&
     prevProps.entry.completionTurn === nextProps.entry.completionTurn &&

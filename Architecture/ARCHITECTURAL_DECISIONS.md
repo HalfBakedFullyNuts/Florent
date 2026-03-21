@@ -15,6 +15,24 @@ Short rationale (1-2 sentences).
 
 ## Recent Decisions - Turn-Based Simulator Implementation
 
+2026-03-02 — Simulated Dependency Validation for Cancellation
+To prevent complex state-unwinding bugs when a user cancels a prerequisite building (e.g., cancelling a Shipyard while a Freighter is globally queued later), we avoid writing manual dependency graph logic. Instead, `getDependentQueueItems` creates a fast detached `cloneState()`, splices out the target item, and re-runs the existing standard `validateAllQueueItems` engine. Any item throwing a `REQ_MISSING` error in the simulation is dynamically flagged in a `DependencyWarningModal` for cascading cancellation.
+
+2026-03-02 — Auto-Collapsing Timelines and Explicit Wait Items
+To improve player UX regarding timeline gaps, we introduced `repackQueue()`. Rather than calculating exact turn values mathematically when gaps open up (e.g., from cancellations or reorders), the engine extracts all pending queue items, scrubs the timeline clean, and simulates the reconstruction chronologically from earliest to latest. If a prerequisite dynamically fails (e.g., waiting for population growth), it systematically advances the `cursorTurn` until valid and explicitly injects an `isAutoWait` entry. This elegantly surfaces implicit waiting periods directly into the visual queue without modifying core rule implementations.
+
+2026-03-02 — Global Queue State Independence
+The `viewTurn` (turn slider) was decisively separated from queue mutation logic. All queue actions (`queueItem`, `cancelItem`, `reorderItem`) now universally execute upon Turn 1 of the simulation, ensuring the `Planet Queue` view represents the *Master Plan* traversing the full 200 turns, rather than artificially hiding queued items if the user slides the VCR backwards in time. The UI adjusts the visual node status (`pending`, `active`, `completed`) dynamically relative to the `viewTurn`.
+
+2026-03-02 — Implement GameStateContext to replace deep prop drilling
+Deep prop drilling of state and callbacks in `src/app/page.tsx` was replaced with a `GameStateContext` under `src/lib/game/GameStateContext.tsx` to handle multi-planet URL syncing, `GameController` instances, and timeline state memoization securely without massive component payloads.
+
+2026-03-02 — Enforce GameController usage over legacy wrapper functions
+Legacy queue wrapper functions in `src/lib/game/agent.ts` (e.g., `enqueueUnit`, `cancelQueueItemLegacy`) were permanently removed to strictly enforce utilizing the correct unified timeline queue mechanisms inside `GameController`.
+
+2026-03-02 — Enable fast-forwarding on empty timeline simulation turns
+Timeline calculations explicitly compute net-outputs per turn, accelerating processing massively by caching the exact same turn data forward without executing loops if production, queue lengths, and worker growths are perfectly zero (`isStableState`).
+
 2025-10-26 — Auto-advance to last building completion in queue
 When buildings are queued, the UI automatically advances to the turn when the last building in the queue completes, showing the cumulative planet state after all queued work finishes. This provides immediate feedback on the full impact of queuing decisions.
 
@@ -65,8 +83,6 @@ We chose Next.js 14 app-router and marked `src/app/page.tsx` as a Client Compone
 2025-10-11 — Keep game logic separated in `src/lib/game`
 Game rules and agents live in `src/lib/game` so they can be tested independently of the UI and reused in non-React contexts.
 
-2025-10-11 — Use plain React state (useState) and avoid global stores for now
-To keep the code simple and easy to reason about, local `useState` is used for player and UI state; agent functions mutate state and React is used to refresh views.
 
 Process requirement (new)
 - All contributors must add an ADR entry to this file whenever they make a non-trivial architectural decision (for example introducing a global store, adding server-side APIs, or changing how game logic is persisted).

@@ -81,10 +81,10 @@ npm run test -- -t "enqueueItem"                          # Run tests matching p
 
 ### State Management Pattern
 
-- **Local React State**: Uses `useState` for all UI and player state
-- **No Global Store**: Deliberately avoided (see ADR 2025-10-11)
-- **Agent Functions**: Pure functions that mutate and return structured results
-- **React Re-renders**: Explicit state updates trigger re-renders
+- **React Context Provider**: `GameStateContext` (`src/lib/game/GameStateContext.tsx`) wraps the application to manage the multi-planet URL syncing, game state array, and memoized `GameController` instances.
+- **Hook Consumption**: UI Components consume global state and mutator actions via `useGameState()` instead of deep prop drilling.
+- **Agent Functions**: Pure functions that mutate state independently of the view. The UI triggers these via the Context.
+- **Strict GameController pattern**: All item enqueueing, cancelling, and mutating MUST be executed via the `GameController` instance from the context rather than standalone legacy script wrappers inside `agent.ts`.
 
 ### Data-Driven Design
 
@@ -147,11 +147,12 @@ When working with this codebase:
 
 ## Important Constraints
 
-- **No React in Game Logic**: `src/lib/game/` must remain React-free for testability
+- **No React in Game Logic**: `src/lib/game/` must remain React-free for testability (except for the explicit orchestrator `GameStateContext.tsx`).
 - **Game Data is Truth**: Never hardcode unit/structure definitions; always use `game_data.json`
-- **State Mutations**: Agent functions can mutate PlayerState but must be called from React components
+- **Game Controller Mutation Focus**: Legacy mutators in `agent.ts` have been deprecated/deleted. All actions in the UI must route through methods on `GameController`.
 - **Prerequisites**: Always validate via `validateRequirements()` before allowing builds
 - **Cost Deduction**: Happens at enqueue time, not completion time
+- **Timeline Caching / isStableState**: The engine aggressively caches turns if production is zero, queues are empty, and worker growth is zero exactly. Keep `isStableState` exact when modifying resource equations.
 
 ## Key Design Patterns
 
