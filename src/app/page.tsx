@@ -128,7 +128,7 @@ export default function Home() {
   const currentState = useMemo(() => {
     if (!controller) return undefined;
     return controller.getStateAtTurn(viewTurn);
-  }, [controller, viewTurn]);
+  }, [controller, viewTurn, gameState]);
   const totalTurns = controller?.getTotalTurns() || 200;
 
   const defs = currentState?.defs || loadGameData(gameDataRaw as any);
@@ -157,8 +157,10 @@ export default function Home() {
   // To display the global queue regardless of the turn slider, we pull the timeline's final state
   const fullPlanState = useMemo(() => {
     if (!controller) return undefined;
+    // By re-evaluating when gameState changes, we ensure global queue updates
+    // when queue mutations happen (since executeCancellation updates gameState).
     return controller.getStateAtTurn(199);
-  }, [controller, viewTurn]); // include viewTurn to force re-evaluation when timeline mutates
+  }, [controller, viewTurn, gameState]); // DO NOT REMOVE gameState 
 
   // Helper to adjust the status of the global queue items relative to the current viewTurn
   const getAdjustedLaneView = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research') => {
@@ -196,7 +198,7 @@ export default function Home() {
     if (!controller) return { building: null, ship: null, colonist: null };
     const getState = (turn: number) => controller.getStateAtTurn(turn);
     return getFirstEmptyTurns(getState, 1, totalTurns);
-  }, [controller, totalTurns]);
+  }, [controller, totalTurns, gameState]);
 
   // Enrich all lanes with validation state in a single useMemo
   const enrichedLanes = useMemo(() => ({
@@ -643,6 +645,8 @@ export default function Home() {
       setError((e as Error).message || 'Unknown error');
     }
   }, [controller, currentPlanet, viewTurn, gameState]);
+
+
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">

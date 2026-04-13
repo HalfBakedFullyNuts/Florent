@@ -48,10 +48,10 @@ export function PlanetTabs({
             `}
           >
             <span className="text-xl">{getPlanetIcon(index)}</span>
-            <div className="flex flex-col items-start">
+            <span className="flex flex-col items-start">
               <span className="text-sm">{planet.name}</span>
               <span className="text-xs opacity-70">Turn {planet.currentTurn}</span>
-            </div>
+            </span>
           </button>
         );
       })}
