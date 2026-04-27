@@ -114,25 +114,53 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
             <div className="text-center text-pink-nebula-muted text-base py-8">
               Queue empty
             </div>
-          ) : (
-            // Full display with all entries (most recent first)
-            laneView.entries.slice().reverse().map((entry, displayIndex) => {
+          ) : (() => {
+            // Build the reversed list and find where the "now" boundary falls.
+            // An entry is "past" if its finish turn <= currentTurn.
+            // The list renders newest-first (reversed), so past entries appear at the bottom.
+            const reversed = laneView.entries.slice().reverse();
+            const getFinishTurn = (e: LaneEntry): number | null =>
+              e.completionTurn ?? e.eta ?? null;
+
+            // Find the first index (in reversed order) where the entry is "past".
+            // We insert the divider just BEFORE that index.
+            let dividerIndex: number | null = null;
+            for (let i = 0; i < reversed.length; i++) {
+              const finish = getFinishTurn(reversed[i]);
+              const isPast = finish !== null && finish <= currentTurn;
+              if (isPast) {
+                dividerIndex = i;
+                break;
+              }
+            }
+
+            const elements: React.ReactNode[] = [];
+
+            reversed.forEach((entry, displayIndex) => {
               const isNewest = entry.id === newestId;
               const def = defs[entry.itemId];
               const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
               const showQuantityInput = activeTab === 'ship' || activeTab === 'colonist';
               const maxQuantity = getMaxQuantity ? getMaxQuantity(activeTab, entry) : undefined;
-
-              // Calculate actual index in pendingQueue (reversed from display)
-              // Display is reversed: displayIndex 0 = last item in queue (newest)
-              // To place BEFORE an item in display = place AFTER it in actual queue
               const actualIndex = laneView.entries.length - 1 - displayIndex;
               const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === activeTab;
-              // Allow dragging both pending and active items (active will be deactivated on drop)
               const canDrag = !disabled && (entry.status === 'pending' || entry.status === 'active') && !!onReorder;
               const isDropTarget = dragOverIndex === displayIndex && draggedItem && draggedItem.entryId !== entry.id;
 
-              return (
+              // Insert the "now" divider just before the first past entry
+              if (dividerIndex === displayIndex) {
+                elements.push(
+                  <div key="__now-divider__" className="relative flex items-center gap-3 my-2 select-none pointer-events-none">
+                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-pink-nebula-accent-primary/40 to-transparent" />
+                    <span className="text-[10px] font-semibold tracking-widest uppercase text-pink-nebula-accent-primary/60 whitespace-nowrap px-1">
+                      T{currentTurn}
+                    </span>
+                    <div className="flex-1 h-px bg-gradient-to-l from-transparent via-pink-nebula-accent-primary/40 to-transparent" />
+                  </div>
+                );
+              }
+
+              elements.push(
                 <div
                   key={entry.id}
                   draggable={canDrag}
@@ -151,7 +179,6 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                     }
                   }}
                   onDragLeave={(e) => {
-                    // Only clear if leaving the container entirely
                     if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                       setDragOverIndex(null);
                     }
@@ -160,8 +187,6 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                     e.preventDefault();
                     e.stopPropagation();
                     if (draggedItem && onReorder && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id) {
-                      // Convert display index back to actual queue index
-                      // Since display is reversed, dropping at displayIndex N means placing at actualIndex
                       onReorder(activeTab, draggedItem.entryId, actualIndex);
                     }
                     setDraggedItem(null);
@@ -190,8 +215,10 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                     </div>
                   )}
 
-                  {/* Queue entry */}
-                  <div className="flex-1">
+                  {/* Queue entry — dim completed (past) entries slightly */}
+                  <div className={`flex-1 transition-opacity duration-200 ${
+                    entry.status === 'completed' ? 'opacity-45' : ''
+                  }`}>
                     <QueueLaneEntry
                       entry={entry}
                       currentTurn={currentTurn}
@@ -208,8 +235,10 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                   </div>
                 </div>
               );
-            })
-          )}
+            });
+
+            return elements;
+          })()}
         </div>
 
         {/* Footer hint */}

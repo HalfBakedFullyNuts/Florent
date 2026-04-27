@@ -29,17 +29,20 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
   ] as const;
 
   const formatNumber = (num: number) => {
-    return Math.floor(num).toLocaleString('de-DE');
+    const str = Math.floor(num).toString();
+    return str.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   };
 
   const formatOutput = (output: number) => {
     // Round to 1 decimal place for outputs
     const rounded = Math.round(output * 10) / 10;
-    const formatted = rounded.toLocaleString('de-DE', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 1,
-    });
-    return output >= 0 ? `+${formatted}` : formatted;
+    const isInteger = rounded % 1 === 0;
+    const absStr = isInteger
+      ? Math.abs(rounded).toString()
+      : Math.abs(rounded).toFixed(1);
+    const formatted = absStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.').replace('.', ',');
+    const sign = rounded < 0 ? '-' : '+';
+    return `${sign}${isInteger ? absStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : formatted}`;
   };
 
   const getResourceColor = (output: number) => {

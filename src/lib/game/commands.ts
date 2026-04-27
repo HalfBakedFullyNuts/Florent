@@ -40,7 +40,7 @@ export class GameController {
    * Queue an item in a lane at specific turn
    * Validates prerequisites and energy forward-check before queueing
    */
-  queueItem(turn: number, itemId: string, requestedQty: number, options?: { force?: boolean }): QueueResult {
+  queueItem(turn: number, itemId: string, requestedQty: number, options?: { force?: boolean; preserveId?: string }): QueueResult {
     const state = this.timeline.getStateAtTurn(turn);
     if (!state) {
       return { success: false, reason: 'INVALID_LANE' };
@@ -73,8 +73,8 @@ export class GameController {
       }
     }
 
-    // Create work item with queue turn tracking
-    const workItemId = generateWorkItemId();
+    // Preserve original ID when repacking to avoid ID churn across cancel+repack cycles
+    const workItemId = options?.preserveId ?? generateWorkItemId();
     const workItem = {
       id: workItemId,
       itemId: itemId,
@@ -117,7 +117,7 @@ export class GameController {
    * Queue a wait item in a lane at specific turn
    * Wait items pause lane activity for N turns without resource costs
    */
-  queueWaitItem(turn: number, laneId: LaneId, waitTurns: number, isAutoWait: boolean = false, options?: { force?: boolean }): QueueResult {
+  queueWaitItem(turn: number, laneId: LaneId, waitTurns: number, isAutoWait: boolean = false, options?: { force?: boolean; preserveId?: string }): QueueResult {
     const state = this.timeline.getStateAtTurn(turn);
     if (!state) {
       return { success: false, reason: 'INVALID_LANE' };
@@ -142,8 +142,8 @@ export class GameController {
       return { success: false, reason: 'INVALID_LANE' };
     }
 
-    // Create wait work item
-    const workItemId = generateWorkItemId();
+    // Create wait work item — preserve original ID when repacking
+    const workItemId = options?.preserveId ?? generateWorkItemId();
     const waitItem = {
       id: workItemId,
       itemId: '__wait__',
@@ -325,6 +325,74 @@ export class GameController {
     }
 
     return { success: false, reason: 'NOT_FOUND' };
+  }
+
+  /**
+   * Cancel a planned item by removing it from the T1 state directly.
+   *
+   * The queue display reads from T199 (where items may already be in completionHistory),
+   * but cancellation must operate on the *plan* at T1 (where items are originally queued).
+   * After removal, the timeline recomputes and the item disappears from all future turns.
+   *
+   * This avoids the bug where cancelEntryByIdSmart fails because it finds the item
+   * in completionHistory and returns NOT_FOUND.
+   */
+  cancelPlannedItem(laneId: LaneId, entryId: string): CancelResult {
+    const turn = this.timeline.getStateAtTurn(1)?.currentTurn ?? 1;
+    const state = this.timeline.getStateAtTurn(turn);
+    if (!state) return { success: false, reason: 'INVALID_TURN' };
+
+    const lane = state.lanes[laneId];
+
+    // Check pending queue at T1
+    const pendingIndex = lane.pendingQueue.findIndex(item => item.id === entryId);
+    if (pendingIndex !== -1) {
+      this.timeline.mutateAtTurn(turn, (s) => {
+        const pending = s.lanes[laneId].pendingQueue[pendingIndex];
+        if (pending) {
+          // Refund research_points for pending research items (deducted at queue time)
+          if (laneId === 'research') {
+            const def = s.defs[pending.itemId];
+            if (def) {
+              const rpCost = def.costsPerUnit.research_points || 0;
+              s.stocks.research_points += rpCost * pending.quantity;
+            }
+          }
+        }
+        s.lanes[laneId].pendingQueue.splice(pendingIndex, 1);
+      });
+
+      getLogger().logQueueOperation(
+        turn, 'cancel', laneId, entryId, 'planned-item', undefined,
+        `Cancelled planned item ${entryId} from pending queue at T${turn}`
+      );
+      return { success: true };
+    }
+
+    // Check active at T1 (first item from queue gets activated immediately)
+    if (lane.active && lane.active.id === entryId) {
+      this.timeline.mutateAtTurn(turn, (s) => {
+        const active = s.lanes[laneId].active;
+        if (!active) return;
+
+        if (!active.isWait) {
+          const def = s.defs[active.itemId];
+          if (def) {
+            refundActivationCosts(s, def, active.quantity, laneId);
+          }
+        }
+        s.lanes[laneId].active = null;
+      });
+
+      getLogger().logQueueOperation(
+        turn, 'cancel', laneId, entryId, 'planned-item', undefined,
+        `Cancelled planned item ${entryId} from active slot at T${turn}`
+      );
+      return { success: true };
+    }
+
+    // Fallback: item not found at T1 — try the legacy search as a safety net
+    return this.cancelEntryByIdSmart(turn, laneId, entryId);
   }
 
   /**
@@ -692,8 +760,8 @@ export class GameController {
 
     for (const item of extractedItems) {
       if (item.isWait) {
-        // Manual waits just take up time natively. Push to pendingQueue at T=turn
-        this.queueWaitItem(turn, laneId, item.turnsRemaining, false, { force: true });
+        // Manual waits just take up time natively. Preserve original ID to avoid ID churn.
+        this.queueWaitItem(turn, laneId, item.turnsRemaining, false, { force: true, preserveId: item.id });
         cursorTurn += item.turnsRemaining;
         continue;
       }
@@ -716,19 +784,19 @@ export class GameController {
       }
 
       if (validTurn === -1) {
-        // We cannot queue this item before the end of time. 
+        // We cannot queue this item before the end of time.
         validTurn = cursorTurn;
       }
 
       // Did we have to wait?
       const gap = validTurn - cursorTurn;
       if (gap > 0) {
-        // Insert autoWait at T=turn
+        // Insert autoWait at T=turn (no original ID to preserve — auto-waits are synthetic)
         this.queueWaitItem(turn, laneId, gap, true, { force: true });
       }
 
-      // Queue the actual item universally at T=turn
-      this.queueItem(turn, item.itemId, item.quantity, { force: true });
+      // Queue the actual item universally at T=turn, preserving original ID
+      this.queueItem(turn, item.itemId, item.quantity, { force: true, preserveId: item.id });
 
       // Advance cursor
       cursorTurn = validTurn + def.durationTurns;

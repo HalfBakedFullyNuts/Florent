@@ -211,6 +211,18 @@ export default function Home() {
   // Destructure for backward compatibility
   const { building: enrichedBuildingLane, ship: enrichedShipLane, colonist: enrichedColonistLane, research: enrichedResearchLane } = enrichedLanes;
 
+  // Live count of non-completed queue items across all lanes (used in header badge)
+  const totalQueuedItems = useMemo(() => {
+    const countNonCompleted = (lane: typeof enrichedBuildingLane) =>
+      lane ? lane.entries.filter(e => e.status !== 'completed').length : 0;
+    return (
+      countNonCompleted(enrichedLanes.building) +
+      countNonCompleted(enrichedLanes.ship) +
+      countNonCompleted(enrichedLanes.colonist) +
+      countNonCompleted(enrichedLanes.research)
+    );
+  }, [enrichedLanes]);
+
   // Get available items for each lane - must be before early return
   const availableItems = useMemo(() => {
     const items: Record<string, any> = {};
@@ -432,8 +444,8 @@ export default function Home() {
 
   // Core execution function to instantly cancel and auto-collapse queues
   const executeCancellation = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
-    // Cancel the item universally at turn 1
-    const result = controller!.cancelEntryByIdSmart(1, laneId, entry.id);
+    // Cancel the item from the plan (T1 state) — works regardless of timeline position
+    const result = controller!.cancelPlannedItem(laneId, entry.id);
 
     if (!result.success) {
       if (result.reason === 'NOT_FOUND') {
@@ -443,6 +455,10 @@ export default function Home() {
       }
       return;
     }
+
+    // Record cancel in command history so URL sharing replays it correctly
+    const planetIdx = Array.from(gameState.planets.keys()).indexOf(gameState.currentPlanetId);
+    commandHistory.recordCancel(Math.max(0, planetIdx), laneId, entry.id);
 
     // Feature: Queue Auto-Collapse
     // After cancelling, we repack the queue forward to fill gaps.
@@ -472,7 +488,7 @@ export default function Home() {
 
       setQueueValidation(validationMap);
     }
-  }, [controller, viewTurn, gameState, setGameState]);
+  }, [controller, viewTurn, gameState, setGameState, commandHistory]);
 
   const confirmPendingCancellation = useCallback(() => {
     if (!pendingCancellation || !controller) return;
@@ -481,7 +497,7 @@ export default function Home() {
     const sortedBroken = [...pendingCancellation.brokenDependencies].sort((a, b) => (b.queuedTurn || 0) - (a.queuedTurn || 0));
 
     for (const dep of sortedBroken) {
-      controller.cancelEntryByIdSmart(1, dep.laneId as 'building' | 'ship' | 'colonist' | 'research', dep.id);
+      controller.cancelPlannedItem(dep.laneId as 'building' | 'ship' | 'colonist' | 'research', dep.id);
     }
 
     // Finally cancel the root element the user actually clicked
@@ -730,11 +746,11 @@ export default function Home() {
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-4">
                   <h2 className="text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
-                  {/* URL Size Indicator */}
-                  {commandHistory.getCommands().length > 0 && (
+                  {/* Live Queue Item Count */}
+                  {totalQueuedItems > 0 && (
                     <div className="text-sm text-pink-nebula-text-secondary">
                       <span className="font-mono">
-                        {commandHistory.getCommands().length} cmds | {isMounted ? window.location.href.length : 0} chars
+                        {totalQueuedItems} queued | {isMounted ? window.location.href.length : 0} chars
                       </span>
                     </div>
                   )}

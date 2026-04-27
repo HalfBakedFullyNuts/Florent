@@ -31,13 +31,17 @@ export function PlanetTabs({
   };
 
   return (
-    <div className="flex gap-2 mb-4 p-2 bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border">
+    <div
+      className="flex gap-2 mb-4 p-2 bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border"
+      suppressHydrationWarning
+    >
       {planetArray.map((planet, index) => {
         const isActive = planet.id === currentPlanetId;
         return (
           <button
             key={planet.id}
             onClick={() => onPlanetSwitch(planet.id)}
+            suppressHydrationWarning
             className={`
               px-4 py-2 rounded-lg font-semibold transition-all duration-200
               flex items-center gap-2
@@ -48,10 +52,8 @@ export function PlanetTabs({
             `}
           >
             <span className="text-xl">{getPlanetIcon(index)}</span>
-            <span className="flex flex-col items-start">
-              <span className="text-sm">{planet.name}</span>
-              <span className="text-xs opacity-70">Turn {planet.currentTurn}</span>
-            </span>
+            <span className="text-sm">{planet.name}</span>
+            <span className="text-xs opacity-70" suppressHydrationWarning>T{planet.currentTurn}</span>
           </button>
         );
       })}

@@ -1,0 +1,28 @@
+<!doctype html>
+<html class="no-js" lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Infinite Conflict - The Ultimate Browser Strategy Game</title>
+    <meta name="description" content="The best online tick based strategy game">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="rdrfRX4JwmVhFrygtmsG2zgzf2ctCtdsmDBIBIPo">
+    <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700|Turret+Road:200,400,700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+
+    <link rel="preload" as="style" href="https://beta.infiniteconflict.com/build/assets/app-CgX011Bw.css" /><link rel="stylesheet" href="https://beta.infiniteconflict.com/build/assets/app-CgX011Bw.css" data-navigate-track="reload" />
+    <script>
+        window.baseUrl = 'https://beta.infiniteconflict.com';
+        window.errors = [];
+    </script>
+
+</head>
+<body>
+    <div id="app" class="h-full"></div>
+
+    <!-- Scripts -->
+    <link rel="preload" as="style" href="https://beta.infiniteconflict.com/build/assets/app-JNe5AUVv.css" /><link rel="modulepreload" as="script" href="https://beta.infiniteconflict.com/build/assets/app-LM862r3V.js" /><link rel="stylesheet" href="https://beta.infiniteconflict.com/build/assets/app-JNe5AUVv.css" data-navigate-track="reload" /><script type="module" src="https://beta.infiniteconflict.com/build/assets/app-LM862r3V.js" data-navigate-track="reload"></script></body>
+</html>

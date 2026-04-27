@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import type { ItemDefinition, LaneId } from '../../lib/sim/engine/types';
 import { Card } from '@/components/ui/card';
 import { GlassQueueButton } from '@/components/ui/glass-queue-button';
@@ -111,14 +111,39 @@ export function TabbedItemGrid({
   };
 
   const formatNumber = (num: number): string => {
-    return num.toLocaleString('de-DE');
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   };
 
   // Define column order for costs (aligned across all items)
   const costColumns = ['metal', 'mineral', 'food', 'energy', 'research_points', 'workers', 'space'] as const;
 
-  // Track quantities for each batchable item
+  // Track quantities for each batchable item (raw string so empty is allowed)
   const [itemQuantities, setItemQuantities] = useState<Record<string, string>>({});
+  // Per-item inline error message
+  const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
+
+  const getQty = (itemId: string): string => itemQuantities[itemId] ?? '1';
+
+  const tryQueue = useCallback((itemId: string, laneId: LaneId) => {
+    const raw = getQty(itemId);
+    if (raw === '' || raw === '0') {
+      setItemErrors(prev => ({ ...prev, [itemId]: 'Quantity cannot be empty.' }));
+      return;
+    }
+    const qty = parseInt(raw, 10);
+    if (isNaN(qty) || qty < 1) {
+      setItemErrors(prev => ({ ...prev, [itemId]: 'Enter a valid quantity ≥ 1.' }));
+      return;
+    }
+    const validation = canQueueItem(itemId, qty);
+    if (!validation.allowed) {
+      setItemErrors(prev => ({ ...prev, [itemId]: validation.reason || 'Cannot queue this item.' }));
+      return;
+    }
+    onQueueItem(itemId, qty);
+    setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
+    setItemErrors(prev => ({ ...prev, [itemId]: '' }));
+  }, [itemQuantities, itemErrors, canQueueItem, onQueueItem]);
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
@@ -128,34 +153,26 @@ export function TabbedItemGrid({
       // Structures and Research: queue immediately with quantity=1
       onQueueItem(itemId, 1);
     } else {
-      // Ships/Colonists: queue with the quantity from input
-      const qty = parseInt(itemQuantities[itemId] || '1') || 1;
-      const validation = canQueueItem(itemId, qty);
-
-      if (validation.allowed) {
-        onQueueItem(itemId, qty);
-        // Reset quantity to 1 after queueing
-        setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
-      }
+      // Ships/Colonists: delegate to tryQueue for validation
+      tryQueue(itemId, laneId);
     }
   };
 
   const handleQuantityChange = (itemId: string, value: string) => {
+    // Only allow digits (no negative sign, no decimals)
+    if (value !== '' && !/^\d+$/.test(value)) return;
     setItemQuantities(prev => ({ ...prev, [itemId]: value }));
+    // Clear error as soon as the user types
+    if (itemErrors[itemId]) setItemErrors(prev => ({ ...prev, [itemId]: '' }));
   };
 
-  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, itemId: string) => {
+  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, itemId: string, laneId: LaneId) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      const qty = parseInt(itemQuantities[itemId] || '1') || 1;
-      const validation = canQueueItem(itemId, qty);
-
-      if (validation.allowed) {
-        onQueueItem(itemId, qty);
-        setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
-      }
+      tryQueue(itemId, laneId);
     } else if (e.key === 'Escape') {
       setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
+      setItemErrors(prev => ({ ...prev, [itemId]: '' }));
     }
   };
 
@@ -293,41 +310,53 @@ export function TabbedItemGrid({
 
                     {/* Quantity input + Button for batchable items (ships/colonists) */}
                     {isBatchable && (
-                      <>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={itemQuantities[item.id] || '1'}
-                          onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                          onKeyDown={(e) => handleQuantityKeyDown(e, item.id)}
-                          onClick={(e) => e.stopPropagation()}
-                          disabled={!queueable}
-                          className={`
-                            w-14 px-2 py-0.5 bg-pink-nebula-bg border border-pink-nebula-border rounded
-                            text-pink-nebula-text text-sm text-center font-mono
-                            focus:outline-none focus:border-pink-nebula-accent-primary
-                            ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
-                          `}
-                          placeholder="1"
-                        />
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleItemClick(item.id, activeTab);
-                          }}
-                          disabled={!queueable}
-                          className={`
-                            px-2 py-0.5 rounded text-sm
-                            ${queueable
-                              ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
-                              : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                            }
-                          `}
-                        >
-                          +
-                        </button>
-                      </>
+                      <div className="flex flex-col items-end gap-0.5">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={getQty(item.id)}
+                            onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                            onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              (e.target as HTMLInputElement).select();
+                            }}
+                            onFocus={(e) => (e.target as HTMLInputElement).select()}
+                            disabled={!queueable}
+                            className={`
+                              w-14 px-2 py-0.5 bg-pink-nebula-bg border rounded
+                              text-pink-nebula-text text-sm text-center font-mono
+                              focus:outline-none focus:border-pink-nebula-accent-primary
+                              ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
+                              ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
+                            `}
+                            placeholder="qty"
+                          />
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              tryQueue(item.id, activeTab);
+                            }}
+                            disabled={!queueable}
+                            className={`
+                              px-2 py-0.5 rounded text-sm
+                              ${queueable
+                                ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
+                                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                              }
+                            `}
+                          >
+                            +
+                          </button>
+                        </div>
+                        {itemErrors[item.id] && (
+                          <span className="text-red-400 text-xs leading-tight max-w-[120px] text-right">
+                            {itemErrors[item.id]}
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

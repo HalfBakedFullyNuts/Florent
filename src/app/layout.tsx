@@ -1,4 +1,4 @@
-﻿import type { Metadata } from 'next'
+import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="no-js">
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* External fonts and icons */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -16,15 +16,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700|Turret+Road:200,400,700&display=swap" rel="stylesheet" />
         <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
 
-        {/* External game stylesheet (preload + stylesheet) */}
-        <link rel="preload" as="style" href="https://beta.infiniteconflict.com/build/assets/app-uhxyo077.css" />
-        <link rel="stylesheet" href="https://beta.infiniteconflict.com/build/assets/app-uhxyo077.css" />
+        {/* External game stylesheet removed — it caused hydration mismatches
+             because it was unavailable during SSR. Vendor locally if needed. */}
 
         {/* Provide a small inline script to set baseUrl as in the original template */}
         <script dangerouslySetInnerHTML={{ __html: "window.baseUrl = 'https://beta.infiniteconflict.com';" }} />
       </head>
 
-      <body>
+      <body suppressHydrationWarning>
         {/* Star background layers from template */}
         <div id="stars1" />
         <div id="stars2" />

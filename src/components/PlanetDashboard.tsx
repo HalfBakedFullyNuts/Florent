@@ -32,9 +32,12 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
     { id: 'research_points', label: 'RP', color: 'text-purple-400' }, // purple
   ] as const;
 
-  // Memoize formatting functions for performance
+  // Deterministic formatting functions (avoid toLocaleString which differs between SSR and client)
   const formatNumber = useMemo(() => {
-    return (num: number) => Math.floor(num).toLocaleString('de-DE');
+    return (num: number) => {
+      const str = Math.floor(num).toString();
+      return str.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    };
   }, []);
 
   const formatWithK = useMemo(() => {
@@ -49,11 +52,13 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
   const formatOutput = useMemo(() => {
     return (output: number) => {
       const rounded = Math.round(output * 10) / 10;
-      const formatted = rounded.toLocaleString('de-DE', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 1,
-      });
-      return output >= 0 ? `+${formatted}` : formatted;
+      const isInteger = rounded % 1 === 0;
+      const absStr = isInteger
+        ? Math.abs(rounded).toString()
+        : Math.abs(rounded).toFixed(1);
+      const formatted = absStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.').replace('.', ',');
+      const sign = rounded < 0 ? '-' : '+';
+      return `${sign}${isInteger ? absStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : formatted}`;
     };
   }, []);
 
