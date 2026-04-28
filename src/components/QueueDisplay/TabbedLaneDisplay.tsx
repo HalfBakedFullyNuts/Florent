@@ -215,10 +215,8 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                     </div>
                   )}
 
-                  {/* Queue entry — dim completed (past) entries slightly */}
-                  <div className={`flex-1 transition-opacity duration-200 ${
-                    entry.status === 'completed' ? 'opacity-45' : ''
-                  }`}>
+                  {/* Queue entry */}
+                  <div className="flex-1">
                     <QueueLaneEntry
                       entry={entry}
                       currentTurn={currentTurn}

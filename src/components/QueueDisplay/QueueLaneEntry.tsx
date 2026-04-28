@@ -64,7 +64,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   // Determine status color
   const statusColor = entry.status === 'active' ? 'border-l-4 border-l-yellow-500' :
     entry.status === 'pending' ? 'border-l-4 border-l-blue-500' :
-      entry.status === 'completed' ? 'border-l-4 border-l-green-500 opacity-70' : '';
+      entry.status === 'completed' ? 'border-l-4 border-l-green-500' : '';
 
   const isAutoWait = entry.isAutoWait;
 

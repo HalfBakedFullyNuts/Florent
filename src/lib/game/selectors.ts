@@ -459,11 +459,6 @@ export function canQueueItem(
 
   const lane = state.lanes[def.lane];
 
-  // Check if lane has an active item (lane is busy)
-  if (lane.active) {
-    return { allowed: false, reason: 'Lane is busy' };
-  }
-
   if (lane.pendingQueue.length >= lane.maxQueueDepth) {
     return { allowed: false, reason: 'Queue is full' };
   }

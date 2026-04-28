@@ -247,16 +247,15 @@ export default function Home() {
       return { allowed: false, reason: 'No controller available' };
     }
 
-    // CRITICAL-1 FIX: Get state at viewed turn, not current turn
-    // This allows queueing when the specific lane is idle at the viewed turn
-    const viewState = controller.getStateAtTurn(viewTurn);
+    // Use T1 state for validation so queueing is always possible regardless of the viewed turn
+    const viewState = controller.getStateAtTurn(1);
     if (!viewState) {
       return { allowed: false, reason: 'Invalid turn' };
     }
 
-    // Check if THIS SPECIFIC lane is available at viewed turn
+    // Check if THIS SPECIFIC lane is available
     return validateQueueItem(viewState, itemId, quantity);
-  }, [defs, viewTurn, controller]);
+  }, [defs, controller]);
 
   // Guard against undefined state AFTER all hooks are called
   if (!currentState || !summary || !enrichedBuildingLane || !enrichedShipLane || !enrichedColonistLane || !enrichedResearchLane) {
@@ -387,22 +386,18 @@ export default function Home() {
       }
 
       // AUTO-ADVANCE: Move to the completion turn of the item we just added
-      // We know it's at the end of the global plan's timeline
-      if (def && def.lane === 'building') {
+      // Shows the turn immediately following the new structure's completion
+      if (def && result.itemId) {
         const finalState = controller.getStateAtTurn(199);
         if (finalState) {
           const laneView = getLaneView(finalState, def.lane);
-          // The newly added item is at the end of the timeline
-          // In getLaneView, completed items are reversed, active is appended, but pending is appended?
-          // Wait, getLaneView reverses the entire array before returning. So the newest pending item is at index 0.
-          if (laneView.entries.length > 0) {
-            const newlyAdded = laneView.entries[0];
-            const endTurn = newlyAdded.completionTurn || newlyAdded.eta || viewTurn;
+          const newlyAdded = laneView.entries.find(e => e.id === result.itemId);
+          if (newlyAdded) {
+            const endTurn = newlyAdded.completionTurn ?? newlyAdded.eta ?? viewTurn;
             setViewTurn(Math.min(endTurn + 1, 199));
           }
         }
       }
-      // Ships/colonists stay at viewTurn (no auto-advance)
     } catch (e) {
       console.error('Error in handleQueueItem:', e);
       setError((e as Error).message || 'Unknown error');

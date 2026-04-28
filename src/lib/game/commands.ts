@@ -56,11 +56,6 @@ export class GameController {
     const lane = state.lanes[laneId];
 
     if (!options?.force) {
-      // Check if lane is busy with active work
-      if (lane.active) {
-        return { success: false, reason: 'INVALID_LANE' };
-      }
-
       // Check if queue is full (max 10 items)
       if (lane.pendingQueue.length >= lane.maxQueueDepth) {
         return { success: false, reason: 'INVALID_LANE' };
@@ -126,11 +121,6 @@ export class GameController {
     const lane = state.lanes[laneId];
 
     if (!options?.force) {
-      // Check if lane is busy with active work
-      if (lane.active) {
-        return { success: false, reason: 'INVALID_LANE' };
-      }
-
       // Check if queue is full
       if (lane.pendingQueue.length >= lane.maxQueueDepth) {
         return { success: false, reason: 'INVALID_LANE' };
