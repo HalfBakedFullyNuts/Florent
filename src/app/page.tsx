@@ -8,7 +8,7 @@ import { validateAllQueueItems, type QueueValidationResult, getValidationMessage
 import { loadGameData } from '../lib/sim/defs/adapter.client';
 import gameDataRaw from '../lib/game/game_data.json';
 import { setupLogging } from '../lib/game/logging-utils';
-import { CommandHistory, loadStateFromURL, saveStateToURL, extractPlanetConfigs, getPlanetIndex, estimateEncodedSize } from '../lib/game/urlState';
+import { CommandHistory, loadStateFromURL, saveStateToURL, extractPlanetConfigs, getPlanetIndex, estimateEncodedSize, loadStateFromLocalStorage, replayCommands } from '../lib/game/urlState';
 
 // UI Components
 import { HorizontalTimeline } from '../components/HorizontalTimeline';
@@ -35,31 +35,42 @@ export default function Home() {
   }, []);
 
   const [commandHistory] = useState(() => new CommandHistory());
-  const [urlStateLoaded, setUrlStateLoaded] = useState(false);
+  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
-
-  // Initialize multi-planet game state (check URL first)
-  const [gameState, setGameState] = useState<GameState>(() => {
-    // Try loading from URL hash first
-    const urlSnapshot = loadStateFromURL();
+    
+    // Load state from URL or LocalStorage after hydration
+    let urlSnapshot = loadStateFromURL();
 
     if (urlSnapshot) {
       console.log('[URL State] Loading from URL:', {
         planets: urlSnapshot.planets.length,
         commands: urlSnapshot.cmds.length,
       });
-
-      // For now, just start fresh and log what we would replay
-      // Full replay implementation would reconstruct state here
-      return createInitialGameState();
+    } else {
+      urlSnapshot = loadStateFromLocalStorage();
+      if (urlSnapshot) {
+        console.log('[URL State] Loading from LocalStorage:', {
+          planets: urlSnapshot.planets.length,
+          commands: urlSnapshot.cmds.length,
+        });
+      }
     }
 
-    return createInitialGameState();
-  });
+    if (urlSnapshot && urlSnapshot.cmds.length > 0) {
+      // Reconstruct state by replaying commands
+      const state = replayCommands(createInitialGameState(), urlSnapshot.cmds);
+      
+      // Restore the command history so future actions append to it
+      urlSnapshot.cmds.forEach(cmd => {
+        (commandHistory as any).commands.push(cmd);
+      });
+      
+      setGameState(state);
+    }
+  }, [commandHistory]);
 
   const [showAddPlanetModal, setShowAddPlanetModal] = useState(false);
   const [viewTurn, setViewTurn] = useState(1);
@@ -766,12 +777,30 @@ export default function Home() {
                     <span>📋</span>
                     <span>Share Link</span>
                   </button>
-                  <button
-                    onClick={() => setShowExportModal('current')}
-                    className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
-                  >
-                    Export Current View
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      className="px-4 py-2 border border-pink-nebula-text text-pink-nebula-text rounded hover:bg-pink-nebula-text hover:text-pink-nebula-bg transition-colors"
+                      onClick={() => setShowExportModal('current')}
+                      title="Export current planet data"
+                    >
+                      Export / Share
+                    </button>
+                    <button
+                      className="px-4 py-2 bg-gray-800 text-gray-300 rounded hover:bg-gray-700 transition-colors text-sm"
+                      onClick={() => {
+                        const hash = window.location.hash;
+                        if (hash) {
+                          navigator.clipboard.writeText(window.location.href);
+                          alert('Debug URL copied to clipboard!');
+                        } else {
+                          alert('No state to copy yet.');
+                        }
+                      }}
+                      title="Copy URL with full command history to clipboard for bug reporting"
+                    >
+                      Copy Debug State
+                    </button>
+                  </div>
                   <button
                     onClick={() => setShowExportModal('full')}
                     className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"

@@ -7,7 +7,8 @@
  */
 
 import LZString from 'lz-string';
-import { GameState, PlanetConfig } from './gameState';
+import { GameState, PlanetConfig, addPlanet } from './gameState';
+import { GameController, queueResearch } from './commands';
 import { LaneId } from '../sim/engine/types';
 
 // Version for backward compatibility
@@ -215,7 +216,7 @@ export function decodeGameState(encoded: string): GameSnapshot | null {
 }
 
 /**
- * Save game state to URL hash
+ * Save game state to URL hash and LocalStorage
  */
 export function saveStateToURL(
   planets: PlanetConfig[],
@@ -223,7 +224,16 @@ export function saveStateToURL(
 ): void {
   if (typeof window === 'undefined') return;
   const encoded = encodeGameState(planets, commands);
+  
+  // Save to URL
   window.location.hash = `state=${encoded}`;
+  
+  // Save to LocalStorage for crash recovery
+  try {
+    window.localStorage.setItem('florent_save', encoded);
+  } catch (e) {
+    console.error('Failed to save to localStorage', e);
+  }
 }
 
 /**
@@ -242,11 +252,29 @@ export function loadStateFromURL(): GameSnapshot | null {
 }
 
 /**
- * Clear state from URL
+ * Load game state from LocalStorage
+ */
+export function loadStateFromLocalStorage(): GameSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const encoded = window.localStorage.getItem('florent_save');
+    if (!encoded) return null;
+    return decodeGameState(encoded);
+  } catch (e) {
+    console.error('Failed to load from localStorage', e);
+    return null;
+  }
+}
+
+/**
+ * Clear state from URL and LocalStorage
  */
 export function clearStateFromURL(): void {
   if (typeof window === 'undefined') return;
   window.location.hash = '';
+  try {
+    window.localStorage.removeItem('florent_save');
+  } catch (e) {}
 }
 
 /**
@@ -279,23 +307,32 @@ export function replayCommands(
             break;
           }
 
-          // Note: This would call enqueueBuildingForPlanet(gameState, planetId, itemId, quantity)
-          // For now, log the action
-          console.log(`[URL State] Command ${i}: Queue ${itemId} x${quantity} on planet ${planetIdx} at turn ${turn}`);
+          const planet = gameState.planets.get(planetId);
+          if (planet && planet.timeline) {
+            const controller = new GameController(planet, planet.timeline);
+            controller.queueItem(turn, itemId, quantity);
+            console.log(`[URL State] Command ${i}: Queued ${itemId} x${quantity} on planet ${planetIdx} at turn ${turn}`);
+          }
           break;
         }
 
         case 'c': {
           // Cancel command
           const [planetIdx, laneId, entryId] = args as [number, LaneId, string];
-          console.log(`[URL State] Command ${i}: Cancel ${laneId} entry ${entryId} on planet ${planetIdx}`);
+          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planet = gameState.planets.get(planetId);
+          if (planet && planet.timeline) {
+            const controller = new GameController(planet, planet.timeline);
+            controller.cancelQueueItem(1, laneId, entryId); // Turn doesn't matter for cancel
+            console.log(`[URL State] Command ${i}: Cancelled ${laneId} entry ${entryId} on planet ${planetIdx}`);
+          }
           break;
         }
 
         case 'r': {
           // Reorder command
           const [planetIdx, laneId, entryId, newIdx] = args as [number, LaneId, string, number];
-          console.log(`[URL State] Command ${i}: Reorder ${laneId} entry ${entryId} to index ${newIdx}`);
+          console.log(`[URL State] Command ${i}: Reorder ${laneId} entry ${entryId} to index ${newIdx} (Not fully implemented)`);
           break;
         }
 
@@ -310,14 +347,18 @@ export function replayCommands(
           // Add planet
           const [config] = args as [PlanetConfig];
           console.log(`[URL State] Command ${i}: Add planet ${config.name}`);
-          // gameState = addPlanet(gameState, config);
+          gameState = addPlanet(gameState, config);
           break;
         }
 
         case 's': {
           // Switch planet
           const [planetIdx] = args as [number];
-          console.log(`[URL State] Command ${i}: Switch to planet ${planetIdx}`);
+          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          if (planetId) {
+            gameState = { ...gameState, currentPlanetId: planetId };
+            console.log(`[URL State] Command ${i}: Switched to planet ${planetIdx}`);
+          }
           break;
         }
 
@@ -325,7 +366,7 @@ export function replayCommands(
           // Queue research
           const [itemId] = args as [string];
           console.log(`[URL State] Command ${i}: Queue research ${itemId}`);
-          // gameState = queueResearch(gameState, itemId);
+          gameState = queueResearch(gameState, itemId);
           break;
         }
 
