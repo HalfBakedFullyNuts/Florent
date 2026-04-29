@@ -23,7 +23,14 @@ export interface HorizontalTimelineProps {
  * - First empty turn buttons for each lane
  * - Fits between Population and Space Remaining sections width-wise
  */
-export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange, firstEmptyTurns }: HorizontalTimelineProps) {
+export function HorizontalTimeline({ 
+  currentTurn, 
+  totalTurns, 
+  onTurnChange, 
+  firstEmptyTurns,
+  isAutoJumpEnabled,
+  onAutoJumpToggle 
+}: HorizontalTimelineProps & { isAutoJumpEnabled?: boolean; onAutoJumpToggle?: (v: boolean) => void }) {
   const [hoveredTurn, setHoveredTurn] = useState<number | null>(null);
   // Local state for slider to prevent "snap-back" during fast dragging
   const [localTurn, setLocalTurn] = useState(currentTurn);
@@ -87,6 +94,19 @@ export function HorizontalTimeline({ currentTurn, totalTurns, onTurnChange, firs
             ▶
           </button>
           <span className="text-pink-nebula-muted text-xs">/ {totalTurns}</span>
+          
+          <div className="ml-4 flex items-center gap-2">
+            <input 
+              type="checkbox" 
+              id="autoJump" 
+              checked={isAutoJumpEnabled ?? true} 
+              onChange={(e) => onAutoJumpToggle?.(e.target.checked)}
+              className="rounded bg-pink-nebula-bg border-pink-nebula-border text-pink-nebula-accent-primary focus:ring-pink-nebula-accent-primary/50"
+            />
+            <label htmlFor="autoJump" className="text-pink-nebula-muted text-xs cursor-pointer select-none">
+              automatically jump to first turn with empty structure queue
+            </label>
+          </div>
         </div>
 
         {/* Timeline Slider */}

@@ -74,6 +74,7 @@ export default function Home() {
 
   const [showAddPlanetModal, setShowAddPlanetModal] = useState(false);
   const [viewTurn, setViewTurn] = useState(1);
+  const [isAutoJumpEnabled, setIsAutoJumpEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [queueValidation, setQueueValidation] = useState<Map<string, QueueValidationResult>>(new Map());
   const [showExportModal, setShowExportModal] = useState<'current' | 'full' | null>(null);
@@ -265,7 +266,11 @@ export default function Home() {
     }
 
     // Check if THIS SPECIFIC lane is available
-    return validateQueueItem(viewState, itemId, quantity);
+    const result = validateQueueItem(viewState, itemId, quantity);
+    if (itemId === 'scientist') {
+      console.log('[DEBUG] canQueueItem scientist:', result);
+    }
+    return result;
   }, [defs, controller]);
 
   // Guard against undefined state AFTER all hooks are called
@@ -398,7 +403,7 @@ export default function Home() {
 
       // AUTO-ADVANCE: Move to the completion turn of the item we just added
       // Shows the turn immediately following the new structure's completion
-      if (def && result.itemId) {
+      if (isAutoJumpEnabled && def && result.itemId) {
         const finalState = controller.getStateAtTurn(199);
         if (finalState) {
           const laneView = getLaneView(finalState, def.lane);
@@ -413,7 +418,7 @@ export default function Home() {
       console.error('Error in handleQueueItem:', e);
       setError((e as Error).message || 'Unknown error');
     }
-  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory]);
+  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory, isAutoJumpEnabled]);
 
   const handleQueueWait = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', waitTurns: number) => {
     setError(null);
@@ -450,6 +455,16 @@ export default function Home() {
 
   // Core execution function to instantly cancel and auto-collapse queues
   const executeCancellation = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
+    // Check if it's the last item before we cancel it
+    let wasLastItem = false;
+    const preCancelState = controller!.getStateAtTurn(199);
+    if (preCancelState) {
+      const laneView = getLaneView(preCancelState, laneId);
+      if (laneView.entries.length > 0 && laneView.entries[laneView.entries.length - 1].id === entry.id) {
+        wasLastItem = true;
+      }
+    }
+
     // Cancel the item from the plan (T1 state) — works regardless of timeline position
     const result = controller!.cancelPlannedItem(laneId, entry.id);
 
@@ -470,15 +485,29 @@ export default function Home() {
     // After cancelling, we repack the queue forward to fill gaps.
     controller!.repackQueue(1, laneId);
 
+    let newViewTurn = viewTurn;
+    if (isAutoJumpEnabled && wasLastItem) {
+      const postCancelState = controller!.getStateAtTurn(199);
+      if (postCancelState) {
+        const laneView = getLaneView(postCancelState, laneId);
+        if (laneView.entries.length > 0) {
+          const lastItem = laneView.entries[laneView.entries.length - 1];
+          const endTurn = lastItem.completionTurn ?? lastItem.eta ?? 1;
+          newViewTurn = Math.min(endTurn + 1, 199);
+        } else {
+          newViewTurn = currentPlanet?.startTurn ?? 1;
+        }
+      }
+    }
+
     // Update the planet in game state
-    const updatedPlanet = controller!.getStateAtTurn(viewTurn);
+    const updatedPlanet = controller!.getStateAtTurn(newViewTurn);
     if (updatedPlanet) {
       setGameState(prev => {
         const newPlanets = new Map(prev.planets);
         newPlanets.set(gameState.currentPlanetId, updatedPlanet as ExtendedPlanetState);
         return { ...prev, planets: newPlanets };
       });
-
       // Validate all remaining queue items after removal
       const getLaneEntries = (state: any, lId: 'building' | 'ship' | 'colonist' | 'research') => {
         return getLaneView(state, lId).entries;
@@ -728,6 +757,8 @@ export default function Home() {
             totalTurns={totalTurns}
             onTurnChange={setViewTurn}
             firstEmptyTurns={firstEmptyTurns}
+            isAutoJumpEnabled={isAutoJumpEnabled}
+            onAutoJumpToggle={setIsAutoJumpEnabled}
           />
         </div>
 
@@ -785,21 +816,6 @@ export default function Home() {
                     >
                       Export / Share
                     </button>
-                    <button
-                      className="px-4 py-2 bg-gray-800 text-gray-300 rounded hover:bg-gray-700 transition-colors text-sm"
-                      onClick={() => {
-                        const hash = window.location.hash;
-                        if (hash) {
-                          navigator.clipboard.writeText(window.location.href);
-                          alert('Debug URL copied to clipboard!');
-                        } else {
-                          alert('No state to copy yet.');
-                        }
-                      }}
-                      title="Copy URL with full command history to clipboard for bug reporting"
-                    >
-                      Copy Debug State
-                    </button>
                   </div>
                   <button
                     onClick={() => setShowExportModal('full')}
@@ -828,6 +844,25 @@ export default function Home() {
             </Card>
           </div>
         </main>
+        
+        {/* Footer */}
+        <footer className="mt-8 text-center text-xs text-pink-nebula-text-secondary pb-8">
+          <button
+            className="hover:text-pink-nebula-text transition-colors opacity-50 hover:opacity-100"
+            onClick={() => {
+              const hash = window.location.hash;
+              if (hash) {
+                navigator.clipboard.writeText(window.location.href);
+                alert('Debug URL copied to clipboard!');
+              } else {
+                alert('No state to copy yet.');
+              }
+            }}
+            title="Copy URL with full command history to clipboard for bug reporting"
+          >
+            Copy Debug State
+          </button>
+        </footer>
       </div>
 
       {/* Export Modal - TICKET-5 */}

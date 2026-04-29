@@ -38,13 +38,21 @@ export function PlanetTabs({
       {planetArray.map((planet, index) => {
         const isActive = planet.id === currentPlanetId;
         return (
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             key={planet.id}
             onClick={() => onPlanetSwitch(planet.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onPlanetSwitch(planet.id);
+              }
+            }}
             suppressHydrationWarning
             className={`
               px-4 py-2 rounded-lg font-semibold transition-all duration-200
-              flex items-center gap-2
+              flex items-center gap-2 cursor-pointer
               ${isActive
                 ? 'bg-pink-nebula-accent-primary text-white shadow-lg scale-105'
                 : 'bg-slate-700 text-pink-nebula-text hover:bg-slate-600 hover:scale-102'
@@ -54,23 +62,31 @@ export function PlanetTabs({
             <span className="text-xl">{getPlanetIcon(index)}</span>
             <span className="text-sm">{planet.name}</span>
             <span className="text-xs opacity-70" suppressHydrationWarning>T{planet.currentTurn}</span>
-          </button>
+          </div>
         );
       })}
 
       {canAddPlanet && (
-        <button
+        <div
+          role="button"
+          tabIndex={0}
           onClick={onAddPlanet}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onAddPlanet();
+            }
+          }}
           className="
             px-4 py-2 rounded-lg font-semibold transition-all duration-200
             bg-slate-700 text-pink-nebula-text hover:bg-slate-600
             border-2 border-dashed border-pink-nebula-border
-            flex items-center gap-2 hover:scale-102
+            flex items-center gap-2 hover:scale-102 cursor-pointer
           "
         >
           <span className="text-xl">➕</span>
           <span className="text-sm">Add Planet</span>
-        </button>
+        </div>
       )}
 
       {!canAddPlanet && (

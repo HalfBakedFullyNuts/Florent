@@ -63,6 +63,7 @@ export function hasPrereqs(state: PlanetState, def: ItemDefinition): boolean {
 
 /**
  * Check if housing exists for colonist at activation time
+ * Projects future housing capacity by scanning the queue
  */
 export function housingExistsForColonist(
   state: PlanetState,
@@ -73,14 +74,49 @@ export function housingExistsForColonist(
     return true; // Not a colonist, no housing check needed
   }
 
+  // Calculate future housing capacity from queued buildings
+  let futureSoldierCap = state.housing.soldierCap;
+  let futureScientistCap = state.housing.scientistCap;
+
+  const queuedBuildings = [
+    ...(state.lanes.building.active ? [state.lanes.building.active] : []),
+    ...state.lanes.building.pendingQueue
+  ];
+
+  for (const item of queuedBuildings) {
+    const itemDef = state.defs[item.itemId];
+    const effects = itemDef?.effectsOnComplete;
+    if (effects) {
+      if (effects.housing_soldier_cap) {
+        futureSoldierCap += effects.housing_soldier_cap * item.quantity;
+      }
+      if (effects.housing_scientist_cap) {
+        futureScientistCap += effects.housing_scientist_cap * item.quantity;
+      }
+    }
+  }
+
+  // Calculate future population from queued colonists
+  let futureSoldiers = state.population.soldiers;
+  let futureScientists = state.population.scientists;
+
+  const queuedColonists = [
+    ...(state.lanes.colonist.active ? [state.lanes.colonist.active] : []),
+    ...state.lanes.colonist.pendingQueue
+  ];
+
+  for (const item of queuedColonists) {
+    const itemDef = state.defs[item.itemId];
+    if (itemDef?.colonistKind === 'soldier') futureSoldiers += item.quantity;
+    if (itemDef?.colonistKind === 'scientist') futureScientists += item.quantity;
+  }
+
   if (def.colonistKind === 'soldier') {
-    const availableCapacity = state.housing.soldierCap - state.population.soldiers;
-    return availableCapacity >= qty;
+    return futureSoldierCap - futureSoldiers >= qty;
   }
 
   if (def.colonistKind === 'scientist') {
-    const availableCapacity = state.housing.scientistCap - state.population.scientists;
-    return availableCapacity >= qty;
+    return futureScientistCap - futureScientists >= qty;
   }
 
   return true;
@@ -128,6 +164,7 @@ export function isPlanetLimitReached(
 
 /**
  * Forward check: ensure energy output per turn won't go negative after completion
+ * Projects future energy output by scanning the queue
  */
 export function energyNonNegativeAfterCompletion(
   state: PlanetState,
@@ -139,16 +176,49 @@ export function energyNonNegativeAfterCompletion(
     return true; // No energy upkeep, always safe
   }
 
-  // Calculate total energy upkeep after completion
-  const totalNewUpkeep = energyUpkeep * qty;
-
   // Get current net energy output per turn
   const currentOutputs = computeNetOutputsPerTurn(state);
-  const currentEnergyOutput = currentOutputs.energy;
+  let futureEnergyOutput = currentOutputs.energy;
 
-  // Check if net energy output will remain non-negative
+  // Calculate net change in energy output from queued items
+  const allLanes = [
+    state.lanes.building,
+    state.lanes.ship,
+    state.lanes.colonist,
+    state.lanes.research
+  ];
+
+  for (const lane of allLanes) {
+    const queuedItems = [
+      ...(lane.active ? [lane.active] : []),
+      ...lane.pendingQueue
+    ];
+
+    for (const item of queuedItems) {
+      const itemDef = state.defs[item.itemId];
+      if (!itemDef) continue;
+      
+      // Add future production
+      if (itemDef.effectsOnComplete?.production_energy) {
+        const production = itemDef.effectsOnComplete.production_energy;
+        const scaledProduction = itemDef.isAbundanceScaled
+            ? production * state.abundance.energy
+            : production;
+        futureEnergyOutput += scaledProduction * item.quantity;
+      }
+
+      // Subtract future upkeep
+      if (itemDef.upkeepPerUnit?.energy) {
+         futureEnergyOutput -= itemDef.upkeepPerUnit.energy * item.quantity;
+      }
+    }
+  }
+
+  // Calculate total energy upkeep after completion of the requested item
+  const totalNewUpkeep = energyUpkeep * qty;
+
   // Allow exactly 0 to permit building the first energy-consuming structure
-  return currentEnergyOutput - totalNewUpkeep >= 0;
+  return futureEnergyOutput - totalNewUpkeep >= 0;
 }
 
 /**
@@ -180,6 +250,14 @@ export function canQueue(
     return { allowed: false, reason: 'ENERGY_INSUFFICIENT' };
   }
 
+  // Check research points (deducted immediately at queue time)
+  if (def.lane === 'research' && def.costsPerUnit?.research_points) {
+    const rpCost = def.costsPerUnit.research_points * requestedQty;
+    if (state.stocks.research_points < rpCost) {
+      return { allowed: false, reason: 'REQ_MISSING' }; // Or a specific reason like 'RP_INSUFFICIENT' if you want to add it to CanQueueResult
+    }
+  }
+
   return { allowed: true };
 }
 
@@ -193,6 +271,26 @@ export function clampBatchAtActivation(
   requested: number
 ): number {
   let maxAffordable = requested;
+
+  // Check if prerequisites are ACTUALLY completed
+  if (def.prerequisites && def.prerequisites.length > 0) {
+    for (const prereqId of def.prerequisites) {
+      if (!state.completedResearch?.includes(prereqId) && (state.completedCounts[prereqId] || 0) <= 0) {
+        return 0; // Prerequisite not yet built, stall queue
+      }
+    }
+  }
+
+  // Check if housing is CURRENTLY available
+  if (def.colonistKind) {
+    if (def.colonistKind === 'soldier') {
+      const availableCapacity = state.housing.soldierCap - state.population.soldiers;
+      maxAffordable = Math.min(maxAffordable, availableCapacity);
+    } else if (def.colonistKind === 'scientist') {
+      const availableCapacity = state.housing.scientistCap - state.population.scientists;
+      maxAffordable = Math.min(maxAffordable, availableCapacity);
+    }
+  }
 
   // Check resource constraints
   const costs = def.costsPerUnit;
