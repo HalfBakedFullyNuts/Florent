@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import { GameController, queueResearch } from '../lib/game/commands';
+import { GameController } from '../lib/game/commands';
 import { createInitialGameState, addPlanet, switchPlanet, getCurrentPlanet, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
 import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns } from '../lib/game/selectors';
 import { validateAllQueueItems, type QueueValidationResult, getValidationMessage, getDependentQueueItems } from '../lib/game/validation';
@@ -40,7 +40,7 @@ export default function Home() {
 
   useEffect(() => {
     setIsMounted(true);
-    
+
     // Load state from URL or LocalStorage after hydration
     let urlSnapshot = loadStateFromURL();
 
@@ -62,12 +62,12 @@ export default function Home() {
     if (urlSnapshot && urlSnapshot.cmds.length > 0) {
       // Reconstruct state by replaying commands
       const state = replayCommands(createInitialGameState(), urlSnapshot.cmds);
-      
+
       // Restore the command history so future actions append to it
       urlSnapshot.cmds.forEach(cmd => {
         (commandHistory as any).commands.push(cmd);
       });
-      
+
       setGameState(state);
     }
   }, [commandHistory]);
@@ -266,11 +266,7 @@ export default function Home() {
     }
 
     // Check if THIS SPECIFIC lane is available
-    const result = validateQueueItem(viewState, itemId, quantity);
-    if (itemId === 'scientist') {
-      console.log('[DEBUG] canQueueItem scientist:', result);
-    }
-    return result;
+    return validateQueueItem(viewState, itemId, quantity);
   }, [defs, controller]);
 
   // Guard against undefined state AFTER all hooks are called
@@ -368,19 +364,7 @@ export default function Home() {
     }
 
     try {
-      // For research, use global queue
       const def = defs[itemId];
-      if (def && def.lane === 'research') {
-        const newGameState = queueResearch(gameState, itemId);
-        setGameState(newGameState);
-
-        // Record command for URL encoding
-        commandHistory.recordQueueResearch(itemId);
-
-        return;
-      }
-
-      // For other items, queue to current planet universally at Turn 1
       const result = controller.queueItem(1, itemId, quantity);
       if (!result.success) {
         setError(result.reason || 'Cannot queue item');
@@ -844,7 +828,7 @@ export default function Home() {
             </Card>
           </div>
         </main>
-        
+
         {/* Footer */}
         <footer className="mt-8 text-center text-xs text-pink-nebula-text-secondary pb-8">
           <button

@@ -64,15 +64,8 @@ function deductActivationCosts(
     return;
   }
 
-  const costs = def.costsPerUnit;
-  state.stocks.metal -= costs.metal * quantity;
-  state.stocks.mineral -= costs.mineral * quantity;
-  state.stocks.food -= costs.food * quantity;
-  state.stocks.energy -= costs.energy * quantity;
-
-  if (laneId !== 'research') {
-    state.stocks.research_points -= costs.research_points * quantity;
-  }
+  // Note: metal/mineral/food/energy/research_points are deducted at queue time.
+  // Activation only reserves workers and space (consumed during active construction).
 }
 
 /**

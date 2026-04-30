@@ -245,17 +245,25 @@ export function canQueue(
     return { allowed: false, reason: 'HOUSING_MISSING' };
   }
 
-  // Check energy forward-check
+  // Check energy forward-check (maintenance constraint)
   if (!energyNonNegativeAfterCompletion(state, def, requestedQty)) {
     return { allowed: false, reason: 'ENERGY_INSUFFICIENT' };
   }
 
-  // Check research points (deducted immediately at queue time)
-  if (def.lane === 'research' && def.costsPerUnit?.research_points) {
-    const rpCost = def.costsPerUnit.research_points * requestedQty;
-    if (state.stocks.research_points < rpCost) {
-      return { allowed: false, reason: 'REQ_MISSING' }; // Or a specific reason like 'RP_INSUFFICIENT' if you want to add it to CanQueueResult
-    }
+  // Check resource costs (deducted immediately at queue time)
+  // Workers and space are NOT checked here, as they are reserved at activation time.
+  const costs = def.costsPerUnit;
+  if ((costs.metal || 0) * requestedQty > state.stocks.metal) {
+    return { allowed: false, reason: 'INSUFFICIENT_RESOURCES' };
+  }
+  if ((costs.mineral || 0) * requestedQty > state.stocks.mineral) {
+    return { allowed: false, reason: 'INSUFFICIENT_RESOURCES' };
+  }
+  if ((costs.food || 0) * requestedQty > state.stocks.food) {
+    return { allowed: false, reason: 'INSUFFICIENT_RESOURCES' };
+  }
+  if ((costs.research_points || 0) * requestedQty > state.stocks.research_points) {
+    return { allowed: false, reason: 'INSUFFICIENT_RESOURCES' };
   }
 
   return { allowed: true };
@@ -292,20 +300,9 @@ export function clampBatchAtActivation(
     }
   }
 
-  // Check resource constraints
-  const costs = def.costsPerUnit;
-  if (costs.metal > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.metal / costs.metal));
-  }
-  if (costs.mineral > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.mineral / costs.mineral));
-  }
-  if (costs.food > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.food / costs.food));
-  }
-  if (costs.energy > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.energy / costs.energy));
-  }
+  // Note: metal/mineral/food/energy/research_points are NOT checked here.
+  // They were deducted at queue time, so stocks reflect costs already paid.
+
 
   // Check worker constraints
   const workersNeeded = def.costsPerUnit.workers || 0;

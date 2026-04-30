@@ -33,11 +33,11 @@ export function refundActivationCosts(
   const costs = def.costsPerUnit;
 
   // Refund resources
-  state.stocks.metal += costs.metal * quantity;
-  state.stocks.mineral += costs.mineral * quantity;
-  state.stocks.food += costs.food * quantity;
-  state.stocks.energy += costs.energy * quantity;
-  state.stocks.research_points += costs.research_points * quantity;
+  state.stocks.metal += (costs.metal || 0) * quantity;
+  state.stocks.mineral += (costs.mineral || 0) * quantity;
+  state.stocks.food += (costs.food || 0) * quantity;
+  state.stocks.energy += (costs.energy || 0) * quantity;
+  state.stocks.research_points += (costs.research_points || 0) * quantity;
 
   // Release workers
   const workersNeeded = costs.workers || 0;

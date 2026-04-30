@@ -79,14 +79,19 @@ export class GameController {
       queuedTurn: turn,
     };
 
-    // Mutate state to add pending item to queue
+    // Mutate state to add pending item to queue and deduct costs
     const success = this.timeline.mutateAtTurn(turn, (s) => {
       s.lanes[laneId].pendingQueue.push(workItem);
 
-      // Deduct research_points immediately for research items (at queue time, not activation)
-      if (laneId === 'research') {
-        const rpCost = def.costsPerUnit.research_points || 0;
-        s.stocks.research_points -= rpCost * requestedQty;
+      // Deduct resource costs immediately at queue time.
+      // Workers and space are reserved at activation time instead.
+      if (!workItem.isWait) {
+        const costs = def.costsPerUnit;
+        s.stocks.metal -= (costs.metal || 0) * requestedQty;
+        s.stocks.mineral -= (costs.mineral || 0) * requestedQty;
+        s.stocks.food -= (costs.food || 0) * requestedQty;
+        s.stocks.energy -= (costs.energy || 0) * requestedQty;
+        s.stocks.research_points -= (costs.research_points || 0) * requestedQty;
       }
     });
 
@@ -185,14 +190,15 @@ export class GameController {
     if (lane.pendingQueue.length > 0) {
       this.timeline.mutateAtTurn(turn, (s) => {
         const pending = s.lanes[laneId].pendingQueue[0];
-        if (pending) {
-          // Refund research_points for pending research items (deducted at queue time)
-          if (laneId === 'research') {
-            const def = s.defs[pending.itemId];
-            if (def) {
-              const rpCost = def.costsPerUnit.research_points || 0;
-              s.stocks.research_points += rpCost * pending.quantity;
-            }
+        if (pending && !pending.isWait) {
+          const def = s.defs[pending.itemId];
+          if (def) {
+            const costs = def.costsPerUnit;
+            s.stocks.metal += (costs.metal || 0) * pending.quantity;
+            s.stocks.mineral += (costs.mineral || 0) * pending.quantity;
+            s.stocks.food += (costs.food || 0) * pending.quantity;
+            s.stocks.energy += (costs.energy || 0) * pending.quantity;
+            s.stocks.research_points += (costs.research_points || 0) * pending.quantity;
           }
         }
         s.lanes[laneId].pendingQueue.shift();
@@ -274,14 +280,15 @@ export class GameController {
     if (pendingIndex !== -1) {
       this.timeline.mutateAtTurn(turn, (s) => {
         const pending = s.lanes[laneId].pendingQueue[pendingIndex];
-        if (pending) {
-          // Refund research_points for pending research items (deducted at queue time)
-          if (laneId === 'research') {
-            const def = s.defs[pending.itemId];
-            if (def) {
-              const rpCost = def.costsPerUnit.research_points || 0;
-              s.stocks.research_points += rpCost * pending.quantity;
-            }
+        if (pending && !pending.isWait) {
+          const def = s.defs[pending.itemId];
+          if (def) {
+            const costs = def.costsPerUnit;
+            s.stocks.metal += (costs.metal || 0) * pending.quantity;
+            s.stocks.mineral += (costs.mineral || 0) * pending.quantity;
+            s.stocks.food += (costs.food || 0) * pending.quantity;
+            s.stocks.energy += (costs.energy || 0) * pending.quantity;
+            s.stocks.research_points += (costs.research_points || 0) * pending.quantity;
           }
         }
         s.lanes[laneId].pendingQueue.splice(pendingIndex, 1);
@@ -339,14 +346,15 @@ export class GameController {
     if (pendingIndex !== -1) {
       this.timeline.mutateAtTurn(turn, (s) => {
         const pending = s.lanes[laneId].pendingQueue[pendingIndex];
-        if (pending) {
-          // Refund research_points for pending research items (deducted at queue time)
-          if (laneId === 'research') {
-            const def = s.defs[pending.itemId];
-            if (def) {
-              const rpCost = def.costsPerUnit.research_points || 0;
-              s.stocks.research_points += rpCost * pending.quantity;
-            }
+        if (pending && !pending.isWait) {
+          const def = s.defs[pending.itemId];
+          if (def) {
+            const costs = def.costsPerUnit;
+            s.stocks.metal += (costs.metal || 0) * pending.quantity;
+            s.stocks.mineral += (costs.mineral || 0) * pending.quantity;
+            s.stocks.food += (costs.food || 0) * pending.quantity;
+            s.stocks.energy += (costs.energy || 0) * pending.quantity;
+            s.stocks.research_points += (costs.research_points || 0) * pending.quantity;
           }
         }
         s.lanes[laneId].pendingQueue.splice(pendingIndex, 1);
@@ -507,16 +515,17 @@ export class GameController {
     if (pendingIndex !== -1) {
       this.timeline.mutateAtTurn(turn, (s) => {
         const item = s.lanes[laneId].pendingQueue[pendingIndex];
-        if (item) {
-          // Adjust research points if applicable
-          if (laneId === 'research') {
-            const def = s.defs[item.itemId];
-            if (def) {
-              const rpCost = def.costsPerUnit.research_points || 0;
-              // Refund old, deduct new
-              s.stocks.research_points += rpCost * item.quantity;
-              s.stocks.research_points -= rpCost * newQuantity;
-            }
+        if (item && !item.isWait) {
+          const def = s.defs[item.itemId];
+          if (def) {
+            const costs = def.costsPerUnit;
+            const delta = newQuantity - item.quantity;
+            // Deduct delta (positive = more cost, negative = refund)
+            s.stocks.metal -= (costs.metal || 0) * delta;
+            s.stocks.mineral -= (costs.mineral || 0) * delta;
+            s.stocks.food -= (costs.food || 0) * delta;
+            s.stocks.energy -= (costs.energy || 0) * delta;
+            s.stocks.research_points -= (costs.research_points || 0) * delta;
           }
           item.quantity = newQuantity;
         }
@@ -717,16 +726,32 @@ export class GameController {
     // 2. Clear the queue from the timeline starting at `turn`
     this.timeline.mutateAtTurn(turn, (s) => {
       s.lanes[laneId].pendingQueue = [];
-      // Also refund any queued research points for research items as we're going to re-queue them
-      if (laneId === 'research') {
-        let totalRefund = 0;
-        for (const item of extractedItems) {
-          if (item.isWait) continue;
-          const def = s.defs[item.itemId];
-          if (def) totalRefund += (def.costsPerUnit.research_points || 0) * item.quantity;
+      
+      // Refund all resources for the extracted items as they're going to be re-inserted via queueItem
+      let refundMetal = 0;
+      let refundMineral = 0;
+      let refundFood = 0;
+      let refundEnergy = 0;
+      let refundRP = 0;
+
+      for (const item of extractedItems) {
+        if (item.isWait) continue;
+        const def = s.defs[item.itemId];
+        if (def) {
+          const costs = def.costsPerUnit;
+          refundMetal += (costs.metal || 0) * item.quantity;
+          refundMineral += (costs.mineral || 0) * item.quantity;
+          refundFood += (costs.food || 0) * item.quantity;
+          refundEnergy += (costs.energy || 0) * item.quantity;
+          refundRP += (costs.research_points || 0) * item.quantity;
         }
-        s.stocks.research_points += totalRefund;
       }
+
+      s.stocks.metal += refundMetal;
+      s.stocks.mineral += refundMineral;
+      s.stocks.food += refundFood;
+      s.stocks.energy += refundEnergy;
+      s.stocks.research_points += refundRP;
     });
 
     // 3. Re-insert items sequentially at the earliest valid turn
