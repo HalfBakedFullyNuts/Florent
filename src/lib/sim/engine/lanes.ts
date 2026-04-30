@@ -47,25 +47,22 @@ function activateWaitItem(
 
 /**
  * Deduct resource costs from state for activating an item.
- * Modifies state.stocks in place based on costs and quantity.
+ * Resources, RP, workers, and space are ALL paid at activation time.
  */
 function deductActivationCosts(
   state: PlanetState,
   def: ItemDefinition,
   quantity: number,
-  laneId: LaneId
+  _laneId: LaneId
 ): void {
-  if (quantity <= 0) {
-    console.error('deductActivationCosts: quantity must be positive');
-    return;
-  }
-  if (!def.costsPerUnit) {
-    console.error('deductActivationCosts: definition missing costsPerUnit');
-    return;
-  }
-
-  // Note: metal/mineral/food/energy/research_points are deducted at queue time.
-  // Activation only reserves workers and space (consumed during active construction).
+  if (quantity <= 0) return;
+  if (!def.costsPerUnit) return;
+  const c = def.costsPerUnit;
+  state.stocks.metal -= (c.metal || 0) * quantity;
+  state.stocks.mineral -= (c.mineral || 0) * quantity;
+  state.stocks.food -= (c.food || 0) * quantity;
+  state.stocks.energy -= (c.energy || 0) * quantity;
+  state.stocks.research_points -= (c.research_points || 0) * quantity;
 }
 
 /**

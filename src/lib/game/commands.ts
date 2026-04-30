@@ -5,13 +5,14 @@
 
 import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
 import { canQueue } from '../sim/engine/validation';
+import { calculatePrereqWaitTurns } from '../sim/engine/queueValidation';
 import { generateWorkItemId, refundActivationCosts } from '../sim/engine/helpers';
 import { Timeline } from './state';
 import { getLogger } from './logger';
 
 export interface QueueResult {
   success: boolean;
-  reason?: 'REQ_MISSING' | 'HOUSING_MISSING' | 'ENERGY_INSUFFICIENT' | 'PLANET_LIMIT_REACHED' | 'INVALID_LANE';
+  reason?: 'REQ_MISSING' | 'HOUSING_MISSING' | 'ENERGY_INSUFFICIENT' | 'PLANET_LIMIT_REACHED' | 'INSUFFICIENT_RESOURCES' | 'INVALID_LANE';
   itemId?: string;
 }
 
@@ -68,6 +69,16 @@ export class GameController {
       }
     }
 
+    // Auto-wait injection: if a prereq is queued but not yet completed,
+    // insert a wait in this item's lane so the item activates after the prereq lands.
+    // Skip when forced (repack handles its own waits) or when this is itself a wait item.
+    if (!options?.force) {
+      const prereqWait = calculatePrereqWaitTurns(state, def);
+      if (prereqWait > 0) {
+        this.queueWaitItem(turn, laneId, prereqWait, true, { force: true });
+      }
+    }
+
     // Preserve original ID when repacking to avoid ID churn across cancel+repack cycles
     const workItemId = options?.preserveId ?? generateWorkItemId();
     const workItem = {
@@ -79,20 +90,9 @@ export class GameController {
       queuedTurn: turn,
     };
 
-    // Mutate state to add pending item to queue and deduct costs
+    // Queueing is intent registration only — costs are paid on activation.
     const success = this.timeline.mutateAtTurn(turn, (s) => {
       s.lanes[laneId].pendingQueue.push(workItem);
-
-      // Deduct resource costs immediately at queue time.
-      // Workers and space are reserved at activation time instead.
-      if (!workItem.isWait) {
-        const costs = def.costsPerUnit;
-        s.stocks.metal -= (costs.metal || 0) * requestedQty;
-        s.stocks.mineral -= (costs.mineral || 0) * requestedQty;
-        s.stocks.food -= (costs.food || 0) * requestedQty;
-        s.stocks.energy -= (costs.energy || 0) * requestedQty;
-        s.stocks.research_points -= (costs.research_points || 0) * requestedQty;
-      }
     });
 
     if (!success) {
@@ -186,21 +186,10 @@ export class GameController {
 
     const lane = state.lanes[laneId];
 
-    // If there's a pending item in queue, remove the first one
+    // If there's a pending item in queue, remove the first one.
+    // Pending items haven't been activated, so nothing to refund.
     if (lane.pendingQueue.length > 0) {
       this.timeline.mutateAtTurn(turn, (s) => {
-        const pending = s.lanes[laneId].pendingQueue[0];
-        if (pending && !pending.isWait) {
-          const def = s.defs[pending.itemId];
-          if (def) {
-            const costs = def.costsPerUnit;
-            s.stocks.metal += (costs.metal || 0) * pending.quantity;
-            s.stocks.mineral += (costs.mineral || 0) * pending.quantity;
-            s.stocks.food += (costs.food || 0) * pending.quantity;
-            s.stocks.energy += (costs.energy || 0) * pending.quantity;
-            s.stocks.research_points += (costs.research_points || 0) * pending.quantity;
-          }
-        }
         s.lanes[laneId].pendingQueue.shift();
       });
 
@@ -275,22 +264,11 @@ export class GameController {
 
     const lane = state.lanes[laneId];
 
-    // Check if entry is in pending queue
+    // Check if entry is in pending queue.
+    // Pending items haven't been activated, so nothing to refund.
     const pendingIndex = lane.pendingQueue.findIndex(item => item.id === entryId);
     if (pendingIndex !== -1) {
       this.timeline.mutateAtTurn(turn, (s) => {
-        const pending = s.lanes[laneId].pendingQueue[pendingIndex];
-        if (pending && !pending.isWait) {
-          const def = s.defs[pending.itemId];
-          if (def) {
-            const costs = def.costsPerUnit;
-            s.stocks.metal += (costs.metal || 0) * pending.quantity;
-            s.stocks.mineral += (costs.mineral || 0) * pending.quantity;
-            s.stocks.food += (costs.food || 0) * pending.quantity;
-            s.stocks.energy += (costs.energy || 0) * pending.quantity;
-            s.stocks.research_points += (costs.research_points || 0) * pending.quantity;
-          }
-        }
         s.lanes[laneId].pendingQueue.splice(pendingIndex, 1);
       });
       return { success: true };
@@ -341,22 +319,11 @@ export class GameController {
 
     const lane = state.lanes[laneId];
 
-    // Check pending queue at T1
+    // Check pending queue at T1.
+    // Pending items haven't been activated, so nothing to refund.
     const pendingIndex = lane.pendingQueue.findIndex(item => item.id === entryId);
     if (pendingIndex !== -1) {
       this.timeline.mutateAtTurn(turn, (s) => {
-        const pending = s.lanes[laneId].pendingQueue[pendingIndex];
-        if (pending && !pending.isWait) {
-          const def = s.defs[pending.itemId];
-          if (def) {
-            const costs = def.costsPerUnit;
-            s.stocks.metal += (costs.metal || 0) * pending.quantity;
-            s.stocks.mineral += (costs.mineral || 0) * pending.quantity;
-            s.stocks.food += (costs.food || 0) * pending.quantity;
-            s.stocks.energy += (costs.energy || 0) * pending.quantity;
-            s.stocks.research_points += (costs.research_points || 0) * pending.quantity;
-          }
-        }
         s.lanes[laneId].pendingQueue.splice(pendingIndex, 1);
       });
 
@@ -513,20 +480,10 @@ export class GameController {
     // Check pending queue
     const pendingIndex = lane.pendingQueue.findIndex(item => item.id === entryId);
     if (pendingIndex !== -1) {
+      // Pending items haven't been activated. Just update intended qty.
       this.timeline.mutateAtTurn(turn, (s) => {
         const item = s.lanes[laneId].pendingQueue[pendingIndex];
         if (item && !item.isWait) {
-          const def = s.defs[item.itemId];
-          if (def) {
-            const costs = def.costsPerUnit;
-            const delta = newQuantity - item.quantity;
-            // Deduct delta (positive = more cost, negative = refund)
-            s.stocks.metal -= (costs.metal || 0) * delta;
-            s.stocks.mineral -= (costs.mineral || 0) * delta;
-            s.stocks.food -= (costs.food || 0) * delta;
-            s.stocks.energy -= (costs.energy || 0) * delta;
-            s.stocks.research_points -= (costs.research_points || 0) * delta;
-          }
           item.quantity = newQuantity;
         }
       });
@@ -723,35 +680,11 @@ export class GameController {
       .filter(item => !item.isAutoWait)
       .map(item => ({ ...item })); // Clone to avoid mutation references
 
-    // 2. Clear the queue from the timeline starting at `turn`
+    // 2. Clear the queue from the timeline starting at `turn`.
+    // No refunds needed — pending items don't deduct stocks under the
+    // activation-time pricing model.
     this.timeline.mutateAtTurn(turn, (s) => {
       s.lanes[laneId].pendingQueue = [];
-      
-      // Refund all resources for the extracted items as they're going to be re-inserted via queueItem
-      let refundMetal = 0;
-      let refundMineral = 0;
-      let refundFood = 0;
-      let refundEnergy = 0;
-      let refundRP = 0;
-
-      for (const item of extractedItems) {
-        if (item.isWait) continue;
-        const def = s.defs[item.itemId];
-        if (def) {
-          const costs = def.costsPerUnit;
-          refundMetal += (costs.metal || 0) * item.quantity;
-          refundMineral += (costs.mineral || 0) * item.quantity;
-          refundFood += (costs.food || 0) * item.quantity;
-          refundEnergy += (costs.energy || 0) * item.quantity;
-          refundRP += (costs.research_points || 0) * item.quantity;
-        }
-      }
-
-      s.stocks.metal += refundMetal;
-      s.stocks.mineral += refundMineral;
-      s.stocks.food += refundFood;
-      s.stocks.energy += refundEnergy;
-      s.stocks.research_points += refundRP;
     });
 
     // 3. Re-insert items sequentially at the earliest valid turn

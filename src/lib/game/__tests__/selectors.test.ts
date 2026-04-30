@@ -303,7 +303,10 @@ describe('Selectors', () => {
       expect(result.reason).toBe('Queue is full');
     });
 
-    it('should return false when lane is busy with active item', () => {
+    it('allows queuing into a busy lane (item joins pending queue)', () => {
+      // Under the activation-time pricing model, a busy lane does not block
+      // queueing — the new item simply waits in the pending queue until the
+      // active slot frees.
       state.lanes.building.active = {
         id: 'active_1',
         itemId: 'farm',
@@ -313,9 +316,7 @@ describe('Selectors', () => {
       };
 
       const result = canQueueItem(state, 'metal_mine', 1);
-
-      expect(result.allowed).toBe(false);
-      expect(result.reason).toBe('Lane is busy');
+      expect(result.allowed).toBe(true);
     });
 
     it('should return true when lane is available', () => {

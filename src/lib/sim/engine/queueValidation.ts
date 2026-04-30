@@ -343,3 +343,28 @@ export function calculateAutoWaitTurns(
   const validation = validateQueueWithWait(state, def, requestedQty);
   return validation.waitTurnsNeeded;
 }
+
+/**
+ * Calculate how many turns to wait before this item's prereqs land.
+ * Looks only at prerequisites (not resources or housing).
+ * Returns 0 when all prereqs are already completed.
+ * Returns the largest "turns until prereq completes" otherwise.
+ *
+ * This is what gets injected as an auto-wait in the item's own lane.
+ */
+export function calculatePrereqWaitTurns(
+  state: PlanetState,
+  def: ItemDefinition
+): number {
+  if (!def.prerequisites || def.prerequisites.length === 0) return 0;
+  let maxWait = 0;
+  for (const prereqId of def.prerequisites) {
+    if (state.completedResearch?.includes(prereqId)) continue;
+    if ((state.completedCounts[prereqId] || 0) > 0) continue;
+    const completionTurn = calculatePrereqCompletionTurn(state, prereqId);
+    if (completionTurn === null) continue; // hard miss is handled by canQueue's REQ_MISSING path
+    const wait = completionTurn - state.currentTurn;
+    if (wait > maxWait) maxWait = wait;
+  }
+  return maxWait;
+}

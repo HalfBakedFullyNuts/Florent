@@ -15,6 +15,9 @@ Short rationale (1-2 sentences).
 
 ## Recent Decisions - Turn-Based Simulator Implementation
 
+2026-04-30 — Activation-Time Pricing for All Costs
+Resource and RP costs are deducted at activation time (not queue time), aligning with workers and space. Queueing is intent registration only — pending items affect no stocks. The unified queue gate (`canQueue`) accepts any item whose costs are reachable via current stocks plus net production, and rejects only when prereqs are absent, planet limit is met, energy projection turns negative, or a required resource has non-positive net production. Auto-wait items are injected into a queued item's lane when its prereq is queued but not yet built (using `calculatePrereqWaitTurns`). Lane priority (building > ship > colonist > research) is implicit in `LANE_ORDER` traversal: each lane's `clampBatchAtActivation` sees stocks already debited by prior lanes that turn.
+
 2026-03-02 — Simulated Dependency Validation for Cancellation
 To prevent complex state-unwinding bugs when a user cancels a prerequisite building (e.g., cancelling a Shipyard while a Freighter is globally queued later), we avoid writing manual dependency graph logic. Instead, `getDependentQueueItems` creates a fast detached `cloneState()`, splices out the target item, and re-runs the existing standard `validateAllQueueItems` engine. Any item throwing a `REQ_MISSING` error in the simulation is dynamically flagged in a `DependencyWarningModal` for cascading cancellation.
 
