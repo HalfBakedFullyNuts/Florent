@@ -323,7 +323,7 @@ export function replayCommands(
           const planet = gameState.planets.get(planetId);
           if (planet && planet.timeline) {
             const controller = new GameController(planet, planet.timeline);
-            controller.cancelQueueItem(1, laneId, entryId); // Turn doesn't matter for cancel
+            controller.cancelEntryById(1, laneId, entryId);
             console.log(`[URL State] Command ${i}: Cancelled ${laneId} entry ${entryId} on planet ${planetIdx}`);
           }
           break;

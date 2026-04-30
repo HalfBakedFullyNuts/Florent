@@ -124,6 +124,30 @@ export function TabbedItemGrid({
 
   const getQty = (itemId: string): string => itemQuantities[itemId] ?? '1';
 
+  const humanizeReason = (reason: string | undefined, itemId: string): string => {
+    const def = availableItems[itemId];
+    switch (reason) {
+      case 'REQ_MISSING': {
+        const prereqs = (def?.prerequisites || []).join(', ');
+        return prereqs
+          ? `Build prerequisite first: ${prereqs}`
+          : 'Missing prerequisite.';
+      }
+      case 'PLANET_LIMIT_REACHED':
+        return `Already at planet limit (max ${def?.maxPerPlanet ?? 1}).`;
+      case 'HOUSING_MISSING':
+        return def?.colonistKind === 'soldier'
+          ? 'Not enough soldier housing — build a barracks first.'
+          : 'Not enough scientist housing — build a research lab first.';
+      case 'ENERGY_INSUFFICIENT':
+        return 'Would push net energy below zero — only zero-upkeep buildings allowed.';
+      case 'INSUFFICIENT_RESOURCES':
+        return 'Resources cannot be produced — check net production for the cost types.';
+      default:
+        return reason || 'Cannot queue this item.';
+    }
+  };
+
   const tryQueue = useCallback((itemId: string, laneId: LaneId) => {
     const raw = getQty(itemId);
     if (raw === '' || raw === '0') {
@@ -137,7 +161,7 @@ export function TabbedItemGrid({
     }
     const validation = canQueueItem(itemId, qty);
     if (!validation.allowed) {
-      setItemErrors(prev => ({ ...prev, [itemId]: validation.reason || 'Cannot queue this item.' }));
+      setItemErrors(prev => ({ ...prev, [itemId]: humanizeReason(validation.reason, itemId) }));
       return;
     }
     onQueueItem(itemId, qty);

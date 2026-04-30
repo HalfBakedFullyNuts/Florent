@@ -222,50 +222,65 @@ export function energyNonNegativeAfterCompletion(
 }
 
 /**
+ * Resource feasibility under activation-time pricing.
+ * A queue is allowed when the costs are reachable from
+ * current stocks + future net production (positive lanes).
+ * Returns true if the resource can be accumulated, false otherwise.
+ */
+function resourcesFeasible(
+  state: PlanetState,
+  def: ItemDefinition,
+  qty: number
+): boolean {
+  const c = def.costsPerUnit;
+  const net = computeNetOutputsPerTurn(state);
+  const required: Record<string, number> = {
+    metal: (c.metal || 0) * qty,
+    mineral: (c.mineral || 0) * qty,
+    food: (c.food || 0) * qty,
+    energy: (c.energy || 0) * qty,
+    research_points: (c.research_points || 0) * qty,
+  };
+  for (const r of ['metal', 'mineral', 'food', 'energy', 'research_points'] as const) {
+    const need = required[r];
+    if (need <= 0) continue;
+    const have = state.stocks[r] || 0;
+    if (need <= have) continue;
+    // Need to accumulate. Net production must be positive.
+    if ((net[r] || 0) <= 0) return false;
+  }
+  return true;
+}
+
+/**
  * Static validation: can we queue this item?
- * Checks prerequisites, planet limits, housing, and energy forward-check
+ * Activation-time pricing model:
+ *   - prereqs must exist OR be queued (so they will land before this item runs)
+ *   - planet limit not exceeded
+ *   - housing reachable (colonists)
+ *   - energy projection is a HARD per-planet block
+ *   - resources need not be sufficient NOW; only reachable via net production
  */
 export function canQueue(
   state: PlanetState,
   def: ItemDefinition,
   requestedQty: number
 ): CanQueueResult {
-  // Check prerequisites
   if (!hasPrereqs(state, def)) {
     return { allowed: false, reason: 'REQ_MISSING' };
   }
-
-  // Check planet limit for unique buildings
   if (isPlanetLimitReached(state, def)) {
     return { allowed: false, reason: 'PLANET_LIMIT_REACHED' };
   }
-
-  // Check housing for colonists
   if (def.colonistKind && !housingExistsForColonist(state, def, requestedQty)) {
     return { allowed: false, reason: 'HOUSING_MISSING' };
   }
-
-  // Check energy forward-check (maintenance constraint)
   if (!energyNonNegativeAfterCompletion(state, def, requestedQty)) {
     return { allowed: false, reason: 'ENERGY_INSUFFICIENT' };
   }
-
-  // Check resource costs (deducted immediately at queue time)
-  // Workers and space are NOT checked here, as they are reserved at activation time.
-  const costs = def.costsPerUnit;
-  if ((costs.metal || 0) * requestedQty > state.stocks.metal) {
+  if (!resourcesFeasible(state, def, requestedQty)) {
     return { allowed: false, reason: 'INSUFFICIENT_RESOURCES' };
   }
-  if ((costs.mineral || 0) * requestedQty > state.stocks.mineral) {
-    return { allowed: false, reason: 'INSUFFICIENT_RESOURCES' };
-  }
-  if ((costs.food || 0) * requestedQty > state.stocks.food) {
-    return { allowed: false, reason: 'INSUFFICIENT_RESOURCES' };
-  }
-  if ((costs.research_points || 0) * requestedQty > state.stocks.research_points) {
-    return { allowed: false, reason: 'INSUFFICIENT_RESOURCES' };
-  }
-
   return { allowed: true };
 }
 
@@ -300,9 +315,24 @@ export function clampBatchAtActivation(
     }
   }
 
-  // Note: metal/mineral/food/energy/research_points are NOT checked here.
-  // They were deducted at queue time, so stocks reflect costs already paid.
-
+  // Resources are deducted at activation time, so the live stocks bound the batch.
+  // Whichever resource is scarcest determines the affordable count.
+  const c = def.costsPerUnit;
+  if ((c.metal || 0) > 0) {
+    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.metal / c.metal));
+  }
+  if ((c.mineral || 0) > 0) {
+    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.mineral / c.mineral));
+  }
+  if ((c.food || 0) > 0) {
+    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.food / c.food));
+  }
+  if ((c.energy || 0) > 0) {
+    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.energy / c.energy));
+  }
+  if ((c.research_points || 0) > 0) {
+    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.research_points / c.research_points));
+  }
 
   // Check worker constraints
   const workersNeeded = def.costsPerUnit.workers || 0;
