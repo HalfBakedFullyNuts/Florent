@@ -67,6 +67,7 @@ interface RawStructure {
     consumption?: RawConsumption[];
     effects?: RawEffect[];
   };
+  max_per_planet?: number | null;
 }
 
 interface RawResearch {
@@ -266,6 +267,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     upkeepPerUnit: upkeep,
     isAbundanceScaled: hasAbundanceScaledProduction,
     prerequisites,
+    maxPerPlanet: raw.max_per_planet,
   };
 
   return def;

@@ -81,8 +81,12 @@ export function TabbedItemGrid({
     }
   };
 
+  const getQueueCheck = (itemId: string): { allowed: boolean; reason?: string } => {
+    return canQueueItem(itemId, 1);
+  };
+
   const isItemQueueable = (itemId: string): boolean => {
-    return canQueueItem(itemId, 1).allowed;
+    return getQueueCheck(itemId).allowed;
   };
 
   const formatCost = (item: any): Array<{ resource: string; amount: number }> => {
@@ -275,7 +279,9 @@ export function TabbedItemGrid({
             </div>
           ) : (
             items.map((item) => {
-              const queueable = isItemQueueable(item.id);
+              const queueCheck = getQueueCheck(item.id);
+              const queueable = queueCheck.allowed;
+              const blockReason = !queueable ? humanizeReason(queueCheck.reason, item.id) : undefined;
               const costsMap = item.costsPerUnit || {};
               const energyUpkeep = item.upkeepPerUnit?.energy || 0;
               const isBatchable = activeTab === 'ship' || activeTab === 'colonist';
@@ -283,6 +289,7 @@ export function TabbedItemGrid({
               return (
                 <div
                   key={item.id}
+                  title={blockReason}
                   onClick={() => !isBatchable && queueable && handleItemClick(item.id, activeTab)}
                   className={`
                     w-full text-left p-2 bg-pink-nebula-panel/50 border border-pink-nebula-border rounded
@@ -291,7 +298,7 @@ export function TabbedItemGrid({
                       ? isBatchable
                         ? 'hover:bg-pink-nebula-panel/70'
                         : 'hover:bg-pink-nebula-panel/70 cursor-pointer'
-                      : 'opacity-50'
+                      : 'opacity-50 cursor-not-allowed'
                     }
                   `}
                 >

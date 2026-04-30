@@ -309,6 +309,53 @@ describe('Auto-wait injection', () => {
     const r = ctl.queueItem(1, 'soldier', 1);
     expect(r.success).toBe(false);
   });
+
+  it('does NOT inject wait when same-lane prereq completes before item naturally activates', () => {
+    // Scenario mirrors the user bug: Launch Site (building lane) completes at ~T6,
+    // then several more buildings fill the queue up to ~T22.
+    // A new building requiring launch_site is added at the END of the queue.
+    // Its natural activation is T22, after launch_site's T6 → wait = max(0, 6-22) = 0.
+    //
+    // We model this with: barracks (prereq for mineral_extractor_adv, but here we test
+    // a building whose prereq IS barracks and both are in the building lane).
+    // mineral_extractor (no prereq) stands in for the "gap filler" items.
+    // We add a second barracks-requiring item after three gap fillers.
+    // Since barracks completes at T7 and gap fillers push natural activation to T19, no wait.
+    //
+    // Instead of adding a new def, verify via barracks itself: queue barracks,
+    // then 3 mineral_extractors (4T each), then another barracks.
+    // The 2nd barracks has no prereq issues (barracks has no prereqs itself) but
+    // we can verify the general formula by adding a custom dep. Use mineral_extractor
+    // but give it a prerequisite of barracks for this test only.
+    const defs2 = buildContractDefs();
+    defs2.mineral_extractor = {
+      ...defs2.mineral_extractor,
+      prerequisites: ['barracks'],
+    };
+    const state = buildState(defs2, {
+      metal: 200000, mineral: 200000, food: 50000,
+      workersTotal: 80000,
+      structures: { outpost: 1, solar_generator: 3, barracks: 1 }, // barracks already built
+    });
+    // Remove barracks from completedCounts so the prereq is "pending, not done"
+    // and put a barracks in the building queue instead.
+    state.completedCounts.barracks = 0;
+    state.housing.soldierCap = 0;
+    const ctl = new GameController(state);
+    // Queue barracks (completes T7), then 3 gap-fillers (4T each → queue fills to T19)
+    expect(ctl.queueItem(1, 'barracks', 1).success).toBe(true);
+    expect(ctl.queueItem(1, 'solar_generator', 1).success).toBe(true);
+    expect(ctl.queueItem(1, 'solar_generator', 1).success).toBe(true);
+    expect(ctl.queueItem(1, 'solar_generator', 1).success).toBe(true);
+    // mineral_extractor requires barracks; barracks completes at T7, but
+    // mineral_extractor naturally activates at T19. No wait should be injected.
+    const r = ctl.queueItem(1, 'mineral_extractor', 1);
+    expect(r.success).toBe(true);
+    const t1 = ctl.getStateAtTurn(1)!;
+    const bq = t1.lanes.building.pendingQueue;
+    const hasAutoWait = bq.some(it => it.isWait && it.isAutoWait);
+    expect(hasAutoWait).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------

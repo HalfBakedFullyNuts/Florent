@@ -106,6 +106,7 @@ When adding new game content:
 - **UI Tests**: Page and component tests in `src/app/__tests__/`
 - **Vitest + Testing Library**: Configured with jsdom environment
 - **Integration Tests**: Test complete tick cycles, queue operations, resource flows
+- **Adapter parity**: `src/lib/sim/defs/adapter.ts` and `adapter.client.ts` must always stay in sync — when either changes, verify both expose the same fields.
 
 Example test locations:
 - Game logic: `src/lib/game/__tests__/agent.test.ts`

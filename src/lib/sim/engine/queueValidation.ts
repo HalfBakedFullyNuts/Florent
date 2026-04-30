@@ -357,13 +357,27 @@ export function calculatePrereqWaitTurns(
   def: ItemDefinition
 ): number {
   if (!def.prerequisites || def.prerequisites.length === 0) return 0;
+
+  // Natural activation turn: when this item would activate if placed at the end of its lane now.
+  // Wait is only needed when the prereq completes AFTER that natural activation point.
+  const lane = state.lanes[def.lane];
+  let naturalActivationTurn = state.currentTurn;
+  if (lane.active) {
+    naturalActivationTurn += lane.active.turnsRemaining;
+  }
+  for (const item of lane.pendingQueue) {
+    const itemDef = state.defs[item.itemId];
+    naturalActivationTurn += item.isWait ? item.turnsRemaining : (itemDef?.durationTurns || 0);
+  }
+
   let maxWait = 0;
   for (const prereqId of def.prerequisites) {
     if (state.completedResearch?.includes(prereqId)) continue;
     if ((state.completedCounts[prereqId] || 0) > 0) continue;
     const completionTurn = calculatePrereqCompletionTurn(state, prereqId);
     if (completionTurn === null) continue; // hard miss is handled by canQueue's REQ_MISSING path
-    const wait = completionTurn - state.currentTurn;
+    // Only wait if the prereq completes after this item would naturally activate
+    const wait = Math.max(0, completionTurn - naturalActivationTurn);
     if (wait > maxWait) maxWait = wait;
   }
   return maxWait;
