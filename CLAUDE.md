@@ -151,7 +151,7 @@ When working with this codebase:
 - **Game Data is Truth**: Never hardcode unit/structure definitions; always use `game_data.json`
 - **Game Controller Mutation Focus**: Legacy mutators in `agent.ts` have been deprecated/deleted. All actions in the UI must route through methods on `GameController`.
 - **Prerequisites**: Always validate via `validateRequirements()` before allowing builds
-- **Cost Deduction**: Happens at enqueue time, not completion time
+- **Cost Deduction**: Happens at **activation time** (when an item moves from `pendingQueue` to the active slot), not at queue time or completion time. Workers and space are also reserved at activation. Pending items carry no cost reservation.
 - **Timeline Caching / isStableState**: The engine aggressively caches turns if production is zero, queues are empty, and worker growth is zero exactly. Keep `isStableState` exact when modifying resource equations.
 
 ## Key Design Patterns

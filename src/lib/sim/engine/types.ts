@@ -71,7 +71,7 @@ export interface ItemDefinition {
   colonistKind?: 'soldier' | 'scientist';
   isAbundanceScaled?: boolean;
   prerequisites: string[]; // structure IDs required
-  maxPerPlanet?: number | null; // Maximum allowed per planet (1 = unique building)
+  unique?: boolean; // True = only one allowed per planet (formerly maxPerPlanet === 1). Defaults to false.
 }
 
 // ============================================================================

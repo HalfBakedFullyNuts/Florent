@@ -40,6 +40,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
     },
     isAbundanceScaled: true,
     prerequisites: [],
+    unique: true, // Only one outpost per planet
   },
   metal_mine: {
     id: 'metal_mine',

@@ -24,7 +24,8 @@ type CommandType =
   | ['a', number, number]                      // Advance: [type, planetIdx, turns]
   | ['p', PlanetConfig]                        // Add Planet: [type, config]
   | ['s', number]                              // Switch Planet: [type, planetIdx]
-  | ['qr', string];                            // Queue Research: [type, itemId]
+  | ['qr', string]                             // Queue Research: [type, itemId]
+  | ['reset', number];                         // Reset Queue: [type, planetIdx]
 
 /**
  * Compact game snapshot for URL encoding
@@ -154,6 +155,14 @@ export class CommandHistory {
    */
   getPlanetConfigs(): PlanetConfig[] {
     return [...this.planetConfigs];
+  }
+
+  /**
+   * Record a reset command — all prior commands for this planet are superseded by the reset.
+   * On replay, the reset reconstructs the planet's initial state, discarding queued items.
+   */
+  recordReset(planetIdx: number) {
+    this.commands.push(['reset', planetIdx]);
   }
 
   /**
@@ -367,6 +376,19 @@ export function replayCommands(
           const [itemId] = args as [string];
           console.log(`[URL State] Command ${i}: Queue research ${itemId}`);
           gameState = queueResearch(gameState, itemId);
+          break;
+        }
+
+        case 'reset': {
+          // Reset planet queue to initial state
+          const [planetIdx] = args as [number];
+          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planet = gameState.planets.get(planetId);
+          if (planet && planet.timeline) {
+            const controller = new GameController(planet, planet.timeline);
+            controller.resetQueue();
+            console.log(`[URL State] Command ${i}: Reset queue for planet ${planetIdx}`);
+          }
           break;
         }
 

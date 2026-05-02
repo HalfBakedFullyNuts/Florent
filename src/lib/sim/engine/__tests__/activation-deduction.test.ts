@@ -74,7 +74,7 @@ function buildContractDefs(): Record<string, ItemDefinition> {
     upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 10, research_points: 0 },
     isAbundanceScaled: false,
     prerequisites: ['outpost'],
-    maxPerPlanet: 1,
+    unique: true,
   };
 
   defs.barracks = {
@@ -281,9 +281,10 @@ describe('Auto-wait injection', () => {
     defs = buildContractDefs();
   });
 
-  it('inserts a wait when prereq is queued but not yet built', () => {
+  it('queues soldier without auto-wait when prereq is queued but not yet built', () => {
     // Test scenario: queue barracks first, then queue soldier (which needs barracks).
-    // Soldier should auto-wait until barracks completes.
+    // Soldier queues directly; clampBatchAtActivation stalls it (returns 0) each turn
+    // until barracks actually completes. No explicit auto-wait item is injected.
     const state = buildState(defs, {
       metal: 80000, mineral: 80000, food: 50000,
       workersTotal: 20000, // small enough that net food stays positive
@@ -293,12 +294,12 @@ describe('Auto-wait injection', () => {
     expect(ctl.queueItem(1, 'barracks', 1).success).toBe(true);
     const r = ctl.queueItem(1, 'soldier', 100);
     expect(r.success).toBe(true);
-    // Inspect colonist lane: should have an auto-wait item before the soldier item
+    // Inspect colonist lane: soldier is pending, NO auto-wait item should be present
     const t1 = ctl.getStateAtTurn(1)!;
     const cq = t1.lanes.colonist.pendingQueue;
     const hasAutoWait = cq.some(it => it.isWait && it.isAutoWait);
     const hasSoldier = cq.some(it => it.itemId === 'soldier');
-    expect(hasAutoWait).toBe(true);
+    expect(hasAutoWait).toBe(false);
     expect(hasSoldier).toBe(true);
   });
 

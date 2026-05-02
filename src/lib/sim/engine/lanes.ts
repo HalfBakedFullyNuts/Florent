@@ -89,14 +89,11 @@ function reserveWorkersAndSpace(
       (state.population.busyByLane[laneId] || 0) + totalWorkers;
   }
 
+  // Only structures reserve ground space; ships and colonists consume no space
   const spaceNeeded = def.costsPerUnit.space || 0;
-  if (spaceNeeded > 0) {
+  if (spaceNeeded > 0 && def.type === 'structure') {
     const totalSpace = spaceNeeded * quantity;
-    if (def.type === 'structure') {
-      state.space.groundUsed += totalSpace;
-    } else {
-      state.space.orbitalUsed += totalSpace;
-    }
+    state.space.groundUsed += totalSpace;
   }
 }
 
