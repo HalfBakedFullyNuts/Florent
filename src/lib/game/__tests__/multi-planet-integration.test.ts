@@ -22,9 +22,11 @@ describe('Multi-Planet Integration', () => {
     const earthAfter = gameState.planets.get('planet-1')!;
     const marsAfter = gameState.planets.get('planet-2')!;
 
-    // Earth should have the item queued
-    expect(earthAfter.lanes.building.pendingQueue.length).toBeGreaterThan(0);
-    expect(earthAfter.lanes.building.pendingQueue.some(item => item.itemId === 'metal_mine')).toBe(true);
+    // Earth should have the item queued (active or pending via eager activation)
+    const earthBuilding = earthAfter.lanes.building;
+    const hasMetalMine = earthBuilding.active?.itemId === 'metal_mine' ||
+      earthBuilding.pendingQueue.some(item => item.itemId === 'metal_mine');
+    expect(hasMetalMine).toBe(true);
 
     // Mars should be unchanged - no queue items and same resources
     expect(marsAfter.stocks.metal).toBe(marsMetalBefore);
@@ -98,15 +100,17 @@ describe('Multi-Planet Integration', () => {
       space: { groundCap: 25, orbitalCap: 15 },
     });
 
-    // Queue building on Earth at turn 1
+    // Queue building on Earth at turn 1 — activates eagerly
     gameState = enqueueBuildingForPlanet(gameState, 'planet-1', 'farm', 1);
-    const earthQueue = gameState.planets.get('planet-1')!.lanes.building.pendingQueue;
-    expect(earthQueue[0].turnsRemaining).toBe(4); // Farm takes 4 turns
+    const earthActive = gameState.planets.get('planet-1')!.lanes.building.active;
+    expect(earthActive?.itemId).toBe('farm');
+    expect(earthActive?.turnsRemaining).toBe(4); // Farm takes 4 turns
 
-    // Queue building on Mars at turn 10
+    // Queue building on Mars at turn 10 — also activates eagerly
     gameState = enqueueBuildingForPlanet(gameState, 'planet-2', 'farm', 1);
-    const marsQueue = gameState.planets.get('planet-2')!.lanes.building.pendingQueue;
-    expect(marsQueue[0].turnsRemaining).toBe(4); // Also 4 turns, but starting from turn 10
+    const marsActive = gameState.planets.get('planet-2')!.lanes.building.active;
+    expect(marsActive?.itemId).toBe('farm');
+    expect(marsActive?.turnsRemaining).toBe(4); // Also 4 turns, but starting from turn 10
 
     // Advance Earth to turn 5
     for (let i = 0; i < 4; i++) {

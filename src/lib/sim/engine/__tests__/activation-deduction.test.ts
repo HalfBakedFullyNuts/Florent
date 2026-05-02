@@ -34,7 +34,7 @@ function buildContractDefs(): Record<string, ItemDefinition> {
     durationTurns: 6,
     costsPerUnit: {
       metal: 800, mineral: 300, food: 0, energy: 0, research_points: 0,
-      workers: 1000, space: 1,
+      workers: 1000, space: 1, space_orbital: 0,
     },
     effectsOnComplete: { production_energy: 100 },
     upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
@@ -51,7 +51,7 @@ function buildContractDefs(): Record<string, ItemDefinition> {
     durationTurns: 4,
     costsPerUnit: {
       metal: 700, mineral: 1500, food: 0, energy: 0, research_points: 0,
-      workers: 5000, space: 1,
+      workers: 5000, space: 1, space_orbital: 0,
     },
     effectsOnComplete: { production_mineral: 300 },
     upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 10, research_points: 0 },
@@ -68,7 +68,7 @@ function buildContractDefs(): Record<string, ItemDefinition> {
     durationTurns: 14,
     costsPerUnit: {
       metal: 24000, mineral: 16000, food: 0, energy: 0, research_points: 0,
-      workers: 25000, space: 2,
+      workers: 25000, space: 2, space_orbital: 0,
     },
     effectsOnComplete: { housing_scientist_cap: 25000 },
     upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 10, research_points: 0 },
@@ -86,7 +86,7 @@ function buildContractDefs(): Record<string, ItemDefinition> {
     durationTurns: 6,
     costsPerUnit: {
       metal: 5000, mineral: 3000, food: 0, energy: 0, research_points: 0,
-      workers: 5000, space: 1,
+      workers: 5000, space: 1, space_orbital: 0,
     },
     effectsOnComplete: { housing_soldier_cap: 5000 },
     upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 5, research_points: 0 },
@@ -179,7 +179,7 @@ describe('Activation-time pricing', () => {
     defs = buildContractDefs();
   });
 
-  it('queueing a building does NOT change T1 stocks', () => {
+  it('queueing a building deducts costs from T1 stocks immediately', () => {
     const state = buildState(defs, { metal: 30000, mineral: 20000 });
     const ctl = new GameController(state);
     const beforeMetal = ctl.getStateAtTurn(1)!.stocks.metal;
@@ -187,8 +187,8 @@ describe('Activation-time pricing', () => {
     ctl.queueItem(1, 'metal_mine', 1);
     const afterMetal = ctl.getStateAtTurn(1)!.stocks.metal;
     const afterMineral = ctl.getStateAtTurn(1)!.stocks.mineral;
-    expect(afterMetal).toBe(beforeMetal);
-    expect(afterMineral).toBe(beforeMineral);
+    expect(afterMetal).toBe(beforeMetal - 1500);
+    expect(afterMineral).toBe(beforeMineral - 1000);
   });
 
   it('stocks decrease at the activation turn, not at queue turn', () => {
@@ -205,6 +205,31 @@ describe('Activation-time pricing', () => {
     // Easiest invariant: T2 metal = T1 metal - 1500 + production
     const productionPerTurn = 300 + 3 * 0; // outpost only (no metal mines completed yet)
     expect(t2.stocks.metal).toBe(30000 - 1500 + productionPerTurn);
+  });
+
+  it('second queued item activates the same turn the first completes, not the turn after', () => {
+    // farm (durationTurns=4) activates at T1, completes at T5.
+    // metal_mine queued second should activate at T5 (same turn farm completes),
+    // not T6 (the off-by-one bug this test guards against).
+    const state = buildState(defs, { metal: 30000, mineral: 20000 });
+    const ctl = new GameController(state);
+    ctl.queueItem(1, 'farm', 1);
+    ctl.queueItem(1, 'metal_mine', 1);
+
+    // farm costs deducted at T1
+    const t1 = ctl.getStateAtTurn(1)!;
+    expect(t1.lanes.building.active?.itemId).toBe('farm');
+
+    // farm completes during the T5 state; metal_mine should be active there too
+    const t5 = ctl.getStateAtTurn(5)!;
+    expect(t5.lanes.building.active?.itemId).toBe('metal_mine');
+
+    // and therefore metal_mine costs must NOT still be in stocks at T5
+    // (they were deducted when it activated, which should be T5)
+    const t4 = ctl.getStateAtTurn(4)!;
+    // At T4 farm is still building — mine still pending, no mine costs yet
+    expect(t4.lanes.building.active?.itemId).toBe('farm');
+    expect(t4.lanes.building.pendingQueue.some(i => i.itemId === 'metal_mine')).toBe(true);
   });
 });
 
@@ -248,7 +273,7 @@ describe('Lane priority on activation turn', () => {
     defs.fighter = {
       id: 'fighter', name: 'Fighter', lane: 'ship', type: 'ship', tier: 2,
       durationTurns: 4,
-      costsPerUnit: { metal: 1500, mineral: 350, food: 0, energy: 0, research_points: 0, workers: 500, space: 0 },
+      costsPerUnit: { metal: 1500, mineral: 350, food: 0, energy: 0, research_points: 0, workers: 500, space: 0, space_orbital: 0 },
       effectsOnComplete: {},
       upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
       isAbundanceScaled: false,
@@ -373,20 +398,21 @@ describe('Intended batch size preserved until activation', () => {
     defs = buildContractDefs();
   });
 
-  it('pending colonist batch shows intended quantity (not pre-clamped)', () => {
+  it('colonist activates immediately with clamped quantity on T1', () => {
     // Tight workers (1000 idle) -> soldier of 500 cannot fully activate.
-    // Plenty of food (50_000) so soldier can queue under the new validator.
+    // Eager activation clamps to 100 (1000 workers / 10 per soldier).
     const state = buildState(defs, {
       metal: 80000, mineral: 80000, food: 50000, workersTotal: 1000,
       structures: { outpost: 1, solar_generator: 1, barracks: 1 },
     });
     const ctl = new GameController(state);
     expect(ctl.queueItem(1, 'soldier', 500).success).toBe(true);
-    // T1 (states[0]) is the pre-turn snapshot — soldier is pending here with intended qty.
     const t1 = ctl.getStateAtTurn(1)!;
-    const pendingSoldier = t1.lanes.colonist.pendingQueue.find(it => it.itemId === 'soldier');
-    expect(pendingSoldier).toBeDefined();
-    expect(pendingSoldier!.quantity).toBe(500); // intended preserved
+    const activeSoldier = t1.lanes.colonist.active;
+    expect(activeSoldier).toBeDefined();
+    expect(activeSoldier!.itemId).toBe('soldier');
+    expect(activeSoldier!.quantity).toBeLessThanOrEqual(100);
+    expect(activeSoldier!.quantity).toBeGreaterThan(0);
   });
 
   it('clamped batch drops the remainder; queue does not retain leftover', () => {

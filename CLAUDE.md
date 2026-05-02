@@ -291,6 +291,12 @@ const result = data.map(x => x.items.filter(y => y.children.some(z => z.active))
 ## Reporting
 Make extra comments of max. 3 lines per function that explain the purpose of the function and the logic behind it in plain English.
 
+## Versioning
+
+The current version is **0.1.1** (defined in two places: `package.json` and the footer in `src/app/page.tsx`).
+
+Increment the patch version by 0.0.1 for every change delivered — no exceptions. Update both locations together.
+
 ## Strategy
 
 Work with test driven development and DRY/KISS principles. Ask me for clarification on features or creative decisions. Do not autonomously add functionality without confirming with the user. If something is not clear, assume missing specifications. You have full authority on the technical implementation of features but will validate logic and functionality with the user for key features.

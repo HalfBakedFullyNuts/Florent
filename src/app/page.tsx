@@ -64,10 +64,8 @@ export default function Home() {
       // Reconstruct state by replaying commands
       const state = replayCommands(createInitialGameState(), urlSnapshot.cmds);
 
-      // Restore the command history so future actions append to it
-      urlSnapshot.cmds.forEach(cmd => {
-        (commandHistory as any).commands.push(cmd);
-      });
+      // Restore command history (rebuilds seqId map so future cancels work)
+      commandHistory.loadFromSnapshot(urlSnapshot.cmds);
 
       setGameState(state);
     }
@@ -399,9 +397,9 @@ export default function Home() {
         return;
       }
 
-      // Record command for URL encoding
+      // Record command for URL encoding (pass entryId so cancel commands can reference it)
       const planetIdx = getPlanetIndex(gameState, currentPlanetId);
-      commandHistory.recordQueue(planetIdx, 1, itemId, quantity);
+      commandHistory.recordQueue(planetIdx, itemId, quantity, result.itemId ?? '');
 
       // Update the planet in game state
       const updatedPlanet = controller.getStateAtTurn(viewTurn);
@@ -936,7 +934,7 @@ export default function Home() {
         </main>
 
         {/* Footer */}
-        <footer className="mt-8 text-center text-xs text-pink-nebula-text-secondary pb-8">
+        <footer className="mt-8 text-center text-xs text-pink-nebula-text-secondary pb-8 space-y-2">
           <button
             className="hover:text-pink-nebula-text transition-colors opacity-50 hover:opacity-100"
             onClick={() => {
@@ -952,6 +950,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
+          <div className="opacity-30 text-[10px]">v0.1.1</div>
         </footer>
       </div>
 

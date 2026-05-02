@@ -5,6 +5,7 @@
 
 import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
 import { canQueue } from '../sim/engine/validation';
+import { tryActivateNext } from '../sim/engine/lanes';
 import { generateWorkItemId, refundActivationCosts } from '../sim/engine/helpers';
 import { createStandardStart } from '../sim/defs/seed';
 import { Timeline } from './state';
@@ -84,9 +85,10 @@ export class GameController {
       queuedTurn: turn,
     };
 
-    // Queueing is intent registration only — costs are paid on activation.
+    // Push to queue, then eagerly activate so costs appear on the current turn.
     const success = this.timeline.mutateAtTurn(turn, (s) => {
       s.lanes[laneId].pendingQueue.push(workItem);
+      tryActivateNext(s, laneId);
     });
 
     if (!success) {
@@ -144,9 +146,10 @@ export class GameController {
       isAutoWait,
     };
 
-    // Mutate state to add wait item to queue
+    // Push to queue, then eagerly activate so the wait starts on the current turn.
     const success = this.timeline.mutateAtTurn(turn, (s) => {
       s.lanes[laneId].pendingQueue.push(waitItem);
+      tryActivateNext(s, laneId);
     });
 
     if (!success) {
@@ -213,6 +216,7 @@ export class GameController {
         // Handle wait items (no resources or workers to refund)
         if (active.isWait) {
           s.lanes[laneId].active = null;
+          tryActivateNext(s, laneId);
           return;
         }
 
@@ -222,8 +226,9 @@ export class GameController {
         // Refund resources, workers, and space
         refundActivationCosts(s, def, active.quantity, laneId);
 
-        // Clear active slot
+        // Clear active slot and immediately activate next pending item
         s.lanes[laneId].active = null;
+        tryActivateNext(s, laneId);
       });
 
       // Log the cancel operation
@@ -277,6 +282,7 @@ export class GameController {
         // Handle wait items (no resources or workers to refund)
         if (active.isWait) {
           s.lanes[laneId].active = null;
+          tryActivateNext(s, laneId);
           return;
         }
 
@@ -286,8 +292,9 @@ export class GameController {
         // Refund resources, workers, and space
         refundActivationCosts(s, def, active.quantity, laneId);
 
-        // Clear active slot
+        // Clear active slot and immediately activate next pending item
         s.lanes[laneId].active = null;
+        tryActivateNext(s, laneId);
       });
 
       return { success: true };
@@ -341,6 +348,7 @@ export class GameController {
           }
         }
         s.lanes[laneId].active = null;
+        tryActivateNext(s, laneId);
       });
 
       getLogger().logQueueOperation(
@@ -636,9 +644,10 @@ export class GameController {
         queuedTurn: turn,
       };
 
-      // Clear active and insert into pending queue at position
+      // Clear active, insert into pending queue, and activate the new front item
       lane.active = null;
       lane.pendingQueue.splice(newIndex, 0, newPendingItem);
+      tryActivateNext(s, laneId);
     });
 
     // Log the reorder operation

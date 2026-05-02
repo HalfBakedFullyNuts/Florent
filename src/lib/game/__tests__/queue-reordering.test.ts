@@ -18,50 +18,47 @@ describe('Queue Reordering (TICKET-3)', () => {
 
   describe('Basic Reordering', () => {
     it('should reorder pending items in queue', () => {
-      // Queue 3 buildings
+      // Queue 3 buildings — first activates eagerly, 2 remain pending
       const result1 = controller.queueItem(1, 'farm', 1);
       const result2 = controller.queueItem(1, 'metal_mine', 1);
-
-      if (!result1.success) {
-        console.log('Farm failed:', result1.reason);
-      }
-      if (!result2.success) {
-        console.log('Metal mine failed:', result2.reason);
-      }
+      const result3 = controller.queueItem(1, 'farm', 1);
 
       expect(result1.success).toBe(true);
       expect(result2.success).toBe(true);
+      expect(result3.success).toBe(true);
 
-      // Get initial queue order
+      // First item activates eagerly; remaining 2 are pending
       const stateBefore = controller.getStateAtTurn(1);
+      expect(stateBefore?.lanes.building.active?.itemId).toBe('farm');
       expect(stateBefore?.lanes.building.pendingQueue).toHaveLength(2);
-      expect(stateBefore?.lanes.building.pendingQueue[0].itemId).toBe('farm');
-      expect(stateBefore?.lanes.building.pendingQueue[1].itemId).toBe('metal_mine');
+      expect(stateBefore?.lanes.building.pendingQueue[0].itemId).toBe('metal_mine');
+      expect(stateBefore?.lanes.building.pendingQueue[1].itemId).toBe('farm');
 
-      // Reorder: Move metal_mine to first position
-      const reorderResult = controller.reorderQueueItem(1, 'building', result2.itemId!, 0);
+      // Reorder: Move farm#2 to first pending position
+      const reorderResult = controller.reorderQueueItem(1, 'building', result3.itemId!, 0);
       expect(reorderResult.success).toBe(true);
 
-      // Verify new order
+      // Verify new order in pending
       const stateAfter = controller.getStateAtTurn(1);
       expect(stateAfter?.lanes.building.pendingQueue).toHaveLength(2);
-      expect(stateAfter?.lanes.building.pendingQueue[0].itemId).toBe('metal_mine');
-      expect(stateAfter?.lanes.building.pendingQueue[1].itemId).toBe('farm');
+      expect(stateAfter?.lanes.building.pendingQueue[0].itemId).toBe('farm');
+      expect(stateAfter?.lanes.building.pendingQueue[1].itemId).toBe('metal_mine');
     });
 
     it('should reorder to last position', () => {
-      // Queue 2 buildings
+      // Queue 3 buildings — first activates eagerly
       const result1 = controller.queueItem(1, 'farm', 1);
       const result2 = controller.queueItem(1, 'metal_mine', 1);
+      const result3 = controller.queueItem(1, 'farm', 1);
 
-      // Move farm to last position
-      const reorderResult = controller.reorderQueueItem(1, 'building', result1.itemId!, 1);
+      // Move metal_mine (pending[0]) to last pending position
+      const reorderResult = controller.reorderQueueItem(1, 'building', result2.itemId!, 1);
       expect(reorderResult.success).toBe(true);
 
-      // Verify new order
+      // Verify new order in pending
       const state = controller.getStateAtTurn(1);
-      expect(state?.lanes.building.pendingQueue[0].itemId).toBe('metal_mine');
-      expect(state?.lanes.building.pendingQueue[1].itemId).toBe('farm');
+      expect(state?.lanes.building.pendingQueue[0].itemId).toBe('farm');
+      expect(state?.lanes.building.pendingQueue[1].itemId).toBe('metal_mine');
     });
 
     it('should reorder to middle position', () => {
@@ -93,46 +90,50 @@ describe('Queue Reordering (TICKET-3)', () => {
 
   describe('Timeline Recomputation', () => {
     it('should recompute timeline after reordering', () => {
-      // Queue 2 buildings
+      // Queue 3 buildings — first activates eagerly
       const farmResult = controller.queueItem(1, 'farm', 1);
       const mineResult = controller.queueItem(1, 'metal_mine', 1);
+      const farm2Result = controller.queueItem(1, 'farm', 1);
 
       expect(farmResult.success).toBe(true);
       expect(mineResult.success).toBe(true);
+      expect(farm2Result.success).toBe(true);
 
-      // Reorder: swap them
-      const reorderResult = controller.reorderQueueItem(1, 'building', mineResult.itemId!, 0);
+      // Reorder: swap pending items
+      const reorderResult = controller.reorderQueueItem(1, 'building', farm2Result.itemId!, 0);
       expect(reorderResult.success).toBe(true);
 
-      // Verify the reordering persists
+      // Verify the reordering persists in pending queue
       const stateAfter = controller.getStateAtTurn(1);
-      expect(stateAfter?.lanes.building.pendingQueue[0].itemId).toBe('metal_mine');
-      expect(stateAfter?.lanes.building.pendingQueue[1].itemId).toBe('farm');
+      expect(stateAfter?.lanes.building.pendingQueue[0].itemId).toBe('farm');
+      expect(stateAfter?.lanes.building.pendingQueue[1].itemId).toBe('metal_mine');
     });
 
     it('should maintain queue consistency after reorder', () => {
-      // Queue 2 items
+      // Queue 3 items — first activates eagerly
       const r1 = controller.queueItem(1, 'farm', 1);
       const r2 = controller.queueItem(1, 'metal_mine', 1);
+      const r3 = controller.queueItem(1, 'farm', 1);
 
       expect(r1.success).toBe(true);
       expect(r2.success).toBe(true);
+      expect(r3.success).toBe(true);
 
-      // Verify initial order
+      // Verify initial pending order (first item is active)
       const stateBefore = controller.getStateAtTurn(1);
-      expect(stateBefore?.lanes.building.pendingQueue[0].itemId).toBe('farm');
+      expect(stateBefore?.lanes.building.pendingQueue[0].itemId).toBe('metal_mine');
 
-      // Reorder
-      const reorderResult = controller.reorderQueueItem(1, 'building', r2.itemId!, 0);
+      // Reorder: move farm#2 to front of pending
+      const reorderResult = controller.reorderQueueItem(1, 'building', r3.itemId!, 0);
       expect(reorderResult.success).toBe(true);
 
       // Check that reorder persists when querying the same turn
       const stateAfter1 = controller.getStateAtTurn(1);
-      expect(stateAfter1?.lanes.building.pendingQueue[0].itemId).toBe('metal_mine');
+      expect(stateAfter1?.lanes.building.pendingQueue[0].itemId).toBe('farm');
 
       // Query again to verify it's stable
       const stateAfter2 = controller.getStateAtTurn(1);
-      expect(stateAfter2?.lanes.building.pendingQueue[0].itemId).toBe('metal_mine');
+      expect(stateAfter2?.lanes.building.pendingQueue[0].itemId).toBe('farm');
     });
   });
 
@@ -223,29 +224,36 @@ describe('Queue Reordering (TICKET-3)', () => {
 
   describe('Edge Cases', () => {
     it('should handle reordering to same position (no-op)', () => {
+      // Queue 3 items — first activates eagerly
       const r1 = controller.queueItem(1, 'farm', 1);
       const r2 = controller.queueItem(1, 'metal_mine', 1);
+      const r3 = controller.queueItem(1, 'farm', 1);
 
-      // Move item to its current position
-      const result = controller.reorderQueueItem(1, 'building', r1.itemId!, 0);
+      // Move pending[0] (metal_mine) to position 0 — should be a no-op
+      const result = controller.reorderQueueItem(1, 'building', r2.itemId!, 0);
       expect(result.success).toBe(true);
 
-      // Order should be unchanged
+      // Pending order should be unchanged
       const state = controller.getStateAtTurn(1);
-      expect(state?.lanes.building.pendingQueue[0].itemId).toBe('farm');
-      expect(state?.lanes.building.pendingQueue[1].itemId).toBe('metal_mine');
+      expect(state?.lanes.building.pendingQueue[0].itemId).toBe('metal_mine');
+      expect(state?.lanes.building.pendingQueue[1].itemId).toBe('farm');
     });
 
     it('should handle single item queue', () => {
       const r1 = controller.queueItem(1, 'farm', 1);
 
-      // Try to reorder (should succeed but not change anything)
+      // With eager activation, item is active, not pending
+      const stateBefore = controller.getStateAtTurn(1);
+      expect(stateBefore?.lanes.building.active?.itemId).toBe('farm');
+      expect(stateBefore?.lanes.building.pendingQueue).toHaveLength(0);
+
+      // Reorder the active item to position 0 — deactivates then re-activates
       const result = controller.reorderQueueItem(1, 'building', r1.itemId!, 0);
       expect(result.success).toBe(true);
 
+      // Item should be re-activated (only item in queue)
       const state = controller.getStateAtTurn(1);
-      expect(state?.lanes.building.pendingQueue).toHaveLength(1);
-      expect(state?.lanes.building.pendingQueue[0].itemId).toBe('farm');
+      expect(state?.lanes.building.active?.itemId).toBe('farm');
     });
   });
 });

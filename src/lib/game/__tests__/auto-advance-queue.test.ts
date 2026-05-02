@@ -262,18 +262,21 @@ describe('Auto-Advance Queue Validation Tests', () => {
       expect(result.success).toBe(true);
       const freighterId = result.itemId;
 
-      // Verify ship is in pending queue
+      // Verify ship is queued (active or pending via eager activation)
       const state = controller.getStateAtTurn(queueTurn);
       const shipLane = state.lanes.ship;
-      expect(shipLane.pendingQueue.some(item => item.id === freighterId)).toBe(true);
+      const isQueued = shipLane.active?.id === freighterId ||
+        shipLane.pendingQueue.some(item => item.id === freighterId);
+      expect(isQueued).toBe(true);
 
       // Cancel ship using smart method
       const cancelResult = controller.cancelEntryByIdSmart(queueTurn, 'ship', freighterId);
       expect(cancelResult.success).toBe(true);
 
-      // Verify ship is removed from queue
+      // Verify ship is removed from queue (neither active nor pending)
       const updatedState = controller.getStateAtTurn(queueTurn);
       const updatedLane = updatedState.lanes.ship;
+      expect(updatedLane.active?.id !== freighterId).toBe(true);
       expect(updatedLane.pendingQueue.some(item => item.id === freighterId)).toBe(false);
     });
 

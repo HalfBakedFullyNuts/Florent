@@ -38,13 +38,13 @@ describe('E2E Gameplay Tests', () => {
       const queueResult = controller.queueItem(1, 'metal_mine', 1);
       expect(queueResult.success).toBe(true);
 
-      // Check lane view
+      // Check lane view — item activates eagerly at queue time
       const buildingLane = getLaneView(controller.getCurrentState(), 'building');
       expect(buildingLane.entries.length).toBe(1);
-      expect(buildingLane.entries[0].status).toBe('pending');
+      expect(buildingLane.entries[0].status).toBe('active');
       expect(buildingLane.entries[0].itemName).toBe('Metal Mine');
 
-      // Advance turn - should activate the pending item
+      // Advance turn — still active
       controller.nextTurn();
       const afterActivation = getLaneView(controller.getCurrentState(), 'building');
       expect(afterActivation.entries.length).toBe(1);
@@ -163,20 +163,19 @@ describe('E2E Gameplay Tests', () => {
       const metalBefore = beforeQueue.stocks.metal;
       const metalOutput = beforeQueue.outputsPerTurn.metal;
 
-      // Queue metal mine (resources NOT consumed yet)
+      // Queue metal mine — costs deducted immediately via eager activation
       const metalMineCost = controller.getCurrentState().defs.metal_mine.costsPerUnit;
       controller.queueItem(1, 'metal_mine', 1);
 
       const afterQueue = getPlanetSummary(controller.getCurrentState());
-      expect(afterQueue.stocks.metal).toBe(metalBefore); // No change yet
+      expect(afterQueue.stocks.metal).toBe(metalBefore - metalMineCost.metal);
 
-      // Activate (resources consumed, but production also adds)
+      // Next turn adds production on top of the already-deducted cost
       controller.nextTurn();
-      const afterActivation = getPlanetSummary(controller.getCurrentState());
-      const metalAfter = afterActivation.stocks.metal;
+      const afterTurn = getPlanetSummary(controller.getCurrentState());
+      const metalAfter = afterTurn.stocks.metal;
 
-      // Metal change = +production -cost
-      const expectedMetal = metalBefore + metalOutput - metalMineCost.metal;
+      const expectedMetal = metalBefore - metalMineCost.metal + metalOutput;
       expect(metalAfter).toBe(expectedMetal);
     });
 
@@ -215,20 +214,19 @@ describe('E2E Gameplay Tests', () => {
       const beforeQueue = getPlanetSummary(controller.getCurrentState());
       const metalBefore = beforeQueue.stocks.metal;
 
-      // Queue item (no resources consumed yet)
-      controller.queueItem(1, 'metal_mine', 1);
+      // Queue 2 items — first activates eagerly, second stays pending
+      const r1 = controller.queueItem(1, 'metal_mine', 1);
+      const r2 = controller.queueItem(1, 'farm', 1);
 
       const afterQueue = getPlanetSummary(controller.getCurrentState());
-      expect(afterQueue.stocks.metal).toBe(metalBefore); // No change
+      const metalAfterQueue = afterQueue.stocks.metal;
 
-      // Cancel it (still pending)
-      const cancelResult = controller.cancelEntry(1, 'building');
+      // Cancel the pending farm (second item) — no stock change expected
+      const cancelResult = controller.cancelEntryById(1, 'building', r2.itemId!);
       expect(cancelResult.success).toBe(true);
 
       const afterCancel = getPlanetSummary(controller.getCurrentState());
-
-      // Still no change (nothing was consumed)
-      expect(afterCancel.stocks.metal).toBe(metalBefore);
+      expect(afterCancel.stocks.metal).toBe(metalAfterQueue);
     });
 
     it('should refund resources when canceling active item', () => {

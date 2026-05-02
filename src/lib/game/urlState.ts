@@ -1,9 +1,15 @@
 /**
- * URL State Encoding - Command History Approach
+ * URL State Encoding v2 - Compact Command History
  *
- * Encodes game state as a compressed command history in the URL.
- * Leverages the deterministic nature of the simulation engine:
- * Same commands + same initial state = same final state
+ * v2 changes vs v1:
+ *   - Item IDs replaced by numeric codes (0-49, append-only table)
+ *   - Work item IDs replaced by sequential integers (seqId) — fixes cancel-on-reload bug
+ *   - Turn dropped from queue commands (always 1)
+ *   - Planet defaults (abundance 1.0, space 60/40) omitted from URL
+ *   - Lane names abbreviated to single char: b/s/n/r
+ *   - 'reset' renamed to 'x'
+ *
+ * Backward compat: v1 URLs are still decoded correctly.
  */
 
 import LZString from 'lz-string';
@@ -11,441 +17,517 @@ import { GameState, PlanetConfig, addPlanet } from './gameState';
 import { GameController, queueResearch } from './commands';
 import { LaneId } from '../sim/engine/types';
 
-// Version for backward compatibility
-const STATE_VERSION = 1;
+const STATE_VERSION_V1 = 1;
+const STATE_VERSION_V2 = 2;
 
-/**
- * Command types that can be encoded
- */
-type CommandType =
-  | ['q', number, number, string, number]      // Queue: [type, planetIdx, turn, itemId, qty]
-  | ['c', number, LaneId, string]              // Cancel: [type, planetIdx, lane, entryId]
-  | ['r', number, LaneId, string, number]      // Reorder: [type, planetIdx, lane, entryId, newIdx]
-  | ['a', number, number]                      // Advance: [type, planetIdx, turns]
-  | ['p', PlanetConfig]                        // Add Planet: [type, config]
-  | ['s', number]                              // Switch Planet: [type, planetIdx]
-  | ['qr', string]                             // Queue Research: [type, itemId]
-  | ['reset', number];                         // Reset Queue: [type, planetIdx]
+// ---------------------------------------------------------------------------
+// v2 item code table — APPEND ONLY, never reorder existing entries
+// ---------------------------------------------------------------------------
+const V2_ITEM_IDS: readonly string[] = [
+  'army_barracks',           // 0
+  'battleship',              // 1
+  'bomber',                  // 2
+  'colony',                  // 3
+  'command_carrier',         // 4
+  'comms_satellite',         // 5
+  'core_metal_mine',         // 6
+  'core_mineral_extractor',  // 7
+  'cruiser',                 // 8
+  'destroyer',               // 9
+  'energy_booster',          // 10
+  'farm',                    // 11
+  'fighter',                 // 12
+  'food_purifier',           // 13
+  'freighter',               // 14
+  'frigate',                 // 15
+  'habitat',                 // 16
+  'heavy_weapons_factory',   // 17
+  'hospital',                // 18
+  'hydroponics_dome',        // 19
+  'hydroponics_lab',         // 20
+  'hyperspace_beacon',       // 21
+  'invasion_ship',           // 22
+  'jump_gate',               // 23
+  'land_reclamation',        // 24
+  'launch_site',             // 25
+  'leisure_centre',          // 26
+  'light_weapons_factory',   // 27
+  'living_quarters',         // 28
+  'merchant',                // 29
+  'metal_mine',              // 30
+  'metal_refinery',          // 31
+  'metropolis',              // 32
+  'mineral_extractor',       // 33
+  'mineral_processor',       // 34
+  'orbital_clearing',        // 35
+  'outpost',                 // 36
+  'outpost_ship',            // 37
+  'research_lab',            // 38
+  'scientist',               // 39
+  'shipyard',                // 40
+  'solar_array',             // 41
+  'solar_generator',         // 42
+  'solar_station',           // 43
+  'soldier',                 // 44
+  'space_dock',              // 45
+  'strip_metal_mine',        // 46
+  'strip_mineral_extractor', // 47
+  'trader',                  // 48
+  'worker',                  // 49
+];
 
-/**
- * Compact game snapshot for URL encoding
- */
+const V2_ITEM_CODE: Record<string, number> = Object.fromEntries(
+  V2_ITEM_IDS.map((id, i) => [id, i])
+);
+
+const V2_LANE_ENC: Record<string, string> = {
+  building: 'b', ship: 's', colonist: 'n', research: 'r',
+};
+const V2_LANE_DEC: Record<string, LaneId> = {
+  b: 'building', s: 'ship', n: 'colonist', r: 'research',
+};
+
+// Default planet values — omitted from v2 URL to save space
+const DEFAULT_ABUNDANCE = [1, 1, 1, 1, 1];
+const DEFAULT_SPACE: [number, number] = [60, 40];
+
+// ---------------------------------------------------------------------------
+// Command types
+// ---------------------------------------------------------------------------
+
+// v1 format (kept for backward-compat decode only)
+type V1CommandType =
+  | ['q', number, number, string, number]
+  | ['c', number, LaneId, string]
+  | ['r', number, LaneId, string, number]
+  | ['a', number, number]
+  | ['p', V1CompactPlanetConfig]
+  | ['s', number]
+  | ['qr', string]
+  | ['reset', number];
+
+// v2 format
+type V2CommandType =
+  | ['q', number, number, number]           // queue: planetIdx, itemCode, qty
+  | ['c', number, string, number]           // cancel: planetIdx, laneCode, seqId
+  | ['r', number, string, number, number]   // reorder: planetIdx, laneCode, seqId, newIdx
+  | ['p', V2CompactPlanetConfig]            // add planet
+  | ['s', number]                           // switch planet
+  | ['qr', number]                          // queue research: itemCode
+  | ['x', number];                          // reset: planetIdx
+
+// Union used at runtime
+type CommandType = V1CommandType | V2CommandType;
+
+interface V1CompactPlanetConfig {
+  n: string; t: number; a: number[]; s: [number, number];
+}
+interface V2CompactPlanetConfig {
+  n: string; a?: number[]; s?: [number, number];
+}
+
 interface GameSnapshot {
-  v: number;                    // Version
-  planets: CompactPlanetConfig[];
+  v: number;
+  planets: (V1CompactPlanetConfig | V2CompactPlanetConfig)[];
   cmds: CommandType[];
 }
 
-/**
- * Compact planet configuration (keys shortened for size)
- */
-interface CompactPlanetConfig {
-  n: string;                    // name
-  t: number;                    // startTurn
-  a: number[];                  // abundance [metal, mineral, food, energy, rp]
-  s: [number, number];          // space [ground, orbital]
+// ---------------------------------------------------------------------------
+// Planet config helpers
+// ---------------------------------------------------------------------------
+
+function compactPlanetConfigV2(config: PlanetConfig): V2CompactPlanetConfig {
+  const compact: V2CompactPlanetConfig = { n: config.name };
+  const a = [
+    config.abundance.metal, config.abundance.mineral,
+    config.abundance.food, config.abundance.energy,
+    config.abundance.research_points,
+  ];
+  if (a.some((v, i) => v !== DEFAULT_ABUNDANCE[i])) compact.a = a;
+  const s: [number, number] = [config.space.groundCap, config.space.orbitalCap];
+  if (s[0] !== DEFAULT_SPACE[0] || s[1] !== DEFAULT_SPACE[1]) compact.s = s;
+  return compact;
 }
 
-/**
- * Convert planet config to compact form
- */
-function compactPlanetConfig(config: PlanetConfig): CompactPlanetConfig {
+function expandPlanetConfigV2(compact: V2CompactPlanetConfig): PlanetConfig {
+  const a = compact.a ?? DEFAULT_ABUNDANCE;
+  const s = compact.s ?? DEFAULT_SPACE;
   return {
-    n: config.name,
-    t: config.startTurn,
-    a: [
-      config.abundance.metal,
-      config.abundance.mineral,
-      config.abundance.food,
-      config.abundance.energy,
-      config.abundance.research_points,
-    ],
-    s: [config.space.groundCap, config.space.orbitalCap],
+    name: compact.n,
+    startTurn: 1,
+    abundance: {
+      metal: a[0], mineral: a[1], food: a[2],
+      energy: a[3], research_points: a[4],
+    },
+    space: { groundCap: s[0], orbitalCap: s[1] },
   };
 }
 
-/**
- * Convert compact config back to full planet config
- */
-function expandPlanetConfig(compact: CompactPlanetConfig): PlanetConfig {
+function expandPlanetConfigV1(compact: V1CompactPlanetConfig): PlanetConfig {
   return {
     name: compact.n,
     startTurn: compact.t,
     abundance: {
-      metal: compact.a[0],
-      mineral: compact.a[1],
-      food: compact.a[2],
-      energy: compact.a[3],
-      research_points: compact.a[4],
+      metal: compact.a[0], mineral: compact.a[1], food: compact.a[2],
+      energy: compact.a[3], research_points: compact.a[4],
     },
-    space: {
-      groundCap: compact.s[0],
-      orbitalCap: compact.s[1],
-    },
+    space: { groundCap: compact.s[0], orbitalCap: compact.s[1] },
   };
 }
 
-/**
- * Command history recorder
- * Tracks all commands executed during a session
- */
+// ---------------------------------------------------------------------------
+// CommandHistory — records player actions for URL encoding
+// ---------------------------------------------------------------------------
+
 export class CommandHistory {
-  private commands: CommandType[] = [];
-  private planetConfigs: PlanetConfig[] = [];
+  private commands: V2CommandType[] = [];
+  // seqId counter — increments with every queue command
+  private nextSeqId = 1;
+  // maps live entryId (from queueItem result) → seqId stored in URL
+  private entryIdToSeqId = new Map<string, number>();
 
   /**
-   * Record a queue command
+   * Record a queue command. Pass the entryId returned by queueItem so cancel/reorder
+   * commands can reference it via the compact seqId.
    */
-  recordQueue(planetIdx: number, turn: number, itemId: string, quantity: number) {
-    this.commands.push(['q', planetIdx, turn, itemId, quantity]);
+  recordQueue(planetIdx: number, itemId: string, qty: number, entryId: string) {
+    const itemCode = V2_ITEM_CODE[itemId];
+    if (itemCode === undefined) {
+      console.warn(`[CommandHistory] Unknown item: ${itemId}`);
+      return;
+    }
+    const seqId = this.nextSeqId++;
+    this.entryIdToSeqId.set(entryId, seqId);
+    this.commands.push(['q', planetIdx, itemCode, qty]);
   }
 
-  /**
-   * Record a cancel command
-   */
+  /** Record a cancel command, referenced by the item's seqId. */
   recordCancel(planetIdx: number, laneId: LaneId, entryId: string) {
-    this.commands.push(['c', planetIdx, laneId, entryId]);
+    const seqId = this.entryIdToSeqId.get(entryId);
+    if (seqId === undefined) {
+      console.warn(`[CommandHistory] Cancel: unknown entryId ${entryId}`);
+      return;
+    }
+    const laneCode = V2_LANE_ENC[laneId] ?? laneId;
+    this.commands.push(['c', planetIdx, laneCode, seqId]);
   }
 
-  /**
-   * Record a reorder command
-   */
+  /** Record a reorder command, referenced by the item's seqId. */
   recordReorder(planetIdx: number, laneId: LaneId, entryId: string, newIndex: number) {
-    this.commands.push(['r', planetIdx, laneId, entryId, newIndex]);
+    const seqId = this.entryIdToSeqId.get(entryId);
+    if (seqId === undefined) {
+      console.warn(`[CommandHistory] Reorder: unknown entryId ${entryId}`);
+      return;
+    }
+    const laneCode = V2_LANE_ENC[laneId] ?? laneId;
+    this.commands.push(['r', planetIdx, laneCode, seqId, newIndex]);
   }
 
-  /**
-   * Record turn advancement
-   */
-  recordAdvance(planetIdx: number, turns: number) {
-    this.commands.push(['a', planetIdx, turns]);
-  }
-
-  /**
-   * Record add planet
-   */
   recordAddPlanet(config: PlanetConfig) {
-    this.commands.push(['p', config]);
-    this.planetConfigs.push(config);
+    this.commands.push(['p', compactPlanetConfigV2(config)]);
   }
 
-  /**
-   * Record planet switch
-   */
   recordSwitchPlanet(planetIdx: number) {
     this.commands.push(['s', planetIdx]);
   }
 
-  /**
-   * Record research queue
-   */
   recordQueueResearch(itemId: string) {
-    this.commands.push(['qr', itemId]);
+    const itemCode = V2_ITEM_CODE[itemId];
+    if (itemCode === undefined) {
+      console.warn(`[CommandHistory] Unknown research item: ${itemId}`);
+      return;
+    }
+    this.commands.push(['qr', itemCode]);
   }
 
-  /**
-   * Get all commands
-   */
-  getCommands(): CommandType[] {
+  recordReset(planetIdx: number) {
+    this.commands.push(['x', planetIdx]);
+  }
+
+  getCommands(): V2CommandType[] {
     return [...this.commands];
   }
 
   /**
-   * Get planet configs
+   * Load commands from a decoded snapshot (e.g. after loading from URL).
+   * Rebuilds the seqId map so future cancels from this session work correctly.
    */
-  getPlanetConfigs(): PlanetConfig[] {
-    return [...this.planetConfigs];
+  loadFromSnapshot(cmds: CommandType[]) {
+    this.commands = [];
+    this.nextSeqId = 1;
+    this.entryIdToSeqId.clear();
+
+    for (const cmd of cmds) {
+      if (cmd[0] === 'q') {
+        const seqId = this.nextSeqId++;
+        // Items replayed from URL get deterministic IDs __s1, __s2, …
+        this.entryIdToSeqId.set(`__s${seqId}`, seqId);
+        // Normalise to v2 regardless of source version
+        const itemCode = typeof cmd[3] === 'string'
+          ? V2_ITEM_CODE[cmd[3] as string] ?? -1
+          : cmd[3] as number;
+        this.commands.push(['q', cmd[1] as number, itemCode, cmd[4] as number ?? 1]);
+      } else {
+        // Keep all other commands as-is (they are version-normalised during replay)
+        this.commands.push(cmd as V2CommandType);
+      }
+    }
   }
 
-  /**
-   * Record a reset command — all prior commands for this planet are superseded by the reset.
-   * On replay, the reset reconstructs the planet's initial state, discarding queued items.
-   */
-  recordReset(planetIdx: number) {
-    this.commands.push(['reset', planetIdx]);
-  }
-
-  /**
-   * Clear history
-   */
   clear() {
     this.commands = [];
-    this.planetConfigs = [];
+    this.nextSeqId = 1;
+    this.entryIdToSeqId.clear();
   }
 }
 
-/**
- * Encode game snapshot to URL-safe string
- * Uses JSON + LZ-String compression for optimal size
- */
+// ---------------------------------------------------------------------------
+// Encode / Decode
+// ---------------------------------------------------------------------------
+
 export function encodeGameState(
   planets: PlanetConfig[],
-  commands: CommandType[]
+  commands: V2CommandType[]
 ): string {
   const snapshot: GameSnapshot = {
-    v: STATE_VERSION,
-    planets: planets.map(compactPlanetConfig),
+    v: STATE_VERSION_V2,
+    planets: planets.map(compactPlanetConfigV2),
     cmds: commands,
   };
-
-  const json = JSON.stringify(snapshot);
-
-  // Use LZ-String compression (50-70% size reduction)
-  const encoded = LZString.compressToEncodedURIComponent(json);
-
-  return encoded;
+  return LZString.compressToEncodedURIComponent(JSON.stringify(snapshot));
 }
 
-/**
- * Decode URL string back to game snapshot
- */
 export function decodeGameState(encoded: string): GameSnapshot | null {
   try {
-    // Decompress using LZ-String
     const json = LZString.decompressFromEncodedURIComponent(encoded);
-
-    if (!json) {
-      console.error('Failed to decompress game state');
-      return null;
-    }
-
+    if (!json) return null;
     const snapshot = JSON.parse(json) as GameSnapshot;
-
-    // Version check
-    if (snapshot.v !== STATE_VERSION) {
-      console.warn(`State version mismatch: ${snapshot.v} !== ${STATE_VERSION}`);
+    if (snapshot.v !== STATE_VERSION_V1 && snapshot.v !== STATE_VERSION_V2) {
+      console.warn(`[URL State] Unknown version: ${snapshot.v}`);
       return null;
     }
-
     return snapshot;
-  } catch (error) {
-    console.error('Failed to decode game state:', error);
+  } catch {
     return null;
   }
 }
 
-/**
- * Save game state to URL hash and LocalStorage
- */
+// ---------------------------------------------------------------------------
+// URL / LocalStorage persistence
+// ---------------------------------------------------------------------------
+
 export function saveStateToURL(
   planets: PlanetConfig[],
-  commands: CommandType[]
+  commands: V2CommandType[]
 ): void {
   if (typeof window === 'undefined') return;
   const encoded = encodeGameState(planets, commands);
-  
-  // Save to URL
   window.location.hash = `state=${encoded}`;
-  
-  // Save to LocalStorage for crash recovery
   try {
     window.localStorage.setItem('florent_save', encoded);
-  } catch (e) {
-    console.error('Failed to save to localStorage', e);
-  }
+  } catch { /* ignore */ }
 }
 
-/**
- * Load game state from URL hash
- */
 export function loadStateFromURL(): GameSnapshot | null {
   if (typeof window === 'undefined') return null;
   const hash = window.location.hash;
-
-  if (!hash || !hash.startsWith('#state=')) {
-    return null;
-  }
-
-  const encoded = hash.substring(7); // Remove '#state='
-  return decodeGameState(encoded);
+  if (!hash || !hash.startsWith('#state=')) return null;
+  return decodeGameState(hash.substring(7));
 }
 
-/**
- * Load game state from LocalStorage
- */
 export function loadStateFromLocalStorage(): GameSnapshot | null {
   if (typeof window === 'undefined') return null;
   try {
     const encoded = window.localStorage.getItem('florent_save');
     if (!encoded) return null;
     return decodeGameState(encoded);
-  } catch (e) {
-    console.error('Failed to load from localStorage', e);
+  } catch {
     return null;
   }
 }
 
-/**
- * Clear state from URL and LocalStorage
- */
 export function clearStateFromURL(): void {
   if (typeof window === 'undefined') return;
   window.location.hash = '';
-  try {
-    window.localStorage.removeItem('florent_save');
-  } catch (e) {}
+  try { window.localStorage.removeItem('florent_save'); } catch { /* ignore */ }
 }
 
+// ---------------------------------------------------------------------------
+// Command replay
+// ---------------------------------------------------------------------------
+
 /**
- * Replay commands to reconstruct game state
- * This is where the magic happens - deterministic replay!
- *
- * Note: Full implementation requires importing command functions from commands.ts
- * This is a placeholder that demonstrates the architecture
+ * Replay recorded commands to reconstruct game state.
+ * Handles both v1 and v2 snapshots.
+ * Returns the seqId→entryId map so the caller can rebuild CommandHistory.
  */
 export function replayCommands(
   initialGameState: GameState,
   commands: CommandType[]
 ): GameState {
   let gameState = initialGameState;
-
-  console.log(`[URL State] Replaying ${commands.length} commands...`);
+  // seqId counter: increments for every 'q' command in order
+  let seqCounter = 0;
+  // maps seqId → deterministic entry ID used on replay
+  const seqToEntryId = new Map<number, string>();
 
   for (let i = 0; i < commands.length; i++) {
     const cmd = commands[i];
-    const [type, ...args] = cmd;
+    const type = cmd[0];
 
     try {
       switch (type) {
         case 'q': {
-          // Queue command
-          const [planetIdx, turn, itemId, quantity] = args as [number, number, string, number];
-          const planetId = Array.from(gameState.planets.keys())[planetIdx];
-          if (!planetId) {
-            console.warn(`[URL State] Command ${i}: Invalid planet index ${planetIdx}`);
-            break;
-          }
+          seqCounter++;
+          const deterministicId = `__s${seqCounter}`;
+          seqToEntryId.set(seqCounter, deterministicId);
 
+          let planetIdx: number, itemId: string, qty: number;
+          if (typeof cmd[3] === 'string') {
+            // v1: ['q', planetIdx, turn, itemId, qty]
+            [, planetIdx, , itemId, qty] = cmd as ['q', number, number, string, number];
+          } else {
+            // v2: ['q', planetIdx, itemCode, qty]
+            const itemCode = cmd[2] as number;
+            itemId = V2_ITEM_IDS[itemCode] ?? '';
+            planetIdx = cmd[1] as number;
+            qty = cmd[3] as number;
+          }
+          if (!itemId) break;
+
+          const planetId = Array.from(gameState.planets.keys())[planetIdx];
           const planet = gameState.planets.get(planetId);
-          if (planet && planet.timeline) {
+          if (planet?.timeline) {
             const controller = new GameController(planet, planet.timeline);
-            controller.queueItem(turn, itemId, quantity);
-            console.log(`[URL State] Command ${i}: Queued ${itemId} x${quantity} on planet ${planetIdx} at turn ${turn}`);
+            controller.queueItem(1, itemId, qty, { preserveId: deterministicId });
           }
           break;
         }
 
         case 'c': {
-          // Cancel command
-          const [planetIdx, laneId, entryId] = args as [number, LaneId, string];
+          let planetIdx: number, laneId: LaneId, entryId: string;
+          if (typeof cmd[3] === 'string') {
+            // v1: ['c', planetIdx, laneId, entryId]
+            [, planetIdx, laneId, entryId] = cmd as ['c', number, LaneId, string];
+          } else {
+            // v2: ['c', planetIdx, laneCode, seqId]
+            const seqId = cmd[3] as number;
+            laneId = V2_LANE_DEC[cmd[2] as string] ?? (cmd[2] as LaneId);
+            entryId = seqToEntryId.get(seqId) ?? '';
+            planetIdx = cmd[1] as number;
+          }
+          if (!entryId) break;
+
           const planetId = Array.from(gameState.planets.keys())[planetIdx];
           const planet = gameState.planets.get(planetId);
-          if (planet && planet.timeline) {
+          if (planet?.timeline) {
             const controller = new GameController(planet, planet.timeline);
-            controller.cancelEntryById(1, laneId, entryId);
-            console.log(`[URL State] Command ${i}: Cancelled ${laneId} entry ${entryId} on planet ${planetIdx}`);
+            controller.cancelPlannedItem(laneId, entryId);
           }
           break;
         }
 
         case 'r': {
-          // Reorder command
-          const [planetIdx, laneId, entryId, newIdx] = args as [number, LaneId, string, number];
-          console.log(`[URL State] Command ${i}: Reorder ${laneId} entry ${entryId} to index ${newIdx} (Not fully implemented)`);
-          break;
-        }
+          // reorder — v2: ['r', planetIdx, laneCode, seqId, newIdx]
+          const planetIdx = cmd[1] as number;
+          const laneCode = cmd[2] as string;
+          const laneId: LaneId = V2_LANE_DEC[laneCode] ?? (laneCode as LaneId);
+          const seqId = cmd[3] as number;
+          const newIdx = cmd[4] as number;
+          const entryId = seqToEntryId.get(seqId) ?? '';
+          if (!entryId) break;
 
-        case 'a': {
-          // Advance turns
-          const [planetIdx, turns] = args as [number, number];
-          console.log(`[URL State] Command ${i}: Advance ${turns} turns on planet ${planetIdx}`);
+          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planet = gameState.planets.get(planetId);
+          if (planet?.timeline) {
+            const controller = new GameController(planet, planet.timeline);
+            controller.reorderQueueItem(1, laneId, entryId, newIdx);
+          }
           break;
         }
 
         case 'p': {
-          // Add planet
-          const [config] = args as [PlanetConfig];
-          console.log(`[URL State] Command ${i}: Add planet ${config.name}`);
+          const rawConfig = cmd[1] as V1CompactPlanetConfig | V2CompactPlanetConfig;
+          const config = 't' in rawConfig
+            ? expandPlanetConfigV1(rawConfig as V1CompactPlanetConfig)
+            : expandPlanetConfigV2(rawConfig as V2CompactPlanetConfig);
           gameState = addPlanet(gameState, config);
           break;
         }
 
         case 's': {
-          // Switch planet
-          const [planetIdx] = args as [number];
+          const planetIdx = cmd[1] as number;
           const planetId = Array.from(gameState.planets.keys())[planetIdx];
-          if (planetId) {
-            gameState = { ...gameState, currentPlanetId: planetId };
-            console.log(`[URL State] Command ${i}: Switched to planet ${planetIdx}`);
-          }
+          if (planetId) gameState = { ...gameState, currentPlanetId: planetId };
           break;
         }
 
         case 'qr': {
-          // Queue research
-          const [itemId] = args as [string];
-          console.log(`[URL State] Command ${i}: Queue research ${itemId}`);
-          gameState = queueResearch(gameState, itemId);
+          const itemRef = cmd[1];
+          const itemId = typeof itemRef === 'number'
+            ? V2_ITEM_IDS[itemRef] ?? ''
+            : itemRef as string;
+          if (itemId) gameState = queueResearch(gameState, itemId);
           break;
         }
 
+        case 'x':
         case 'reset': {
-          // Reset planet queue to initial state
-          const [planetIdx] = args as [number];
+          const planetIdx = cmd[1] as number;
           const planetId = Array.from(gameState.planets.keys())[planetIdx];
           const planet = gameState.planets.get(planetId);
-          if (planet && planet.timeline) {
+          if (planet?.timeline) {
             const controller = new GameController(planet, planet.timeline);
             controller.resetQueue();
-            console.log(`[URL State] Command ${i}: Reset queue for planet ${planetIdx}`);
           }
           break;
         }
 
         default:
-          console.warn(`[URL State] Command ${i}: Unknown command type ${type}`);
+          console.warn(`[URL State] Unknown command type: ${type}`);
       }
-    } catch (error) {
-      console.error(`[URL State] Command ${i} failed:`, error);
-      // Continue with remaining commands
+    } catch (err) {
+      console.error(`[URL State] Command ${i} (${type}) failed:`, err);
     }
   }
 
-  console.log('[URL State] Replay complete');
   return gameState;
 }
 
-/**
- * Extract planet configurations from game state
- */
+// ---------------------------------------------------------------------------
+// Helpers used by the app
+// ---------------------------------------------------------------------------
+
 export function extractPlanetConfigs(gameState: GameState): PlanetConfig[] {
   return Array.from(gameState.planets.values()).map(planet => ({
     name: planet.name,
     startTurn: planet.startTurn,
     abundance: {
-      metal: planet.abundance?.metal || 1,
-      mineral: planet.abundance?.mineral || 1,
-      food: planet.abundance?.food || 1,
-      energy: planet.abundance?.energy || 1,
-      research_points: planet.abundance?.research_points || 1,
+      metal: planet.abundance?.metal ?? 1,
+      mineral: planet.abundance?.mineral ?? 1,
+      food: planet.abundance?.food ?? 1,
+      energy: planet.abundance?.energy ?? 1,
+      research_points: planet.abundance?.research_points ?? 1,
     },
     space: {
-      groundCap: planet.space?.groundCap || 60,
-      orbitalCap: planet.space?.orbitalCap || 40,
+      groundCap: planet.space?.groundCap ?? 60,
+      orbitalCap: planet.space?.orbitalCap ?? 40,
     },
   }));
 }
 
-/**
- * Get planet index from ID
- */
 export function getPlanetIndex(gameState: GameState, planetId: string): number {
-  const planetIds = Array.from(gameState.planets.keys());
-  return planetIds.indexOf(planetId);
+  return Array.from(gameState.planets.keys()).indexOf(planetId);
 }
 
-/**
- * Size estimation helper
- */
 export function estimateEncodedSize(
   planets: PlanetConfig[],
-  commands: CommandType[]
+  commands: V2CommandType[]
 ): { json: number; encoded: number; chars: number } {
   const encoded = encodeGameState(planets, commands);
-  const json = JSON.stringify({ v: STATE_VERSION, planets, cmds: commands });
-
+  const snapshot = { v: STATE_VERSION_V2, planets: planets.map(compactPlanetConfigV2), cmds: commands };
   return {
-    json: json.length,
+    json: JSON.stringify(snapshot).length,
     encoded: encoded.length,
     chars: encoded.length,
   };

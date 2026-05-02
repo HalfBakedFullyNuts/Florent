@@ -56,6 +56,15 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
   // Apply building completions immediately (same turn)
   processCompletions(state, sameTurnCompletions);
 
+  // Phase 2b: Re-activate lanes freed by this turn's completions.
+  // tryActivateNext ran at the TOP of each lane's iteration (before progressActive could
+  // complete the active item), so any lane whose item just finished would not pick up the
+  // next pending item until the following turn — causing an off-by-one delay.
+  // Running a second pass here (after structure effects are applied) closes that gap.
+  for (const laneId of LANE_ORDER) {
+    tryActivateNext(state, laneId);
+  }
+
   // Phase 5: Process colonist conversions (same-turn completion)
   applyColonistConversions(state);
 
