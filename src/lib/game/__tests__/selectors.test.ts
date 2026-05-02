@@ -287,20 +287,23 @@ describe('Selectors', () => {
       expect(result.reason).toBe('Item not found');
     });
 
-    it('should return false when queue is full', () => {
-      // Fill queue to max depth (75 items)
-      state.lanes.building.pendingQueue = Array(75).fill(null).map((_, i) => ({
+    it('queue depth limit is now 9999 (effectively unlimited)', () => {
+      // Change A: maxQueueDepth is set to 9999 to remove practical limits.
+      // The "Queue is full" path is intentionally unreachable in normal play.
+      // Verify the lane accepts 100+ items without hitting the depth limit.
+      state.lanes.building.pendingQueue = Array(100).fill(null).map((_, i) => ({
         id: `pending_${i}`,
         itemId: 'farm',
         status: 'pending' as const,
         quantity: 1,
         turnsRemaining: 4,
       }));
+      state.lanes.building.maxQueueDepth = 9999;
 
+      // The item itself may fail validation for other reasons (energy, prereqs),
+      // but it must NOT fail with 'Queue is full'.
       const result = canQueueItem(state, 'metal_mine', 1);
-
-      expect(result.allowed).toBe(false);
-      expect(result.reason).toBe('Queue is full');
+      expect(result.reason).not.toBe('Queue is full');
     });
 
     it('allows queuing into a busy lane (item joins pending queue)', () => {

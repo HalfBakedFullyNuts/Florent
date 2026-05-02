@@ -4,7 +4,7 @@
  */
 
 import type { PlanetState, ItemDefinition, CanQueueResult } from './types';
-import { computeNetOutputsPerTurn } from './outputs';
+import { computeNetOutputsPerTurn, computeProjectedNetOutputsPerTurn } from './outputs';
 
 /**
  * Check if prerequisites are met for queuing an item
@@ -123,44 +123,51 @@ export function housingExistsForColonist(
 }
 
 /**
- * Check if building has reached its planet limit
- * Only applies to buildings with maxPerPlanet set
+ * Check if a unique item has already been built, researched, or is in the queue.
+ * Applies to any lane: building, research, ship, colonist.
+ * Returns false immediately for non-unique items.
  */
-export function isPlanetLimitReached(
+export function isUniqueLimitReached(
   state: PlanetState,
   def: ItemDefinition
 ): boolean {
-  // If no limit is set, always allow
-  if (def.maxPerPlanet === null || def.maxPerPlanet === undefined) {
+  // Non-unique items are always allowed
+  if (!def.unique) {
     return false;
   }
 
-  // Only applies to building lane items
-  if (def.lane !== 'building') {
-    return false;
+  // For research lane: also check completedResearch list
+  if (def.lane === 'research' && state.completedResearch?.includes(def.id)) {
+    return true;
   }
 
-  // Count total instances of this item
-  let totalCount = 0;
-
-  // Count completed buildings
-  totalCount += state.completedCounts[def.id] || 0;
-
-  // Count active building in building lane
-  if (state.lanes.building.active?.itemId === def.id) {
-    totalCount += state.lanes.building.active.quantity;
+  // Check completed counts (covers buildings, units, etc.)
+  if ((state.completedCounts[def.id] || 0) >= 1) {
+    return true;
   }
 
-  // Count pending buildings in building lane
-  for (const item of state.lanes.building.pendingQueue) {
+  // Check the item's own lane — active slot and pending queue
+  const lane = state.lanes[def.lane];
+  if (!lane) return false;
+
+  if (lane.active?.itemId === def.id) {
+    return true;
+  }
+
+  for (const item of lane.pendingQueue) {
     if (item.itemId === def.id) {
-      totalCount += item.quantity;
+      return true;
     }
   }
 
-  // Check if limit is reached
-  return totalCount >= def.maxPerPlanet;
+  return false;
 }
+
+/**
+ * @deprecated Use isUniqueLimitReached instead.
+ * Kept as alias to avoid breaking test files that reference old name.
+ */
+export const isPlanetLimitReached = isUniqueLimitReached;
 
 /**
  * Forward check: ensure energy output per turn won't go negative after completion
@@ -233,7 +240,8 @@ function resourcesFeasible(
   qty: number
 ): boolean {
   const c = def.costsPerUnit;
-  const net = computeNetOutputsPerTurn(state);
+  // Use projected production so queued scientists/buildings unblock research queuing
+  const net = computeProjectedNetOutputsPerTurn(state);
   const required: Record<string, number> = {
     metal: (c.metal || 0) * qty,
     mineral: (c.mineral || 0) * qty,
@@ -269,7 +277,7 @@ export function canQueue(
   if (!hasPrereqs(state, def)) {
     return { allowed: false, reason: 'REQ_MISSING' };
   }
-  if (isPlanetLimitReached(state, def)) {
+  if (isUniqueLimitReached(state, def)) {
     return { allowed: false, reason: 'PLANET_LIMIT_REACHED' };
   }
   if (def.colonistKind && !housingExistsForColonist(state, def, requestedQty)) {
@@ -340,14 +348,11 @@ export function clampBatchAtActivation(
     maxAffordable = Math.min(maxAffordable, Math.floor(state.population.workersIdle / workersNeeded));
   }
 
-  // Check space constraints
+  // Check space constraints — only structures consume ground space
+  // Ships and colonists do not reserve orbital or any other space
   const spaceNeeded = def.costsPerUnit.space || 0;
-  if (spaceNeeded > 0) {
-    const spaceType = def.type === 'structure' ? 'ground' : 'orbital';
-    const availableSpace =
-      spaceType === 'ground'
-        ? state.space.groundCap - state.space.groundUsed
-        : state.space.orbitalCap - state.space.orbitalUsed;
+  if (spaceNeeded > 0 && def.type === 'structure') {
+    const availableSpace = state.space.groundCap - state.space.groundUsed;
     maxAffordable = Math.min(maxAffordable, Math.floor(availableSpace / spaceNeeded));
   }
 

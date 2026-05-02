@@ -9,10 +9,11 @@ interface PlanetTabsProps {
   onPlanetSwitch: (planetId: string) => void;
   onAddPlanet: () => void;
   maxPlanets: number;
+  onResetQueue?: () => void;
 }
 
 /**
- * PlanetTabs - Tab navigation for multiple planets
+ * PlanetTabs - Tab navigation for multiple planets, with optional Reset Queue button on the far right
  */
 export function PlanetTabs({
   planets,
@@ -20,6 +21,7 @@ export function PlanetTabs({
   onPlanetSwitch,
   onAddPlanet,
   maxPlanets,
+  onResetQueue,
 }: PlanetTabsProps) {
   const planetArray = Array.from(planets.values());
   const canAddPlanet = planets.size < maxPlanets;
@@ -32,7 +34,7 @@ export function PlanetTabs({
 
   return (
     <div
-      className="flex gap-2 mb-4 p-2 bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border"
+      className="flex gap-2 mb-4 p-2 bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border items-center"
       suppressHydrationWarning
     >
       {planetArray.map((planet, index) => {
@@ -97,6 +99,31 @@ export function PlanetTabs({
           flex items-center gap-2 opacity-50
         ">
           <span className="text-sm">Max Planets ({maxPlanets}/{maxPlanets})</span>
+        </div>
+      )}
+
+      {/* Reset Queue button — far right, pushes to end with ml-auto */}
+      {onResetQueue && (
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onResetQueue}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              onResetQueue();
+            }
+          }}
+          className="
+            ml-auto px-3 py-2 rounded-lg font-semibold transition-all duration-200
+            bg-red-900/40 text-red-300 hover:bg-red-700 hover:text-white
+            border border-red-700/50
+            flex items-center gap-2 cursor-pointer text-sm
+          "
+          title="Reset current planet queue to starting state"
+        >
+          <span>↺</span>
+          <span>Reset Queue</span>
         </div>
       )}
     </div>

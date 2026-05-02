@@ -5,8 +5,8 @@
 
 import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
 import { canQueue } from '../sim/engine/validation';
-import { calculatePrereqWaitTurns } from '../sim/engine/queueValidation';
 import { generateWorkItemId, refundActivationCosts } from '../sim/engine/helpers';
+import { createStandardStart } from '../sim/defs/seed';
 import { Timeline } from './state';
 import { getLogger } from './logger';
 
@@ -69,15 +69,9 @@ export class GameController {
       }
     }
 
-    // Auto-wait injection: if a prereq is queued but not yet completed,
-    // insert a wait in this item's lane so the item activates after the prereq lands.
-    // Skip when forced (repack handles its own waits) or when this is itself a wait item.
-    if (!options?.force) {
-      const prereqWait = calculatePrereqWaitTurns(state, def);
-      if (prereqWait > 0) {
-        this.queueWaitItem(turn, laneId, prereqWait, true, { force: true });
-      }
-    }
+    // Prerequisite stalling is handled by clampBatchAtActivation at engine level —
+    // it returns 0 (stall) each turn until prereqs are actually completed.
+    // Explicit wait injection is not needed and produces misleading queue entries.
 
     // Preserve original ID when repacking to avoid ID churn across cancel+repack cycles
     const workItemId = options?.preserveId ?? generateWorkItemId();
@@ -664,7 +658,7 @@ export class GameController {
   /**
    * Auto-collapse a lane's queue by pulling items forward as early as possible.
    * If an item is delayed by prerequisites, inserts an autoWait item.
-   * 
+   *
    * @param turn The turn to start repacking from (usually viewTurn)
    * @param laneId The lane to repack
    */
@@ -704,7 +698,10 @@ export class GameController {
       cursorTurn = foundEmptyTurn;
     }
 
-    const totalTurns = this.getTotalTurns();
+    // Limit search to the last occupied turn for this lane (+ buffer).
+    // This avoids scanning the entire 200-turn timeline when items only reach T50.
+    const lastOccupiedTurn = this.getLastOccupiedTurnForLane(turn, laneId, startState);
+    const searchLimit = Math.min(lastOccupiedTurn + 10, this.getTotalTurns());
 
     for (const item of extractedItems) {
       if (item.isWait) {
@@ -719,8 +716,8 @@ export class GameController {
       const def = startState.defs[item.itemId];
       if (!def) continue;
 
-      // Search forward from cursorTurn until we can queue it
-      for (let searchTurn = cursorTurn; searchTurn < totalTurns; searchTurn++) {
+      // Search forward from cursorTurn up to the computed limit
+      for (let searchTurn = cursorTurn; searchTurn < searchLimit; searchTurn++) {
         const checkState = this.timeline.getStateAtTurn(searchTurn);
         if (!checkState) break;
 
@@ -732,7 +729,7 @@ export class GameController {
       }
 
       if (validTurn === -1) {
-        // We cannot queue this item before the end of time.
+        // Could not find a valid turn within the limit — fall back to cursor
         validTurn = cursorTurn;
       }
 
@@ -750,6 +747,64 @@ export class GameController {
       cursorTurn = validTurn + def.durationTurns;
     }
 
+    return true;
+  }
+
+  /**
+   * Calculate the last turn occupied by items in a lane.
+   * Used to limit repackQueue's search range to only the relevant window.
+   */
+  private getLastOccupiedTurnForLane(
+    turn: number,
+    laneId: LaneId,
+    state?: ReturnType<typeof this.timeline.getStateAtTurn>
+  ): number {
+    const s = state ?? this.timeline.getStateAtTurn(turn);
+    if (!s) return turn;
+
+    const lane = s.lanes[laneId];
+    let lastTurn = turn;
+
+    if (lane.active) {
+      lastTurn = turn + (lane.active.turnsRemaining || 0);
+    }
+
+    for (const item of lane.pendingQueue) {
+      const def = s.defs[item.itemId];
+      lastTurn += item.isWait ? item.turnsRemaining : (def?.durationTurns || 0);
+    }
+
+    return lastTurn;
+  }
+
+  /**
+   * Reset the current planet's queue to its pristine starting state.
+   * Recreates the timeline from createStandardStart using the same item defs,
+   * preserving the planet's startTurn so timeline offsets stay correct.
+   */
+  resetQueue(): boolean {
+    const state = this.timeline.getStateAtTurn(1);
+    if (!state) return false;
+
+    // Build a fresh starting state using the same item definitions
+    const freshState = createStandardStart(state.defs);
+    freshState.currentTurn = state.currentTurn;
+
+    // Replace the timeline entirely — all queued items are gone
+    this.timeline.reset(freshState);
+    return true;
+  }
+
+  /**
+   * Repack all four lanes in canonical order.
+   * Called after any queue mutation that could affect multiple lanes
+   * (e.g., cancelling a building that ships or colonists depend on).
+   */
+  repackAllLanes(turn: number): boolean {
+    const LANE_ORDER: LaneId[] = ['building', 'ship', 'colonist', 'research'];
+    for (const laneId of LANE_ORDER) {
+      this.repackQueue(turn, laneId);
+    }
     return true;
   }
 

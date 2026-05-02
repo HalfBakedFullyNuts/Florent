@@ -48,14 +48,10 @@ export function refundActivationCosts(
       (state.population.busyByLane[laneId] || 0) - totalWorkers;
   }
 
-  // Release space
+  // Release space — only structures reserved ground space, nothing to refund for ships/colonists
   const spaceNeeded = costs.space || 0;
-  if (spaceNeeded > 0) {
+  if (spaceNeeded > 0 && def.type === 'structure') {
     const totalSpace = spaceNeeded * quantity;
-    if (def.type === 'structure') {
-      state.space.groundUsed -= totalSpace;
-    } else {
-      state.space.orbitalUsed -= totalSpace;
-    }
+    state.space.groundUsed -= totalSpace;
   }
 }

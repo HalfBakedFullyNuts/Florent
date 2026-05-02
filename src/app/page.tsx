@@ -3,9 +3,10 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { GameController } from '../lib/game/commands';
 import { createInitialGameState, addPlanet, switchPlanet, getCurrentPlanet, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
-import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns } from '../lib/game/selectors';
+import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns, getFirstFreeTurnForLane, getFirstFreeTurnForResearch } from '../lib/game/selectors';
 import { validateAllQueueItems, type QueueValidationResult, getValidationMessage, getDependentQueueItems } from '../lib/game/validation';
 import { loadGameData } from '../lib/sim/defs/adapter.client';
+import type { LaneId } from '../lib/sim/engine/types';
 import gameDataRaw from '../lib/game/game_data.json';
 import { setupLogging } from '../lib/game/logging-utils';
 import { CommandHistory, loadStateFromURL, saveStateToURL, extractPlanetConfigs, getPlanetIndex, estimateEncodedSize, loadStateFromLocalStorage, replayCommands } from '../lib/game/urlState';
@@ -84,6 +85,12 @@ export default function Home() {
     entry: any;
     brokenDependencies: any[];
   } | null>(null);
+  // Items auto-removed due to cascade dependency failure after a cancel
+  const [cascadeWarnings, setCascadeWarnings] = useState<Array<{
+    entryId: string;
+    laneId: string;
+    reason: string;
+  }>>([]);
 
   // Get current planet ID (only changes when switching planets, not on every mutation)
   const currentPlanetId = gameState.currentPlanetId;
@@ -204,6 +211,17 @@ export default function Home() {
 
   const warnings = useMemo(() => currentState ? getWarnings(currentState) : [], [currentState]);
 
+  // Merge engine warnings with cascade-removal warnings into a single list for the panel.
+  // Cascade warnings are reset on next cancellation, so they auto-clear on next user action.
+  const allWarnings = useMemo(() => {
+    const cascadeItems = cascadeWarnings.map(w => ({
+      type: 'QUEUE_CASCADE_REMOVAL' as const,
+      message: `Auto-removed: ${w.reason}`,
+      severity: 'warning' as const,
+    }));
+    return [...warnings, ...cascadeItems];
+  }, [warnings, cascadeWarnings]);
+
   // Calculate first empty turn for each lane (for timeline quick jump buttons)
   // Always search from turn 1, not from viewTurn, so the button shows a consistent target
   const firstEmptyTurns = useMemo(() => {
@@ -245,28 +263,38 @@ export default function Home() {
   }, [defs]);
 
   // canQueueItem callback - must be before early return
+  // Uses smart first-free-turn validation: evaluates the item against the state
+  // at the turn when it would actually activate, not hardcoded T1.
   const canQueueItem = useCallback((itemId: string, quantity: number) => {
     if (!itemId) {
-      return { allowed: false, reason: 'No item selected' };
+      return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'No item selected' };
     }
 
     const def = defs[itemId];
     if (!def) {
-      return { allowed: false, reason: 'Unknown item' };
+      return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'Unknown item' };
     }
 
     if (!controller) {
-      return { allowed: false, reason: 'No controller available' };
+      return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'No controller available' };
     }
 
-    // Use T1 state for validation so queueing is always possible regardless of the viewed turn
-    const viewState = controller.getStateAtTurn(1);
-    if (!viewState) {
-      return { allowed: false, reason: 'Invalid turn' };
+    // Get the T1 state (where the full plan lives) to calculate first-free turn
+    const t1State = controller.getStateAtTurn(1);
+    if (!t1State) {
+      return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'Invalid turn' };
     }
 
-    // Check if THIS SPECIFIC lane is available
-    return validateQueueItem(viewState, itemId, quantity);
+    // Find the first turn when this lane will be free to activate the item
+    const firstFreeTurn = def.lane === 'research'
+      ? getFirstFreeTurnForResearch(t1State)
+      : getFirstFreeTurnForLane(t1State, def.lane);
+
+    // Validate against the state at that future turn (or T1 if lane is empty)
+    const validationTurn = Math.max(1, firstFreeTurn);
+    const validationState = controller.getStateAtTurn(validationTurn) ?? t1State;
+
+    return validateQueueItem(validationState, itemId, quantity);
   }, [defs, controller]);
 
   // Guard against undefined state AFTER all hooks are called
@@ -465,9 +493,55 @@ export default function Home() {
     const planetIdx = Array.from(gameState.planets.keys()).indexOf(gameState.currentPlanetId);
     commandHistory.recordCancel(Math.max(0, planetIdx), laneId, entry.id);
 
-    // Feature: Queue Auto-Collapse
-    // After cancelling, we repack the queue forward to fill gaps.
-    controller!.repackQueue(1, laneId);
+    // Repack ALL lanes (not just the cancelled lane) so cross-lane dependencies
+    // (e.g. a colonist waiting on a building prerequisite) are updated too.
+    controller!.repackAllLanes(1);
+
+    // BFS cascade: remove items whose prerequisites include the cancelled item's def ID
+    // (and transitively, items that depended on those).
+    // This is purely based on the prerequisites graph — NO timing re-checks,
+    // which previously caused unrelated items to be incorrectly swept away.
+    const newCascadeWarnings: Array<{ entryId: string; laneId: string; reason: string }> = [];
+    const cancelledDefIds = new Set<string>([entry.itemId]);
+    const allLaneIds: Array<'building' | 'ship' | 'colonist' | 'research'> = ['building', 'ship', 'colonist', 'research'];
+
+    let moreFound = true;
+    while (moreFound) {
+      moreFound = false;
+      const scanState = controller!.getStateAtTurn(1);
+      if (!scanState) break;
+
+      for (const scanLaneId of allLaneIds) {
+        const entries = getLaneView(scanState, scanLaneId).entries;
+        for (const qEntry of entries) {
+          // Skip wait items and entries already scheduled for removal
+          if (qEntry.isWait || qEntry.isAutoWait) continue;
+          const qDef = scanState.defs[qEntry.itemId];
+          if (!qDef) continue;
+
+          // Only cascade if a prerequisite of this entry was directly cancelled
+          const hasCancelledPrereq = qDef.prerequisites?.some(p => cancelledDefIds.has(p));
+          if (hasCancelledPrereq) {
+            // This entry is now broken — cascade it too
+            cancelledDefIds.add(qEntry.itemId);
+            newCascadeWarnings.push({
+              entryId: qEntry.id,
+              laneId: scanLaneId,
+              reason: `${qDef.name || qEntry.itemId} — prerequisite removed`,
+            });
+            controller!.cancelPlannedItem(scanLaneId, qEntry.id);
+            moreFound = true; // Another pass needed for transitive dependents
+          }
+        }
+      }
+    }
+
+    // Repack once after all cascade removals to close the resulting gaps
+    if (newCascadeWarnings.length > 0) {
+      controller!.repackAllLanes(1);
+    }
+
+    setCascadeWarnings(newCascadeWarnings);
 
     let newViewTurn = viewTurn;
     if (isAutoJumpEnabled && wasLastItem) {
@@ -492,7 +566,7 @@ export default function Home() {
         newPlanets.set(gameState.currentPlanetId, updatedPlanet as ExtendedPlanetState);
         return { ...prev, planets: newPlanets };
       });
-      // Validate all remaining queue items after removal
+      // Validate all remaining queue items after removal and cascade
       const getLaneEntries = (state: any, lId: 'building' | 'ship' | 'colonist' | 'research') => {
         return getLaneView(state, lId).entries;
       };
@@ -681,7 +755,38 @@ export default function Home() {
     }
   }, [controller, currentPlanet, viewTurn, gameState]);
 
+  // Reset the current planet's queue to its initial starting state
+  const handleResetQueue = useCallback(() => {
+    setError(null);
+    if (!controller) {
+      setError('No planet selected');
+      return;
+    }
 
+    try {
+      controller.resetQueue();
+      setViewTurn(1);
+      setQueueValidation(new Map());
+      setCascadeWarnings([]);
+
+      // Record the reset in command history by clearing all commands for this planet
+      // Simplest approach: push a full reset command (URL will replay correctly)
+      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+      commandHistory.recordReset(planetIdx);
+
+      // Reflect fresh state in gameState
+      const freshState = controller.getStateAtTurn(1);
+      if (freshState) {
+        setGameState(prev => {
+          const newPlanets = new Map(prev.planets);
+          newPlanets.set(currentPlanetId, freshState as ExtendedPlanetState);
+          return { ...prev, planets: newPlanets };
+        });
+      }
+    } catch (e) {
+      setError((e as Error).message || 'Unknown error');
+    }
+  }, [controller, currentPlanetId, gameState, commandHistory]);
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">
@@ -710,6 +815,7 @@ export default function Home() {
             onPlanetSwitch={handlePlanetSwitch}
             onAddPlanet={handleAddPlanet}
             maxPlanets={gameState.maxPlanets}
+            onResetQueue={handleResetQueue}
           />
         </div>
 
@@ -720,10 +826,10 @@ export default function Home() {
           </div>
         )}
 
-        {/* Warnings Panel */}
-        {warnings.length > 0 && (
+        {/* Warnings Panel — includes engine warnings + cascade-removal notices */}
+        {allWarnings.length > 0 && (
           <div className="px-6 mt-4">
-            <WarningsPanel warnings={warnings} />
+            <WarningsPanel warnings={allWarnings} />
           </div>
         )}
 

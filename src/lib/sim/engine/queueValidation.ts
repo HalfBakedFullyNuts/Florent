@@ -4,8 +4,8 @@
  */
 
 import type { PlanetState, ItemDefinition, LaneId, WorkItem, ResourceId } from './types';
-import { hasPrereqs, isPlanetLimitReached, energyNonNegativeAfterCompletion } from './validation';
-import { computeNetOutputsPerTurn } from './outputs';
+import { hasPrereqs, isUniqueLimitReached, energyNonNegativeAfterCompletion } from './validation';
+import { computeProjectedNetOutputsPerTurn } from './outputs';
 
 export interface QueueValidationResult {
   canQueueNow: boolean; // Can queue immediately without waiting
@@ -165,7 +165,8 @@ function calculateResourceWaitTurns(
   const costs = def.costsPerUnit;
   if (!costs) return 0;
 
-  const netOutputs = computeNetOutputsPerTurn(state);
+  // Use projected outputs so queued scientists/buildings count toward future RP/production
+  const netOutputs = computeProjectedNetOutputsPerTurn(state);
   let maxWaitTurns = 0;
 
   // Check each resource type
@@ -205,16 +206,17 @@ export function validateQueueWithWait(
   const blockers: QueueBlocker[] = [];
   let maxWaitTurns = 0;
 
-  // Check planet limit (hard blocker - can never be queued)
-  if (isPlanetLimitReached(state, def)) {
+  // Check unique limit (hard blocker - can never be queued again once done or in-flight)
+  if (isUniqueLimitReached(state, def)) {
+    const label = def.lane === 'research' ? 'Already researched (cannot research twice)' : 'Already built (unique — only one allowed per planet)';
     return {
       canQueueNow: false,
       canQueueEventually: false,
       waitTurnsNeeded: 0,
-      reason: 'Planet limit reached',
+      reason: label,
       blockers: [{
         type: 'PLANET_LIMIT',
-        message: `Maximum ${def.maxPerPlanet} per planet already reached`,
+        message: label,
       }],
     };
   }
@@ -283,23 +285,21 @@ export function validateQueueWithWait(
     }
   }
 
-  // Check resource accumulation
+  // Check resource accumulation.
+  // Per the activation-time pricing model, resources are NEVER a hard block:
+  // items wait in the pending queue until stocks are sufficient.
+  // Only missing prerequisites, unique limits, and housing are hard blocks.
   const resourceWait = calculateResourceWaitTurns(state, def, requestedQty);
   if (resourceWait === -1) {
-    // Not producing resources needed - hard blocker
-    return {
-      canQueueNow: false,
-      canQueueEventually: false,
-      waitTurnsNeeded: 0,
-      reason: 'Insufficient resource production',
-      blockers: [{
-        type: 'RESOURCES',
-        message: 'Resources not being produced (or net negative production)',
-      }],
-    };
-  }
-
-  if (resourceWait > 0) {
+    // No current net production for a required resource.
+    // Soft-block only — production can be established by queuing more items.
+    // We can't estimate the exact wait, so just flag it without a turn count.
+    blockers.push({
+      type: 'RESOURCES',
+      message: 'No current production of a required resource — queue more producers first',
+    });
+    // Do NOT return canQueueEventually: false — the item is still queueable.
+  } else if (resourceWait > 0) {
     maxWaitTurns = Math.max(maxWaitTurns, resourceWait);
     blockers.push({
       type: 'RESOURCES',

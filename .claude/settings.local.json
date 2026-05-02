@@ -72,7 +72,8 @@
       "Bash(docker ps:*)",
       "Bash(docker compose restart dev)",
       "Bash(docker compose:*)",
-      "Bash(docker logs:*)"
+      "Bash(docker logs:*)",
+      "Bash(git stash *)"
     ],
     "deny": [],
     "ask": []

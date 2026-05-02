@@ -6,11 +6,19 @@ import { Card } from '@/components/ui/card';
 import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
 
+export interface SmartQueueCheckShape {
+  allowed: boolean;
+  canQueueEventually?: boolean;
+  waitTurnsNeeded?: number;
+  blockers?: unknown[];
+  reason?: string;
+}
+
 export interface TabbedItemGridProps {
   availableItems: Record<string, any>;
   onQueueItem: (itemId: string, quantity: number) => void;
   onQueueWait?: (laneId: LaneId, waitTurns: number) => void;
-  canQueueItem: (itemId: string, quantity: number) => { allowed: boolean; reason?: string };
+  canQueueItem: (itemId: string, quantity: number) => SmartQueueCheckShape;
   activeTab?: LaneId;
   onTabChange?: (tab: LaneId) => void;
   currentTurn?: number;
@@ -54,14 +62,47 @@ export function TabbedItemGrid({
     }
   });
 
-  // Sort items: available first, then by duration, then by name
+  /**
+   * Calculate the prerequisite chain depth for a research item.
+   * Items with no prerequisites have depth 0; each link in the chain adds 1.
+   * Capped at 20 to avoid infinite loops in case of circular data.
+   */
+  const getPrereqDepth = (itemId: string, visited = new Set<string>()): number => {
+    if (visited.has(itemId)) return 0; // Cycle guard
+    visited.add(itemId);
+    const item = availableItems[itemId];
+    if (!item?.prerequisites || item.prerequisites.length === 0) return 0;
+    const MAX_DEPTH = 20;
+    let maxParentDepth = 0;
+    for (const prereqId of item.prerequisites) {
+      if (visited.size < MAX_DEPTH) {
+        maxParentDepth = Math.max(maxParentDepth, getPrereqDepth(prereqId, new Set(visited)));
+      }
+    }
+    return maxParentDepth + 1;
+  };
+
+  // Sort items: available first (including those with wait), hard-blocked last.
+  // For research specifically, use prerequisite chain depth as secondary sort so the
+  // full tech tree always reads top-to-bottom regardless of lock state.
   Object.keys(itemsByLane).forEach(laneId => {
     itemsByLane[laneId].sort((a, b) => {
-      const aQueueable = canQueueItem(a.id, 1).allowed;
-      const bQueueable = canQueueItem(b.id, 1).allowed;
+      const aCheck = canQueueItem(a.id, 1);
+      const bCheck = canQueueItem(b.id, 1);
+      // Use canQueueEventually (false = hard block, grey out). Fallback to allowed for compatibility.
+      const aQueueable = aCheck.canQueueEventually ?? aCheck.allowed;
+      const bQueueable = bCheck.canQueueEventually ?? bCheck.allowed;
 
       if (aQueueable !== bQueueable) {
         return bQueueable ? 1 : -1;
+      }
+
+      // For the research lane, sort within each group by prerequisite chain depth
+      // so the tech tree always shows in natural tier order.
+      if (laneId === 'research') {
+        const aDepth = getPrereqDepth(a.id);
+        const bDepth = getPrereqDepth(b.id);
+        if (aDepth !== bDepth) return aDepth - bDepth;
       }
 
       if (a.durationTurns !== b.durationTurns) {
@@ -81,8 +122,12 @@ export function TabbedItemGrid({
     }
   };
 
+  // An item is "queueable" (not greyed out) if it can eventually be queued.
+  // Hard blocks (canQueueEventually === false) grey it out.
+  // Items that need a wait (canQueueNow === false, canQueueEventually === true) remain clickable.
   const isItemQueueable = (itemId: string): boolean => {
-    return canQueueItem(itemId, 1).allowed;
+    const check = canQueueItem(itemId, 1);
+    return check.canQueueEventually ?? check.allowed;
   };
 
   const formatCost = (item: any): Array<{ resource: string; amount: number }> => {
@@ -134,7 +179,7 @@ export function TabbedItemGrid({
           : 'Missing prerequisite.';
       }
       case 'PLANET_LIMIT_REACHED':
-        return `Already at planet limit (max ${def?.maxPerPlanet ?? 1}).`;
+        return 'Already built — only one allowed per planet.';
       case 'HOUSING_MISSING':
         return def?.colonistKind === 'soldier'
           ? 'Not enough soldier housing — build a barracks first.'
@@ -160,7 +205,11 @@ export function TabbedItemGrid({
       return;
     }
     const validation = canQueueItem(itemId, qty);
-    if (!validation.allowed) {
+    // Block only hard failures (canQueueEventually === false). Items with a wait are still queueable.
+    const isBlocked = validation.canQueueEventually !== undefined
+      ? !validation.canQueueEventually
+      : !validation.allowed;
+    if (isBlocked) {
       setItemErrors(prev => ({ ...prev, [itemId]: humanizeReason(validation.reason, itemId) }));
       return;
     }
@@ -275,7 +324,12 @@ export function TabbedItemGrid({
             </div>
           ) : (
             items.map((item) => {
+              const queueCheck = canQueueItem(item.id, 1);
               const queueable = isItemQueueable(item.id);
+              const waitTurns = queueCheck.waitTurnsNeeded ?? 0;
+              // hasWait covers: known wait (waitTurns > 0) OR resource soft-block (no production yet)
+              const hasResourceBlocker = queueable && (queueCheck.blockers?.some((b: any) => b.type === 'RESOURCES') ?? false);
+              const hasWait = (waitTurns > 0 || hasResourceBlocker) && queueable;
               const costsMap = item.costsPerUnit || {};
               const energyUpkeep = item.upkeepPerUnit?.energy || 0;
               const isBatchable = activeTab === 'ship' || activeTab === 'colonist';
@@ -298,8 +352,20 @@ export function TabbedItemGrid({
                   {/* Single row layout */}
                   <div className="flex items-center gap-2 text-sm font-mono">
                     {/* Item Name - fixed width for alignment */}
-                    <div className="text-pink-nebula-text font-semibold whitespace-nowrap w-40 truncate">
+                    <div className="text-pink-nebula-text font-semibold whitespace-nowrap w-40 truncate flex items-center gap-1">
                       {item.name}
+                      {hasWait && (
+                        <span
+                          className="text-xs text-yellow-400 font-normal ml-1"
+                          title={
+                            waitTurns > 0
+                              ? `Can be queued now, but won't start for ~${waitTurns} turns (resources/prerequisites need more time to be ready)`
+                              : `Can be queued, but needs production first (e.g. queue scientists for research)`
+                          }
+                        >
+                          {waitTurns > 0 ? `⏳~${waitTurns}t` : '⏳'}
+                        </span>
+                      )}
                     </div>
 
                     {/* Costs in fixed-width columns (just numbers, color-coded) */}

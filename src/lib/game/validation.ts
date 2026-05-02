@@ -6,7 +6,6 @@
  */
 
 import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
-import { canQueue } from '../sim/engine/validation';
 import { cloneState } from '../sim/engine/helpers';
 import type { LaneEntry } from './selectors';
 
@@ -33,8 +32,8 @@ export function validateAllQueueItems(
 ): QueueValidationResult[] {
   const results: QueueValidationResult[] = [];
 
-  // Validate each lane in sequence
-  const laneIds: LaneId[] = ['building', 'ship', 'colonist'];
+  // Validate each lane in sequence (all 4 lanes including research)
+  const laneIds: LaneId[] = ['building', 'ship', 'colonist', 'research'];
 
   for (const laneId of laneIds) {
     const entries = getLaneEntries(state, laneId);
@@ -153,17 +152,15 @@ export function validateQueueEntry(
     }
   }
 
-  // Note: Housing/worker reservation validation is handled by the engine's validation layer
-  // Colonists require workers (soldiers: 10, scientists: 25) which is checked via Costs.workers
-
-  // Resource check - use the canQueue validation which checks resources
-  const canAfford = canQueue(state, def, entry.quantity);
-  if (!canAfford.allowed) {
-    return {
-      valid: false,
-      reason: canAfford.reason
-    };
-  }
+  // NOTE: We intentionally do NOT check resource availability here.
+  // Cascade detection must only flag items whose PREREQUISITE CHAIN is broken
+  // (i.e. a required building/research was removed from the queue).
+  // Resource availability is handled by the activation-time pricing model:
+  // items wait in the pending queue until stocks are sufficient, so they
+  // are never "broken" by a resource shortfall — only by missing prerequisites.
+  // Adding a resource check here would incorrectly cascade-remove items such
+  // as a shipyard that has expensive costs but is legitimately scheduled for
+  // a future turn when resources will have accumulated.
 
   return { valid: true };
 }
@@ -239,8 +236,8 @@ export function getDependentQueueItems(
       // It broke. But did it break because of OUR cancelled item?
       const cancelledDef = state.defs[entryToCancel.itemId];
       if (cancelledDef && validation.missingPrereqs.includes(cancelledDef.id)) {
-        // Find the canonical entry from the original state to return
-        for (const targetLaneId of ['building', 'ship', 'colonist'] as LaneId[]) {
+        // Find the canonical entry from the original state to return (all 4 lanes)
+        for (const targetLaneId of ['building', 'ship', 'colonist', 'research'] as LaneId[]) {
           const origEntries = getLaneEntries(state, targetLaneId);
           const found = origEntries.find(e => e.id === validation.entryId);
           if (found) {

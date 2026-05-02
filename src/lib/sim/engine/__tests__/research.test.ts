@@ -171,7 +171,7 @@ describe('Research System', () => {
         building: { pendingQueue: [], active: null, maxQueueDepth: 10 },
         ship: { pendingQueue: [], active: null, maxQueueDepth: 10 },
         colonist: { pendingQueue: [], active: null, maxQueueDepth: 10 },
-        research: { pendingQueue: [], active: null, maxQueueDepth: 1 }, // Research maxQueueDepth = 1
+        research: { pendingQueue: [], active: null, maxQueueDepth: 10 },
       },
       completedCounts: {
         outpost: 1,
@@ -189,9 +189,9 @@ describe('Research System', () => {
   });
 
   describe('Research Lane Initialization', () => {
-    it('should have research lane with maxQueueDepth of 1', () => {
+    it('should have research lane defined', () => {
       expect(state.lanes.research).toBeDefined();
-      expect(state.lanes.research.maxQueueDepth).toBe(1);
+      expect(state.lanes.research.maxQueueDepth).toBe(10);
       expect(state.lanes.research.pendingQueue).toEqual([]);
       expect(state.lanes.research.active).toBeNull();
     });
@@ -264,18 +264,18 @@ describe('Research System', () => {
       expect(state.stocks.research_points).toBeLessThan(rpCost);
     });
 
-    it('should only allow 1 research in queue (maxQueueDepth)', () => {
+    it('should allow multiple research items in queue (maxQueueDepth 10)', () => {
       state.stocks.research_points = 1000;
 
       // Queue first research
       queueResearch(state, testResearch1, 1);
       expect(state.lanes.research.pendingQueue.length).toBe(1);
 
-      // Research lane should have maxQueueDepth of 1
-      expect(state.lanes.research.maxQueueDepth).toBe(1);
+      // Research lane should have maxQueueDepth of 10
+      expect(state.lanes.research.maxQueueDepth).toBe(10);
 
-      // Try to queue second research - verify queue is at capacity
-      expect(state.lanes.research.pendingQueue.length).toBe(state.lanes.research.maxQueueDepth);
+      // Queue is not at capacity after one item
+      expect(state.lanes.research.pendingQueue.length).toBeLessThan(state.lanes.research.maxQueueDepth);
     });
 
     it('should deduct RP when queueing research', () => {

@@ -153,6 +153,7 @@ function convertUnit(raw: RawUnit): ItemDefinition {
     colonistKind,
     isAbundanceScaled: false, // Units don't have abundance-scaled production
     prerequisites,
+    unique: false, // Units are never unique per planet
   };
 
   return def;
@@ -267,7 +268,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     upkeepPerUnit: upkeep,
     isAbundanceScaled: hasAbundanceScaledProduction,
     prerequisites,
-    maxPerPlanet: raw.max_per_planet,
+    unique: raw.max_per_planet === 1,
   };
 
   return def;
@@ -337,13 +338,17 @@ function convertResearch(raw: RawResearch): ItemDefinition {
     }, // Research has no upkeep
     isAbundanceScaled: false,
     prerequisites,
+    unique: true, // Each research can only be completed once per planet
   };
 
   return def;
 }
 
 /**
- * Load and convert game data JSON to ItemDefinition map
+ * Load and convert game data JSON to ItemDefinition map.
+ * After converting all items, wire up research-unlock reverse dependencies:
+ * if research X has operation unlock_structure/unlock_unit for item Y,
+ * then X is added to Y's prerequisites so the engine enforces it.
  */
 export function loadGameData(gameData: RawGameData): Record<string, ItemDefinition> {
   const defs: Record<string, ItemDefinition> = {};
@@ -365,6 +370,26 @@ export function loadGameData(gameData: RawGameData): Record<string, ItemDefiniti
     for (const research of gameData.research) {
       const def = convertResearch(research);
       defs[def.id] = def;
+    }
+  }
+
+  // Build reverse map: unlockedItemId -> researchId that unlocks it.
+  // Derived from research operations of type unlock_structure / unlock_unit.
+  const unlockedByResearch: Record<string, string> = {};
+  for (const raw of gameData.research ?? []) {
+    for (const op of raw.operations ?? []) {
+      if ((op.effect === 'unlock_structure' || op.effect === 'unlock_unit') && op.item) {
+        unlockedByResearch[op.item] = raw.id;
+      }
+    }
+  }
+
+  // Inject research prerequisites into buildings and units that are unlocked by research.
+  // This enforces the requirement at queue time (hasPrereqs checks completedResearch).
+  for (const [itemId, researchId] of Object.entries(unlockedByResearch)) {
+    const def = defs[itemId];
+    if (def && !def.prerequisites.includes(researchId)) {
+      def.prerequisites = [...def.prerequisites, researchId];
     }
   }
 

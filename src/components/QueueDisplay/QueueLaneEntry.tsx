@@ -108,7 +108,11 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
 
         {/* Item Name */}
         <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : 'text-pink-nebula-text'}`}>
-          {isAutoWait ? '[Waiting for Prerequisites]' : entry.itemName}
+          {isAutoWait
+            ? `⏳ Auto-wait: ${entry.turnsRemaining}t (resource gap)`
+            : entry.isWait
+              ? `⏳ Manual wait: ${entry.turnsRemaining}t`
+              : entry.itemName}
         </div>
 
         {/* Quantity */}

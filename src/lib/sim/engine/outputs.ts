@@ -83,6 +83,53 @@ export function calculatePopulationFoodUpkeep(state: PlanetState): number {
 }
 
 /**
+ * Compute projected net outputs including queued-but-not-yet-complete items.
+ * Used for queue-time feasibility checks so that items depending on future
+ * production (e.g. research requiring RP from queued scientists) are not
+ * incorrectly blocked at the moment of queuing.
+ */
+export function computeProjectedNetOutputsPerTurn(state: PlanetState): NetOutputs {
+  const projected = { ...computeNetOutputsPerTurn(state) };
+
+  // Future scientists from the colonist queue produce RP
+  const colonistLane = state.lanes.colonist;
+  const queuedColonists = [
+    ...(colonistLane.active ? [colonistLane.active] : []),
+    ...colonistLane.pendingQueue,
+  ];
+  for (const item of queuedColonists) {
+    const def = state.defs[item.itemId];
+    if (def?.colonistKind === 'scientist') {
+      projected.research_points += item.quantity;
+    }
+  }
+
+  // Future production from queued buildings
+  const buildingLane = state.lanes.building;
+  const queuedBuildings = [
+    ...(buildingLane.active ? [buildingLane.active] : []),
+    ...buildingLane.pendingQueue,
+  ];
+  for (const item of queuedBuildings) {
+    const def = state.defs[item.itemId];
+    const effects = def?.effectsOnComplete;
+    if (!effects) continue;
+    for (const resourceId of RESOURCE_TYPES) {
+      const productionKey = `production_${resourceId}` as keyof typeof effects;
+      const production = (effects[productionKey] || 0) as number;
+      if (production > 0) {
+        const scaledProduction = def.isAbundanceScaled
+          ? production * state.abundance[resourceId]
+          : production;
+        projected[resourceId] += scaledProduction * item.quantity;
+      }
+    }
+  }
+
+  return projected;
+}
+
+/**
  * Add computed outputs to stocks (no caps)
  */
 export function addOutputsToStocks(state: PlanetState, outputs: NetOutputs): void {

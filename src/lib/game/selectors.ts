@@ -4,10 +4,11 @@
  */
 
 import type { PlanetState, LaneId, NetOutputs, ResourceId, WorkItem } from '../sim/engine/types';
-import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep } from '../sim/engine/outputs';
+import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep, computeProjectedNetOutputsPerTurn } from '../sim/engine/outputs';
 import { computeGrowthBonus } from '../sim/engine/growth_food';
 import { WORKER_GROWTH_BASE } from '../sim/rules/constants';
 import { canQueue } from '../sim/engine/validation';
+import { validateQueueWithWait, type QueueBlocker } from '../sim/engine/queueValidation';
 
 export interface PlanetSummary {
   turn: number;
@@ -67,12 +68,26 @@ export type WarningType =
   | 'NEGATIVE_ENERGY'
   | 'NO_FOOD'
   | 'HOUSING_FULL'
-  | 'SPACE_FULL';
+  | 'SPACE_FULL'
+  | 'QUEUE_CASCADE_REMOVAL';
 
 export interface Warning {
   type: WarningType;
   message: string;
   severity: 'error' | 'warning' | 'info';
+}
+
+/**
+ * Enriched queue availability result returned by canQueueItem.
+ * Consumers should grey out ONLY when canQueueEventually === false.
+ * When canQueueNow === false but canQueueEventually === true, show delay info.
+ */
+export interface SmartQueueCheck {
+  allowed: boolean;            // Can queue and activate now
+  canQueueEventually: boolean; // Can queue; item will activate after a wait
+  waitTurnsNeeded: number;     // Estimated turns until item can activate (0 = now)
+  blockers: QueueBlocker[];    // Detailed blocker list from validateQueueWithWait
+  reason?: string;             // Human-readable reason for hard block
 }
 
 /**
@@ -445,26 +460,116 @@ export function getAvailableItems(state: PlanetState): Record<string, any> {
 }
 
 /**
- * Check if an item can be queued (for UI validation)
+ * Calculate the first turn when a lane will have its slot free.
+ * Uses the simple formula: sum of active + all pending durations.
+ * Returns currentTurn if the lane is already empty.
+ */
+export function getFirstFreeTurnForLane(state: PlanetState, laneId: LaneId): number {
+  const lane = state.lanes[laneId];
+  if (!lane) return state.currentTurn;
+
+  // Empty lane: free immediately
+  if (!lane.active && lane.pendingQueue.length === 0) {
+    return state.currentTurn;
+  }
+
+  // Walk forward: active remaining + pending durations
+  let turnCursor = state.currentTurn;
+
+  if (lane.active) {
+    turnCursor += lane.active.turnsRemaining;
+  }
+
+  for (const item of lane.pendingQueue) {
+    const def = state.defs[item.itemId];
+    turnCursor += item.isWait ? item.turnsRemaining : (def?.durationTurns || 0);
+  }
+
+  return turnCursor;
+}
+
+/**
+ * Calculate the first turn when the research lane has enough RP to run something.
+ * Returns currentTurn if RP are already available or being produced.
+ * Falls back to colonist queue scan if no scientists exist yet.
+ */
+export function getFirstFreeTurnForResearch(state: PlanetState): number {
+  // If there's already RP or positive production, research can start now
+  const projected = computeProjectedNetOutputsPerTurn(state);
+  if (state.stocks.research_points > 0 || projected.research_points > 0) {
+    return getFirstFreeTurnForLane(state, 'research');
+  }
+
+  // No RP production — check if scientists are queued in the colonist lane
+  const colonistLane = state.lanes.colonist;
+  const queuedItems = [
+    ...(colonistLane.active ? [colonistLane.active] : []),
+    ...colonistLane.pendingQueue,
+  ];
+
+  let turnCursor = state.currentTurn;
+  for (const item of queuedItems) {
+    const def = state.defs[item.itemId];
+    if (def?.colonistKind === 'scientist') {
+      // Scientists will produce RP one turn after they complete conversion
+      const conversionTurn = turnCursor + (item.isWait ? item.turnsRemaining : (def?.durationTurns || 0));
+      return Math.max(conversionTurn + 1, getFirstFreeTurnForLane(state, 'research'));
+    }
+    turnCursor += item.isWait ? item.turnsRemaining : (def?.durationTurns || 0);
+  }
+
+  // No scientists in queue — research cannot start (hard block path)
+  return state.currentTurn;
+}
+
+/**
+ * Map a QueueBlocker type back to the legacy CanQueueReason code.
+ * This keeps TabbedItemGrid.humanizeReason and existing tests working.
+ */
+function blockerTypeToReasonCode(blockers: QueueBlocker[]): string | undefined {
+  if (blockers.length === 0) return undefined;
+  switch (blockers[0].type) {
+    case 'PREREQUISITE': return 'REQ_MISSING';
+    case 'PLANET_LIMIT': return 'PLANET_LIMIT_REACHED';
+    case 'HOUSING': return 'HOUSING_MISSING';
+    case 'ENERGY': return 'ENERGY_INSUFFICIENT';
+    case 'RESOURCES': return 'INSUFFICIENT_RESOURCES';
+    default: return blockers[0].message;
+  }
+}
+
+/**
+ * Smart queue availability check using first-free-turn validation.
+ * Returns enriched SmartQueueCheck instead of a bare { allowed, reason }.
+ * Grey out ONLY when canQueueEventually === false (hard block).
+ * When canQueueNow === false but canQueueEventually === true, show wait info.
  */
 export function canQueueItem(
   state: PlanetState,
   itemId: string,
   quantity: number
-): { allowed: boolean; reason?: string } {
+): SmartQueueCheck {
   const def = state.defs[itemId];
   if (!def) {
-    return { allowed: false, reason: 'Item not found' };
+    return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'Item not found' };
   }
 
-  const lane = state.lanes[def.lane];
+  // Run the full enriched validation on the current state.
+  // The caller (page.tsx) is responsible for passing the state at the correct
+  // first-free turn so that the validation context matches when the item would activate.
+  const result = validateQueueWithWait(state, def, quantity);
 
-  if (lane.pendingQueue.length >= lane.maxQueueDepth) {
-    return { allowed: false, reason: 'Queue is full' };
-  }
+  // Map blocker type back to a legacy reason code so humanizeReason() in TabbedItemGrid
+  // continues to produce the right UI messages (it switches on the code, not the raw string).
+  const reasonCode = blockerTypeToReasonCode(result.blockers);
 
-  // Use validation logic which checks prerequisites and energy
-  return canQueue(state, def, quantity);
+  return {
+    allowed: result.canQueueNow,
+    canQueueEventually: result.canQueueEventually,
+    waitTurnsNeeded: result.waitTurnsNeeded,
+    blockers: result.blockers,
+    reason: reasonCode,
+  };
 }
 
 /**
