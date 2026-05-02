@@ -23,7 +23,8 @@ export interface Costs {
   energy: number;
   research_points: number; // Research points cost
   workers: number; // Workers to reserve during construction
-  space: number; // Ground or orbital space (determined by type)
+  space: number; // Ground space consumed (ground structures only)
+  space_orbital: number; // Orbital space consumed (orbital structures only)
 }
 
 export interface Effects {

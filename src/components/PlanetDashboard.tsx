@@ -89,9 +89,11 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
       const foodIn = def?.upkeepPerUnit?.food || 0;
       const energyIn = def?.upkeepPerUnit?.energy || 0;
 
-      // Determine if this structure uses orbital space (orbital_facility subcategory)
-      const isOrbital = def?.subcategory === 'orbital_facility';
-      const spaceAmount = (def?.costsPerUnit?.space || 0) * count;
+      // Determine if this structure uses orbital or ground space
+      const isOrbital = (def?.costsPerUnit?.space_orbital || 0) > 0;
+      const spaceAmount = isOrbital
+        ? (def?.costsPerUnit?.space_orbital || 0) * count
+        : (def?.costsPerUnit?.space || 0) * count;
 
       return {
         id: structureId,

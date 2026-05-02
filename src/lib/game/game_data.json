@@ -1963,7 +1963,9 @@
       ],
       "build_requirements": {
         "workers_occupied": 240000,
-        "space_cost": []
+        "space_cost": [
+          { "type": "orbital_space", "amount": 4 }
+        ]
       },
       "requirements": [
         {

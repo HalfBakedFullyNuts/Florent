@@ -22,6 +22,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
       research_points: 0,
       workers: 0,
       space: 0,
+      space_orbital: 0,
     },
     effectsOnComplete: {
       production_metal: 300,
@@ -57,6 +58,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
       research_points: 0,
       workers: 5000,
       space: 1,
+      space_orbital: 0,
     },
     effectsOnComplete: {
       production_metal: 300,
@@ -86,6 +88,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
       research_points: 0,
       workers: 5000,
       space: 1,
+      space_orbital: 0,
     },
     effectsOnComplete: {
       production_food: 100,
@@ -115,6 +118,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
       research_points: 0,
       workers: 0,
       space: 0,
+      space_orbital: 0,
     },
     effectsOnComplete: {},
     upkeepPerUnit: {
@@ -142,6 +146,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
       research_points: 0,
       workers: 10, // Reserves 10 workers during training
       space: 0,
+      space_orbital: 0,
     },
     effectsOnComplete: {},
     upkeepPerUnit: {

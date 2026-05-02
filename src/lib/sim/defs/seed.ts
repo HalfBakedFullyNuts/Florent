@@ -75,6 +75,7 @@ export function createInitialState(
   let spaceGroundCap = config.space?.groundCap ?? STARTING_STATE.space.groundCap;
   let spaceOrbitalCap = config.space?.orbitalCap ?? STARTING_STATE.space.orbitalCap;
   let groundUsed = 0;
+  let orbitalUsed = 0;
 
   // Process starting structures
   for (const [structureId, count] of Object.entries(structures)) {
@@ -86,9 +87,11 @@ export function createInitialState(
 
     completedCounts[structureId] = count;
 
-    // Calculate space used
-    const spacePerUnit = def.costsPerUnit.space || 0;
-    groundUsed += spacePerUnit * count;
+    // Calculate space used (ground and orbital tracked separately)
+    const groundPerUnit = def.costsPerUnit.space || 0;
+    groundUsed += groundPerUnit * count;
+    const orbitalPerUnit = def.costsPerUnit.space_orbital || 0;
+    orbitalUsed += orbitalPerUnit * count;
 
     // Apply housing effects
     const effects = def.effectsOnComplete;
@@ -121,7 +124,7 @@ export function createInitialState(
     space: {
       groundUsed,
       groundCap: spaceGroundCap,
-      orbitalUsed: 0,
+      orbitalUsed,
       orbitalCap: spaceOrbitalCap,
     },
     housing: {

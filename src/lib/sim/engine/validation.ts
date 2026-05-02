@@ -348,12 +348,18 @@ export function clampBatchAtActivation(
     maxAffordable = Math.min(maxAffordable, Math.floor(state.population.workersIdle / workersNeeded));
   }
 
-  // Check space constraints — only structures consume ground space
-  // Ships and colonists do not reserve orbital or any other space
-  const spaceNeeded = def.costsPerUnit.space || 0;
-  if (spaceNeeded > 0 && def.type === 'structure') {
-    const availableSpace = state.space.groundCap - state.space.groundUsed;
-    maxAffordable = Math.min(maxAffordable, Math.floor(availableSpace / spaceNeeded));
+  // Check space constraints — only structures consume space
+  if (def.type === 'structure') {
+    const groundNeeded = def.costsPerUnit.space || 0;
+    if (groundNeeded > 0) {
+      const availableGround = state.space.groundCap - state.space.groundUsed;
+      maxAffordable = Math.min(maxAffordable, Math.floor(availableGround / groundNeeded));
+    }
+    const orbitalNeeded = def.costsPerUnit.space_orbital || 0;
+    if (orbitalNeeded > 0) {
+      const availableOrbital = state.space.orbitalCap - state.space.orbitalUsed;
+      maxAffordable = Math.min(maxAffordable, Math.floor(availableOrbital / orbitalNeeded));
+    }
   }
 
   // Clamp to 0 if we can't afford anything

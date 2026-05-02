@@ -118,7 +118,8 @@ function convertUnit(raw: RawUnit): ItemDefinition {
     energy: 0,
     research_points: 0,
     workers: raw.build_requirements.workers_occupied || 0,
-    space: 0, // Ships don't have space cost in the data
+    space: 0,
+    space_orbital: 0,
   };
 
   for (const cost of raw.cost) {
@@ -173,6 +174,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     research_points: 0,
     workers: raw.build_requirements.workers_occupied || 0,
     space: 0,
+    space_orbital: 0,
   };
 
   for (const cost of raw.cost) {
@@ -183,13 +185,13 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     }
   }
 
-  // Extract space cost
+  // Extract space cost — ground and orbital are tracked separately
   if (raw.build_requirements.space_cost) {
     for (const spaceCost of raw.build_requirements.space_cost) {
       if (spaceCost.type === 'ground_space') {
         costs.space = spaceCost.amount;
       } else if (spaceCost.type === 'orbital_space') {
-        costs.space = spaceCost.amount; // Note: we don't differentiate in engine yet
+        costs.space_orbital = spaceCost.amount;
       }
     }
   }
@@ -285,8 +287,9 @@ function convertResearch(raw: RawResearch): ItemDefinition {
     food: 0,
     energy: 0,
     research_points: 0,
-    workers: 0, // Research doesn't require workers
-    space: 0, // Research doesn't use space
+    workers: 0,
+    space: 0,
+    space_orbital: 0,
   };
 
   // Extract RP cost from the cost array
