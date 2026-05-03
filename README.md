@@ -4,7 +4,7 @@ A deterministic build-order planner for the 4X MMORPG **Infinite Conflict**. Pla
 
 Built with **Next.js 14 (App Router)**, **React**, **TypeScript**, **Tailwind**, and **Vitest**. Hosted as a static export on [StaticHost.eu](https://statichost.eu).
 
-> **Status:** v0.1.3 — mid-migration from a simple build planner to a full turn-based simulation engine. The legacy code in `src/lib/game/` keeps the app working while the new engine is grown in `src/lib/sim/`.
+> **Status:** v0.1.4 — mid-migration from a simple build planner to a full turn-based simulation engine. The legacy code in `src/lib/game/` keeps the app working while the new engine is grown in `src/lib/sim/`.
 
 ---
 
@@ -62,9 +62,9 @@ npm run build    # static export → ./out
 Run a single test file:
 
 ```bash
-npm run test src/lib/game/__tests__/agent.test.ts
+npm run test src/lib/game/__tests__/queue-integrity.test.ts
 npm run test -- --watch
-npm run test -- -t "enqueueItem"
+npm run test -- -t "queue"
 ```
 
 ## Project layout
@@ -86,10 +86,10 @@ tickets/          Active bug tickets
 
 ## Versioning
 
-Current version: **0.1.3**, declared in two places that must move together:
+Current version: **0.1.4**, declared in two places that must move together:
 
 - `package.json` → `"version"`
-- `src/app/page.tsx` → footer (`<div className="opacity-30 text-[10px]">v0.1.3</div>`)
+- `src/app/page.tsx` → footer (`<div className="opacity-30 text-[10px]">v0.1.4</div>`)
 
 Per project policy, **every delivered change bumps the patch version by 0.0.1** — no exceptions. See [`CHANGELOG.md`](CHANGELOG.md) for the version history and [`WORKLOG.md`](WORKLOG.md) for a chronological narrative of how the project got here.
 

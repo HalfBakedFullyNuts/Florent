@@ -6,6 +6,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.1.4] — 2026-05-03
+
+### Fixed
+- README quick-start example pointed at `src/lib/game/__tests__/agent.test.ts`, which does not exist. Replaced with `src/lib/game/__tests__/queue-integrity.test.ts` (a real file) and updated the `-t` filter pattern to match. Caught by Codex review on [PR #6](https://github.com/HalfBakedFullyNuts/Florent/pull/6).
+
+### Changed
+- Bumped version footer in `src/app/page.tsx` and `package.json` from `0.1.3` to `0.1.4`.
+
+---
+
 ## [0.1.3] — 2026-05-03
 
 ### Added
