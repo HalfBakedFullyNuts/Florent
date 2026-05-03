@@ -72,10 +72,13 @@ export function GameStateProvider({ children }: GameStateProviderProps) {
         return gameState.planets.get(currentPlanetId) || null;
     }, [gameState.planets, currentPlanetId]);
 
+    // Only recreate when planet ID changes — avoiding currentPlanet in deps
+    // preserves the controller's internal timeline cache across mutations.
     const controller = useMemo(() => {
         if (!currentPlanet || !currentPlanet.timeline) return null;
         return new GameController(currentPlanet, currentPlanet.timeline);
-    }, [currentPlanetId, currentPlanet]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPlanetId]);
 
     // URL Auto-save
     useEffect(() => {

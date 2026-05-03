@@ -6,6 +6,25 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.1.8] — 2026-05-03
+
+### Fixed
+- **`formatOutput` produced wrong European number format** in both `PlanetSummary.tsx` and `PlanetDashboard.tsx`: `1250.7` rendered as `+1,250.7` instead of `+1.250,7` because the thousands-separator regex inserted a `.` before the existing decimal `.`, then `replace('.', ',')` only swapped the first dot. Reworked to split on the decimal point first, then insert thousand separators only on the integer part. The two pre-existing test failures in `PlanetSummary.test.tsx` and `PlanetDashboard.test.tsx` now pass — full suite is **393 passed** (was 391/2).
+- **`react-hooks/rules-of-hooks` follow-up**: cleaned up all 11 `exhaustive-deps` warnings in `page.tsx`, `TabbedItemGrid.tsx`, and `GameStateContext.tsx`. Two patterns:
+  - **Real bugs fixed**: `executeCancellation` was missing `currentPlanet?.startTurn` and `isAutoJumpEnabled` (stale-closure risk on cancel-with-auto-jump); `tryQueue` was missing `getQty` and `humanizeReason` (now wrapped with `useCallback`); three callbacks (`confirmPendingCancellation`, `handleCancelItem`, `getMaxQuantity`) had unused `viewTurn` deps removed.
+  - **Intentional cache-busting deps** (gameState in `currentState`/`fullPlanState`/`firstEmptyTurns`, currentPlanetId in controller useMemos): suppressed with `eslint-disable-next-line react-hooks/exhaustive-deps` and a comment explaining why — the controller mutates its internal timeline outside React's awareness, so we add `gameState` as a re-evaluation trigger.
+
+### Removed
+- **Dead code**: `findNextEmptyQueueTurn` in `src/app/page.tsx` (~50 lines). Defined but never called from anywhere except its own recursion.
+
+### Changed
+- `tsconfig.tsbuildinfo` is now gitignored and untracked. Was polluting `git status` on every `tsc` run.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.7` to `0.1.8`.
+
+---
+
 ## [0.1.7] — 2026-05-03
 
 ### Added — Mobile responsiveness pass

@@ -103,15 +103,16 @@ export default function Home() {
     return gameState.planets.get(currentPlanetId) || null;
   }, [gameState.planets, currentPlanetId]);
 
-  // Initialize controller for the current planet (for timeline/turn management)
-  // Use useMemo to avoid recreating controller unnecessarily
+  // Initialize controller for the current planet (for timeline/turn management).
+  // Intentionally depends only on currentPlanetId — recreating on every planet-state
+  // change would discard the controller's internal timeline cache (very expensive).
   const controller = useMemo(() => {
     if (!currentPlanet || !currentPlanet.timeline) {
       return null;
     }
-    // IMPORTANT: Pass the existing timeline to avoid recomputing all turns
     return new GameController(currentPlanet, currentPlanet.timeline);
-  }, [currentPlanetId]); // Only recreate when planet ID changes, not when planet state changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPlanetId]);
 
   // Note: viewTurn is synced synchronously in handlePlanetSwitch/handleCreatePlanet
   // to avoid render timing issues with planets that have different start turns
@@ -145,11 +146,13 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [gameState, commandHistory]);
 
-  // Memoize currentState to ensure React detects changes when viewTurn changes
-  // Note: We pass viewTurn directly - controller.getStateAtTurn returns a cloned state
+  // Memoize currentState to ensure React detects changes when viewTurn changes.
+  // gameState is intentionally a dep so queue mutations re-run getStateAtTurn —
+  // the controller mutates its internal timeline outside React's awareness.
   const currentState = useMemo(() => {
     if (!controller) return undefined;
     return controller.getStateAtTurn(viewTurn);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, viewTurn, gameState]);
   const totalTurns = controller?.getTotalTurns() || 200;
 
@@ -176,13 +179,14 @@ export default function Home() {
   // These hooks must be called unconditionally (Rules of Hooks)
   const summary = useMemo(() => currentState ? getPlanetSummary(currentState) : null, [currentState]);
 
-  // To display the global queue regardless of the turn slider, we pull the timeline's final state
+  // To display the global queue regardless of the turn slider, we pull the timeline's final state.
+  // gameState is intentionally a dep so mutations re-run getStateAtTurn (controller mutates
+  // its timeline outside React's awareness — same pattern as currentState).
   const fullPlanState = useMemo(() => {
     if (!controller) return undefined;
-    // By re-evaluating when gameState changes, we ensure global queue updates
-    // when queue mutations happen (since executeCancellation updates gameState).
     return controller.getStateAtTurn(199);
-  }, [controller, viewTurn, gameState]); // DO NOT REMOVE gameState 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controller, gameState]);
 
   // Helper to adjust the status of the global queue items relative to the current viewTurn
   const getAdjustedLaneView = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research') => {
@@ -225,12 +229,14 @@ export default function Home() {
     return [...warnings, ...cascadeItems];
   }, [warnings, cascadeWarnings]);
 
-  // Calculate first empty turn for each lane (for timeline quick jump buttons)
-  // Always search from turn 1, not from viewTurn, so the button shows a consistent target
+  // Calculate first empty turn for each lane (for timeline quick jump buttons).
+  // gameState is intentionally a dep so queue mutations re-evaluate (controller mutates
+  // its timeline outside React's awareness — same pattern as currentState/fullPlanState).
   const firstEmptyTurns = useMemo(() => {
     if (!controller) return { building: null, ship: null, colonist: null };
     const getState = (turn: number) => controller.getStateAtTurn(turn);
     return getFirstEmptyTurns(getState, 1, totalTurns);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, totalTurns, gameState]);
 
   // Enrich all lanes with validation state in a single useMemo
@@ -527,7 +533,7 @@ export default function Home() {
 
       setQueueValidation(validationMap);
     }
-  }, [controller, viewTurn, gameState, setGameState, commandHistory]);
+  }, [controller, viewTurn, gameState, setGameState, commandHistory, currentPlanet?.startTurn, isAutoJumpEnabled]);
 
   const confirmPendingCancellation = useCallback(() => {
     if (!pendingCancellation || !controller) return;
@@ -544,7 +550,7 @@ export default function Home() {
 
     // Close modal
     setPendingCancellation(null);
-  }, [pendingCancellation, controller, viewTurn, executeCancellation]);
+  }, [pendingCancellation, controller, executeCancellation]);
 
   const handleCancelItem = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
     setError(null);
@@ -578,7 +584,7 @@ export default function Home() {
     } catch (e) {
       setError((e as Error).message || 'Unknown error');
     }
-  }, [controller, viewTurn, executeCancellation]);
+  }, [controller, executeCancellation]);
 
   const handleQuantityChange = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any, newQuantity: number) => {
     setError(null);
@@ -669,7 +675,7 @@ export default function Home() {
     }
 
     return maxValid;
-  }, [controller, viewTurn, canQueueItem]);
+  }, [controller, canQueueItem]);
 
   const handleAdvanceTurn = useCallback(() => {
     setError(null);
@@ -740,56 +746,6 @@ export default function Home() {
       <h1 className="text-2xl font-bold">Error: Invalid turn {viewTurn}</h1>
     </div>;
   }
-
-  // Helper: Find next turn where all queues are empty
-  const findNextEmptyQueueTurn = (startTurn: number): number => {
-    if (!controller) {
-      return startTurn; // If no controller, just return current turn
-    }
-
-    const totalTurns = controller.getTotalTurns();
-    const maxTurn = totalTurns - 1;
-    const MAX_ITERATIONS = 1000; // Circuit breaker
-    const startTime = performance.now();
-    const TIMEOUT_MS = 100; // Performance budget
-
-    // If we're already at or beyond the last turn, just stay at current turn
-    if (startTurn > maxTurn) {
-      return maxTurn;
-    }
-
-    let iterations = 0;
-    for (let turn = startTurn; turn <= maxTurn && iterations < MAX_ITERATIONS; turn++) {
-      iterations++;
-
-      // Check timeout
-      if (performance.now() - startTime > TIMEOUT_MS) {
-        console.warn(`Turn calculation timeout after ${iterations} iterations`);
-        return Math.min(startTurn, maxTurn); // Stay within bounds
-      }
-
-      const state = controller.getStateAtTurn(turn);
-      if (!state) continue;
-
-      // Check if all lanes are empty (no pending queue items, no active)
-      const allLanesEmpty = Object.values(state.lanes).every(
-        (lane) => lane.pendingQueue.length === 0 && !lane.active
-      );
-
-      if (allLanesEmpty) {
-        return turn;
-      }
-    }
-
-    // If no empty turn found, simulate more turns and try again
-    if (totalTurns <= 100) { // Only auto-simulate if reasonable number of turns
-      controller.simulateTurns(10); // Add 10 more turns
-      return findNextEmptyQueueTurn(startTurn); // Recursive call with new turns
-    }
-
-    // Otherwise just advance a reasonable amount
-    return Math.min(startTurn + 10, controller.getTotalTurns() - 1);
-  };
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">
@@ -981,7 +937,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.1.7</div>
+          <div className="opacity-30 text-[10px]">v0.1.8</div>
         </footer>
       </div>
 
