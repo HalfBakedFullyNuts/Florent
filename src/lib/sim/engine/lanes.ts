@@ -147,12 +147,15 @@ export function tryActivateNext(
   }
   reserveWorkersAndSpace(state, def, actualQty, laneId);
 
+  // Phase 2b activations happen AFTER progressActive in the current turn, so this item
+  // gets no decrement until next turn — its first turn of work is currentTurn + 1.
+  const isPhase2b = projectedBonus !== undefined;
   lane.active = {
     ...pending,
     quantity: actualQty,
     status: 'active',
     turnsRemaining: def.durationTurns,
-    startTurn: state.currentTurn,
+    startTurn: isPhase2b ? state.currentTurn + 1 : state.currentTurn,
   };
 
   getLogger().logQueueOperation(

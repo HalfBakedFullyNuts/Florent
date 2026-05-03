@@ -6,6 +6,19 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.1.4] — 2026-05-03
+
+### Fixed
+- Planet Queue turn-range overlap: items activated mid-turn via Phase 2b (the post-completion re-activation pass in `runTurn`) recorded `startTurn = currentTurn` even though their first `progressActive` decrement only occurred the next turn. Back-to-back builds now display correctly (e.g. `T1–T4` followed by `T5–T8`, not `T1–T4` followed by `T4–T8`). Cost deduction timing is unchanged. (`src/lib/sim/engine/lanes.ts`)
+
+### Documentation
+- README: replaced the dead `agent.test.ts` reference with the real `queue-integrity.test.ts`, and changed the example `-t "enqueueItem"` filter to `-t "queue"` (Codex catch).
+
+### Changed
+- Bumped version footer in `src/app/page.tsx` and `package.json` from `0.1.3` to `0.1.4`.
+
+---
+
 ## [0.1.3] — 2026-05-03
 
 ### Added

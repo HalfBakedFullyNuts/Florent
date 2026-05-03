@@ -1,118 +1,119 @@
-# Infinite Conflict — Turn-Based Strategy Simulator
+﻿# Infinite Conflict Planner
 
-A deterministic build-order planner for the 4X MMORPG **Infinite Conflict**. Plan a planet's economy, queue structures / ships / colonists / research, scrub a turn slider through a 200-turn timeline, and share the plan via a compact URL.
+A deterministic build planner and turn simulator for Infinite Conflict, built with Next.js, React, TypeScript, and Vitest.
 
-Built with **Next.js 14 (App Router)**, **React**, **TypeScript**, **Tailwind**, and **Vitest**. Hosted as a static export on [StaticHost.eu](https://statichost.eu).
+The app helps plan planet development across multiple production lanes, inspect future turns, manage queues, and export/share build orders.
 
-> **Status:** v0.1.3 — mid-migration from a simple build planner to a full turn-based simulation engine. The legacy code in `src/lib/game/` keeps the app working while the new engine is grown in `src/lib/sim/`.
+The live website can be found here: florent-infiniteconflict.statichost.page
 
----
+## Features
 
-## What it does
+- Multi-planet planning with configurable resource abundance and space caps.
+- Deterministic turn simulation with rewind/forward inspection through a horizontal timeline.
+- Production lanes for buildings, ships, colonists, and research-compatible engine data.
+- Queue actions for adding items, waits, cancellation, quantity changes, and reordering.
+- Dependency and validation warnings for invalid or cascading queue changes.
+- Planet dashboard for stocks, production, population, space, and housing pressure.
+- Shareable URL/localStorage state encoded from command history.
+- Queue export as plain text, Discord-friendly text, or PNG image.
+- Static export support for simple hosting.
 
-- **Deterministic turn engine.** Same inputs → same outputs, every turn, forever. Plans are reproducible and shareable.
-- **Three production lanes.** Building → Ship → Colonist run in a strict per-turn order. Research is a fourth lane, gated by Research Points.
-- **Activation-time pricing.** Resource, worker, and space costs are reserved when an item *activates* (leaves the pending queue), not when it's queued or completes. Pending items reserve nothing.
-- **Auto-wait injection.** When a queued item depends on a prereq that isn't built yet, the engine inserts an explicit `isAutoWait` node so the wait is visible in the timeline.
-- **Repacking.** Cancellations and reorders cause the queue to be rebuilt by replaying intent from earliest to latest, so gaps collapse cleanly.
-- **Cascading cancellation.** Cancelling a prereq runs a simulated re-validation in a cloned state and surfaces every dependent item in a confirmation modal.
-- **Multi-planet support.** Tab between planets; full state syncs to the URL.
-- **Compact URL encoding.** Plans serialize to a short shareable URL fragment.
-- **Image / debug export.** Export a screenshot of the planet board or copy the full debug state to the clipboard.
-- **localStorage auto-save.** Browser refresh doesn't lose your plan.
-- **Vertical turn slider with auto-jump.** Jump to the turn where the last queued building completes for instant feedback on a build order.
+## Tech Stack
 
-## Architecture (one-screen overview)
+- Next.js 14 App Router
+- React 18
+- TypeScript
+- Tailwind CSS
+- Vitest and Testing Library
+- html2canvas for image exports
 
-```
-┌─────────────────────────────────────────────┐
-│ UI (src/app, src/components)                │  Next.js, "use client"
-├─────────────────────────────────────────────┤
-│ Orchestration (src/lib/game)                │  GameStateContext → GameController
-│   - Commands API (mutations)                │  Selectors (read-only projections)
-│   - Timeline / snapshots                    │  URL + localStorage sync
-├─────────────────────────────────────────────┤
-│ Engine (src/lib/sim)                        │  Pure TS, framework-free
-│   - types, validation, lanes                │  No React / DOM imports
-│   - completions, outputs, turn              │
-└─────────────────────────────────────────────┘
-                  ▲
-                  │
-        src/lib/game/game_data.json   ← single source of truth for content
-```
-
-Three rules to remember:
-
-1. **No React in `src/lib/game/`** (except the explicit `GameStateContext.tsx` orchestrator) and **no React anywhere in `src/lib/sim/`**.
-2. **All mutations route through `GameController`.** No standalone wrapper functions.
-3. **`game_data.json` is truth.** Never hardcode unit or structure definitions in components.
-
-Full architectural rationale lives in [`Architecture/ARCHITECTURAL_DECISIONS.md`](Architecture/ARCHITECTURAL_DECISIONS.md).
-
-## Quick start
+## Quick Start
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
-npm run test     # Vitest
-npm run lint
-npm run build    # static export → ./out
+npm run dev
 ```
 
-Run a single test file:
+Open http://localhost:3000.
+
+## Scripts
 
 ```bash
-npm run test src/lib/game/__tests__/agent.test.ts
-npm run test -- --watch
-npm run test -- -t "enqueueItem"
+npm run dev      # Start the local Next.js development server
+npm run build    # Clean and build the static export
+npm run start    # Start a Next.js production server
+npm run lint     # Run Next.js linting
+npm run test     # Run the Vitest test suite
 ```
 
-## Project layout
+`next.config.js` currently uses `output: 'export'`, so production builds emit static files into `out/`.
 
+## Project Layout
+
+```text
+src/app/                    Next.js routes and top-level app page
+src/components/             React UI components
+src/components/ui/          Shared UI primitives
+src/lib/game/               Game state, commands, selectors, persistence, logging
+src/lib/sim/engine/         Framework-free deterministic simulation engine
+src/lib/sim/rules/          Turn-order rules and constants
+src/lib/sim/defs/           Game definition adapters and seed state
+src/lib/export/             Build-order export formatters
+src/test/fixtures/          Shared test fixtures
+docs/                       Feature and troubleshooting docs
+Architecture/               Design notes, tickets, and implementation plans
+scripts/                    Data extraction/import helpers
+public/                     Static assets
+out/                        Generated static build output
 ```
-src/
-  app/            Next.js App Router pages + tests
-  components/     Presentational + container UI
-  lib/
-    game/         Orchestration layer + GameStateContext + game_data.json (legacy logic also lives here, being migrated)
-    sim/          New deterministic engine (framework-free)
-  test/fixtures/  Shared test scenarios
 
-Architecture/     ADRs, design docs, tickets, UI specs
-claudedocs/       Phase completion reports + dated bug analyses
-docs/             Topical docs (research, export troubleshooting)
-tickets/          Active bug tickets
+## Simulator Architecture
+
+The core simulation code lives under `src/lib/sim/` and is kept independent of React and Next.js. The UI talks to the planner through the orchestration layer in `src/lib/game/`:
+
+- `commands.ts` mutates plans through a controlled API.
+- `gameState.ts` manages planets and global state.
+- `selectors.ts` produces read-only projections for the UI.
+- `state.ts` provides timeline/state access.
+- `urlState.ts` encodes and replays command history for sharing.
+
+This split keeps the engine deterministic and testable while allowing the UI to inspect any turn without owning simulation rules directly.
+
+## Data
+
+Game definitions are stored in `src/lib/game/game_data.json`, with supporting CSV/source files in the repository root. Research data is available in `src/lib/game/research_data.json`. Data import helpers live in `scripts/`.
+
+## Testing
+
+Run all tests with:
+
+```bash
+npm run test
 ```
 
-## Versioning
+Tests cover the simulation engine, game state and selectors, export formatting, queue validation, multi-planet flows, and React components.
 
-Current version: **0.1.3**, declared in two places that must move together:
+## Docker
 
-- `package.json` → `"version"`
-- `src/app/page.tsx` → footer (`<div className="opacity-30 text-[10px]">v0.1.3</div>`)
+Docker configuration is included:
 
-Per project policy, **every delivered change bumps the patch version by 0.0.1** — no exceptions. See [`CHANGELOG.md`](CHANGELOG.md) for the version history and [`WORKLOG.md`](WORKLOG.md) for a chronological narrative of how the project got here.
+```bash
+docker compose up dev --build
+docker compose run --rm test
+```
 
-## Hosting
+See `DOCKER.md` for the full container workflow. Note that the main Next.js config currently targets static export; update the output mode if you need a standalone production server image.
 
-Production builds deploy to StaticHost.eu. `next.config.js` sets `output: 'export'`; `statichost.yaml` defines the build command and output dir (`out`). Push to `main` and StaticHost picks it up.
+## Useful Docs
 
-A Docker setup is also available for local containerized work — see [`DOCKER.md`](DOCKER.md).
-
-## Documentation map
-
-- [`CLAUDE.md`](CLAUDE.md) — instructions for AI assistants (and a tight summary of the rules)
-- [`CHANGELOG.md`](CHANGELOG.md) — version history (Keep a Changelog format)
-- [`WORKLOG.md`](WORKLOG.md) — chronological project journal
-- [`Architecture/`](Architecture/) — ADRs, pseudocode, test strategy, UI specs, tickets
-- [`LLM_AND_DEV_GUIDELINES.md`](LLM_AND_DEV_GUIDELINES.md) — change-proposal template and review checklist
-- [`LOGGING_GUIDE.md`](LOGGING_GUIDE.md) — runtime logging conventions
-- [`DOCKER.md`](DOCKER.md) — local container setup
+- `DOCKER.md` - Docker setup and commands
+- `LOGGING_GUIDE.md` - Runtime logging/debugging helpers
+- `docs/EXPORT_TROUBLESHOOTING.md` - Export issue guide
+- `docs/RESEARCH_IMPLEMENTATION.md` - Research implementation notes
+- `Architecture/ARCHITECTURAL_DECISIONS.md` - Architecture rationale
+- `Architecture/CoreLogicPseudocode.md` - Engine pseudocode
+- `CLAUDE.md` - Guidance for AI coding assistants
 
 ## License
 
-MIT — see [`LICENSE`](LICENSE).
-
-## Contributors
-
-Created by **Wolfpack** for *Infinite Conflict*.
+MIT
