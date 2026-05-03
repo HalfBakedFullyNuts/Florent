@@ -22,6 +22,12 @@ import { PlanetTabs } from '../components/PlanetTabs';
 import { AddPlanetModal, type PlanetConfig } from '../components/AddPlanetModal';
 import { Card } from '@/components/ui/card';
 import { DependencyWarningModal } from '../components/DependencyWarningModal';
+import { SavesModal } from '../components/SavesModal';
+
+// Persistence
+import { encodeGameState } from '../lib/game/urlState';
+import { pushHistory, migrateLegacyLocalStorage } from '../lib/persistence/savesDb';
+import { buildSaveSummary } from '../lib/persistence/saveSummary';
 
 /**
  * Main game page - Multi-planet support
@@ -77,6 +83,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [queueValidation, setQueueValidation] = useState<Map<string, QueueValidationResult>>(new Map());
   const [showExportModal, setShowExportModal] = useState<'current' | 'full' | null>(null);
+  const [showSavesModal, setShowSavesModal] = useState(false);
   const [activeTab, setActiveTab] = useState<'building' | 'ship' | 'colonist' | 'research'>('building');
   // Mobile-only toggle between Build (Add to Queue) and Queue (Planet Queue) panels.
   // Both render side-by-side on md+ screens; on mobile only the active one is shown.
@@ -117,7 +124,12 @@ export default function Home() {
   // Note: viewTurn is synced synchronously in handlePlanetSwitch/handleCreatePlanet
   // to avoid render timing issues with planets that have different start turns
 
-  // Auto-save to URL on state changes (debounced)
+  // One-time migration of any pre-IndexedDB localStorage save into the history store.
+  useEffect(() => {
+    migrateLegacyLocalStorage(buildSaveSummary).catch((e) => console.warn('[saves] migration failed:', e));
+  }, []);
+
+  // Auto-save to URL + IndexedDB history on state changes (debounced).
   useEffect(() => {
     const timer = setTimeout(() => {
       try {
@@ -137,6 +149,12 @@ export default function Home() {
             jsonSize: sizeInfo.json,
             compressedSize: sizeInfo.encoded,
           });
+
+          // Push to IndexedDB ring buffer so the user can revert auto-saves.
+          // pushHistory dedupes against the most-recent identical encoded payload.
+          const encoded = encodeGameState(planetConfigs, commands);
+          const summary = buildSaveSummary(encoded);
+          pushHistory(encoded, summary).catch((e) => console.warn('[saves] history push failed:', e));
         }
       } catch (error) {
         console.error('[URL State] Failed to save:', error);
@@ -740,6 +758,37 @@ export default function Home() {
     }
   }, [controller, currentPlanetId, gameState, commandHistory]);
 
+  // Snapshot the current encoded state for the saves modal — encapsulates the
+  // same encode-once-then-summarise pattern used by the auto-save effect.
+  const getCurrentSnapshot = useCallback(() => {
+    try {
+      const planetConfigs = extractPlanetConfigs(gameState);
+      const commands = commandHistory.getCommands();
+      if (commands.length === 0) return null;
+      const encoded = encodeGameState(planetConfigs, commands);
+      const summary = buildSaveSummary(encoded);
+      return { encoded, summary };
+    } catch {
+      return null;
+    }
+  }, [gameState, commandHistory]);
+
+  // Restore a save: push the encoded state into the URL hash and reload so the
+  // existing hash-based bootstrap rebuilds command history from scratch.
+  // Reload (vs trying to splice state in-place) avoids any stale closures and
+  // keeps the restore path identical to the share-link flow.
+  const handleRestoreSave = useCallback((encoded: string, label: string) => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.location.hash = `state=${encoded}`;
+      setToast(`Loading "${label}"…`);
+      // Reload so loadStateFromURL runs cleanly on next mount.
+      setTimeout(() => window.location.reload(), 200);
+    } catch (e) {
+      setError(`Failed to restore: ${(e as Error).message}`);
+    }
+  }, []);
+
   // Guard against undefined state — all hooks are declared above
   if (!currentState || !summary || !enrichedBuildingLane || !enrichedShipLane || !enrichedColonistLane || !enrichedResearchLane) {
     return <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text p-6">
@@ -886,6 +935,14 @@ export default function Home() {
                     <span>Share Link</span>
                   </button>
                   <button
+                    onClick={() => setShowSavesModal(true)}
+                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 bg-slate-700 hover:bg-slate-600 text-pink-nebula-text font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
+                    title="Save, load, and import plans (stored on this device)"
+                  >
+                    <span>💾</span>
+                    <span>Saves</span>
+                  </button>
+                  <button
                     className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 border border-pink-nebula-text text-pink-nebula-text rounded hover:bg-pink-nebula-text hover:text-pink-nebula-bg transition-colors text-sm md:text-base"
                     onClick={() => setShowExportModal('current')}
                     title="Export current planet data"
@@ -937,7 +994,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.1.9</div>
+          <div className="opacity-30 text-[10px]">v0.2.0</div>
         </footer>
       </div>
 
@@ -960,6 +1017,14 @@ export default function Home() {
         onClose={() => setShowAddPlanetModal(false)}
         onAddPlanet={handleCreatePlanet}
         currentTurn={currentPlanet?.currentTurn || 1}
+      />
+
+      {/* Saves Modal — IndexedDB-backed named saves, auto-save history, and JSON import */}
+      <SavesModal
+        isOpen={showSavesModal}
+        onClose={() => setShowSavesModal(false)}
+        getCurrentSnapshot={getCurrentSnapshot}
+        onRestore={handleRestoreSave}
       />
 
       {/* Transient toast — shown after copy-link, etc. */}

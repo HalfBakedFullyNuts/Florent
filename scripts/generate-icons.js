@@ -1,0 +1,96 @@
+/**
+ * Generate PWA icons (PNG) from a master SVG.
+ *
+ * One-off script: run via `node scripts/generate-icons.js` whenever the SVG changes.
+ * Outputs are committed to public/icons/ so deployment doesn't need sharp.
+ */
+
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
+
+const ROOT = path.resolve(__dirname, '..');
+const ICONS_DIR = path.join(ROOT, 'public', 'icons');
+
+// Master SVG — uses the app's pink-nebula theme:
+// radial gradient from accent-primary (#e91e63) to panel (#21182c), with "IC" monogram.
+// 10% safe-area padding inside so Android's "maskable" shape-mask doesn't crop the glyph.
+const SVG = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="62%">
+      <stop offset="0%" stop-color="#3a1a2e"/>
+      <stop offset="55%" stop-color="#21182c"/>
+      <stop offset="100%" stop-color="#120c18"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="42%" r="38%">
+      <stop offset="0%" stop-color="#e91e63" stop-opacity="0.55"/>
+      <stop offset="60%" stop-color="#e91e63" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#e91e63" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="text" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff4081"/>
+      <stop offset="100%" stop-color="#e91e63"/>
+    </linearGradient>
+  </defs>
+  <!-- Solid base square (PWA needs full bleed) -->
+  <rect width="512" height="512" fill="url(#bg)"/>
+  <!-- Soft nebula glow -->
+  <rect width="512" height="512" fill="url(#glow)"/>
+  <!-- Stars -->
+  <g fill="#e1dce6" opacity="0.7">
+    <circle cx="92" cy="120" r="2"/>
+    <circle cx="430" cy="98" r="1.5"/>
+    <circle cx="380" cy="180" r="1"/>
+    <circle cx="120" cy="380" r="1.5"/>
+    <circle cx="450" cy="360" r="2"/>
+    <circle cx="80" cy="260" r="1"/>
+    <circle cx="170" cy="80" r="1"/>
+    <circle cx="340" cy="430" r="1"/>
+  </g>
+  <!-- "IC" monogram, centered, kept inside 10% safe area (52..460 on each axis) -->
+  <text x="256" y="318"
+        font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif"
+        font-size="220"
+        font-weight="800"
+        text-anchor="middle"
+        letter-spacing="-8"
+        fill="url(#text)">IC</text>
+  <!-- Subtle outer ring for definition against light home screens -->
+  <rect x="3" y="3" width="506" height="506" rx="96" ry="96"
+        fill="none" stroke="#3c2d4a" stroke-width="6"/>
+</svg>
+`;
+
+function ensureDir(dir) {
+  fs.mkdirSync(dir, { recursive: true });
+}
+
+async function main() {
+  ensureDir(ICONS_DIR);
+  const svgPath = path.join(ICONS_DIR, 'icon.svg');
+  fs.writeFileSync(svgPath, SVG);
+  console.log(`wrote ${svgPath}`);
+
+  const sizes = [
+    { px: 192, name: 'icon-192.png' },
+    { px: 512, name: 'icon-512.png' },
+    { px: 180, name: 'apple-touch-icon.png' }, // iOS
+    { px: 32, name: 'favicon-32.png' },
+    { px: 16, name: 'favicon-16.png' },
+  ];
+
+  for (const { px, name } of sizes) {
+    const out = path.join(ICONS_DIR, name);
+    await sharp(Buffer.from(SVG))
+      .resize(px, px)
+      .png()
+      .toFile(out);
+    console.log(`wrote ${out} (${px}x${px})`);
+  }
+}
+
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

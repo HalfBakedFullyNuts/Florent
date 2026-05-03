@@ -6,6 +6,46 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.0] — 2026-05-03
+
+A persistence + PWA pass — the app now installs to your home screen, works offline once visited, and remembers multiple plans across sessions.
+
+### Added — Saves manager (IndexedDB)
+- New **Saves** button in the Planet Queue header opens a modal with three tabs:
+  - **Saves**: named, user-managed saves. Save current state, load, rename, delete, export-to-JSON.
+  - **History**: the last 30 auto-saves (ring buffer). Lets you revert to any prior auto-save, not just the latest.
+  - **Import**: upload a `.florent.json` file, or paste its JSON contents, then Load-now or Save-as-new-entry.
+- Auto-save now writes to **both** the URL hash (unchanged, still shareable) and an IndexedDB `history` store. Identical-content snapshots are deduped so the history doesn't fill with no-ops.
+- Storage layer at `src/lib/persistence/savesDb.ts` (uses [`idb`](https://www.npmjs.com/package/idb)) with two stores: `saves` (named) and `history` (auto-save ring buffer, capped at 30).
+- One-time migration: existing single-slot `florent_save` localStorage values are seeded into the IndexedDB history on first load, then the migration flag is set so it doesn't run again.
+
+### Added — JSON file export/import
+- "Export" button on each save and on the Save-current panel writes a human-readable `.florent.json`:
+  ```json
+  { "format": 1, "name": "Tech rush", "exportedAt": "2026-…", "app": "florent",
+    "metadata": { "planetCount": 1, "commandCount": 42, "planetNames": "Homeworld" },
+    "encoded": "<v2 share-URL payload>" }
+  ```
+- Import reads the same shape, validates `app === "florent"`, and verifies the encoded payload decodes before letting you load it.
+- Filenames are auto-generated as `<safe-name>_<YYYY-MM-DD-HH-mm>.florent.json`.
+
+### Added — PWA shell
+- `public/manifest.json` with name, theme colors, standalone display, icons in three sizes (192, 512, SVG) and `purpose: "maskable"` variants for Android shape-masking.
+- Generated placeholder icons (SVG master + 16/32/180/192/512 PNGs) using the project's pink-nebula palette: radial gradient, "IC" monogram, subtle rounded ring. Master SVG and `scripts/generate-icons.js` (one-off Sharp-based renderer) both committed; rerun the script to regenerate.
+- `public/sw.js` — hand-rolled service worker (~80 lines), registered from `layout.tsx` only on production hostnames so dev rebuilds don't trip its cache. Strategy:
+  - HTML navigation: **network-first**, falls back to cached app shell when offline.
+  - Same-origin static assets (`_next/`, `icons/`, `vendor/`, css/js/font/img): **cache-first with stale-while-revalidate** background refresh.
+  - Cross-origin requests pass through.
+- iOS Safari support: `apple-touch-icon` link, `apple-mobile-web-app-capable` meta, status-bar style `black-translucent`.
+
+### Tests
+- New `src/lib/persistence/__tests__/saveFile.test.ts` (7 tests): round-trip serialise/parse, rejection of non-JSON / non-Florent / un-decodable payloads, filename sanitisation, summary extraction. Full suite is now **400 passed / 1 skipped** (was 393).
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.9` to `0.2.0` (minor bump for the new feature surface).
+
+---
+
 ## [0.1.9] — 2026-05-03
 
 ### Fixed
