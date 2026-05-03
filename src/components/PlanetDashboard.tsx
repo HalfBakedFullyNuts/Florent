@@ -9,6 +9,8 @@ export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
   defs: Record<string, any>;
   turnsToHousingCap?: number | null;
+  /** True when a building activated this turn using projected production to cover costs */
+  stocksEstimated?: boolean;
 }
 
 /**
@@ -23,7 +25,7 @@ export interface PlanetDashboardProps {
  *
  * Memoized to prevent unnecessary re-renders
  */
-export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, defs, turnsToHousingCap }: PlanetDashboardProps) {
+export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, defs, turnsToHousingCap, stocksEstimated }: PlanetDashboardProps) {
   const resources = [
     { id: 'metal', label: 'Metal', color: 'text-gray-300' }, // silver
     { id: 'mineral', label: 'Mineral', color: 'text-red-500' }, // red
@@ -146,7 +148,10 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
                     <td className={`py-2 font-semibold w-20 ${resource.color}`}>
                       {resource.label}
                     </td>
-                    <td className="text-right py-2 text-pink-nebula-text font-mono w-24">
+                    <td
+                      className={`text-right py-2 font-mono w-24 ${stocksEstimated ? 'italic text-pink-nebula-muted cursor-help' : 'text-pink-nebula-text'}`}
+                      title={stocksEstimated ? 'A building started this turn using this turn\'s production to cover its cost. Stocks settle within the same turn.' : undefined}
+                    >
                       {formatNumber(stored)}
                     </td>
                     <td className="text-right py-2 text-pink-nebula-muted font-mono w-14">

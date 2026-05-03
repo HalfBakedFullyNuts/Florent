@@ -293,7 +293,7 @@ Make extra comments of max. 3 lines per function that explain the purpose of the
 
 ## Versioning
 
-The current version is **0.1.1** (defined in two places: `package.json` and the footer in `src/app/page.tsx`).
+The current version is **0.1.2** (defined in two places: `package.json` and the footer in `src/app/page.tsx`).
 
 Increment the patch version by 0.0.1 for every change delivered — no exceptions. Update both locations together.
 

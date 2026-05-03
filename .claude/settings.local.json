@@ -73,7 +73,9 @@
       "Bash(docker compose restart dev)",
       "Bash(docker compose:*)",
       "Bash(docker logs:*)",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\User\\\\Florent\" -Recurse -Filter \"*.json\" -ErrorAction SilentlyContinue)",
+      "Bash(Select-Object -First 20)"
     ],
     "deny": [],
     "ask": []

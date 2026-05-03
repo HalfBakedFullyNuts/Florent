@@ -153,6 +153,12 @@ export interface PlanetState {
 
   // Item definitions catalog
   defs: Record<string, ItemDefinition>;
+
+  // Set to true when Phase 2b activated a building by checking stocks + this turn's
+  // projected production. Stocks may have been temporarily negative mid-turn; by the
+  // time this state is visible, Phase 6 has restored them. UI uses this to render
+  // stock values in italic so the player knows the figures were settled within the turn.
+  activationUsedProjectedProduction?: boolean;
 }
 
 // ============================================================================

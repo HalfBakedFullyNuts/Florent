@@ -3,7 +3,7 @@
  * Implements static queue guards and dynamic batch clamping
  */
 
-import type { PlanetState, ItemDefinition, CanQueueResult } from './types';
+import type { PlanetState, ItemDefinition, CanQueueResult, ResourceId } from './types';
 import { computeNetOutputsPerTurn, computeProjectedNetOutputsPerTurn } from './outputs';
 
 /**
@@ -293,13 +293,17 @@ export function canQueue(
 }
 
 /**
- * Dynamic validation: clamp batch size at activation based on available resources
- * Returns clamped quantity (0 means keep pending)
+ * Dynamic validation: clamp batch size at activation based on available resources.
+ * projectedBonus adds this turn's production to the resource check — used only by
+ * Phase 2b (completion-triggered activation) so those items can start in the same
+ * turn as their predecessor finishes, matching actual-game turn atomicity.
+ * Returns clamped quantity (0 means keep pending).
  */
 export function clampBatchAtActivation(
   state: PlanetState,
   def: ItemDefinition,
-  requested: number
+  requested: number,
+  projectedBonus?: Partial<Record<ResourceId, number>>
 ): number {
   let maxAffordable = requested;
 
@@ -323,23 +327,25 @@ export function clampBatchAtActivation(
     }
   }
 
-  // Resources are deducted at activation time, so the live stocks bound the batch.
-  // Whichever resource is scarcest determines the affordable count.
+  // Resources are deducted at activation time. When projectedBonus is supplied (Phase 2b),
+  // this turn's production is included so the item can start in the same turn its
+  // predecessor completes — matching the actual game's turn-atomic behaviour.
   const c = def.costsPerUnit;
+  const bonus = projectedBonus ?? {};
   if ((c.metal || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.metal / c.metal));
+    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.metal + (bonus.metal ?? 0)) / c.metal));
   }
   if ((c.mineral || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.mineral / c.mineral));
+    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.mineral + (bonus.mineral ?? 0)) / c.mineral));
   }
   if ((c.food || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.food / c.food));
+    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.food + (bonus.food ?? 0)) / c.food));
   }
   if ((c.energy || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.energy / c.energy));
+    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.energy + (bonus.energy ?? 0)) / c.energy));
   }
   if ((c.research_points || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor(state.stocks.research_points / c.research_points));
+    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.research_points + (bonus.research_points ?? 0)) / c.research_points));
   }
 
   // Check worker constraints

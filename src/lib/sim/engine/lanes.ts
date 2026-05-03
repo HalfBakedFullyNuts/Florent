@@ -3,7 +3,7 @@
  * Handles queue management for building, ship, and colonist lanes
  */
 
-import type { PlanetState, LaneId, WorkItem, ItemDefinition } from './types';
+import type { PlanetState, LaneId, WorkItem, ItemDefinition, ResourceId } from './types';
 import { clampBatchAtActivation } from './validation';
 import { getLogger } from '../../game/logger';
 
@@ -105,8 +105,16 @@ function reserveWorkersAndSpace(
 /**
  * Try to activate next pending item in lane.
  * Deducts resources and reserves workers/space at activation.
+ * projectedBonus: when supplied (Phase 2b only), adds this turn's production to the
+ * resource affordability check so completion-triggered activations match actual-game
+ * turn atomicity. If the item could only activate because of the bonus, the state flag
+ * activationUsedProjectedProduction is set so the UI can signal this to the player.
  */
-export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
+export function tryActivateNext(
+  state: PlanetState,
+  laneId: LaneId,
+  projectedBonus?: Partial<Record<ResourceId, number>>
+): void {
   if (!state || !state.lanes[laneId]) return;
 
   const lane = state.lanes[laneId];
@@ -125,10 +133,18 @@ export function tryActivateNext(state: PlanetState, laneId: LaneId): void {
     return;
   }
 
-  const actualQty = clampBatchAtActivation(state, def, pending.quantity);
+  const actualQty = clampBatchAtActivation(state, def, pending.quantity, projectedBonus);
   if (actualQty === 0) return;
 
+  // Detect whether the bonus was the deciding factor: would this have stalled without it?
+  const neededProjection =
+    projectedBonus != null &&
+    clampBatchAtActivation(state, def, pending.quantity) === 0;
+
   deductActivationCosts(state, def, actualQty, laneId);
+  if (neededProjection) {
+    state.activationUsedProjectedProduction = true;
+  }
   reserveWorkersAndSpace(state, def, actualQty, laneId);
 
   lane.active = {

@@ -26,6 +26,9 @@ import { cloneState } from './helpers';
 export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer): void {
   const currentTurn = state.currentTurn;
 
+  // Reset per-turn projected-activation flag (cloned from previous state, must be cleared)
+  state.activationUsedProjectedProduction = false;
+
   // Phase 1: Process completions from previous turn
   const completedItems = completionBuffer.drain(currentTurn);
   processCompletions(state, completedItems);
@@ -61,8 +64,14 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
   // complete the active item), so any lane whose item just finished would not pick up the
   // next pending item until the following turn — causing an off-by-one delay.
   // Running a second pass here (after structure effects are applied) closes that gap.
+  //
+  // Projected production is passed so items that need "just a bit more" than the opening
+  // stocks can still start this turn — matching the actual game's turn-atomic behaviour.
+  // If the bonus was the deciding factor, state.activationUsedProjectedProduction is set
+  // and the UI will render stocks in italic with a tooltip explaining the situation.
+  const projectedOutputs = computeNetOutputsPerTurn(state);
   for (const laneId of LANE_ORDER) {
-    tryActivateNext(state, laneId);
+    tryActivateNext(state, laneId, projectedOutputs);
   }
 
   // Phase 5: Process colonist conversions (same-turn completion)
