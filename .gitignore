@@ -33,6 +33,9 @@ Thumbs.db
 dist/
 build/
 
+# TypeScript incremental build cache (rewritten on every tsc run)
+tsconfig.tsbuildinfo
+
 # Mac
 *.swp
 
