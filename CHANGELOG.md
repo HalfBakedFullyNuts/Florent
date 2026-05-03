@@ -6,6 +6,16 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.1.9] — 2026-05-03
+
+### Fixed
+- **Drag handle / mobile arrow buttons disappeared once `viewTurn` advanced past queue items.** `canDrag` in `TabbedLaneDisplay.tsx` required `entry.status === 'pending' || 'active'`, but `getAdjustedLaneView` rewrites status to `'completed'` for any item whose finish turn is ≤ `viewTurn` — so previewing further into the timeline locked off reordering for everything you'd already passed. Cancel (✕) was always available regardless, so the restriction was inconsistent. Relaxed the check to `!disabled && !!onReorder && !isWaitItem`: any plan entry except auto-generated waits is now reorderable. Reordering past items is supported by the engine (`reorderQueueItem` re-runs the timeline from T1).
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.8` to `0.1.9`.
+
+---
+
 ## [0.1.8] — 2026-05-03
 
 ### Fixed
