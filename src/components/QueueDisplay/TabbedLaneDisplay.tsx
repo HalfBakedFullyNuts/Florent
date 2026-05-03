@@ -73,7 +73,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   return (
     <div className="w-full">
       {/* Tab Headers */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-1 sm:gap-2 mb-4">
         {ALL_LANES.map((laneId) => {
           const tabConfig = LANE_CONFIG[laneId];
           const isActive = activeTab === laneId;
@@ -83,14 +83,14 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
               key={laneId}
               onClick={() => setActiveTab(laneId)}
               className={`
-                px-4 py-2 rounded-t-lg font-semibold transition-all duration-[350ms]
+                flex-1 sm:flex-initial min-w-0 px-2 sm:px-4 py-2 rounded-t-lg font-semibold transition-all duration-[350ms] text-sm sm:text-base
                 ${isActive
                   ? 'bg-slate-800 text-pink-nebula-text border-b-2 border-pink-nebula-accent-primary'
                   : 'bg-slate-700 text-pink-nebula-muted hover:bg-slate-750'
                 }
               `}
             >
-              <span className="mr-2">{tabConfig.icon}</span>
+              <span className="mr-1 sm:mr-2">{tabConfig.icon}</span>
               {tabConfig.title}
             </button>
           );
@@ -98,7 +98,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
       </div>
 
       {/* Active Tab Content */}
-      <Card className="p-4 h-[600px] overflow-y-auto">
+      <Card className="p-3 md:p-4 h-[60vh] md:h-[600px] overflow-y-auto">
         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-pink-nebula-border">
           <span className="text-xl">{config.icon}</span>
           <h3 className="text-lg font-bold text-pink-nebula-text">
@@ -208,15 +208,43 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                     <div className="absolute -top-1 left-0 right-0 h-0.5 bg-pink-nebula-accent-primary rounded-full z-10" />
                   )}
 
-                  {/* Drag handle */}
+                  {/* Drag handle (desktop only — touch devices use the arrow buttons below) */}
                   {canDrag && (
-                    <div className="flex-shrink-0 w-6 flex flex-col items-center justify-center text-pink-nebula-muted hover:text-pink-nebula-text opacity-50 hover:opacity-100 transition-opacity">
+                    <div className="hidden md:flex flex-shrink-0 w-6 flex-col items-center justify-center text-pink-nebula-muted hover:text-pink-nebula-text opacity-50 hover:opacity-100 transition-opacity">
                       <span className="text-xs leading-none">⋮⋮</span>
                     </div>
                   )}
 
+                  {/* Mobile touch reorder buttons (replaces drag handle on small screens) */}
+                  {canDrag && onReorder && (
+                    <div className="md:hidden flex-shrink-0 flex flex-col gap-0.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (actualIndex > 0) onReorder(activeTab, entry.id, actualIndex - 1);
+                        }}
+                        disabled={actualIndex <= 0}
+                        aria-label="Move up"
+                        className="w-7 h-7 flex items-center justify-center text-pink-nebula-muted bg-pink-nebula-bg/50 border border-pink-nebula-border rounded text-xs disabled:opacity-30 active:bg-pink-nebula-accent-primary/30"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (actualIndex < laneView.entries.length - 1) onReorder(activeTab, entry.id, actualIndex + 1);
+                        }}
+                        disabled={actualIndex >= laneView.entries.length - 1}
+                        aria-label="Move down"
+                        className="w-7 h-7 flex items-center justify-center text-pink-nebula-muted bg-pink-nebula-bg/50 border border-pink-nebula-border rounded text-xs disabled:opacity-30 active:bg-pink-nebula-accent-primary/30"
+                      >
+                        ▼
+                      </button>
+                    </div>
+                  )}
+
                   {/* Queue entry */}
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <QueueLaneEntry
                       entry={entry}
                       currentTurn={currentTurn}
@@ -242,10 +270,13 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
         {/* Footer hint */}
         <div className="mt-4 pt-2 border-t border-pink-nebula-border">
           <div className="text-xs text-pink-nebula-muted text-center">
-            {activeTab === 'building' && 'Drag ⋮⋮ to reorder (active items reset) • Click to cancel'}
-            {activeTab === 'ship' && 'Drag ⋮⋮ to reorder (active items reset) • Batch production'}
-            {activeTab === 'colonist' && 'Drag ⋮⋮ to reorder (active items reset) • Requires housing'}
-            {activeTab === 'research' && 'Drag ⋮⋮ to reorder (active items reset) • Research lane'}
+            <span className="hidden md:inline">Drag ⋮⋮ to reorder</span>
+            <span className="md:hidden">Tap ▲▼ to reorder</span>
+            {' (active items reset) • '}
+            {activeTab === 'building' && 'Click ✕ to cancel'}
+            {activeTab === 'ship' && 'Batch production'}
+            {activeTab === 'colonist' && 'Requires housing'}
+            {activeTab === 'research' && 'Research lane'}
           </div>
         </div>
       </Card>

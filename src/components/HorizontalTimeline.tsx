@@ -63,15 +63,15 @@ export function HorizontalTimeline({
   const turnLabels = [1, 50, 100, 150, 200].filter(t => t <= totalTurns);
 
   return (
-    <div className="w-full bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border p-4">
-      <div className="flex items-center gap-4">
+    <div className="w-full bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border p-3 md:p-4">
+      <div className="flex flex-wrap items-center gap-3 md:gap-4">
         {/* Current Turn Input with Step Buttons */}
         <div className="flex items-center gap-2">
           <span className="text-pink-nebula-muted text-xs font-semibold">TURN</span>
           <button
             onClick={() => handleButtonClick(Math.max(1, localTurn - 1))}
             disabled={localTurn <= 1}
-            className="w-8 h-8 flex items-center justify-center bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-11 h-11 md:w-8 md:h-8 flex items-center justify-center bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Previous turn"
           >
             ◀
@@ -88,29 +88,31 @@ export function HorizontalTimeline({
           <button
             onClick={() => handleButtonClick(Math.min(totalTurns, localTurn + 1))}
             disabled={localTurn >= totalTurns}
-            className="w-8 h-8 flex items-center justify-center bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-11 h-11 md:w-8 md:h-8 flex items-center justify-center bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             aria-label="Next turn"
           >
             ▶
           </button>
           <span className="text-pink-nebula-muted text-xs">/ {totalTurns}</span>
-          
-          <div className="ml-4 flex items-center gap-2">
-            <input 
-              type="checkbox" 
-              id="autoJump" 
-              checked={isAutoJumpEnabled ?? true} 
-              onChange={(e) => onAutoJumpToggle?.(e.target.checked)}
-              className="rounded bg-pink-nebula-bg border-pink-nebula-border text-pink-nebula-accent-primary focus:ring-pink-nebula-accent-primary/50"
-            />
-            <label htmlFor="autoJump" className="text-pink-nebula-muted text-xs cursor-pointer select-none">
-              automatically jump to first turn with empty structure queue
-            </label>
-          </div>
         </div>
 
-        {/* Timeline Slider */}
-        <div className="flex-1 relative">
+        {/* Auto-jump checkbox — moved to its own wrap-friendly group */}
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            id="autoJump"
+            checked={isAutoJumpEnabled ?? true}
+            onChange={(e) => onAutoJumpToggle?.(e.target.checked)}
+            className="rounded bg-pink-nebula-bg border-pink-nebula-border text-pink-nebula-accent-primary focus:ring-pink-nebula-accent-primary/50"
+          />
+          <label htmlFor="autoJump" className="text-pink-nebula-muted text-xs cursor-pointer select-none">
+            <span className="md:hidden">auto-jump to next free turn</span>
+            <span className="hidden md:inline">automatically jump to first turn with empty structure queue</span>
+          </label>
+        </div>
+
+        {/* Timeline Slider — full width on mobile so it gets its own row */}
+        <div className="flex-1 min-w-full md:min-w-0 relative">
           {/* Turn Labels */}
           <div className="relative h-6 mb-1">
             {turnLabels.map((turn) => {
@@ -197,22 +199,22 @@ export function HorizontalTimeline({
         </div>
 
         {/* Quick Jump Buttons */}
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           <button
             onClick={() => handleButtonClick(1)}
-            className="text-xs py-1 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
+            className="text-xs py-2 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
           >
             Start
           </button>
           <button
             onClick={() => handleButtonClick(Math.round(totalTurns / 2))}
-            className="text-xs py-1 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
+            className="text-xs py-2 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
           >
             Mid
           </button>
           <button
             onClick={() => handleButtonClick(totalTurns)}
-            className="text-xs py-1 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
+            className="text-xs py-2 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
           >
             End
           </button>
@@ -220,7 +222,7 @@ export function HorizontalTimeline({
 
         {/* First Empty Turn Buttons */}
         {firstEmptyTurns && (
-          <div className="flex gap-1 ml-2 pl-2 border-l border-pink-nebula-border">
+          <div className="flex flex-wrap gap-1 md:ml-2 md:pl-2 md:border-l md:border-pink-nebula-border">
             {firstEmptyTurns.building !== null && (
               <button
                 onClick={() => handleButtonClick(firstEmptyTurns.building!)}

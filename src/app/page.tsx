@@ -78,6 +78,11 @@ export default function Home() {
   const [queueValidation, setQueueValidation] = useState<Map<string, QueueValidationResult>>(new Map());
   const [showExportModal, setShowExportModal] = useState<'current' | 'full' | null>(null);
   const [activeTab, setActiveTab] = useState<'building' | 'ship' | 'colonist' | 'research'>('building');
+  // Mobile-only toggle between Build (Add to Queue) and Queue (Planet Queue) panels.
+  // Both render side-by-side on md+ screens; on mobile only the active one is shown.
+  const [mobileView, setMobileView] = useState<'build' | 'queue'>('build');
+  // Transient toast message; null when nothing to show. Auto-clears after 3s.
+  const [toast, setToast] = useState<string | null>(null);
   const [pendingCancellation, setPendingCancellation] = useState<{
     laneId: 'building' | 'ship' | 'colonist' | 'research';
     entry: any;
@@ -801,12 +806,12 @@ export default function Home() {
       {/* Main Content Container */}
       <div className="flex flex-col flex-1 relative z-10">
         {/* Header */}
-        <header className="bg-pink-nebula-panel px-6 py-4 border-b border-pink-nebula-border">
-          <h1 className="text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
+        <header className="bg-pink-nebula-panel px-3 md:px-6 py-3 md:py-4 border-b border-pink-nebula-border">
+          <h1 className="text-lg md:text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
         </header>
 
         {/* Planet Tabs - Multi-planet navigation */}
-        <div className="px-6 py-2">
+        <div className="px-3 md:px-6 py-2">
           <PlanetTabs
             planets={gameState.planets}
             currentPlanetId={gameState.currentPlanetId}
@@ -826,7 +831,7 @@ export default function Home() {
 
         {/* Warnings Panel — includes engine warnings + cascade-removal notices */}
         {allWarnings.length > 0 && (
-          <div className="px-6 mt-4">
+          <div className="px-3 md:px-6 mt-4">
             <WarningsPanel warnings={allWarnings} />
           </div>
         )}
@@ -840,7 +845,7 @@ export default function Home() {
         />
 
         {/* Horizontal Timeline - Between dashboard and queues */}
-        <div className="w-full max-w-[1800px] mx-auto px-6">
+        <div className="w-full max-w-[1800px] mx-auto px-3 md:px-6">
           <HorizontalTimeline
             currentTurn={viewTurn}
             totalTurns={totalTurns}
@@ -852,11 +857,35 @@ export default function Home() {
         </div>
 
         {/* Main Content - Side-by-side Tabbed Displays */}
-        <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
-          <div className="flex gap-6">
+        <main className="flex-1 max-w-[1800px] mx-auto w-full px-3 md:px-6 py-4 md:py-6">
+          {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
+          <div className="md:hidden flex gap-1 mb-3 p-1 bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border">
+            <button
+              onClick={() => setMobileView('build')}
+              className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                mobileView === 'build'
+                  ? 'bg-pink-nebula-accent-primary text-white shadow'
+                  : 'text-pink-nebula-text hover:bg-pink-nebula-panel'
+              }`}
+            >
+              ➕ Build
+            </button>
+            <button
+              onClick={() => setMobileView('queue')}
+              className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                mobileView === 'queue'
+                  ? 'bg-pink-nebula-accent-primary text-white shadow'
+                  : 'text-pink-nebula-text hover:bg-pink-nebula-panel'
+              }`}
+            >
+              📋 Queue {totalQueuedItems > 0 && <span className="ml-1 text-xs opacity-80">({totalQueuedItems})</span>}
+            </button>
+          </div>
+
+          <div className="flex flex-col md:flex-row gap-4 md:gap-6">
             {/* Left: Add to Queue (Item Selection) */}
-            <Card className="flex-1 p-6">
-              <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Add to Queue</h2>
+            <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'build' ? 'block' : 'hidden md:block'}`}>
+              <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text mb-4 md:mb-6">Add to Queue</h2>
               <TabbedItemGrid
                 availableItems={availableItems}
                 onQueueItem={handleQueueItem}
@@ -868,47 +897,48 @@ export default function Home() {
             </Card>
 
             {/* Right: Planet Queue (Lane Display) */}
-            <Card className="flex-1 p-6" data-export-target="planet-queue">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
+            <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'queue' ? 'block' : 'hidden md:block'}`} data-export-target="planet-queue">
+              <div className="flex flex-wrap items-center gap-2 md:gap-4 justify-between mb-4 md:mb-6">
+                <div className="flex flex-wrap items-center gap-2 md:gap-4 min-w-0">
+                  <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
                   {/* Live Queue Item Count */}
                   {totalQueuedItems > 0 && (
-                    <div className="text-sm text-pink-nebula-text-secondary">
+                    <div className="text-xs md:text-sm text-pink-nebula-text-secondary">
                       <span className="font-mono">
-                        {totalQueuedItems} queued | {isMounted ? window.location.href.length : 0} chars
+                        {totalQueuedItems} queued <span className="hidden sm:inline">| {isMounted ? window.location.href.length : 0} chars</span>
                       </span>
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => {
                       const url = window.location.href;
+                      const cmds = commandHistory.getCommands().length;
                       navigator.clipboard.writeText(url).then(() => {
-                        alert(`✅ Shareable link copied!\n\nURL: ${url.length} characters\nCommands: ${commandHistory.getCommands().length}\n\nPaste this link to reload your exact game state.`);
+                        setToast(`Link copied — ${cmds} command${cmds === 1 ? '' : 's'}, ${url.length} chars`);
+                        setTimeout(() => setToast(null), 3000);
                       }).catch(() => {
-                        alert(`Share this URL:\n\n${url}`);
+                        setToast('Could not copy — clipboard unavailable');
+                        setTimeout(() => setToast(null), 3000);
                       });
                     }}
-                    className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
+                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
                     title="Copy shareable link with game state"
                   >
                     <span>📋</span>
                     <span>Share Link</span>
                   </button>
-                  <div className="flex gap-2">
-                    <button
-                      className="px-4 py-2 border border-pink-nebula-text text-pink-nebula-text rounded hover:bg-pink-nebula-text hover:text-pink-nebula-bg transition-colors"
-                      onClick={() => setShowExportModal('current')}
-                      title="Export current planet data"
-                    >
-                      Export / Share
-                    </button>
-                  </div>
+                  <button
+                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 border border-pink-nebula-text text-pink-nebula-text rounded hover:bg-pink-nebula-text hover:text-pink-nebula-bg transition-colors text-sm md:text-base"
+                    onClick={() => setShowExportModal('current')}
+                    title="Export current planet data"
+                  >
+                    Export / Share
+                  </button>
                   <button
                     onClick={() => setShowExportModal('full')}
-                    className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
+                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors text-sm md:text-base"
                   >
                     Export Full List
                   </button>
@@ -951,7 +981,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.1.6</div>
+          <div className="opacity-30 text-[10px]">v0.1.7</div>
         </footer>
       </div>
 
@@ -975,6 +1005,17 @@ export default function Home() {
         onAddPlanet={handleCreatePlanet}
         currentTurn={currentPlanet?.currentTurn || 1}
       />
+
+      {/* Transient toast — shown after copy-link, etc. */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 max-w-[90vw] bg-pink-nebula-panel border border-pink-nebula-accent-primary rounded-lg shadow-2xl text-pink-nebula-text text-sm font-medium pointer-events-none animate-in fade-in slide-in-from-bottom-2"
+        >
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

@@ -34,7 +34,7 @@ export function PlanetTabs({
 
   return (
     <div
-      className="flex gap-2 mb-4 p-2 bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border items-center"
+      className="flex flex-wrap gap-2 mb-4 p-2 bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border items-center"
       suppressHydrationWarning
     >
       {planetArray.map((planet, index) => {

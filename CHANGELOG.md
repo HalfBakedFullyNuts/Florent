@@ -6,6 +6,37 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.1.7] — 2026-05-03
+
+### Added — Mobile responsiveness pass
+
+**Phase A — Make it usable on mobile**
+- Main layout (`src/app/page.tsx`): "Add to Queue" and "Planet Queue" Cards stack vertically on `< md` (was hardcoded side-by-side, jamming both into ~163px each).
+- `PlanetTabs`: tabs wrap to multiple lines on narrow widths instead of overflowing.
+- `TabbedItemGrid` + `TabbedLaneDisplay`: tab headers wrap and become equal-width on mobile (`flex-1`); item-row card height scales to `60vh` on mobile.
+- `TabbedItemGrid` item rows: switched from a 7-column fixed-width row (~620px min) to a two-row layout on mobile — name/duration/qty controls top, costs wrap below. Single-row table preserved on desktop via `md:contents` + `md:order-last`.
+- `QueueLaneEntry`: tighter column gaps and smaller font on mobile.
+- `HorizontalTimeline`: outer flex now wraps; slider gets its own row on mobile; auto-jump label has a shorter mobile copy; quick-jump and per-lane T1 buttons wrap.
+- Action button row in Planet Queue header: `flex-wrap` with `flex-1` buttons that fill available width below the header on mobile.
+- Header, planet tabs, warnings, timeline wrappers, main content: `px-3 md:px-6` (was `px-6` — wastes 48px of horizontal space on phones).
+
+**Phase B — Make it look good**
+- Mobile-only Build/Queue toggle bar (`src/app/page.tsx`): on `< md`, only one panel renders at a time so the user isn't scrolling through both stacked. Both render side-by-side on desktop.
+- `AddPlanetModal`: three internal `grid-cols-2` blocks now `grid-cols-1 sm:grid-cols-2`. Action buttons stack on mobile with primary action on top via `order-1 sm:order-2`. Modal padding scales (`p-4 md:p-6`).
+- Tap targets: primary action buttons use `min-h-[44px]` and `py-2.5` on mobile to meet the iOS 44×44pt guideline. Timeline step buttons enlarged to `w-11 h-11` on mobile.
+
+**Phase C — Touch correctness**
+- Replaced `alert()` for "link copied" with a transient toast (`fixed bottom-6 left-1/2`, auto-dismisses after 3s, `aria-live="polite"`).
+- Touch-friendly reorder: added ▲▼ arrow buttons on mobile that call `onReorder` directly with `actualIndex ± 1`. Drag handle remains for desktop. Footer hint adapts ("Drag ⋮⋮" on desktop, "Tap ▲▼" on mobile). Avoids the iOS HTML5-drag flakiness without adding a touch backend.
+
+### Changed
+- Card heights: lane Cards use `h-[60vh] md:h-[600px]` so phones don't get a 600px-tall scroll region eating most of the viewport.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.6` to `0.1.7`.
+
+---
+
 ## [0.1.6] — 2026-05-03
 
 ### Fixed

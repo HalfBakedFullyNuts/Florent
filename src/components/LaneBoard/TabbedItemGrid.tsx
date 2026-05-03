@@ -255,7 +255,7 @@ export function TabbedItemGrid({
   return (
     <div className="w-full">
       {/* Tab Headers */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex flex-wrap gap-1 sm:gap-2 mb-4">
         {ALL_LANES.map((laneId) => {
           const tabConfig = LANE_CONFIG[laneId];
           const isActive = activeTab === laneId;
@@ -265,14 +265,14 @@ export function TabbedItemGrid({
               key={laneId}
               onClick={() => setActiveTab(laneId)}
               className={`
-                px-4 py-2 rounded-t-lg font-semibold transition-all duration-[350ms]
+                flex-1 sm:flex-initial min-w-0 px-2 sm:px-4 py-2 rounded-t-lg font-semibold transition-all duration-[350ms] text-sm sm:text-base
                 ${isActive
                   ? 'bg-slate-800 text-pink-nebula-text border-b-2 border-pink-nebula-accent-primary'
                   : 'bg-slate-700 text-pink-nebula-muted hover:bg-slate-750'
                 }
               `}
             >
-              <span className="mr-2">{tabConfig.icon}</span>
+              <span className="mr-1 sm:mr-2">{tabConfig.icon}</span>
               {tabConfig.title}
             </button>
           );
@@ -280,7 +280,7 @@ export function TabbedItemGrid({
       </div>
 
       {/* Active Tab Content */}
-      <Card className="p-4 h-[600px] overflow-y-auto">
+      <Card className="p-3 md:p-4 h-[60vh] md:h-[600px] overflow-y-auto">
         <div className="flex items-center gap-2 mb-4 pb-3 border-b border-pink-nebula-border">
           <span className="text-xl">{config.icon}</span>
           <h3 className="text-lg font-bold text-pink-nebula-text">
@@ -349,105 +349,126 @@ export function TabbedItemGrid({
                     }
                   `}
                 >
-                  {/* Single row layout */}
-                  <div className="flex items-center gap-2 text-sm font-mono">
-                    {/* Item Name - fixed width for alignment */}
-                    <div className="text-pink-nebula-text font-semibold whitespace-nowrap w-40 truncate flex items-center gap-1">
-                      {item.name}
-                      {hasWait && (
-                        <span
-                          className="text-xs text-yellow-400 font-normal ml-1"
-                          title={
-                            waitTurns > 0
-                              ? `Can be queued now, but won't start for ~${waitTurns} turns (resources/prerequisites need more time to be ready)`
-                              : `Can be queued, but needs production first (e.g. queue scientists for research)`
-                          }
-                        >
-                          {waitTurns > 0 ? `⏳~${waitTurns}t` : '⏳'}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Costs in fixed-width columns (just numbers, color-coded) */}
-                    {costColumns.map((resource) => {
-                      const amount = costsMap[resource] || 0;
-                      return (
-                        <div
-                          key={resource}
-                          className={`w-16 text-right ${amount > 0 ? getResourceColor(resource) : 'text-transparent'}`}
-                          title={resource}
-                        >
-                          {amount > 0 ? formatNumber(amount) : '-'}
-                        </div>
-                      );
-                    })}
-
-                    {/* Energy Upkeep (consumption per turn after completion) */}
-                    <div
-                      className={`w-12 text-right ${energyUpkeep > 0 ? 'text-blue-400' : 'text-transparent'}`}
-                      title="Energy consumption per turn"
-                    >
-                      {energyUpkeep > 0 ? `-${formatNumber(energyUpkeep)}⚡` : '-'}
-                    </div>
-
-                    {/* Spacer */}
-                    <div className="flex-1" />
-
-                    {/* Duration */}
-                    <div className="text-pink-nebula-muted whitespace-nowrap w-8 text-right">
-                      {item.durationTurns}T
-                    </div>
-
-                    {/* Quantity input + Button for batchable items (ships/colonists) */}
-                    {isBatchable && (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={getQty(item.id)}
-                            onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                            onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              (e.target as HTMLInputElement).select();
-                            }}
-                            onFocus={(e) => (e.target as HTMLInputElement).select()}
-                            disabled={!queueable}
-                            className={`
-                              w-14 px-2 py-0.5 bg-pink-nebula-bg border rounded
-                              text-pink-nebula-text text-sm text-center font-mono
-                              focus:outline-none focus:border-pink-nebula-accent-primary
-                              ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
-                              ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
-                            `}
-                            placeholder="qty"
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              tryQueue(item.id, activeTab);
-                            }}
-                            disabled={!queueable}
-                            className={`
-                              px-2 py-0.5 rounded text-sm
-                              ${queueable
-                                ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
-                                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                              }
-                            `}
+                  {/* Two-row on mobile, single row on desktop */}
+                  <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-xs md:text-sm font-mono">
+                    {/* Top row on mobile: name + duration + qty controls (right side) */}
+                    <div className="flex items-center gap-2 min-w-0 md:contents">
+                      {/* Item Name */}
+                      <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1">
+                        {item.name}
+                        {hasWait && (
+                          <span
+                            className="text-xs text-yellow-400 font-normal ml-1"
+                            title={
+                              waitTurns > 0
+                                ? `Can be queued now, but won't start for ~${waitTurns} turns (resources/prerequisites need more time to be ready)`
+                                : `Can be queued, but needs production first (e.g. queue scientists for research)`
+                            }
                           >
-                            +
-                          </button>
-                        </div>
-                        {itemErrors[item.id] && (
-                          <span className="text-red-400 text-xs leading-tight max-w-[120px] text-right">
-                            {itemErrors[item.id]}
+                            {waitTurns > 0 ? `⏳~${waitTurns}t` : '⏳'}
                           </span>
                         )}
                       </div>
-                    )}
+
+                      {/* Duration — appears top-right on mobile, after spacer on desktop */}
+                      <div className="text-pink-nebula-muted whitespace-nowrap text-right md:order-last md:w-8 md:flex-none">
+                        {item.durationTurns}T
+                      </div>
+
+                      {/* Quantity input + Button for batchable items — top-right on mobile, end of row on desktop */}
+                      {isBatchable && (
+                        <div className="flex flex-col items-end gap-0.5 md:order-last">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={getQty(item.id)}
+                              onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                              onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                (e.target as HTMLInputElement).select();
+                              }}
+                              onFocus={(e) => (e.target as HTMLInputElement).select()}
+                              disabled={!queueable}
+                              className={`
+                                w-14 px-2 py-1 bg-pink-nebula-bg border rounded
+                                text-pink-nebula-text text-sm text-center font-mono
+                                focus:outline-none focus:border-pink-nebula-accent-primary
+                                ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
+                                ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
+                              `}
+                              placeholder="qty"
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                tryQueue(item.id, activeTab);
+                              }}
+                              disabled={!queueable}
+                              className={`
+                                min-w-[32px] px-2 py-1 rounded text-base font-semibold
+                                ${queueable
+                                  ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
+                                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                }
+                              `}
+                            >
+                              +
+                            </button>
+                          </div>
+                          {itemErrors[item.id] && (
+                            <span className="text-red-400 text-xs leading-tight max-w-[120px] text-right">
+                              {itemErrors[item.id]}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom row on mobile: cost columns (wraps freely); inline on desktop */}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 md:contents">
+                      {/* Costs in fixed-width columns (just numbers, color-coded) */}
+                      {costColumns.map((resource) => {
+                        const amount = costsMap[resource] || 0;
+                        if (amount === 0) {
+                          // Hide on mobile, keep transparent on desktop for column alignment
+                          return (
+                            <div
+                              key={resource}
+                              className="hidden md:block w-16 text-right text-transparent"
+                              title={resource}
+                            >
+                              -
+                            </div>
+                          );
+                        }
+                        return (
+                          <div
+                            key={resource}
+                            className={`md:w-16 text-right whitespace-nowrap ${getResourceColor(resource)}`}
+                            title={resource}
+                          >
+                            {formatNumber(amount)}
+                          </div>
+                        );
+                      })}
+
+                      {/* Energy Upkeep (consumption per turn after completion) */}
+                      {energyUpkeep > 0 ? (
+                        <div className="md:w-12 text-right text-blue-400 whitespace-nowrap" title="Energy consumption per turn">
+                          -{formatNumber(energyUpkeep)}⚡
+                        </div>
+                      ) : (
+                        <div className="hidden md:block w-12 text-right text-transparent" title="Energy consumption per turn">
+                          -
+                        </div>
+                      )}
+
+                      {/* Spacer (desktop only) */}
+                      <div className="hidden md:block flex-1" />
+                    </div>
                   </div>
                 </div>
               );

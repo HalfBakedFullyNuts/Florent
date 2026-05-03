@@ -78,9 +78,9 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
       `}
     >
       {/* Structured table-like layout */}
-      <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-4 items-center text-sm font-mono">
+      <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2 md:gap-x-4 items-center text-xs md:text-sm font-mono">
         {/* Turn Range: Tx - Ty */}
-        <div className="text-pink-nebula-muted w-24 flex items-center gap-1">
+        <div className="text-pink-nebula-muted w-20 md:w-24 flex items-center gap-1">
           {(() => {
             const startT = entry.startTurn ?? entry.queuedTurn ?? '?';
             const endT = entry.completionTurn ?? (entry.eta !== null ? entry.eta : '?');

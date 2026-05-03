@@ -161,9 +161,9 @@ export function AddPlanetModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-pink-nebula-panel border-2 border-pink-nebula-border rounded-lg p-6 max-w-2xl w-full mx-4">
-        <h2 className="text-2xl font-bold text-pink-nebula-accent-primary mb-6">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-3 md:p-4 overflow-y-auto">
+      <div className="bg-pink-nebula-panel border-2 border-pink-nebula-border rounded-lg p-4 md:p-6 max-w-2xl w-full my-auto">
+        <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-accent-primary mb-4 md:mb-6">
           Add New Planet
         </h2>
 
@@ -173,7 +173,7 @@ export function AddPlanetModal({
             Basic Settings
           </h3>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-pink-nebula-text-secondary mb-1">
                 Planet Name
@@ -206,7 +206,7 @@ export function AddPlanetModal({
 
         {/* Resource Abundances */}
         <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <div>
               <h3 className="text-lg font-semibold text-pink-nebula-text">
                 Resource Abundances
@@ -215,39 +215,39 @@ export function AddPlanetModal({
                 Percentages affect production rates (50% - 200%)
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => applyPreset('home-galaxy')}
-                className="px-3 py-1 text-xs bg-slate-700 text-pink-nebula-text rounded hover:bg-slate-600 transition-colors"
+                className="px-3 py-2 text-xs bg-slate-700 text-pink-nebula-text rounded hover:bg-slate-600 transition-colors"
               >
                 Home Galaxy Avg (60%)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('free-galaxy')}
-                className="px-3 py-1 text-xs bg-slate-700 text-pink-nebula-text rounded hover:bg-slate-600 transition-colors"
+                className="px-3 py-2 text-xs bg-slate-700 text-pink-nebula-text rounded hover:bg-slate-600 transition-colors"
               >
                 Free Galaxy Avg (80%)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('homeworld')}
-                className="px-3 py-1 text-xs bg-pink-nebula-accent-primary text-white rounded hover:bg-pink-500 transition-colors"
+                className="px-3 py-2 text-xs bg-pink-nebula-accent-primary text-white rounded hover:bg-pink-500 transition-colors"
               >
                 Homeworld (100%)
               </button>
               <button
                 type="button"
                 onClick={() => setImportModalOpen(true)}
-                className="px-3 py-1 text-xs bg-slate-700 text-pink-nebula-text rounded hover:bg-slate-600 transition-colors"
+                className="px-3 py-2 text-xs bg-slate-700 text-pink-nebula-text rounded hover:bg-slate-600 transition-colors"
               >
                 Import Data
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {Object.entries(abundance)
               .filter(([resource]) => resource !== 'research_points')
               .map(([resource, value]) => (
@@ -283,7 +283,7 @@ export function AddPlanetModal({
             Space Budgets
           </h3>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-amber-700 mb-1">
                 Ground Space Capacity
@@ -331,16 +331,16 @@ export function AddPlanetModal({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3">
           <button
             onClick={onClose}
-            className="px-6 py-2 bg-slate-700 text-pink-nebula-text rounded-lg hover:bg-slate-600 transition-colors"
+            className="px-6 py-3 sm:py-2 bg-slate-700 text-pink-nebula-text rounded-lg hover:bg-slate-600 transition-colors order-2 sm:order-1"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
-            className="px-6 py-2 bg-pink-nebula-accent-primary text-white rounded-lg hover:bg-pink-500 transition-colors"
+            className="px-6 py-3 sm:py-2 bg-pink-nebula-accent-primary text-white rounded-lg hover:bg-pink-500 transition-colors font-semibold order-1 sm:order-2"
           >
             Add Planet
           </button>
@@ -349,8 +349,8 @@ export function AddPlanetModal({
 
       {/* Import Modal */}
       {importModalOpen && (
-        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10">
-          <div className="bg-pink-nebula-panel border-2 border-pink-nebula-border rounded-lg p-6 max-w-3xl w-full mx-4">
+        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10 p-3 md:p-4 overflow-y-auto">
+          <div className="bg-pink-nebula-panel border-2 border-pink-nebula-border rounded-lg p-4 md:p-6 max-w-3xl w-full my-auto">
             <h3 className="text-xl font-bold text-pink-nebula-accent-primary mb-4">
               Import Planet Data
             </h3>
@@ -371,19 +371,19 @@ export function AddPlanetModal({
               autoFocus
             />
 
-            <div className="flex justify-end gap-3 mt-4">
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-2 sm:gap-3 mt-4">
               <button
                 onClick={() => {
                   setImportModalOpen(false);
                   setImportText('');
                 }}
-                className="px-6 py-2 bg-slate-700 text-pink-nebula-text rounded-lg hover:bg-slate-600 transition-colors"
+                className="px-6 py-3 sm:py-2 bg-slate-700 text-pink-nebula-text rounded-lg hover:bg-slate-600 transition-colors order-2 sm:order-1"
               >
                 Cancel
               </button>
               <button
                 onClick={handleImport}
-                className="px-6 py-2 bg-pink-nebula-accent-primary text-white rounded-lg hover:bg-pink-500 transition-colors"
+                className="px-6 py-3 sm:py-2 bg-pink-nebula-accent-primary text-white rounded-lg hover:bg-pink-500 transition-colors font-semibold order-1 sm:order-2"
               >
                 Import
               </button>
