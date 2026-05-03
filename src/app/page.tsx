@@ -295,63 +295,6 @@ export default function Home() {
     return validateQueueItem(validationState, itemId, quantity);
   }, [defs, controller]);
 
-  // Guard against undefined state AFTER all hooks are called
-  if (!currentState || !summary || !enrichedBuildingLane || !enrichedShipLane || !enrichedColonistLane || !enrichedResearchLane) {
-    return <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text p-6">
-      <h1 className="text-2xl font-bold">Error: Invalid turn {viewTurn}</h1>
-    </div>;
-  }
-
-  // Helper: Find next turn where all queues are empty
-  const findNextEmptyQueueTurn = (startTurn: number): number => {
-    if (!controller) {
-      return startTurn; // If no controller, just return current turn
-    }
-
-    const totalTurns = controller.getTotalTurns();
-    const maxTurn = totalTurns - 1;
-    const MAX_ITERATIONS = 1000; // Circuit breaker
-    const startTime = performance.now();
-    const TIMEOUT_MS = 100; // Performance budget
-
-    // If we're already at or beyond the last turn, just stay at current turn
-    if (startTurn > maxTurn) {
-      return maxTurn;
-    }
-
-    let iterations = 0;
-    for (let turn = startTurn; turn <= maxTurn && iterations < MAX_ITERATIONS; turn++) {
-      iterations++;
-
-      // Check timeout
-      if (performance.now() - startTime > TIMEOUT_MS) {
-        console.warn(`Turn calculation timeout after ${iterations} iterations`);
-        return Math.min(startTurn, maxTurn); // Stay within bounds
-      }
-
-      const state = controller.getStateAtTurn(turn);
-      if (!state) continue;
-
-      // Check if all lanes are empty (no pending queue items, no active)
-      const allLanesEmpty = Object.values(state.lanes).every(
-        (lane) => lane.pendingQueue.length === 0 && !lane.active
-      );
-
-      if (allLanesEmpty) {
-        return turn;
-      }
-    }
-
-    // If no empty turn found, simulate more turns and try again
-    if (totalTurns <= 100) { // Only auto-simulate if reasonable number of turns
-      controller.simulateTurns(10); // Add 10 more turns
-      return findNextEmptyQueueTurn(startTurn); // Recursive call with new turns
-    }
-
-    // Otherwise just advance a reasonable amount
-    return Math.min(startTurn + 10, controller.getTotalTurns() - 1);
-  };
-
   // Planet management handlers
   const handlePlanetSwitch = useCallback((planetId: string) => {
     // Sync viewTurn BEFORE switching to avoid render timing issues
@@ -786,6 +729,63 @@ export default function Home() {
     }
   }, [controller, currentPlanetId, gameState, commandHistory]);
 
+  // Guard against undefined state — all hooks are declared above
+  if (!currentState || !summary || !enrichedBuildingLane || !enrichedShipLane || !enrichedColonistLane || !enrichedResearchLane) {
+    return <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text p-6">
+      <h1 className="text-2xl font-bold">Error: Invalid turn {viewTurn}</h1>
+    </div>;
+  }
+
+  // Helper: Find next turn where all queues are empty
+  const findNextEmptyQueueTurn = (startTurn: number): number => {
+    if (!controller) {
+      return startTurn; // If no controller, just return current turn
+    }
+
+    const totalTurns = controller.getTotalTurns();
+    const maxTurn = totalTurns - 1;
+    const MAX_ITERATIONS = 1000; // Circuit breaker
+    const startTime = performance.now();
+    const TIMEOUT_MS = 100; // Performance budget
+
+    // If we're already at or beyond the last turn, just stay at current turn
+    if (startTurn > maxTurn) {
+      return maxTurn;
+    }
+
+    let iterations = 0;
+    for (let turn = startTurn; turn <= maxTurn && iterations < MAX_ITERATIONS; turn++) {
+      iterations++;
+
+      // Check timeout
+      if (performance.now() - startTime > TIMEOUT_MS) {
+        console.warn(`Turn calculation timeout after ${iterations} iterations`);
+        return Math.min(startTurn, maxTurn); // Stay within bounds
+      }
+
+      const state = controller.getStateAtTurn(turn);
+      if (!state) continue;
+
+      // Check if all lanes are empty (no pending queue items, no active)
+      const allLanesEmpty = Object.values(state.lanes).every(
+        (lane) => lane.pendingQueue.length === 0 && !lane.active
+      );
+
+      if (allLanesEmpty) {
+        return turn;
+      }
+    }
+
+    // If no empty turn found, simulate more turns and try again
+    if (totalTurns <= 100) { // Only auto-simulate if reasonable number of turns
+      controller.simulateTurns(10); // Add 10 more turns
+      return findNextEmptyQueueTurn(startTurn); // Recursive call with new turns
+    }
+
+    // Otherwise just advance a reasonable amount
+    return Math.min(startTurn + 10, controller.getTotalTurns() - 1);
+  };
+
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">
       {/* Background Overlay */}
@@ -951,7 +951,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.1.4</div>
+          <div className="opacity-30 text-[10px]">v0.1.6</div>
         </footer>
       </div>
 

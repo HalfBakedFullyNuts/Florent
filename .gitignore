@@ -25,6 +25,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude Code per-user settings (project-shared settings live in .claude/settings.json)
+.claude/settings.local.json
+.claude/worktrees/
+
 # Build
 dist/
 build/

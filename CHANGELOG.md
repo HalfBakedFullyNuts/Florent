@@ -6,6 +6,31 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.1.6] — 2026-05-03
+
+### Fixed
+- **`react-hooks/rules-of-hooks` violations in `src/app/page.tsx`**: 14 `useCallback` declarations (`handlePlanetSwitch`, `handleAddPlanet`, `handleCreatePlanet`, `handleQueueItem`, `handleQueueWait`, `executeCancellation`, `confirmPendingCancellation`, `handleCancelItem`, `handleQuantityChange`, `handleReorder`, `getMaxQuantity`, `handleAdvanceTurn`, `handleResetQueue`, plus `enrichEntriesWithValidation`) were declared *after* the early-return guard, meaning React would call them in different orders depending on whether the guard tripped. All hooks are now declared before the guard. No behavior change — purely an ordering fix.
+
+### Added
+- ESLint configuration (`.eslintrc.json` extending `next/core-web-vitals`). `npm run lint` now actually runs; previously it prompted for setup and was unenforceable.
+- Project pre-commit hook in `.claude/settings.json`: `PreToolUse` matcher on `Bash(git commit:*)` runs `npm run lint && npm run build` and blocks the commit (exit 2) on failure.
+- `docs/CODE_QUALITY.md` — full TypeScript-adapted Power-of-10 ruleset.
+
+### Changed
+- AI agent configuration consolidated. `Architecture/agents.md` and `LLM_AND_DEV_GUIDELINES.md` merged into `CLAUDE.md` (302 → 123 lines, no rules lost). Power-of-10 ruleset moved to `docs/CODE_QUALITY.md`.
+- Project-shared agent settings now live in committed `.claude/settings.json`; `.claude/settings.local.json` is gitignored as per-user. `.claude/worktrees/` also gitignored.
+- `.claude/settings.local.json` permission allowlist pruned (~20 stale entries removed: bare file paths, Windows leftovers, foreign user paths).
+- Role section in `CLAUDE.md` updated from a Shadowrun copy-paste to the actual Infinite Conflict context.
+
+### Removed
+- Stale milestone reports superseded by `CHANGELOG.md`/`WORKLOG.md`: `BUGFIX_SUMMARY.md`, `PROGRESS_SUMMARY.md`, `RESEARCH_PROGRESS.md`, and 5 `claudedocs/PHASE_*` files.
+- Empty orphan worktree directory `.claude/worktrees/pedantic-vaughan-1124cd/`.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.4` to `0.1.6` (no `0.1.5` was released).
+
+---
+
 ## [0.1.4] — 2026-05-03
 
 ### Fixed
