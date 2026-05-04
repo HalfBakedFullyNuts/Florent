@@ -6,6 +6,18 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.5] — 2026-05-04
+
+### Fixed
+- Planet-limit start-turn lookup now derives unlock turns from planned research completions instead of scanning up to 1,000,000 turns.
+- Global research simulation now fails fast when an invalid front-of-queue prerequisite order cannot progress.
+- Research reordering now rejects moves that put a research item before its prerequisites.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.5`.
+
+---
+
 ## [0.2.4] — 2026-05-04
 
 Port of the global research planning workflow from `main` onto the PWA/saves branch.

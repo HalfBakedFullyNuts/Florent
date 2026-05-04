@@ -3,6 +3,7 @@ import { createInitialGameState, addPlanet } from '../gameState';
 import {
   getGlobalResearchAtTurn,
   getGlobalResearchLaneView,
+  getEarliestPlanetStartTurn,
   getPlanetLimitAtTurn,
   getResearchCompletionTurns,
   cancelGlobalResearch,
@@ -146,6 +147,41 @@ describe('global research', () => {
       space: { groundCap: 60, orbitalCap: 40 },
     });
     expect(expanded.planets.size).toBe(5);
+  });
+
+  test('planet start lookup returns null when no PL unlock is scheduled', () => {
+    let gameState = createInitialGameState();
+    gameState.globalResearch.stock = 1000;
+    gameState = queueGlobalResearch(gameState, 'fleet_technology');
+
+    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBeNull();
+  });
+
+  test('research reorder rejects moving dependencies before prerequisites', () => {
+    let gameState = createInitialGameState();
+    gameState.globalResearch.completed = ['planet_management'];
+    gameState.globalResearch.stock = 1000;
+    gameState = queueGlobalResearch(gameState, 'pl_6');
+    gameState = queueGlobalResearch(gameState, 'pl_8');
+
+    const originalOrder = gameState.globalResearch.lane.pendingQueue.map((item) => item.itemId);
+    const pl8 = gameState.globalResearch.lane.pendingQueue[1];
+    const reordered = reorderGlobalResearch(gameState, pl8.id, 0);
+
+    expect(reordered).toBe(gameState);
+    expect(reordered.globalResearch.lane.pendingQueue.map((item) => item.itemId)).toEqual(originalOrder);
+  });
+
+  test('invalid research order fails fast without projecting an unlock', () => {
+    let gameState = createInitialGameState();
+    gameState.globalResearch.stock = 1000;
+    gameState = queueGlobalResearch(gameState, 'planet_management');
+    gameState = queueGlobalResearch(gameState, 'pl_6');
+    gameState.globalResearch.lane.pendingQueue.reverse();
+
+    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBeNull();
+    const laneView = getGlobalResearchLaneView(gameState, 1);
+    expect(laneView.entries.find((entry) => entry.itemId === 'pl_6')?.startTurn).toBeUndefined();
   });
 
   test('URL replay restores global research queue, wait, cancel, and reorder commands', () => {

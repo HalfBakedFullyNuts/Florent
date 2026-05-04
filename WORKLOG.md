@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.5: Global research edge-case hardening.**
+Planet-limit unlock lookup now avoids brute-force turn scans, and research drag/reorder rejects dependency-inverting moves so invalid queues cannot stall the planner.
+
 **2026-05-04 — v0.2.3: Stable global research timing projections.**
 Research lane display now runs the global research planner far enough to compute actual RP-gated start and completion turns, including long waits beyond the visible 200-turn simulator, so clicking a completion turn no longer changes the displayed schedule.
 

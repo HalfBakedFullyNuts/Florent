@@ -56,6 +56,28 @@ function prereqsMet(completed: string[], def: ItemDefinition): boolean {
   return (def.prerequisites || []).every((id) => completed.includes(id));
 }
 
+function canResearchOrderProgress(items: WorkItem[], completed: string[]): boolean {
+  const available = new Set(completed);
+  for (const item of items) {
+    if (item.isWait) continue;
+    const def = defs[item.itemId];
+    if (!def) return false;
+    for (const prereqId of def.prerequisites || []) {
+      if (!available.has(prereqId)) return false;
+    }
+    available.add(item.itemId);
+  }
+  return true;
+}
+
+function isBlockedByUnmetFrontPrereq(snapshot: GlobalResearchSnapshot): boolean {
+  if (snapshot.lane.active || snapshot.lane.pendingQueue.length === 0) return false;
+  const pending = snapshot.lane.pendingQueue[0];
+  if (pending.isWait) return false;
+  const def = defs[pending.itemId];
+  return !def || !prereqsMet(snapshot.completed, def);
+}
+
 function isResearchQueuedOrActive(lane: LaneState, itemId: string): boolean {
   return lane.active?.itemId === itemId || lane.pendingQueue.some((item) => item.itemId === itemId);
 }
@@ -237,6 +259,10 @@ function simulateGlobalResearch(
       }
     }
 
+    if (isBlockedByUnmetFrontPrereq(snapshot)) {
+      break;
+    }
+
     snapshot = runGlobalResearchTurn(gameState, snapshot);
   }
 
@@ -272,11 +298,26 @@ export function getEarliestPlanetStartTurn(
   fromTurn: number = 1
 ): number | null {
   const startTurn = Math.max(1, Math.min(RESEARCH_PLAN_MAX_TURN, fromTurn));
-  for (let turn = startTurn; turn <= RESEARCH_PLAN_MAX_TURN; turn++) {
-    if (getPlanetLimitAtTurn(gameState, turn) >= planetNumber) {
-      return turn;
+  const startSnapshot = getGlobalResearchAtTurn(gameState, startTurn);
+  if (startSnapshot.planetLimit >= planetNumber) {
+    return startTurn;
+  }
+
+  let planetLimit = startSnapshot.planetLimit;
+  const planSnapshot = simulateGlobalResearch(gameState, startTurn, true);
+  const completions = [...planSnapshot.lane.completionHistory]
+    .filter((item) => item.completionTurn !== undefined && item.completionTurn > startTurn)
+    .sort((a, b) => (a.completionTurn ?? 0) - (b.completionTurn ?? 0));
+
+  for (const item of completions) {
+    const def = defs[item.itemId];
+    if (!def) continue;
+    planetLimit = applyPlanetLimit(planetLimit, def);
+    if (planetLimit >= planetNumber) {
+      return item.completionTurn ?? null;
     }
   }
+
   return null;
 }
 
@@ -443,6 +484,9 @@ export function reorderGlobalResearch(gameState: GameState, entryId: string, new
   if (oldIndex === -1) return gameState;
   const [item] = all.splice(oldIndex, 1);
   all.splice(Math.max(0, Math.min(newIndex, all.length)), 0, item);
+  if (!canResearchOrderProgress(all, gameState.globalResearch.completed || [])) {
+    return gameState;
+  }
   lane.active = null;
   lane.pendingQueue = all;
   return {

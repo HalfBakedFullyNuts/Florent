@@ -849,8 +849,13 @@ export default function Home() {
   const handleReorder = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entryId: string, newIndex: number) => {
     setError(null);
     if (laneId === 'research') {
+      const nextState = reorderGlobalResearch(gameState, entryId, newIndex);
+      if (nextState === gameState) {
+        setError('Cannot move research before its prerequisites.');
+        return;
+      }
       commandHistory.recordReorder(0, laneId, entryId, newIndex);
-      setGameState(prev => reorderGlobalResearch(prev, entryId, newIndex));
+      setGameState(nextState);
       return;
     }
     if (!controller) {
@@ -1211,7 +1216,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.4</div>
+          <div className="opacity-30 text-[10px]">v0.2.5</div>
         </footer>
       </div>
 
