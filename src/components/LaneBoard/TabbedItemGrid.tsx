@@ -255,7 +255,7 @@ export function TabbedItemGrid({
   return (
     <div className="w-full">
       {/* Tab Headers */}
-      <div className="flex flex-wrap gap-1 sm:gap-2 mb-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
         {ALL_LANES.map((laneId) => {
           const tabConfig = LANE_CONFIG[laneId];
           const isActive = activeTab === laneId;
@@ -264,29 +264,30 @@ export function TabbedItemGrid({
             <button
               key={laneId}
               onClick={() => setActiveTab(laneId)}
+              aria-pressed={isActive}
               className={`
-                flex-1 sm:flex-initial min-w-0 px-2 sm:px-4 py-2 rounded-t-lg font-semibold transition-all duration-[350ms] text-sm sm:text-base
+                inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-none transition-colors duration-200 sm:text-base
                 ${isActive
-                  ? 'bg-slate-800 text-pink-nebula-text border-b-2 border-pink-nebula-accent-primary'
-                  : 'bg-slate-700 text-pink-nebula-muted hover:bg-slate-750'
+                  ? 'border-pink-nebula-accent-secondary/55 bg-gradient-to-r from-pink-nebula-accent-primary/95 to-pink-nebula-accent-secondary/80 text-white shadow-lg shadow-pink-nebula-accent-primary/20'
+                  : 'border-white/10 bg-white/[0.06] text-pink-nebula-muted hover:border-pink-nebula-accent-primary/45 hover:bg-white/[0.11] hover:text-pink-nebula-text'
                 }
               `}
             >
-              <span className="mr-1 sm:mr-2">{tabConfig.icon}</span>
-              {tabConfig.title}
+              <span className={`h-2.5 w-2.5 rounded-full ${laneDotClass(laneId)} ${isActive ? 'shadow-[0_0_12px_rgba(255,255,255,0.45)]' : ''}`} />
+              <span className="truncate">{tabConfig.title}</span>
             </button>
           );
         })}
       </div>
 
       {/* Active Tab Content */}
-      <Card className="p-3 md:p-4 h-[60vh] md:h-[600px] overflow-y-auto">
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-pink-nebula-border">
-          <span className="text-xl">{config.icon}</span>
+      <Card className="scroll-nebula h-[60vh] overflow-y-auto p-3 pr-4 md:h-[600px] md:p-4 md:pr-5">
+        <div className="mb-4 flex items-center gap-2 border-b border-white/10 pb-3">
+          <span className={`h-3 w-3 rounded-full ${laneDotClass(activeTab)} shadow-[0_0_14px_rgba(255,64,129,0.28)]`} />
           <h3 className="text-lg font-bold text-pink-nebula-text">
             {config.title}
           </h3>
-          <span className="ml-auto text-sm text-pink-nebula-muted">
+          <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
             {items.length} items
           </span>
         </div>
@@ -294,23 +295,28 @@ export function TabbedItemGrid({
         <div className="space-y-2">
           {/* Manual Wait Controls Row */}
           {onQueueWait && (
-            <div className="w-full flex items-center gap-4 p-3 bg-pink-nebula-panel border border-pink-nebula-border rounded mb-4 shadow-sm">
-              <div className="text-pink-nebula-text font-semibold flex-1">
-                Wait (Pause Queue)
+            <div className="mb-4 flex w-full flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/45 p-3 shadow-inner shadow-black/25 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <div className="text-pink-nebula-text font-semibold">
+                  Wait (Pause Queue)
+                </div>
+                <div className="text-xs text-pink-nebula-muted">
+                  Insert idle turns into the active lane.
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 sm:justify-end">
                 <input
                   type="number"
                   min="1"
                   max="100"
-                  className="w-16 bg-slate-800 text-pink-nebula-text border border-pink-nebula-border rounded px-2 py-1 text-center"
+                  className="h-10 w-16 rounded-xl border border-pink-nebula-border/80 bg-slate-950/70 px-2 text-center text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25"
                   value={waitTurnsInput}
                   onChange={(e) => setWaitTurnsInput(e.target.value)}
                 />
-                <span className="text-pink-nebula-muted text-sm mr-2">turns</span>
+                <span className="mr-1 text-sm text-pink-nebula-muted">turns</span>
                 <button
                   onClick={handleQueueWait}
-                  className="px-4 py-1 bg-slate-700 hover:bg-slate-600 text-pink-nebula-text rounded border border-pink-nebula-border transition-colors text-sm font-semibold"
+                  className="h-10 rounded-xl border border-pink-nebula-accent-primary/35 bg-pink-nebula-accent-primary/15 px-4 text-sm font-bold text-pink-100 transition-colors hover:border-pink-nebula-accent-secondary/55 hover:bg-pink-nebula-accent-primary/25 focus:outline-none focus:ring-2 focus:ring-pink-nebula-accent-primary/35"
                 >
                   Inject Wait
                 </button>
@@ -478,4 +484,19 @@ export function TabbedItemGrid({
       </Card>
     </div>
   );
+}
+
+function laneDotClass(laneId: LaneId): string {
+  switch (laneId) {
+    case 'building':
+      return 'bg-amber-300';
+    case 'ship':
+      return 'bg-blue-300';
+    case 'colonist':
+      return 'bg-emerald-300';
+    case 'research':
+      return 'bg-violet-300';
+    default:
+      return 'bg-pink-nebula-accent-secondary';
+  }
 }

@@ -75,7 +75,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   return (
     <div className="w-full">
       {/* Tab Headers */}
-      <div className="flex flex-wrap gap-1 sm:gap-2 mb-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
         {ALL_LANES.map((laneId) => {
           const tabConfig = LANE_CONFIG[laneId];
           const isActive = activeTab === laneId;
@@ -84,29 +84,30 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
             <button
               key={laneId}
               onClick={() => setActiveTab(laneId)}
+              aria-pressed={isActive}
               className={`
-                flex-1 sm:flex-initial min-w-0 px-2 sm:px-4 py-2 rounded-t-lg font-semibold transition-all duration-[350ms] text-sm sm:text-base
+                inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-none transition-colors duration-200 sm:text-base
                 ${isActive
-                  ? 'bg-slate-800 text-pink-nebula-text border-b-2 border-pink-nebula-accent-primary'
-                  : 'bg-slate-700 text-pink-nebula-muted hover:bg-slate-750'
+                  ? 'border-pink-nebula-accent-secondary/55 bg-gradient-to-r from-pink-nebula-accent-primary/95 to-pink-nebula-accent-secondary/80 text-white shadow-lg shadow-pink-nebula-accent-primary/20'
+                  : 'border-white/10 bg-white/[0.06] text-pink-nebula-muted hover:border-pink-nebula-accent-primary/45 hover:bg-white/[0.11] hover:text-pink-nebula-text'
                 }
               `}
             >
-              <span className="mr-1 sm:mr-2">{tabConfig.icon}</span>
-              {tabConfig.title}
+              <span className={`h-2.5 w-2.5 rounded-full ${laneDotClass(laneId)} ${isActive ? 'shadow-[0_0_12px_rgba(255,255,255,0.45)]' : ''}`} />
+              <span className="truncate">{tabConfig.title}</span>
             </button>
           );
         })}
       </div>
 
       {/* Active Tab Content */}
-      <Card className="p-3 md:p-4 h-[60vh] md:h-[600px] overflow-y-auto">
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-pink-nebula-border">
-          <span className="text-xl">{config.icon}</span>
+      <Card className="scroll-nebula h-[60vh] overflow-y-auto p-3 pr-4 md:h-[600px] md:p-4 md:pr-5">
+        <div className="mb-4 flex items-center gap-2 border-b border-white/10 pb-3">
+          <span className={`h-3 w-3 rounded-full ${laneDotClass(activeTab)} shadow-[0_0_14px_rgba(255,64,129,0.28)]`} />
           <h3 className="text-lg font-bold text-pink-nebula-text">
             {config.title}
           </h3>
-          <span className="ml-auto text-sm text-pink-nebula-muted">
+          <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
             {laneView && laneView.entries.length > 0 ? `${laneView.entries.length}` : '—'}
           </span>
         </div>
@@ -289,3 +290,18 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
     </div>
   );
 });
+
+function laneDotClass(laneId: LaneId): string {
+  switch (laneId) {
+    case 'building':
+      return 'bg-amber-300';
+    case 'ship':
+      return 'bg-blue-300';
+    case 'colonist':
+      return 'bg-emerald-300';
+    case 'research':
+      return 'bg-violet-300';
+    default:
+      return 'bg-pink-nebula-accent-secondary';
+  }
+}
