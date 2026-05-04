@@ -112,23 +112,25 @@ describe('BuildListSelector', () => {
   test('distinguishes owned and shared cached lists', async () => {
     render(<BuildListSelector onRestore={vi.fn()} />);
 
-    expect(await screen.findByText('My Rush')).toBeInTheDocument();
+    await openBuildListDropdown();
+
+    expect(screen.getByRole('option', { name: /My Rush/i })).toBeInTheDocument();
     expect(screen.getByText(/Neighbor Rush by Lin - opened/i)).toBeInTheDocument();
-    expect(screen.getByText(/Shared links are cached on this device/i)).toBeInTheDocument();
+    expect(screen.getByText(/Local cache for your plans and opened shares/i)).toBeInTheDocument();
   });
 
   test('loads the selected shared list', async () => {
     const onRestore = vi.fn();
     render(<BuildListSelector onRestore={onRestore} />);
 
-    const select = await screen.findByLabelText(/select build list/i);
-    fireEvent.change(select, { target: { value: 'shared:shared-1' } });
+    await openBuildListDropdown();
+    fireEvent.click(screen.getByRole('option', { name: /Neighbor Rush by Lin - opened/i }));
     fireEvent.click(screen.getByRole('button', { name: /^load$/i }));
 
     expect(onRestore).toHaveBeenCalledWith('shared-encoded', expect.stringMatching(/^Neighbor Rush by Lin - opened /));
   });
 
-  test('keeps the dropdown enabled while refreshing existing lists on focus', async () => {
+  test('keeps the dropdown enabled while refreshing existing lists', async () => {
     let resolveRefresh: ((records: typeof sharedList[]) => void) | undefined;
     vi.mocked(listShared)
       .mockResolvedValueOnce([sharedList])
@@ -138,10 +140,13 @@ describe('BuildListSelector', () => {
 
     render(<BuildListSelector onRestore={vi.fn()} />);
 
-    const select = await screen.findByLabelText(/select build list/i);
-    fireEvent.focus(select);
+    const trigger = await screen.findByRole('button', { name: /select build list/i });
+    act(() => {
+      fireEvent.click(trigger);
+    });
 
-    expect(select).not.toBeDisabled();
+    expect(trigger).not.toBeDisabled();
+    expect(screen.getByRole('listbox', { name: /build lists/i })).toBeInTheDocument();
 
     await act(async () => {
       resolveRefresh?.([sharedList]);
@@ -154,7 +159,9 @@ describe('BuildListSelector', () => {
 
     render(<BuildListSelector onRestore={vi.fn()} />);
 
-    expect(await screen.findByText(/Recent local build - Homeworld/i)).toBeInTheDocument();
+    await openBuildListDropdown();
+
+    expect(screen.getByRole('option', { name: /Recent local build - Homeworld/i })).toBeInTheDocument();
     expect(screen.queryByText(/shared-history/i)).not.toBeInTheDocument();
     expect(screen.getByText(/Neighbor Rush by Lin - opened/i)).toBeInTheDocument();
   });
@@ -164,8 +171,8 @@ describe('BuildListSelector', () => {
 
     render(<BuildListSelector onRestore={vi.fn()} />);
 
-    const select = await screen.findByLabelText(/select build list/i);
-    const labels = Array.from(select.querySelectorAll('option')).map((option) => option.textContent ?? '');
+    await openBuildListDropdown();
+    const labels = screen.getAllByRole('option').map((option) => option.textContent ?? '');
 
     expect(labels.findIndex((label) => label.startsWith('Neighbor Rush by Lin - opened'))).toBeLessThan(
       labels.findIndex((label) => label.startsWith('Old Neighbor Rush by Lin - opened'))
@@ -176,21 +183,22 @@ describe('BuildListSelector', () => {
     vi.mocked(listSaves).mockResolvedValueOnce([]).mockResolvedValue([ownList]);
     render(<BuildListSelector onRestore={vi.fn()} />);
 
-    expect(await screen.findByText(/Neighbor Rush by Lin - opened/i)).toBeInTheDocument();
-    expect(screen.queryByText('My Rush')).not.toBeInTheDocument();
+    expect(await screen.findByText(/1 shared/i)).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: /My Rush/i })).not.toBeInTheDocument();
 
     act(() => {
       window.dispatchEvent(new CustomEvent('florent:saves-changed'));
     });
 
-    expect(await screen.findByText('My Rush')).toBeInTheDocument();
+    await openBuildListDropdown();
+    expect(screen.getByRole('option', { name: /My Rush/i })).toBeInTheDocument();
   });
 
   test('deletes the selected owned list', async () => {
     render(<BuildListSelector onRestore={vi.fn()} />);
 
-    const select = await screen.findByLabelText(/select build list/i);
-    fireEvent.change(select, { target: { value: 'own:own-1' } });
+    await openBuildListDropdown();
+    fireEvent.click(screen.getByRole('option', { name: /My Rush/i }));
     fireEvent.click(screen.getByRole('button', { name: /^delete$/i }));
 
     await waitFor(() => expect(deleteSave).toHaveBeenCalledWith('own-1'));
@@ -202,11 +210,19 @@ describe('BuildListSelector', () => {
     vi.mocked(listHistory).mockResolvedValue([ownHistory]);
     render(<BuildListSelector onRestore={vi.fn()} />);
 
-    const select = await screen.findByLabelText(/select build list/i);
-    fireEvent.change(select, { target: { value: 'history:42' } });
+    await openBuildListDropdown();
+    fireEvent.click(screen.getByRole('option', { name: /Recent local build - Homeworld/i }));
     fireEvent.click(screen.getByRole('button', { name: /^delete$/i }));
 
     await waitFor(() => expect(deleteHistoryEntry).toHaveBeenCalledWith(42));
     expect(deleteSave).not.toHaveBeenCalled();
   });
 });
+
+async function openBuildListDropdown() {
+  const trigger = await screen.findByRole('button', { name: /select build list/i });
+  await act(async () => {
+    fireEvent.click(trigger);
+  });
+  return trigger;
+}

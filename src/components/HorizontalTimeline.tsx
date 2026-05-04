@@ -63,7 +63,7 @@ export function HorizontalTimeline({
   const turnLabels = [1, 50, 100, 150, 200].filter(t => t <= totalTurns);
 
   return (
-    <div className="w-full bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border p-3 md:p-4">
+    <div className="w-full rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/75 via-slate-950/45 to-pink-nebula-panel/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl md:p-4">
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
         {/* Current Turn Input with Step Buttons */}
         <div className="flex items-center gap-2">
@@ -71,7 +71,7 @@ export function HorizontalTimeline({
           <button
             onClick={() => handleButtonClick(Math.max(1, localTurn - 1))}
             disabled={localTurn <= 1}
-            className="w-11 h-11 md:w-8 md:h-8 flex items-center justify-center bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-pink-nebula-accent-primary/15 disabled:cursor-not-allowed disabled:opacity-40 md:h-8 md:w-8"
             aria-label="Previous turn"
           >
             ◀
@@ -83,12 +83,12 @@ export function HorizontalTimeline({
             min={1}
             max={totalTurns}
             aria-label="Turn"
-            className="w-16 px-2 py-1 bg-pink-nebula-bg border border-pink-nebula-border rounded text-pink-nebula-text text-center font-bold"
+            className="w-16 rounded-xl border border-pink-nebula-border/80 bg-slate-950/60 px-2 py-1 text-center font-bold text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25"
           />
           <button
             onClick={() => handleButtonClick(Math.min(totalTurns, localTurn + 1))}
             disabled={localTurn >= totalTurns}
-            className="w-11 h-11 md:w-8 md:h-8 flex items-center justify-center bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-pink-nebula-accent-primary/15 disabled:cursor-not-allowed disabled:opacity-40 md:h-8 md:w-8"
             aria-label="Next turn"
           >
             ▶
@@ -202,19 +202,19 @@ export function HorizontalTimeline({
         <div className="flex flex-wrap gap-1">
           <button
             onClick={() => handleButtonClick(1)}
-            className="text-xs py-2 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10"
           >
             Start
           </button>
           <button
             onClick={() => handleButtonClick(Math.round(totalTurns / 2))}
-            className="text-xs py-2 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10"
           >
             Mid
           </button>
           <button
             onClick={() => handleButtonClick(totalTurns)}
-            className="text-xs py-2 px-3 bg-pink-nebula-bg hover:bg-pink-nebula-accent-primary/20 border border-pink-nebula-border rounded transition-colors"
+            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10"
           >
             End
           </button>

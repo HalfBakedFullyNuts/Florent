@@ -1182,14 +1182,22 @@ export default function Home() {
       {/* Main Content Container */}
       <div className="flex flex-col flex-1 relative z-10">
         {/* Header */}
-        <header className="bg-pink-nebula-panel px-3 md:px-6 py-3 md:py-4 border-b border-pink-nebula-border">
-          <h1 className="text-lg md:text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
+        <header className="border-b border-white/10 bg-gradient-to-r from-pink-nebula-panel/95 via-[#190f22]/95 to-pink-nebula-panel/85 px-3 py-3 shadow-2xl shadow-black/20 md:px-6 md:py-4">
+          <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-pink-nebula-accent-secondary/80">Command planner</div>
+              <h1 className="text-lg font-black tracking-wide text-pink-nebula-text md:text-2xl">Infinite Conflict Simulator</h1>
+            </div>
+            <div className="hidden rounded-full border border-pink-nebula-accent-primary/25 bg-pink-nebula-accent-primary/10 px-3 py-1 text-xs font-semibold text-pink-100 sm:block">
+              Local-first build planning
+            </div>
+          </div>
         </header>
 
         <BuildListSelector onRestore={handleRestoreSave} />
 
         {/* Planet Tabs - Multi-planet navigation */}
-        <div className="px-3 md:px-6 py-2">
+        <div className="px-3 pb-2 md:px-6">
           <PlanetTabs
             planets={gameState.planets}
             currentPlanetId={gameState.currentPlanetId}
@@ -1203,7 +1211,7 @@ export default function Home() {
 
         {activeShareMetadata && (
           <div className="px-3 md:px-6">
-            <div className="max-w-[1800px] mx-auto rounded-lg border border-blue-400/30 bg-blue-950/30 px-4 py-3 text-sm text-blue-100 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+            <div className="max-w-[1800px] mx-auto rounded-2xl border border-blue-300/25 bg-blue-950/35 px-4 py-3 text-sm text-blue-100 shadow-xl shadow-blue-950/20 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
               <span className="font-semibold uppercase tracking-wide text-blue-200">Shared list</span>
               <span className="font-bold text-pink-nebula-text">{activeShareMetadata.name}</span>
               <span className="text-blue-200/80">by {activeShareMetadata.author}</span>
@@ -1249,13 +1257,13 @@ export default function Home() {
         {/* Main Content - Side-by-side Tabbed Displays */}
         <main className="flex-1 max-w-[1800px] mx-auto w-full px-3 md:px-6 py-4 md:py-6">
           {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
-          <div className="md:hidden flex gap-1 mb-3 p-1 bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border">
+          <div className="md:hidden flex gap-1 mb-3 rounded-2xl border border-white/10 bg-pink-nebula-panel/70 p-1 shadow-xl shadow-black/20">
             <button
               onClick={() => setMobileView('build')}
               className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
                 mobileView === 'build'
-                  ? 'bg-pink-nebula-accent-primary text-white shadow'
-                  : 'text-pink-nebula-text hover:bg-pink-nebula-panel'
+                  ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
+                  : 'text-pink-nebula-text hover:bg-white/10'
               }`}
             >
               ➕ Build
@@ -1264,8 +1272,8 @@ export default function Home() {
               onClick={() => setMobileView('queue')}
               className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
                 mobileView === 'queue'
-                  ? 'bg-pink-nebula-accent-primary text-white shadow'
-                  : 'text-pink-nebula-text hover:bg-pink-nebula-panel'
+                  ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
+                  : 'text-pink-nebula-text hover:bg-white/10'
               }`}
             >
               📋 Queue {totalQueuedItems > 0 && <span className="ml-1 text-xs opacity-80">({totalQueuedItems})</span>}
@@ -1321,7 +1329,7 @@ export default function Home() {
                         setTimeout(() => setToast(null), 3000);
                       });
                     }}
-                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
+                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-xl border border-pink-nebula-accent-secondary/35 bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white font-semibold shadow-lg shadow-pink-nebula-accent-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-pink-nebula-accent-primary/35 flex items-center justify-center gap-2 text-sm md:text-base"
                     title="Copy shareable link with game state"
                   >
                     <span>📋</span>
@@ -1329,14 +1337,14 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => setShowSavesModal(true)}
-                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 bg-slate-700 hover:bg-slate-600 text-pink-nebula-text font-semibold rounded-lg transition-colors flex items-center justify-center gap-2 text-sm md:text-base"
+                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-pink-nebula-accent-primary/45 text-pink-nebula-text font-semibold transition-all flex items-center justify-center gap-2 text-sm md:text-base"
                     title="Save, load, and import plans (stored on this device)"
                   >
                     <span>💾</span>
                     <span>Saves</span>
                   </button>
                   <button
-                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 border border-pink-nebula-text text-pink-nebula-text rounded hover:bg-pink-nebula-text hover:text-pink-nebula-bg transition-colors text-sm md:text-base"
+                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-xl border border-white/15 bg-white/5 text-pink-nebula-text hover:border-pink-nebula-accent-primary/50 hover:bg-white/10 transition-all text-sm md:text-base"
                     onClick={() => openExportModal('current')}
                     title="Export current planet data"
                   >
@@ -1344,7 +1352,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => openExportModal('full')}
-                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors text-sm md:text-base"
+                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-xl border border-pink-nebula-accent-primary/35 bg-pink-nebula-accent-primary/15 text-pink-100 font-semibold hover:bg-pink-nebula-accent-primary/25 transition-all text-sm md:text-base"
                   >
                     Export Full List
                   </button>
