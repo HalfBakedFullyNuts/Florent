@@ -157,6 +157,32 @@ describe('global research', () => {
     expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBeNull();
   });
 
+  test('earliest planet start uses scheduled PL completion milestones', () => {
+    let gameState = createInitialGameState();
+    gameState.globalResearch.completed = ['planet_management'];
+    gameState.globalResearch.stock = 1000;
+    gameState = queueGlobalResearch(gameState, 'pl_6');
+
+    expect(getPlanetLimitAtTurn(gameState, 23)).toBe(4);
+    expect(getPlanetLimitAtTurn(gameState, 24)).toBe(6);
+    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBe(24);
+    expect(getEarliestPlanetStartTurn(gameState, 6, 25)).toBe(25);
+  });
+
+  test('blocked PL research does not scan to the planning ceiling', () => {
+    const gameState = createInitialGameState();
+    gameState.globalResearch.lane.pendingQueue.push({
+      id: 'blocked-pl',
+      itemId: 'pl_6',
+      status: 'pending',
+      quantity: 1,
+      turnsRemaining: 24,
+      queuedTurn: 1,
+    });
+
+    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBeNull();
+  });
+
   test('research reorder rejects moving dependencies before prerequisites', () => {
     let gameState = createInitialGameState();
     gameState.globalResearch.completed = ['planet_management'];

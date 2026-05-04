@@ -19,6 +19,18 @@ export interface GlobalResearchSnapshot {
   planetLimit: number;
 }
 
+export interface PlanetLimitMilestone {
+  turn: number;
+  limit: number;
+  researchId?: string;
+}
+
+export interface GlobalResearchPlanView {
+  snapshot: GlobalResearchSnapshot;
+  completionTurns: Map<string, number>;
+  planetLimitMilestones: PlanetLimitMilestone[];
+}
+
 function cloneWorkItem(item: WorkItem): WorkItem {
   return { ...item };
 }
@@ -279,6 +291,65 @@ export function getGlobalResearchAtTurn(gameState: GameState, turn: number): Glo
   return simulateGlobalResearch(gameState, turn);
 }
 
+function buildPlanView(gameState: GameState): GlobalResearchPlanView {
+  const snapshot = simulateGlobalResearch(gameState, TOTAL_TURNS, true);
+  const completionTurns = new Map<string, number>();
+  const planetLimitMilestones: Array<PlanetLimitMilestone & { order: number }> = [];
+  let order = 0;
+
+  for (const researchId of gameState.globalResearch.completed || []) {
+    const def = defs[researchId];
+    const limit = def?.effectsOnComplete?.planet_limit;
+    if (limit) {
+      planetLimitMilestones.push({ turn: 1, limit, researchId, order: order++ });
+    }
+  }
+
+  for (const item of snapshot.lane.completionHistory) {
+    if (item.isWait || item.completionTurn === undefined) {
+      continue;
+    }
+
+    completionTurns.set(item.itemId, item.completionTurn);
+
+    const def = defs[item.itemId];
+    const limit = def?.effectsOnComplete?.planet_limit;
+    if (limit) {
+      planetLimitMilestones.push({
+        turn: item.completionTurn,
+        limit,
+        researchId: item.itemId,
+        order: order++,
+      });
+    }
+  }
+
+  planetLimitMilestones.sort((a, b) => {
+    if (a.turn !== b.turn) return a.turn - b.turn;
+    if (a.limit !== b.limit) return a.limit - b.limit;
+    return a.order - b.order;
+  });
+
+  return {
+    snapshot,
+    completionTurns,
+    planetLimitMilestones: planetLimitMilestones.map(({ order: _order, ...milestone }) => milestone),
+  };
+}
+
+export function getGlobalResearchPlanView(gameState: GameState): GlobalResearchPlanView {
+  return buildPlanView(gameState);
+}
+
+function getPlanetLimitFromMilestones(milestones: PlanetLimitMilestone[], turn: number): number {
+  let limit = BASE_PLANET_LIMIT;
+  for (const milestone of milestones) {
+    if (milestone.turn > turn) break;
+    limit = Math.max(limit, milestone.limit);
+  }
+  return limit;
+}
+
 export function getPlanetLimitAtTurn(gameState: GameState, turn: number): number {
   const lane = gameState.globalResearch.lane;
   if (
@@ -289,7 +360,7 @@ export function getPlanetLimitAtTurn(gameState: GameState, turn: number): number
   ) {
     return BASE_PLANET_LIMIT;
   }
-  return getGlobalResearchAtTurn(gameState, turn).planetLimit;
+  return getPlanetLimitFromMilestones(getGlobalResearchPlanView(gameState).planetLimitMilestones, turn);
 }
 
 export function getEarliestPlanetStartTurn(
@@ -297,39 +368,26 @@ export function getEarliestPlanetStartTurn(
   planetNumber: number,
   fromTurn: number = 1
 ): number | null {
-  const startTurn = Math.max(1, Math.min(RESEARCH_PLAN_MAX_TURN, fromTurn));
-  const startSnapshot = getGlobalResearchAtTurn(gameState, startTurn);
-  if (startSnapshot.planetLimit >= planetNumber) {
+  const startTurn = Math.max(1, fromTurn);
+  if (planetNumber <= BASE_PLANET_LIMIT) {
     return startTurn;
   }
 
-  let planetLimit = startSnapshot.planetLimit;
-  const planSnapshot = simulateGlobalResearch(gameState, startTurn, true);
-  const completions = [...planSnapshot.lane.completionHistory]
-    .filter((item) => item.completionTurn !== undefined && item.completionTurn > startTurn)
-    .sort((a, b) => (a.completionTurn ?? 0) - (b.completionTurn ?? 0));
-
-  for (const item of completions) {
-    const def = defs[item.itemId];
-    if (!def) continue;
-    planetLimit = applyPlanetLimit(planetLimit, def);
-    if (planetLimit >= planetNumber) {
-      return item.completionTurn ?? null;
-    }
+  const { planetLimitMilestones } = getGlobalResearchPlanView(gameState);
+  if (getPlanetLimitFromMilestones(planetLimitMilestones, startTurn) >= planetNumber) {
+    return startTurn;
   }
 
+  for (const milestone of planetLimitMilestones) {
+    if (milestone.turn >= startTurn && getPlanetLimitFromMilestones(planetLimitMilestones, milestone.turn) >= planetNumber) {
+      return milestone.turn;
+    }
+  }
   return null;
 }
 
 export function getResearchCompletionTurns(gameState: GameState): Map<string, number> {
-  const result = new Map<string, number>();
-  const snapshot = simulateGlobalResearch(gameState, TOTAL_TURNS, true);
-  for (const item of snapshot.lane.completionHistory) {
-    if (!item.isWait && item.completionTurn !== undefined) {
-      result.set(item.itemId, item.completionTurn);
-    }
-  }
-  return result;
+  return getGlobalResearchPlanView(gameState).completionTurns;
 }
 
 export function getCompletedResearchAtTurn(gameState: GameState, turn: number): string[] {
@@ -337,7 +395,7 @@ export function getCompletedResearchAtTurn(gameState: GameState, turn: number): 
 }
 
 export function getGlobalResearchLaneView(gameState: GameState, turn: number): LaneView {
-  const planSnapshot = simulateGlobalResearch(gameState, turn, true);
+  const planSnapshot = getGlobalResearchPlanView(gameState).snapshot;
   const entries: Array<{ entry: LaneView['entries'][number]; order: number }> = [];
   let order = 0;
 
