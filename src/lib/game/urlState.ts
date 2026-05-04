@@ -945,7 +945,7 @@ export function saveStateToURL(
 
 export function buildShareURL(encoded: string): string {
   if (typeof window === 'undefined') return `#${STATE_HASH_PREFIX}${encoded}`;
-  const url = new URL(window.location.href);
+  const url = new URL('/', window.location.origin);
   url.hash = `${STATE_HASH_PREFIX}${encoded}`;
   return url.toString();
 }
@@ -989,7 +989,12 @@ export function loadStateFromLocalStorage(): GameSnapshot | null {
 
 export function clearStateFromURL(): void {
   if (typeof window === 'undefined') return;
-  window.location.hash = '';
+  const url = new URL('/', window.location.origin);
+  try {
+    window.history.replaceState(window.history.state, '', url.toString());
+  } catch {
+    window.location.hash = '';
+  }
   try { window.localStorage.removeItem('florent_save'); } catch { /* ignore */ }
 }
 

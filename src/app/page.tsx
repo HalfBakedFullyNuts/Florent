@@ -160,6 +160,8 @@ export default function Home() {
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [isMounted, setIsMounted] = useState(false);
   const [activeShareMetadata, setActiveShareMetadata] = useState<ShareMetadata | null>(null);
+  const [shareListName, setShareListName] = useState('');
+  const [shareAuthor, setShareAuthor] = useState('');
   // Bootstrap-once guard: React StrictMode runs effects twice in dev; we only
   // want to restore state on the first mount, otherwise the second run replays
   // commands on top of the already-restored state and double-counts everything.
@@ -169,7 +171,11 @@ export default function Home() {
   const restoreInProgressRef = useRef(false);
 
   const rememberOpenedSharedLink = useCallback((encoded: string, snapshot: LoadedGameSnapshot) => {
-    const share = getShareMetadataFromSnapshot(snapshot);
+    const share = getShareMetadataFromSnapshot(snapshot) ?? normaliseShareMetadata({
+      name: 'Shared build list',
+      author: 'Unknown commander',
+      sharedAt: new Date().toISOString(),
+    });
     setActiveShareMetadata(share);
     if (!share) return;
     if (typeof window.indexedDB === 'undefined') return;
@@ -193,6 +199,21 @@ export default function Home() {
       planets: new Map(replayedState.planets),
     }));
   }, [commandHistory, rememberOpenedSharedLink]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      setShareAuthor(window.localStorage.getItem(SHARE_AUTHOR_STORAGE_KEY) ?? '');
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!activeShareMetadata) return;
+    setShareListName(activeShareMetadata.name);
+    if (activeShareMetadata.author !== 'Unknown commander') {
+      setShareAuthor(activeShareMetadata.author);
+    }
+  }, [activeShareMetadata]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -1245,34 +1266,14 @@ export default function Home() {
     };
   }, [gameState, commandHistory, activeShareMetadata]);
 
-  const requestShareMetadata = useCallback(() => {
-    const defaultName = activeShareMetadata?.name || `${currentPlanet?.name ?? 'Homeworld'} build list`;
-    const name = window.prompt('Name this shared build list', defaultName);
-    if (name === null) return null;
-
-    let storedAuthor = '';
-    try {
-      storedAuthor = window.localStorage.getItem(SHARE_AUTHOR_STORAGE_KEY) ?? '';
-    } catch { /* ignore */ }
-
-    const defaultAuthor = activeShareMetadata?.author === 'Unknown commander'
-      ? storedAuthor
-      : activeShareMetadata?.author || storedAuthor;
-    const author = window.prompt('Author name for this shared link', defaultAuthor);
-    if (author === null) return null;
-
-    const metadata = normaliseShareMetadata({
-      name,
-      author,
+  const getShareMetadataForCurrentBuild = useCallback(() => {
+    const fallbackName = activeShareMetadata?.name || `${currentPlanet?.name ?? 'Homeworld'} build list`;
+    return normaliseShareMetadata({
+      name: shareListName.trim() || fallbackName,
+      author: shareAuthor.trim() || undefined,
       sharedAt: new Date().toISOString(),
     });
-    if (!metadata) return null;
-
-    try {
-      window.localStorage.setItem(SHARE_AUTHOR_STORAGE_KEY, metadata.author);
-    } catch { /* ignore */ }
-    return metadata;
-  }, [activeShareMetadata, currentPlanet?.name]);
+  }, [activeShareMetadata, currentPlanet?.name, shareAuthor, shareListName]);
 
   // Restore a save: push the encoded state into the URL hash and reload so the
   // existing hash-based bootstrap rebuilds command history from scratch.
@@ -1324,6 +1325,34 @@ export default function Home() {
         </header>
 
         <BuildListSelector onRestore={handleRestoreSave} />
+
+        <div className="px-3 pb-3 md:px-6">
+          <div className="mx-auto grid max-w-[1800px] gap-2 rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-3 shadow-lg shadow-black/15 backdrop-blur-xl md:grid-cols-[minmax(220px,1fr)_minmax(180px,280px)_auto] md:items-end">
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">Shared list name</span>
+              <input
+                type="text"
+                value={shareListName}
+                onChange={(e) => setShareListName(e.target.value)}
+                placeholder={`${currentPlanet?.name ?? 'Homeworld'} build list`}
+                className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">Author</span>
+              <input
+                type="text"
+                value={shareAuthor}
+                onChange={(e) => setShareAuthor(e.target.value)}
+                placeholder="Optional commander name"
+                className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+              />
+            </label>
+            <p className="text-xs leading-relaxed text-cyan-100/60 md:max-w-xs">
+              Used when copying a share link. No popups; edit it here whenever the plan gets a proper name.
+            </p>
+          </div>
+        </div>
 
         {/* Planet Tabs - Multi-planet navigation */}
         <div className="px-3 pb-2 md:px-6">
@@ -1472,7 +1501,7 @@ export default function Home() {
                 <div className="grid min-h-[46px] w-full grid-cols-2 gap-2 xl:grid-cols-4">
                   <button
                     onClick={async () => {
-                      const metadata = requestShareMetadata();
+                      const metadata = getShareMetadataForCurrentBuild();
                       if (!metadata) return;
 
                       const share = buildCurrentShareURL(metadata);
@@ -1484,6 +1513,11 @@ export default function Home() {
                       const { commandCount: cmds, url } = share;
                       const copied = await copyTextToClipboard(url);
                       if (copied) {
+                        try {
+                          if (shareAuthor.trim()) {
+                            window.localStorage.setItem(SHARE_AUTHOR_STORAGE_KEY, shareAuthor.trim());
+                          }
+                        } catch { /* ignore */ }
                         setToast(`Link copied — "${metadata.name}" by ${metadata.author}, ${cmds} command${cmds === 1 ? '' : 's'}`);
                         setTimeout(() => setToast(null), 3000);
                       } else {

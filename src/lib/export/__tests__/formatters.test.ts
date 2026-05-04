@@ -3,13 +3,14 @@
  * Test export format generation for text and Discord formats
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   DISCORD_MESSAGE_LIMIT,
   formatAsText,
   formatAsDiscord,
   formatAsDiscordMessages,
   extractQueueItems,
+  copyToClipboard,
 } from '../formatters';
 import type { LaneView } from '../../game/selectors';
 
@@ -481,6 +482,23 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(discord).toContain('| Research');
       expect(discord).toContain('Planet Manageme');
       expect(discord).not.toContain('1x Planet');
+    });
+  });
+
+  describe('copyToClipboard', () => {
+    it('falls back to a textarea copy when the Clipboard API is unavailable', async () => {
+      Object.defineProperty(window.navigator, 'clipboard', {
+        configurable: true,
+        value: undefined,
+      });
+      const execCommand = vi.fn().mockReturnValue(true);
+      Object.defineProperty(document, 'execCommand', {
+        configurable: true,
+        value: execCommand,
+      });
+
+      await expect(copyToClipboard('hello discord')).resolves.toBe(true);
+      expect(execCommand).toHaveBeenCalledWith('copy');
     });
   });
 });

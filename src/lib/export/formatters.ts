@@ -194,11 +194,35 @@ function fitDiscordCell(value: string): string {
  * Returns true if successful, false otherwise
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
+  if (!text) return false;
+
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (err) {
+    console.warn('Clipboard API failed, trying textarea fallback:', err);
+  }
+
+  if (typeof document === 'undefined') return false;
+
+  let textarea: HTMLTextAreaElement | null = null;
+  try {
+    textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    return document.execCommand?.('copy') ?? false;
   } catch (err) {
     console.error('Failed to copy to clipboard:', err);
     return false;
+  } finally {
+    textarea?.remove();
   }
 }

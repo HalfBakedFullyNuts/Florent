@@ -37,6 +37,7 @@ export function ExportModal({
   const [notification, setNotification] = useState<string | null>(null);
   const [discordMessages, setDiscordMessages] = useState<string[]>([]);
   const [nextDiscordMessageIndex, setNextDiscordMessageIndex] = useState(0);
+  const [imageFallback, setImageFallback] = useState<{ blob: Blob; filename: string } | null>(null);
 
   const laneViews = [buildingLane, shipLane, colonistLane, researchLane];
 
@@ -48,9 +49,25 @@ export function ExportModal({
     setTimeout(() => setNotification(null), 3000);
   };
 
+  const resolveExportScope = () => {
+    const scopedItems = extractQueueItems(laneViews, maxTurn);
+    if (scopedItems.length > 0 || maxTurn === undefined) {
+      return { effectiveMaxTurn: maxTurn, usedFullFallback: false };
+    }
+
+    const fullItems = extractQueueItems(laneViews);
+    if (fullItems.length > 0) {
+      return { effectiveMaxTurn: undefined, usedFullFallback: true };
+    }
+
+    return { effectiveMaxTurn: maxTurn, usedFullFallback: false };
+  };
+
   const handleExportText = async () => {
     clearDiscordCopyState();
-    const text = formatAsText(laneViews, maxTurn);
+    setImageFallback(null);
+    const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
+    const text = formatAsText(laneViews, effectiveMaxTurn);
 
     if (!text) {
       showNotification('Queue is empty - nothing to export');
@@ -59,15 +76,24 @@ export function ExportModal({
 
     const success = await copyToClipboard(text);
     if (success) {
-      showNotification('✓ Copied to clipboard!');
+      showNotification(usedFullFallback
+        ? '✓ No items completed by this turn, so the full queue was copied.'
+        : '✓ Copied to clipboard!');
     } else {
       showNotification('✗ Failed to copy to clipboard');
     }
   };
 
   const handleExportDiscord = async () => {
-    const messages = formatAsDiscordMessages(laneViews, maxTurn);
+    setImageFallback(null);
+    const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
+    const messages = formatAsDiscordMessages(laneViews, effectiveMaxTurn);
     const firstMessage = messages[0] ?? '';
+
+    if (extractQueueItems(laneViews, effectiveMaxTurn).length === 0) {
+      showNotification('Queue is empty - nothing to export');
+      return;
+    }
 
     const success = await copyToClipboard(firstMessage);
     if (success) {
@@ -76,7 +102,9 @@ export function ExportModal({
       if (messages.length > 1) {
         showNotification(`✓ Copied Discord message 1 of ${messages.length}. Paste it, then copy the next one.`);
       } else {
-        showNotification('✓ Copied to clipboard!');
+        showNotification(usedFullFallback
+          ? '✓ No items completed by this turn, so the full queue was copied.'
+          : '✓ Copied to clipboard!');
       }
     } else {
       showNotification('✗ Failed to copy to clipboard');
@@ -104,8 +132,10 @@ export function ExportModal({
 
   const handleExportImage = async () => {
     clearDiscordCopyState();
+    setImageFallback(null);
     try {
-      const items = extractQueueItems(laneViews, maxTurn);
+      const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
+      const items = extractQueueItems(laneViews, effectiveMaxTurn);
 
       if (items.length === 0) {
         showNotification('Queue is empty - nothing to export');
@@ -189,12 +219,15 @@ export function ExportModal({
         return;
       }
 
-      const copied = await copyImageToClipboard(blob);
+      const filename = `build-order-turn-${currentTurn}.png`;
+      const copied = await copyImageToClipboard(blob, canvas.toDataURL('image/png'));
+      setImageFallback({ blob, filename });
       if (copied) {
-        showNotification('✓ Image copied to clipboard!');
+        showNotification(usedFullFallback
+          ? '✓ No items completed by this turn, so the full queue image was copied.'
+          : '✓ Image copied to clipboard!');
       } else {
-        downloadBlob(blob, `build-order-turn-${currentTurn}.png`);
-        showNotification('Clipboard unavailable - image downloaded instead.');
+        showNotification('✗ Browser blocked image clipboard. Use Download image instead.');
       }
     } catch (error) {
       console.error('Image export error:', error);
@@ -260,6 +293,12 @@ export function ExportModal({
               </button>
             )}
 
+            {discordMessages.length > 1 && nextDiscordMessageIndex >= discordMessages.length && (
+              <div className="rounded border border-emerald-300/30 bg-emerald-950/20 p-3 text-xs text-emerald-100">
+                All Discord chunks copied. Paste each copied message into Discord in order.
+              </div>
+            )}
+
             {/* Image Export */}
             <button
               onClick={handleExportImage}
@@ -270,6 +309,18 @@ export function ExportModal({
                 PNG image - copied to clipboard when supported
               </div>
             </button>
+
+            {imageFallback && (
+              <button
+                onClick={() => downloadBlob(imageFallback.blob, imageFallback.filename)}
+                className="w-full p-3 bg-slate-900/70 hover:bg-slate-700 border border-slate-500/60 rounded text-left transition-colors"
+              >
+                <div className="font-semibold text-pink-nebula-text">Download image instead</div>
+                <div className="text-xs text-pink-nebula-muted mt-1">
+                  Optional fallback if Discord refuses the clipboard image.
+                </div>
+              </button>
+            )}
           </div>
 
           {/* Notification */}
@@ -298,16 +349,35 @@ function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
   });
 }
 
-async function copyImageToClipboard(blob: Blob): Promise<boolean> {
-  if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+async function copyImageToClipboard(blob: Blob, dataUrl?: string): Promise<boolean> {
+  if (
+    typeof navigator === 'undefined' ||
+    !navigator.clipboard?.write ||
+    typeof ClipboardItem === 'undefined'
+  ) {
     return false;
   }
 
   try {
     await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
     return true;
+  } catch (firstError) {
+    if (!dataUrl) {
+      console.warn('Failed to copy image to clipboard:', firstError);
+      return false;
+    }
+  }
+
+  try {
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        [blob.type]: blob,
+        'text/html': new Blob([`<img src="${dataUrl}" alt="Infinite Conflict build order">`], { type: 'text/html' }),
+      }),
+    ]);
+    return true;
   } catch (error) {
-    console.warn('Failed to copy image to clipboard:', error);
+    console.warn('Failed to copy rich image clipboard payload:', error);
     return false;
   }
 }

@@ -17,7 +17,7 @@ import {
 import {
   serialiseSaveFile,
   downloadSaveFile,
-  parseSaveFile,
+  parsePortableSaveText,
   buildDefaultFilename,
 } from '../lib/persistence/saveFile';
 import { formatOpenedTimestamp } from '../lib/persistence/saveLabels';
@@ -147,7 +147,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
   }, []);
 
   const handleImportRestore = useCallback(() => {
-    const parsed = parseSaveFile(importText);
+    const parsed = parsePortableSaveText(importText);
     if (!parsed.ok || !parsed.file) {
       setError(parsed.reason || 'Invalid file');
       return;
@@ -158,7 +158,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
   }, [importText, onRestore, onClose]);
 
   const handleImportSaveAs = useCallback(async () => {
-    const parsed = parseSaveFile(importText);
+    const parsed = parsePortableSaveText(importText);
     if (!parsed.ok || !parsed.file) {
       setError(parsed.reason || 'Invalid file');
       return;
@@ -403,7 +403,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
         {tab === 'import' && (
           <div className="space-y-3">
             <p className="text-xs text-pink-nebula-muted">
-              Import a .json file shared by another device, or paste its contents below.
+              Import a .json file, paste a shared link, or paste a raw encoded state payload.
             </p>
             <input
               type="file"
@@ -414,7 +414,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
             <textarea
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
-              placeholder="…or paste the JSON contents here"
+              placeholder="…or paste a Florent JSON save, shared URL, #state=..., or encoded payload here"
               className="w-full h-40 px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none font-mono text-xs"
             />
             <div className="flex flex-col sm:flex-row gap-2">

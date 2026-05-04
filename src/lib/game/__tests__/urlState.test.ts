@@ -8,6 +8,7 @@ import {
   getShareMetadataFromSnapshot,
   loadStateFromURL,
   saveEncodedStateToURL,
+  clearStateFromURL,
 } from '../urlState';
 import type { PlanetConfig } from '../gameState';
 
@@ -63,7 +64,7 @@ describe('URL state helpers', () => {
     window.localStorage.clear();
   });
 
-  test('builds share URLs from the current app URL and encoded state', () => {
+  test('builds canonical root share URLs with encoded state', () => {
     const commands: Parameters<typeof encodeGameState>[1] = [['q', 0, 11, 1]];
     const encoded = encodeGameState([homeworldConfig], commands, {
       name: 'Orbital Rush',
@@ -73,7 +74,7 @@ describe('URL state helpers', () => {
     const url = buildShareURL(encoded);
     const snapshot = decodeGameState(new URL(url).hash.substring(7));
 
-    expect(url).toBe(`${window.location.origin}/planner/?view=queue#state=${encoded}`);
+    expect(url).toBe(`${window.location.origin}/#state=${encoded}`);
     expect(encoded.startsWith('b3.')).toBe(true);
     expect(snapshot?.cmds).toHaveLength(1);
     expect(snapshot ? getShareMetadataFromSnapshot(snapshot) : null).toEqual({
@@ -81,6 +82,16 @@ describe('URL state helpers', () => {
       author: 'Ada',
       sharedAt: '2026-05-04T12:00:00.000Z',
     });
+  });
+
+  test('clears shared state back to the app root', () => {
+    window.history.replaceState(null, '', '/unexpected/path/?old=1#state=abc');
+    window.localStorage.setItem('florent_save', 'abc');
+
+    clearStateFromURL();
+
+    expect(window.location.href).toBe(`${window.location.origin}/`);
+    expect(window.localStorage.getItem('florent_save')).toBeNull();
   });
 
   test('binary v3 links are shorter than the equivalent compressed JSON link', () => {

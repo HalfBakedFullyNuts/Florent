@@ -84,11 +84,10 @@ describe('share link flow', () => {
 
   test('copies a fresh encoded link immediately when clicked', async () => {
     const writeText = installClipboardMock();
-    vi.spyOn(window, 'prompt')
-      .mockReturnValueOnce('Ada Opening')
-      .mockReturnValueOnce('Ada');
     render(<Home />);
 
+    fireEvent.change(screen.getByLabelText(/shared list name/i), { target: { value: 'Ada Opening' } });
+    fireEvent.change(screen.getByLabelText(/author/i), { target: { value: 'Ada' } });
     fireEvent.click(getQueueItem(/^Farm$/i));
     fireEvent.click(screen.getByRole('button', { name: /share link/i }));
 
@@ -115,11 +114,10 @@ describe('share link flow', () => {
       configurable: true,
       value: execCommand,
     });
-    vi.spyOn(window, 'prompt')
-      .mockReturnValueOnce('Fallback Opening')
-      .mockReturnValueOnce('Ada');
     render(<Home />);
 
+    fireEvent.change(screen.getByLabelText(/shared list name/i), { target: { value: 'Fallback Opening' } });
+    fireEvent.change(screen.getByLabelText(/author/i), { target: { value: 'Ada' } });
     fireEvent.click(getQueueItem(/^Farm$/i));
     fireEvent.click(screen.getByRole('button', { name: /share link/i }));
 

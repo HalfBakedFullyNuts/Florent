@@ -12,6 +12,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Binary share-link encoding shortens exported URLs while preserving backwards compatibility with existing encoded build links.
 - Build-list selector and queue panels received clearer visual hierarchy, themed scrollbars, and persistent action controls.
 - Queue action buttons now use distinct intent colors and icons: Copy Share Link, Open Saves, Export Current, and Export Full List.
+- Shared list name and author fields now live directly on the page, so copying a share link no longer interrupts the flow with prompts.
+- Save import now accepts pasted shared URLs, `#state=...` fragments, raw encoded payloads, and `.florent.json` files.
 
 ### Changed
 - Active lane tabs now use a cyan/sky selected treatment with lane icons, separating navigation state from action buttons.
@@ -28,6 +30,9 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Planet-limit research planning uses completion milestones and avoids brute-force turn scans.
 - Research reordering rejects dependency-inverting moves.
 - Debug/share/export flows include current research lane state and chunk Discord output for non-Nitro message limits.
+- Export copy now falls back to a textarea clipboard path when the Clipboard API is blocked, and current-turn export falls back to the full queue instead of appearing empty before the first completion.
+- Image export no longer forces a download when clipboard image copy is blocked; it keeps download as an explicit fallback action.
+- Share links now canonicalize to the app root URL, avoiding bad static-export routes when opened in a fresh/incognito tab.
 - Share-link copying now uses the safe clipboard fallback path in restricted or older browser contexts.
 - PWA service-worker registration now skips and cleans up local dev hosts including `localhost`, `127.0.0.1`, and IPv6 loopback.
 - Blocked front-of-queue global research now stalls research activation without freezing global RP accrual.

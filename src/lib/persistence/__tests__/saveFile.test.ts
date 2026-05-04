@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { serialiseSaveFile, parseSaveFile, buildDefaultFilename } from '../saveFile';
+import { serialiseSaveFile, parseSaveFile, parsePortableSaveText, buildDefaultFilename } from '../saveFile';
 import { encodeGameState } from '../../game/urlState';
 import { buildSaveSummary } from '../saveSummary';
 
@@ -56,6 +56,22 @@ describe('saveFile', () => {
     const parsed = parseSaveFile('not json {[');
     expect(parsed.ok).toBe(false);
     expect(parsed.reason).toMatch(/not valid json/i);
+  });
+
+  it('imports a pasted shared URL', () => {
+    const parsed = parsePortableSaveText(`https://example.test/#state=${sharedEncoded}`);
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.file?.encoded).toBe(sharedEncoded);
+    expect(parsed.file?.name).toBe('Shared Opener');
+    expect(parsed.file?.metadata.shareAuthor).toBe('Ada');
+  });
+
+  it('imports a raw state fragment', () => {
+    const parsed = parsePortableSaveText(`#state=${validEncoded}`);
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.file?.encoded).toBe(validEncoded);
   });
 
   it('rejects files that are not Florent saves', () => {

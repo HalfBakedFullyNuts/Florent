@@ -3,7 +3,7 @@
  * but adds human-readable metadata so users can browse files outside the app.
  */
 
-import { decodeGameState } from '../game/urlState';
+import { decodeGameState, getShareMetadataFromSnapshot } from '../game/urlState';
 import type { SaveSummary } from './savesDb';
 import { buildSaveSummary } from './saveSummary';
 
@@ -90,6 +90,67 @@ export function parseSaveFile(jsonText: string): ParsedSaveFile {
       encoded: obj.encoded,
     },
   };
+}
+
+/**
+ * Parse any portable save/share text the user is likely to paste:
+ * - Florent JSON save files
+ * - Full share URLs containing #state=...
+ * - Raw #state=... / state=... fragments
+ * - Raw encoded payloads
+ */
+export function parsePortableSaveText(input: string): ParsedSaveFile {
+  const text = input.trim();
+  if (!text) return { ok: false, reason: 'Nothing pasted' };
+
+  if (text.startsWith('{')) {
+    return parseSaveFile(text);
+  }
+
+  const encoded = extractEncodedPayload(text);
+  if (!encoded) {
+    return { ok: false, reason: 'Paste a Florent save JSON file, shared link, or encoded state payload.' };
+  }
+
+  const decoded = decodeGameState(encoded);
+  if (!decoded) {
+    return { ok: false, reason: 'Shared link payload could not be decoded' };
+  }
+
+  const metadata = buildSaveSummary(encoded);
+  const share = getShareMetadataFromSnapshot(decoded);
+  return {
+    ok: true,
+    file: {
+      format: FILE_FORMAT_VERSION,
+      name: share?.name || metadata.shareName || 'Imported shared link',
+      exportedAt: share?.sharedAt || new Date().toISOString(),
+      app: 'florent',
+      metadata,
+      encoded,
+    },
+  };
+}
+
+function extractEncodedPayload(text: string): string | null {
+  const statePrefix = 'state=';
+  const hashStateIndex = text.indexOf(`#${statePrefix}`);
+  if (hashStateIndex >= 0) {
+    return text.slice(hashStateIndex + statePrefix.length + 1).trim();
+  }
+
+  try {
+    const url = new URL(text);
+    const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
+    if (hash.startsWith(statePrefix)) return hash.slice(statePrefix.length);
+  } catch {
+    // Not a full URL; try fragment/raw forms below.
+  }
+
+  const withoutHash = text.startsWith('#') ? text.slice(1) : text;
+  if (withoutHash.startsWith(statePrefix)) return withoutHash.slice(statePrefix.length);
+
+  return decodeGameState(text) ? text : null;
 }
 
 /** Build a default filename from a save name (sanitised) and timestamp. */
