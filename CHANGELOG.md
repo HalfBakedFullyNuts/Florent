@@ -6,6 +6,24 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.15] — 2026-05-04
+
+### Fixed
+- Mobile planet tabs now align in a predictable two-column grid, with Reset Queue spanning its own row instead of floating to the right after wrapping.
+- Mobile timeline quick-jump controls now split into clean full-width rows for Start/Mid/End and lane-empty shortcuts.
+- Mobile dashboard gutters now match the rest of the page, and the Buildings table uses proportional columns so the right-edge Energy values are not clipped.
+
+### Changed
+- UI guidelines now call out explicit mobile grids for mixed-intent controls and proportional mobile dashboard tables.
+
+### Tests
+- Re-verified PlanetDashboard, build-list selector, Saves modal, Export modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.15`.
+
+---
+
 ## [0.2.14] — 2026-05-04
 
 ### Changed

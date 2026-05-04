@@ -274,6 +274,8 @@ Responsive behavior
 
 - At widths < 1100px: collapse left column to a drawer; right column becomes collapsible detail panel.
 - On mobile: stack panels vertically: Header -> Planet Summary -> Queue -> Build List.
+- Mobile control rows must use explicit grids instead of free-wrapping flex when actions have different intent. Planet tabs use a two-column grid with destructive reset spanning its own row; timeline quick jumps use separate full-width rows for Start/Mid/End and lane-empty shortcuts.
+- Mobile dashboard tables should share the page gutter (`px-3`) and use proportional columns or controlled scroll areas so right-edge data such as energy output is never clipped.
 
 ---
 
