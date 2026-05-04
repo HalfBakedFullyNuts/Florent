@@ -30,6 +30,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Debug/share/export flows include current research lane state and chunk Discord output for non-Nitro message limits.
 - Share-link copying now uses the safe clipboard fallback path in restricted or older browser contexts.
 - PWA service-worker registration now skips and cleans up local dev hosts including `localhost`, `127.0.0.1`, and IPv6 loopback.
+- Blocked front-of-queue global research now stalls research activation without freezing global RP accrual.
 
 ### Tests
 - Verified full Vitest suite, lint, production build, and localhost smoke checks during this patch sequence.

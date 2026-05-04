@@ -277,6 +277,29 @@ describe('global research', () => {
     expect(laneView.entries.find((entry) => entry.itemId === 'pl_6')?.startTurn).toBeUndefined();
   });
 
+  test('blocked front research stalls the lane while global RP keeps accruing', () => {
+    let gameState = createInitialGameState();
+    const planet = gameState.planets.get('planet-1')!;
+    planet.population.scientists = 10;
+    refreshTimeline(gameState, 'planet-1');
+
+    gameState = queueGlobalResearch(gameState, 'planet_management');
+    gameState = queueGlobalResearch(gameState, 'pl_6');
+    const planetManagement = gameState.globalResearch.lane.pendingQueue.find(
+      (item) => item.itemId === 'planet_management'
+    )!;
+    gameState = cancelGlobalResearch(gameState, planetManagement.id);
+
+    const turn5 = getGlobalResearchAtTurn(gameState, 5);
+    const turn50 = getGlobalResearchAtTurn(gameState, 50);
+
+    expect(turn5.stock).toBe(50);
+    expect(turn50.stock).toBe(500);
+    expect(turn50.completed).not.toContain('pl_6');
+    expect(turn50.lane.pendingQueue[0]?.itemId).toBe('pl_6');
+    expect(turn50.lane.active).toBeNull();
+  });
+
   test('local queued items revalidate scheduled research after global research is cancelled', () => {
     const defs = createLocalResearchGateDefs();
     let gameState = createInitialGameState();

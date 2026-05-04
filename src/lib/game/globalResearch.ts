@@ -243,6 +243,37 @@ function advanceResearchStockWait(
   };
 }
 
+function advanceResearchStockThroughTurn(
+  gameState: GameState,
+  snapshot: GlobalResearchSnapshot,
+  targetTurn: number
+): GlobalResearchSnapshot {
+  let stock = snapshot.stock;
+  let turn = snapshot.turn;
+  const target = Math.min(RESEARCH_PLAN_MAX_TURN, targetTurn);
+  const variableOutputEnd = maxScientistOutputChangeTurn(gameState);
+
+  while (turn <= target && turn <= variableOutputEnd) {
+    stock += scientistOutputAtTurn(gameState, turn);
+    turn += 1;
+  }
+
+  if (turn <= target) {
+    const outputPerTurn = scientistOutputAtTurn(gameState, turn);
+    if (outputPerTurn > 0) {
+      stock += (target - turn + 1) * outputPerTurn;
+    }
+    turn = target + 1;
+  }
+
+  return {
+    ...snapshot,
+    turn,
+    stock,
+    outputPerTurn: scientistOutputAtTurn(gameState, target),
+  };
+}
+
 function simulateGlobalResearch(
   gameState: GameState,
   targetTurn: number,
@@ -272,6 +303,7 @@ function simulateGlobalResearch(
     }
 
     if (isBlockedByUnmetFrontPrereq(snapshot)) {
+      snapshot = advanceResearchStockThroughTurn(gameState, snapshot, target);
       break;
     }
 
