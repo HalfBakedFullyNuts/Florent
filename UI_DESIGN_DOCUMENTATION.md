@@ -65,6 +65,20 @@ Florent is a turn-based strategy simulator for Infinite Conflict with a space-th
 | `success` | `#00b0ff` | Success states |
 | `warning` | `#ffab40` | Warning states |
 
+### Interaction Intent Colors
+
+Use these colors to prevent tabs and actions from looking interchangeable.
+
+| Intent | Color Family | Usage |
+|--------|--------------|-------|
+| Selected lane/tab | Cyan / sky | Active Structures, Ships, Colonists, Research tabs in Add to Queue and Planet Queue |
+| Share link | Emerald / teal | Copy Share Link action |
+| Saves | Sky / blue | Open Saves action |
+| Export current | Amber | Export Current action |
+| Export full | Violet | Export Full List action |
+
+Guideline: pink/magenta remains the brand accent and confirmation color, but it should not be the default active-tab color. Active lane tabs use cyan/sky so they read as navigation state, while action buttons use intent-specific colors and icons.
+
 ### Resource Colors (Consistent across entire UI)
 
 | Resource | Tailwind Class | Color | Notes |
@@ -206,10 +220,26 @@ Resource-specific glows for emphasis:
 ### Buttons
 | Type | Style | Usage |
 |------|-------|-------|
-| Primary | Pink bg, white text | Main actions (queue, confirm) |
+| Primary | Pink bg, white text | Confirm/save flows where there is a single obvious primary action |
 | Secondary | Slate bg, muted text | Cancel, dismiss |
 | Destructive | Red bg | Delete, remove |
 | Disabled | Gray bg, 50% opacity | Unavailable actions |
+
+### Queue Header Actions
+
+Queue header actions must be impossible to confuse:
+- **Copy Share Link**: emerald/teal, link icon, copies a URL that opens this build list.
+- **Open Saves**: blue, save/disk icon, opens local save/shared/history management.
+- **Export Current**: amber, export/upload icon, exports the currently visible build order.
+- **Export Full List**: violet, list icon, exports the full future build list.
+
+Labels should describe the outcome directly. Avoid ambiguous pairs like "Share Link" and "Export / Share" next to each other.
+
+### Lane Tabs
+
+- Active lane tabs use cyan/sky selected styling rather than pink/magenta.
+- Every lane tab includes its icon plus text label.
+- Tabs indicate navigation/filter state only; do not style them like action buttons.
 
 ### Form Inputs
 - Number inputs: Center-aligned, monospace, 40px height

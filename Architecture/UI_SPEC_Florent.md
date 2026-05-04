@@ -30,6 +30,11 @@ Design tokens (CSS variable names / Tailwind tokens suggested)
 - --bg-secondary: #21182c; /* Panels, cards */
 - --accent-primary: #e91e63; /* Primary interactive */
 - --accent-secondary: #ff4081; /* Hover/highlight */
+- --accent-selected: #22d3ee; /* Active lane/tab selection */
+- --action-share: #10b981; /* Copy/share-link action */
+- --action-save: #0ea5e9; /* Saves/load actions */
+- --action-export-current: #f59e0b; /* Current-view export */
+- --action-export-full: #8b5cf6; /* Full-list export */
 - --text-primary: #e1dce6; /* Main text */
 - --text-secondary: #a39cb0; /* Muted text */
 - --border: #3c2d4a; /* Dividers / borders */
@@ -39,7 +44,9 @@ Design tokens (CSS variable names / Tailwind tokens suggested)
 Usage guidance
 
 - Backgrounds: Use `--bg-primary` for app shell, `--bg-secondary` for card/panel backgrounds.
-- Accents: Use `--accent-primary` for CTA buttons, active tab backgrounds, progress fills. `--accent-secondary` for hover states and emphasis.
+- Accents: Use `--accent-primary` / `--accent-secondary` for pink-nebula brand emphasis and primary confirmation flows, not for every selected surface.
+- Selection: Use `--accent-selected` (cyan/blue family) for active lane tabs and selected tab panels so tabs cannot be mistaken for primary/destructive actions.
+- Actions: Give high-risk or high-impact actions their own intent color and icon. Do not reuse the active-tab color for action buttons.
 - Text: `--text-primary` for all primary labels and values; `--text-secondary` for descriptions, legends, disabled text.
 - Borders: `--border` at 1px for separation lines, subtle card outlines.
 
@@ -129,8 +136,9 @@ Panel shell
 Category tabs (Structures/Ships/etc.)
 
 - Container: `--bg-secondary`.
-- Active tab: bottom border 3px solid `--accent-primary`, text color `--text-primary`.
+- Active tab: cyan/blue selected treatment using `--accent-selected`, text color `--text-primary`, and a clear icon. Do not use pink/magenta for active lane tabs.
 - Inactive tabs: `--text-secondary`.
+- Tab icons: include the lane icon inside every tab (Structures, Ships, Colonists, Research) so label recognition does not depend on color alone.
 
 Build items
 
@@ -143,6 +151,12 @@ Queue Button
 
 - Default: background `--accent-primary`, color `--text-primary`, border-radius 4px, padding 6px 10px.
 - Hover: background `--accent-secondary`.
+- Named queue-header actions must be visually distinct:
+  - Copy Share Link: green/teal with a link icon.
+  - Open Saves: blue with a save/disk icon.
+  - Export Current: amber with an upload/export icon.
+  - Export Full List: violet with a list icon.
+- Labels should state the result, not just the category. Prefer "Copy Share Link" over "Share Link" and "Export Current" over "Export / Share".
 
 ### 5.3 Middle Column — "Queue"
 

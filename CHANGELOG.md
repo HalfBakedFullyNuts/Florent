@@ -6,6 +6,34 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.12] — 2026-05-04
+
+### Added
+- Binary share-link encoding shortens exported URLs while preserving backwards compatibility with existing encoded build links.
+- Build-list selector and queue panels received clearer visual hierarchy, themed scrollbars, and persistent action controls.
+- Queue action buttons now use distinct intent colors and icons: Copy Share Link, Open Saves, Export Current, and Export Full List.
+
+### Changed
+- Active lane tabs now use a cyan/sky selected treatment with lane icons, separating navigation state from action buttons.
+- Ported the latest `main` global-research review fixes into this branch without removing PWA/share/cache work.
+- Updated UI design documentation to codify the new lane-tab and queue-action button guidelines.
+
+### Fixed
+- Legacy localStorage-to-IndexedDB migration now exits safely when IndexedDB or usable localStorage is unavailable, removing noisy test/dev warnings.
+- Vitest now binds jsdom's browser storage under Node 25 so page tests no longer emit `--localstorage-file` warnings.
+- Build-list dropdown stacking now stays above planet rows and dashboard content.
+- Planet-limit research planning uses completion milestones and avoids brute-force turn scans.
+- Research reordering rejects dependency-inverting moves.
+- Debug/share/export flows include current research lane state and chunk Discord output for non-Nitro message limits.
+
+### Tests
+- Verified full Vitest suite, lint, production build, and localhost smoke checks during this patch sequence.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.12`.
+
+---
+
 ## [0.2.11] — 2026-05-04
 
 ### Fixed

@@ -281,11 +281,32 @@ function notifySavesChanged(): void {
 
 const MIGRATION_FLAG = 'florent_idb_migrated_v1';
 
+function getLegacyLocalStorage(): Pick<Storage, 'getItem' | 'setItem'> | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const storage = window.localStorage;
+    if (
+      !storage ||
+      typeof storage.getItem !== 'function' ||
+      typeof storage.setItem !== 'function'
+    ) {
+      return null;
+    }
+    return storage;
+  } catch {
+    return null;
+  }
+}
+
 export async function migrateLegacyLocalStorage(buildSummary: (encoded: string) => SaveSummary): Promise<void> {
   if (typeof window === 'undefined') return;
-  if (window.localStorage.getItem(MIGRATION_FLAG) === '1') return;
+  if (typeof window.indexedDB === 'undefined') return;
+  const storage = getLegacyLocalStorage();
+  if (!storage) return;
+
   try {
-    const encoded = window.localStorage.getItem('florent_save');
+    if (storage.getItem(MIGRATION_FLAG) === '1') return;
+    const encoded = storage.getItem('florent_save');
     if (encoded) {
       const summary = buildSummary(encoded);
       await pushHistory(encoded, summary);
@@ -293,6 +314,6 @@ export async function migrateLegacyLocalStorage(buildSummary: (encoded: string) 
   } catch (err) {
     console.warn('[savesDb] legacy migration failed:', err);
   } finally {
-    try { window.localStorage.setItem(MIGRATION_FLAG, '1'); } catch { /* ignore */ }
+    try { storage.setItem(MIGRATION_FLAG, '1'); } catch { /* ignore */ }
   }
 }

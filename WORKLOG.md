@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.12: Branch integration, sharing polish, and action clarity.**
+The branch now carries the latest `main` global-research fixes while keeping the PWA/share/save-cache work intact. Share/export flows were tightened with binary URLs, Discord chunking, research-inclusive exports, clipboard image export, and safer debug/reset handling. The build-list selector and queue panels were polished with persistent controls, clearer stacking, themed scrollbars, cyan lane-tab selection, and distinct icon/color treatments for share, saves, current export, and full-list export actions. Legacy localStorage migration now avoids noisy failures when IndexedDB or usable localStorage is absent, and Vitest binds jsdom storage explicitly so Node 25 no longer emits `--localstorage-file` warnings in page tests.
+
 **2026-05-04 — v0.2.11: Shared opened timestamps.**
 Shared build lists now display their opened date and time in selector/modal labels and are rendered newest-first so same-name shares remain distinguishable.
 
