@@ -6,6 +6,57 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.7] — 2026-05-04
+
+### Fixed
+- Replaced the PL earliest-start turn scan with planned research milestones so add-planet limit checks no longer resimulate up to the planning ceiling.
+- Removed fixed T199 queue lookups from late-start planet operations; auto-jump, cancellation checks, and max quantity now use the active planet's world-turn horizon.
+- Reset Queue now clears global research state as part of the full homeworld reset.
+- The infinity batch button now explicitly queues the maximum immediately available quantity, while normal queueing still allows soft-wait items.
+- Added-planet starting property inputs keep editable draft text and normalize only on blur or submit.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.2.6` to `0.2.7`.
+
+---
+
+## [0.2.6] — 2026-05-04
+
+### Added
+- Batchable ship and colonist rows now include an infinity button that queues the maximum amount currently valid.
+
+### Changed
+- Soldier and scientist batch inputs now default to 100 instead of 1.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.2.5` to `0.2.6`.
+
+---
+
+## [0.2.5] — 2026-05-04
+
+### Fixed
+- Viewing an added planet before its start turn now shows a recoverable inactive-planet state instead of replacing the app with an invalid-turn error.
+- Planet-local queue controls are hidden while the selected planet does not exist at the viewed turn, while tabs and turn navigation remain usable.
+
+### Changed
+- Homeworld plus the first three added planets can use any chosen start turn without PL research gating; PL research gates only the fifth planet and beyond.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.2.4` to `0.2.5`.
+
+---
+
+## [0.2.4] — 2026-05-04
+
+### Changed
+- Added-planet starting properties now use explicit text-editable fields for starting population, metal mines, mineral extractors, farms, and solar generators.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.2.3` to `0.2.4`.
+
+---
+
 ## [0.2.3] — 2026-05-04
 
 ### Fixed

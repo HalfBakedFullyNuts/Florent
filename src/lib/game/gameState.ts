@@ -60,6 +60,20 @@ export interface ExtendedPlanetState extends PlanetState {
 // Load definitions once
 const itemDefinitions: Record<string, ItemDefinition> = loadGameData(gameDataJson as any);
 const PLANET_LANES: LaneId[] = ['building', 'ship', 'colonist', 'research'];
+const BASE_PLANET_LIMIT = 4;
+
+export function createInitialGlobalResearchState(): GameState['globalResearch'] {
+  return {
+    stock: 0,
+    lane: {
+      pendingQueue: [],
+      active: null,
+      completionHistory: [],
+      maxQueueDepth: 9999,
+    },
+    completed: [],
+  };
+}
 
 function createStarterConfig(config: PlanetConfig) {
   const starting = normalizePlanetStarting(config.starting);
@@ -171,16 +185,7 @@ export function createInitialGameState(): GameState {
   return {
     planets,
     currentPlanetId: 'planet-1',
-    globalResearch: {
-      stock: 0,
-      lane: {
-        pendingQueue: [],
-        active: null,
-        completionHistory: [],
-        maxQueueDepth: 9999,
-      },
-      completed: [],
-    },
+    globalResearch: createInitialGlobalResearchState(),
     nextPlanetId: 2,
     maxPlanets: 4,
   };
@@ -191,9 +196,11 @@ export function createInitialGameState(): GameState {
  */
 export function addPlanet(gameState: GameState, config: PlanetConfig): GameState {
   const requestedPlanetNumber = gameState.planets.size + 1;
-  const effectiveLimit = getPlanetLimitAtTurn(gameState, config.startTurn);
-  if (requestedPlanetNumber > effectiveLimit) {
-    throw new Error(`Maximum planet limit reached for turn ${config.startTurn}`);
+  if (requestedPlanetNumber > BASE_PLANET_LIMIT) {
+    const effectiveLimit = getPlanetLimitAtTurn(gameState, config.startTurn);
+    if (requestedPlanetNumber > effectiveLimit) {
+      throw new Error(`Maximum planet limit reached for turn ${config.startTurn}`);
+    }
   }
 
   const planetId = `planet-${gameState.nextPlanetId}`;
@@ -283,9 +290,11 @@ export function updatePlanetConfig(
     throw new Error('Homeworld cannot be edited');
   }
   const planetNumber = Array.from(gameState.planets.keys()).indexOf(planetId) + 1;
-  const effectiveLimit = getPlanetLimitAtTurn(gameState, config.startTurn);
-  if (planetNumber > effectiveLimit) {
-    throw new Error(`Maximum planet limit reached for turn ${config.startTurn}`);
+  if (planetNumber > BASE_PLANET_LIMIT) {
+    const effectiveLimit = getPlanetLimitAtTurn(gameState, config.startTurn);
+    if (planetNumber > effectiveLimit) {
+      throw new Error(`Maximum planet limit reached for turn ${config.startTurn}`);
+    }
   }
 
   const lanePlans = getInitialLanePlans(planet);
@@ -318,6 +327,7 @@ export function resetToHomeworld(gameState: GameState): GameState {
     ...gameState,
     planets: new Map([['planet-1', homeworld]]),
     currentPlanetId: 'planet-1',
+    globalResearch: createInitialGlobalResearchState(),
     nextPlanetId: 2,
   };
 }
