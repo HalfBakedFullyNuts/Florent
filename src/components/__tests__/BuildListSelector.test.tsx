@@ -127,7 +127,7 @@ describe('BuildListSelector', () => {
     fireEvent.click(screen.getByRole('option', { name: /Neighbor Rush by Lin - opened/i }));
     fireEvent.click(screen.getByRole('button', { name: /^load$/i }));
 
-    expect(onRestore).toHaveBeenCalledWith('shared-encoded', expect.stringMatching(/^Neighbor Rush by Lin - opened /));
+    expect(onRestore).toHaveBeenCalledWith('shared-encoded', expect.stringMatching(/^Neighbor Rush by Lin - opened /), { shared: true });
   });
 
   test('keeps the dropdown enabled while refreshing existing lists', async () => {

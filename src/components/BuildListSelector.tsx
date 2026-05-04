@@ -23,7 +23,7 @@ type BuildListOption =
 const RECENT_LOCAL_LIMIT = 5;
 
 export interface BuildListSelectorProps {
-  onRestore: (encoded: string, label: string) => void;
+  onRestore: (encoded: string, label: string, options?: { shared?: boolean }) => void;
 }
 
 /**
@@ -154,7 +154,7 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
   const handleLoad = useCallback(() => {
     if (!selected) return;
     setIsMenuOpen(false);
-    onRestore(selected.record.encoded, selected.label);
+    onRestore(selected.record.encoded, selected.label, { shared: selected.kind === 'shared' });
   }, [onRestore, selected]);
 
   const handleDelete = useCallback(async () => {

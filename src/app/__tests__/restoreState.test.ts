@@ -1,11 +1,12 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { saveEncodedStateToURL } from '../../lib/game/urlState';
-import { prepareRestoreForReload, type AutosaveTimer } from '../restoreState';
+import { consumeRestoreIntent, prepareRestoreForReload, type AutosaveTimer } from '../restoreState';
 
 describe('restore state handoff', () => {
   beforeEach(() => {
     window.history.replaceState(null, '', '/');
     window.localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   afterEach(() => {
@@ -35,5 +36,25 @@ describe('restore state handoff', () => {
     expect(autosaveTimerRef.current).toBeNull();
     expect(restoreInProgressRef.current).toBe(true);
     expect(lastAppliedShareRef.current).toBe('selected-save');
+  });
+
+  test('records and consumes whether the selected restore is shared', () => {
+    const autosaveTimerRef = { current: null as AutosaveTimer | null };
+    const restoreInProgressRef = { current: false };
+    const lastAppliedShareRef = { current: null as string | null };
+
+    prepareRestoreForReload({
+      encoded: 'shared-save',
+      shared: true,
+      autosaveTimerRef,
+      restoreInProgressRef,
+      lastAppliedShareRef,
+    });
+
+    expect(consumeRestoreIntent('shared-save')).toMatchObject({
+      encoded: 'shared-save',
+      shared: true,
+    });
+    expect(consumeRestoreIntent('shared-save')).toBeNull();
   });
 });

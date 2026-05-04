@@ -468,6 +468,27 @@ export function decodeGameState(encoded: string): GameSnapshot | null {
   }
 }
 
+export function stripShareMetadataFromEncodedState(encoded: string): string {
+  const snapshot = decodeGameState(encoded);
+  if (!snapshot?.share) return encoded;
+
+  const withoutShare: GameSnapshot = { ...snapshot };
+  delete withoutShare.share;
+
+  if (withoutShare.v !== STATE_VERSION_V1) {
+    try {
+      return encodeBinarySnapshot({
+        ...withoutShare,
+        v: STATE_VERSION_V3,
+      });
+    } catch (error) {
+      console.warn('[URL State] Binary encode failed while stripping share metadata:', error);
+    }
+  }
+
+  return LZString.compressToEncodedURIComponent(JSON.stringify(withoutShare));
+}
+
 function isSupportedSnapshotVersion(version: number): boolean {
   return version === STATE_VERSION_V1 || version === STATE_VERSION_V2 || version === STATE_VERSION_V3;
 }

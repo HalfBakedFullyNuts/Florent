@@ -6,6 +6,27 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.13] — 2026-05-04
+
+### Changed
+- Saves modal now uses the same polished glass/vault treatment as the new build-list selector, with clearer tab styling, themed scroll areas, and distinct action colors for load, save, export, and delete.
+- Imported raw state fragments without share metadata now default to "Imported build list" instead of implying they are shared links.
+
+### Fixed
+- Restoring named saves, recent local builds, and imported owned lists now carries an explicit owned/shared restore intent through the reload handoff, so owned lists are not cached back as shared lists.
+- "Save as mine" now strips shared identity from both the saved summary and the encoded payload, preventing exported or re-imported copies from resurrecting the original shared author/name.
+- Owned save exports defensively strip stale embedded share metadata from older saved payloads.
+- File import now reports read errors instead of silently leaving the import box empty.
+
+### Tests
+- Added Saves modal coverage for owned restore, shared restore, pasted shared-link restore, and shared-to-owned metadata stripping.
+- Re-verified restore handoff, build-list selector, save-file parsing, Saves modal tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.13`.
+
+---
+
 ## [0.2.12] — 2026-05-04
 
 ### Added

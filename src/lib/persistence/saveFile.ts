@@ -123,7 +123,7 @@ export function parsePortableSaveText(input: string): ParsedSaveFile {
     ok: true,
     file: {
       format: FILE_FORMAT_VERSION,
-      name: share?.name || metadata.shareName || 'Imported shared link',
+      name: share?.name || metadata.shareName || 'Imported build list',
       exportedAt: share?.sharedAt || new Date().toISOString(),
       app: 'florent',
       metadata,

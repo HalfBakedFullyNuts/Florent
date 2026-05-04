@@ -53,13 +53,14 @@ import { Card } from '@/components/ui/card';
 import { DependencyWarningModal } from '../components/DependencyWarningModal';
 import { SavesModal } from '../components/SavesModal';
 import { BuildListSelector } from '../components/BuildListSelector';
-import { clearAutosaveTimer, prepareRestoreForReload, type AutosaveTimer } from './restoreState';
+import { clearAutosaveTimer, consumeRestoreIntent, prepareRestoreForReload, type AutosaveTimer } from './restoreState';
 
 // Persistence
 import { pushHistory, migrateLegacyLocalStorage, saveSharedLink } from '../lib/persistence/savesDb';
 import { buildSaveSummary } from '../lib/persistence/saveSummary';
 
 type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
+type RestoreOptions = { shared?: boolean };
 const SHARE_AUTHOR_STORAGE_KEY = 'florent_share_author';
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
@@ -189,11 +190,18 @@ export default function Home() {
     }).catch((e) => console.warn('[saves] shared link save failed:', e));
   }, []);
 
-  const restoreShareSnapshot = useCallback((snapshot: LoadedGameSnapshot, encoded?: string | null) => {
+  const restoreShareSnapshot = useCallback((snapshot: LoadedGameSnapshot, encoded?: string | null, options?: RestoreOptions) => {
     const replayedState = replayCommands(createInitialGameState(), snapshot.cmds);
     commandHistory.loadFromSnapshot(snapshot.cmds);
-    setActiveShareMetadata(getShareMetadataFromSnapshot(snapshot));
-    if (encoded) rememberOpenedSharedLink(encoded, snapshot);
+    if (encoded) {
+      if (options?.shared) {
+        rememberOpenedSharedLink(encoded, snapshot);
+      } else {
+        setActiveShareMetadata(null);
+      }
+    } else {
+      setActiveShareMetadata(getShareMetadataFromSnapshot(snapshot));
+    }
     setGameState(() => ({
       ...replayedState,
       planets: new Map(replayedState.planets),
@@ -242,7 +250,9 @@ export default function Home() {
     }
 
     if (urlSnapshot) {
-      restoreShareSnapshot(urlSnapshot, encodedFromURL);
+      const restoreIntent = consumeRestoreIntent(encodedFromURL);
+      const shouldRememberSharedLink = Boolean(encodedFromURL && (!restoreIntent || restoreIntent.shared));
+      restoreShareSnapshot(urlSnapshot, encodedFromURL, { shared: shouldRememberSharedLink });
     }
   }, [restoreShareSnapshot]);
 
@@ -313,7 +323,8 @@ export default function Home() {
       }
 
       lastAppliedShareRef.current = encoded;
-      restoreShareSnapshot(snapshot, encoded);
+      const restoreIntent = consumeRestoreIntent(encoded);
+      restoreShareSnapshot(snapshot, encoded, { shared: !restoreIntent || restoreIntent.shared });
       setToast('Shared build list loaded from link');
       setTimeout(() => setToast(null), 3000);
     };
@@ -1279,11 +1290,12 @@ export default function Home() {
   // existing hash-based bootstrap rebuilds command history from scratch.
   // Reload (vs trying to splice state in-place) avoids any stale closures and
   // keeps the restore path identical to the share-link flow.
-  const handleRestoreSave = useCallback((encoded: string, label: string) => {
+  const handleRestoreSave = useCallback((encoded: string, label: string, options?: RestoreOptions) => {
     if (typeof window === 'undefined') return;
     try {
       prepareRestoreForReload({
         encoded,
+        shared: options?.shared === true,
         autosaveTimerRef,
         restoreInProgressRef,
         lastAppliedShareRef,
@@ -1610,7 +1622,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.12</div>
+          <div className="opacity-30 text-[10px]">v0.2.13</div>
         </footer>
       </div>
 
