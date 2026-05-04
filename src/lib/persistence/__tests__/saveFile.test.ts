@@ -25,6 +25,33 @@ describe('saveFile', () => {
     expect(parsed.file?.app).toBe('florent');
   });
 
+  it('recomputes metadata from the encoded payload on import', () => {
+    const json = JSON.stringify({
+      app: 'florent',
+      format: 1,
+      name: 'Tampered save',
+      exportedAt: '2026-05-04T12:00:00.000Z',
+      encoded: validEncoded,
+      metadata: {
+        planetCount: 999,
+        commandCount: 999,
+        maxTurn: 999,
+        planetNames: 'Fake Planet',
+        shareName: 'Fake Share',
+        shareAuthor: 'Fake Author',
+      },
+    });
+
+    const parsed = parseSaveFile(json);
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.file?.metadata.planetCount).toBe(1);
+    expect(parsed.file?.metadata.commandCount).toBe(1);
+    expect(parsed.file?.metadata.planetNames).toBe('Homeworld');
+    expect(parsed.file?.metadata.shareName).toBeUndefined();
+    expect(parsed.file?.metadata.shareAuthor).toBeUndefined();
+  });
+
   it('rejects non-JSON', () => {
     const parsed = parseSaveFile('not json {[');
     expect(parsed.ok).toBe(false);

@@ -602,14 +602,55 @@ export default function Home() {
 
     // Validate against the state at that future turn (or T1 if lane is empty)
     const validationTurn = Math.max(1, firstFreeTurn);
-    const validationState = controller.getStateAtTurn(validationTurn) ?? t1State;
-    validationState.completedResearch = Array.from(new Set([
-      ...(validationState.completedResearch || []),
-      ...getGlobalCompletedResearchForTurn(validationTurn),
-    ]));
+    const baseValidationState = controller.getStateAtTurn(validationTurn) ?? t1State;
+    const completedResearch = getGlobalCompletedResearchForTurn(validationTurn);
+    const researchPrereqs = (def.prerequisites || []).filter((id: string) => defs[id]?.lane === 'research');
+    const missingUnscheduled = researchPrereqs.find((id: string) => !completedResearch.includes(id) && !researchCompletionTurns.has(id));
+    if (missingUnscheduled) {
+      return {
+        allowed: false,
+        canQueueEventually: false,
+        waitTurnsNeeded: 0,
+        blockers: [],
+        reason: 'REQ_MISSING',
+      };
+    }
 
-    return validateQueueItem(validationState, itemId, quantity);
-  }, [defs, controller, gameState, getGlobalCompletedResearchForTurn, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
+    const scheduledResearch = researchPrereqs.filter((id: string) => !completedResearch.includes(id) && researchCompletionTurns.has(id));
+    const researchReadyTurn = researchPrereqs.reduce((turn: number | undefined, id: string) => {
+      const completionTurn = researchCompletionTurns.get(id);
+      return completionTurn === undefined ? turn : Math.max(turn ?? validationTurn, completionTurn);
+    }, undefined as number | undefined);
+    const validationState = {
+      ...baseValidationState,
+      completedResearch: Array.from(new Set([
+        ...(baseValidationState.completedResearch || []),
+        ...completedResearch,
+        ...scheduledResearch,
+      ])),
+    };
+
+    const result = validateQueueItem(validationState, itemId, quantity);
+    if (researchReadyTurn !== undefined && researchReadyTurn > validationTurn && result.canQueueEventually !== false) {
+      const turnsUntilReady = researchReadyTurn - validationTurn;
+      return {
+        ...result,
+        allowed: false,
+        canQueueEventually: true,
+        waitTurnsNeeded: Math.max(result.waitTurnsNeeded ?? 0, turnsUntilReady),
+        blockers: [
+          ...(result.blockers || []),
+          {
+            type: 'PREREQUISITE',
+            turnsUntilReady,
+            message: `Waiting for scheduled research (${turnsUntilReady} turns)`,
+          },
+        ],
+      };
+    }
+
+    return result;
+  }, [defs, controller, gameState, getGlobalCompletedResearchForTurn, researchCompletionTurns, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
 
   const editingPlanetConfig = useMemo<PlanetConfig | undefined>(() => {
     if (!editingPlanetId) return undefined;
@@ -744,13 +785,15 @@ export default function Home() {
         setError(`Missing research prerequisite: ${defs[missingUnscheduled]?.name || missingUnscheduled}`);
         return;
       }
+      const scheduledResearch = researchPrereqs.filter((id: string) => !completedResearch.includes(id) && researchCompletionTurns.has(id));
       const minStartTurn = researchPrereqs.reduce((turn: number | undefined, id: string) => {
-        const completionTurn = completedResearch.includes(id) ? undefined : researchCompletionTurns.get(id);
+        const completionTurn = researchCompletionTurns.get(id);
         return completionTurn === undefined ? turn : Math.max(turn ?? 1, completionTurn);
       }, undefined as number | undefined);
 
       const result = controller.queueItem(planTurn, itemId, quantity, {
         completedResearch,
+        scheduledResearch,
         minStartTurn,
       });
       if (!result.success) {

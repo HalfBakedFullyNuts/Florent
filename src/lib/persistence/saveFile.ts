@@ -3,8 +3,9 @@
  * but adds human-readable metadata so users can browse files outside the app.
  */
 
-import { decodeGameState, getShareMetadataFromSnapshot } from '../game/urlState';
+import { decodeGameState } from '../game/urlState';
 import type { SaveSummary } from './savesDb';
+import { buildSaveSummary } from './saveSummary';
 
 const FILE_FORMAT_VERSION = 1;
 
@@ -77,7 +78,7 @@ export function parseSaveFile(jsonText: string): ParsedSaveFile {
   if (!decoded) {
     return { ok: false, reason: 'Encoded payload could not be decoded' };
   }
-  const share = getShareMetadataFromSnapshot(decoded);
+  const metadata = buildSaveSummary(obj.encoded);
   return {
     ok: true,
     file: {
@@ -85,15 +86,7 @@ export function parseSaveFile(jsonText: string): ParsedSaveFile {
       name: typeof obj.name === 'string' ? obj.name : undefined,
       exportedAt: typeof obj.exportedAt === 'string' ? obj.exportedAt : new Date().toISOString(),
       app: 'florent',
-      metadata: (obj.metadata as SaveSummary) ?? {
-        planetCount: decoded.planets.length,
-        commandCount: decoded.cmds.length,
-        maxTurn: 0,
-        // Compact planet configs use `n` for name.
-        planetNames: decoded.planets.map((p) => (p as { n?: string }).n || 'Unnamed').join(', '),
-        shareName: share?.name,
-        shareAuthor: share?.author,
-      },
+      metadata,
       encoded: obj.encoded,
     },
   };

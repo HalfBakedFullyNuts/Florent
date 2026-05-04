@@ -27,6 +27,14 @@ export interface ReorderResult {
   reason?: 'NOT_FOUND' | 'INVALID_TURN' | 'INVALID_LANE' | 'INVALID_INDEX' | 'CANNOT_REORDER_WAIT' | 'INVALID_ITEM';
 }
 
+interface QueueItemOptions {
+  force?: boolean;
+  preserveId?: string;
+  minStartTurn?: number;
+  completedResearch?: string[];
+  scheduledResearch?: string[];
+}
+
 /**
  * Game controller - manages timeline and exposes commands
  */
@@ -46,7 +54,7 @@ export class GameController {
     turn: number,
     itemId: string,
     requestedQty: number,
-    options?: { force?: boolean; preserveId?: string; minStartTurn?: number; completedResearch?: string[] }
+    options?: QueueItemOptions
   ): QueueResult {
     const state = this.timeline.getStateAtTurn(turn);
     if (!state) {
@@ -69,8 +77,13 @@ export class GameController {
       }
 
       // Validate queue operation
-      const validationState = options?.completedResearch
-        ? { ...state, completedResearch: Array.from(new Set([...(state.completedResearch || []), ...options.completedResearch])) }
+      const validationResearch = Array.from(new Set([
+        ...(state.completedResearch || []),
+        ...(options?.completedResearch || []),
+        ...(options?.minStartTurn !== undefined ? options?.scheduledResearch || [] : []),
+      ]));
+      const validationState = validationResearch.length > 0
+        ? { ...state, completedResearch: validationResearch }
         : state;
       const validation = canQueue(validationState, def, requestedQty);
       if (!validation.allowed) {
@@ -96,6 +109,12 @@ export class GameController {
 
     // Push to queue, then eagerly activate so costs appear on the current turn.
     const success = this.timeline.mutateAtTurn(turn, (s) => {
+      if (options?.completedResearch?.length && options.minStartTurn === undefined) {
+        s.completedResearch = Array.from(new Set([
+          ...(s.completedResearch || []),
+          ...options.completedResearch,
+        ]));
+      }
       s.lanes[laneId].pendingQueue.push(workItem);
       tryActivateNext(s, laneId);
     });

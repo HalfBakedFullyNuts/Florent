@@ -21,6 +21,8 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 ### Fixed
 - Legacy localStorage-to-IndexedDB migration now exits safely when IndexedDB or usable localStorage is unavailable, removing noisy test/dev warnings.
 - Vitest now binds jsdom's browser storage under Node 25 so page tests no longer emit `--localstorage-file` warnings.
+- Local queue planning now accepts items gated by scheduled global research and holds them until the research completion turn.
+- Imported save files now recompute display metadata from the encoded payload instead of trusting stale or edited JSON metadata.
 - Build-list dropdown stacking now stays above planet rows and dashboard content.
 - Planet-limit research planning uses completion milestones and avoids brute-force turn scans.
 - Research reordering rejects dependency-inverting moves.
