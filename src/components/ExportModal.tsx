@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import type { LaneView } from '../lib/game/selectors';
-import { formatAsText, formatAsDiscord, copyToClipboard, extractQueueItems } from '../lib/export/formatters';
+import { formatAsText, formatAsDiscordMessages, copyToClipboard, extractQueueItems } from '../lib/export/formatters';
 
 export interface ExportModalProps {
   isOpen: boolean;
@@ -10,6 +10,7 @@ export interface ExportModalProps {
   buildingLane: LaneView;
   shipLane: LaneView;
   colonistLane: LaneView;
+  researchLane: LaneView;
   currentTurn: number;
   exportMode: 'full' | 'current'; // full = all items, current = up to current turn
 }
@@ -29,12 +30,15 @@ export function ExportModal({
   buildingLane,
   shipLane,
   colonistLane,
+  researchLane,
   currentTurn,
   exportMode,
 }: ExportModalProps) {
   const [notification, setNotification] = useState<string | null>(null);
+  const [discordMessages, setDiscordMessages] = useState<string[]>([]);
+  const [nextDiscordMessageIndex, setNextDiscordMessageIndex] = useState(0);
 
-  const laneViews = [buildingLane, shipLane, colonistLane];
+  const laneViews = [buildingLane, shipLane, colonistLane, researchLane];
 
   // Determine maxTurn based on export mode
   const maxTurn = exportMode === 'current' ? currentTurn : undefined;
@@ -45,6 +49,7 @@ export function ExportModal({
   };
 
   const handleExportText = async () => {
+    clearDiscordCopyState();
     const text = formatAsText(laneViews, maxTurn);
 
     if (!text) {
@@ -61,12 +66,15 @@ export function ExportModal({
   };
 
   const handleExportDiscord = async () => {
-    const discord = formatAsDiscord(laneViews, maxTurn);
+    const messages = formatAsDiscordMessages(laneViews, maxTurn);
+    const firstMessage = messages[0] ?? '';
 
-    const success = await copyToClipboard(discord);
+    const success = await copyToClipboard(firstMessage);
     if (success) {
-      if (discord.includes('exceeds character limit')) {
-        showNotification('⚠️ Copied with warning - may exceed Discord limit');
+      setDiscordMessages(messages);
+      setNextDiscordMessageIndex(messages.length > 1 ? 1 : 0);
+      if (messages.length > 1) {
+        showNotification(`✓ Copied Discord message 1 of ${messages.length}. Paste it, then copy the next one.`);
       } else {
         showNotification('✓ Copied to clipboard!');
       }
@@ -75,7 +83,27 @@ export function ExportModal({
     }
   };
 
+  const handleCopyNextDiscordMessage = async () => {
+    const message = discordMessages[nextDiscordMessageIndex];
+    if (!message) return;
+
+    const success = await copyToClipboard(message);
+    if (success) {
+      const copiedNumber = nextDiscordMessageIndex + 1;
+      setNextDiscordMessageIndex(nextDiscordMessageIndex + 1);
+      showNotification(`✓ Copied Discord message ${copiedNumber} of ${discordMessages.length}`);
+    } else {
+      showNotification('✗ Failed to copy to clipboard');
+    }
+  };
+
+  const clearDiscordCopyState = () => {
+    setDiscordMessages([]);
+    setNextDiscordMessageIndex(0);
+  };
+
   const handleExportImage = async () => {
+    clearDiscordCopyState();
     try {
       const items = extractQueueItems(laneViews, maxTurn);
 
@@ -136,10 +164,12 @@ export function ExportModal({
         const building = turnItems.find(i => i.lane === 'building');
         const ship = turnItems.find(i => i.lane === 'ship');
         const colonist = turnItems.find(i => i.lane === 'colonist');
+        const research = turnItems.find(i => i.lane === 'research');
 
         if (building) parts.push(building.name);
         if (ship) parts.push(`${ship.quantity}x ${ship.name}`);
         if (colonist) parts.push(`${colonist.quantity}x ${colonist.name}`);
+        if (research) parts.push(research.name);
 
         const text = `[${String(turn).padStart(3)}] ${parts.join(', ')}`;
 
@@ -153,22 +183,19 @@ export function ExportModal({
       ctx.font = 'italic 12px sans-serif';
       ctx.fillText('Infinite Conflict Build Planner', padding, canvasHeight - 20);
 
-      // Download
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          showNotification('✗ Failed to generate image');
-          return;
-        }
+      const blob = await canvasToPngBlob(canvas);
+      if (!blob) {
+        showNotification('✗ Failed to generate image');
+        return;
+      }
 
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.download = `build-order-turn-${currentTurn}.png`;
-        link.href = url;
-        link.click();
-        URL.revokeObjectURL(url);
-
-        showNotification('✓ Image downloaded!');
-      }, 'image/png');
+      const copied = await copyImageToClipboard(blob);
+      if (copied) {
+        showNotification('✓ Image copied to clipboard!');
+      } else {
+        downloadBlob(blob, `build-order-turn-${currentTurn}.png`);
+        showNotification('Clipboard unavailable - image downloaded instead.');
+      }
     } catch (error) {
       console.error('Image export error:', error);
       showNotification('✗ Failed to export image');
@@ -215,9 +242,23 @@ export function ExportModal({
             >
               <div className="font-semibold text-pink-nebula-text">Export for Discord</div>
               <div className="text-xs text-pink-nebula-muted mt-1">
-                Formatted table (8,192 char limit) - copied to clipboard
+                Formatted table split into 2,000-character messages
               </div>
             </button>
+
+            {discordMessages.length > 1 && nextDiscordMessageIndex < discordMessages.length && (
+              <button
+                onClick={handleCopyNextDiscordMessage}
+                className="w-full p-3 bg-indigo-900/40 hover:bg-indigo-700/50 border border-indigo-400/40 rounded text-left transition-colors"
+              >
+                <div className="font-semibold text-pink-nebula-text">
+                  Copy Discord message {nextDiscordMessageIndex + 1} of {discordMessages.length}
+                </div>
+                <div className="text-xs text-pink-nebula-muted mt-1">
+                  Paste the previous message in Discord first, then copy this one.
+                </div>
+              </button>
+            )}
 
             {/* Image Export */}
             <button
@@ -226,7 +267,7 @@ export function ExportModal({
             >
               <div className="font-semibold text-pink-nebula-text">Export as Image</div>
               <div className="text-xs text-pink-nebula-muted mt-1">
-                PNG file - captures Planet Queue display
+                PNG image - copied to clipboard when supported
               </div>
             </button>
           </div>
@@ -249,4 +290,33 @@ export function ExportModal({
       </div>
     </>
   );
+}
+
+function canvasToPngBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), 'image/png');
+  });
+}
+
+async function copyImageToClipboard(blob: Blob): Promise<boolean> {
+  if (!navigator.clipboard?.write || typeof ClipboardItem === 'undefined') {
+    return false;
+  }
+
+  try {
+    await navigator.clipboard.write([new ClipboardItem({ [blob.type]: blob })]);
+    return true;
+  } catch (error) {
+    console.warn('Failed to copy image to clipboard:', error);
+    return false;
+  }
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = url;
+  link.click();
+  URL.revokeObjectURL(url);
 }

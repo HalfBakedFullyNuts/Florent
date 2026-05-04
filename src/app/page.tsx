@@ -190,6 +190,7 @@ export default function Home() {
     buildingLane: LaneView;
     shipLane: LaneView;
     colonistLane: LaneView;
+    researchLane: LaneView;
     currentTurn: number;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'building' | 'ship' | 'colonist' | 'research'>('building');
@@ -1079,10 +1080,11 @@ export default function Home() {
       buildingLane: enrichedBuildingLane || { laneId: 'building' as const, entries: [] },
       shipLane: enrichedShipLane || { laneId: 'ship' as const, entries: [] },
       colonistLane: enrichedColonistLane || { laneId: 'colonist' as const, entries: [] },
+      researchLane: enrichedResearchLane || { laneId: 'research' as const, entries: [] },
       currentTurn: viewTurn,
     });
     setShowExportModal(mode);
-  }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, viewTurn]);
+  }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, enrichedResearchLane, viewTurn]);
 
   // Snapshot the current encoded state for the saves modal — encapsulates the
   // same encode-once-then-summarise pattern used by the auto-save effect.
@@ -1406,6 +1408,7 @@ export default function Home() {
           buildingLane={exportSnapshot.buildingLane}
           shipLane={exportSnapshot.shipLane}
           colonistLane={exportSnapshot.colonistLane}
+          researchLane={exportSnapshot.researchLane}
           currentTurn={exportSnapshot.currentTurn}
           exportMode={showExportModal}
         />
