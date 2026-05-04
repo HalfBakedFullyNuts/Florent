@@ -64,6 +64,40 @@ export const STARTER_PACKAGE = {
   BUILDINGS: ['Outpost'],
 } as const;
 
+export const STARTING_STRUCTURE_IDS = [
+  'metal_mine',
+  'mineral_extractor',
+  'farm',
+  'solar_generator',
+] as const;
+
+export type StartingStructureId = typeof STARTING_STRUCTURE_IDS[number];
+
+export interface PlanetStartingSettings {
+  workersTotal: number;
+  structures: Record<StartingStructureId, number>;
+}
+
+export const DEFAULT_ADDED_PLANET_STARTING: PlanetStartingSettings = {
+  workersTotal: STARTER_PACKAGE.WORKERS,
+  structures: {
+    metal_mine: 0,
+    mineral_extractor: 0,
+    farm: 0,
+    solar_generator: 0,
+  },
+};
+
+export const HOMEWORLD_PLANET_STARTING: PlanetStartingSettings = {
+  workersTotal: 20000,
+  structures: {
+    metal_mine: 3,
+    mineral_extractor: 3,
+    farm: 1,
+    solar_generator: 1,
+  },
+};
+
 /**
  * Resource types with their display colors
  */
@@ -72,7 +106,7 @@ export const RESOURCE_COLORS = {
   mineral: 'text-red-400',
   food: 'text-green-400',
   energy: 'text-blue-400',
-  research_points: 'text-purple-400',
+  research_points: 'text-yellow-400',
 } as const;
 
 /**
@@ -92,4 +126,31 @@ export function validateAllAbundances(abundance: Record<string, number>): Record
   return Object.fromEntries(
     Object.entries(abundance).map(([key, value]) => [key, validateAbundance(value)])
   );
+}
+
+export function normalizePlanetStarting(starting?: Partial<PlanetStartingSettings>): PlanetStartingSettings {
+  return {
+    workersTotal: Math.max(
+      0,
+      Math.floor(starting?.workersTotal ?? DEFAULT_ADDED_PLANET_STARTING.workersTotal)
+    ),
+    structures: {
+      metal_mine: Math.max(
+        0,
+        Math.floor(starting?.structures?.metal_mine ?? DEFAULT_ADDED_PLANET_STARTING.structures.metal_mine)
+      ),
+      mineral_extractor: Math.max(
+        0,
+        Math.floor(starting?.structures?.mineral_extractor ?? DEFAULT_ADDED_PLANET_STARTING.structures.mineral_extractor)
+      ),
+      farm: Math.max(
+        0,
+        Math.floor(starting?.structures?.farm ?? DEFAULT_ADDED_PLANET_STARTING.structures.farm)
+      ),
+      solar_generator: Math.max(
+        0,
+        Math.floor(starting?.structures?.solar_generator ?? DEFAULT_ADDED_PLANET_STARTING.structures.solar_generator)
+      ),
+    },
+  };
 }

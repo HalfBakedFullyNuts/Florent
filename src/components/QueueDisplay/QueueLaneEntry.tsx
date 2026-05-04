@@ -15,6 +15,7 @@ export interface QueueLaneEntryProps {
   busyWorkers?: number;
   showQuantityInput?: boolean;
   onTurnClick?: (turn: number) => void;
+  maxTurn?: number;
 }
 
 /**
@@ -37,6 +38,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   busyWorkers = 0,
   showQuantityInput = false,
   onTurnClick,
+  maxTurn = 199,
 }: QueueLaneEntryProps) {
   const [editingQuantity, setEditingQuantity] = useState(false);
   const [quantityValue, setQuantityValue] = useState(entry.quantity.toString());
@@ -96,7 +98,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 <span>-</span>
                 <button
                   className="hover:text-pink-nebula-accent-primary hover:underline"
-                  onClick={(e) => { e.stopPropagation(); if (endT !== '?' && onTurnClick) onTurnClick(Math.min((endT as number), 199)); }}
+                  onClick={(e) => { e.stopPropagation(); if (endT !== '?' && onTurnClick) onTurnClick(Math.min((endT as number), maxTurn)); }}
                   title="Jump to completion turn"
                 >
                   T{endT}
@@ -187,5 +189,6 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.isNewest === nextProps.isNewest &&
     prevProps.busyWorkers === nextProps.busyWorkers &&
     prevProps.showQuantityInput === nextProps.showQuantityInput
+    && prevProps.maxTurn === nextProps.maxTurn
   );
 });

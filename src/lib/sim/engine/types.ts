@@ -88,6 +88,7 @@ export interface WorkItem {
   queuedTurn?: number; // Turn when item was queued
   startTurn?: number; // Turn when work started (set when activated)
   completionTurn?: number; // Turn when work completed (set when finished)
+  minStartTurn?: number; // Earliest world turn this item may activate
   isWait?: boolean; // True for wait items (pauses lane for N turns)
   isAutoWait?: boolean; // True for auto-inserted wait items (can be overwritten/collapsed)
 }

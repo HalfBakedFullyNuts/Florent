@@ -90,6 +90,10 @@ export class Timeline {
     return this.states[this.currentTurnIndex]?.currentTurn || 1;
   }
 
+  getInitialTurn(): number {
+    return this.states[0]?.currentTurn || 1;
+  }
+
   /**
    * Get current state
    * Triggers lazy computation if current turn hasn't been computed yet

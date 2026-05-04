@@ -40,7 +40,7 @@ export function exportGameState(gameState: GameState): string {
   }
 
   // Export global research
-  if (gameState.globalResearch.queue.length > 0 || gameState.globalResearch.completed.length > 0) {
+  if (gameState.globalResearch.lane.pendingQueue.length > 0 || gameState.globalResearch.lane.active || gameState.globalResearch.completed.length > 0) {
     lines.push('--- Global Research ---');
 
     if (gameState.globalResearch.completed.length > 0) {
@@ -50,9 +50,13 @@ export function exportGameState(gameState: GameState): string {
       });
     }
 
-    if (gameState.globalResearch.queue.length > 0) {
+    const queuedResearch = [
+      ...(gameState.globalResearch.lane.active ? [gameState.globalResearch.lane.active] : []),
+      ...gameState.globalResearch.lane.pendingQueue,
+    ];
+    if (queuedResearch.length > 0) {
       lines.push('In Queue:');
-      gameState.globalResearch.queue.forEach((item) => {
+      queuedResearch.forEach((item) => {
         lines.push(`  - ${item.itemId} (${item.turnsRemaining} turns remaining)`);
       });
     }
@@ -118,16 +122,20 @@ export function exportGameStateDiscord(gameState: GameState): string {
   }
 
   // Add research if any
-  if (gameState.globalResearch.queue.length > 0 || gameState.globalResearch.completed.length > 0) {
+  if (gameState.globalResearch.lane.pendingQueue.length > 0 || gameState.globalResearch.lane.active || gameState.globalResearch.completed.length > 0) {
     lines.push('=== Global Research ===');
 
     if (gameState.globalResearch.completed.length > 0) {
       lines.push(`Completed: ${gameState.globalResearch.completed.join(', ')}`);
     }
 
-    if (gameState.globalResearch.queue.length > 0) {
+    const queuedResearch = [
+      ...(gameState.globalResearch.lane.active ? [gameState.globalResearch.lane.active] : []),
+      ...gameState.globalResearch.lane.pendingQueue,
+    ];
+    if (queuedResearch.length > 0) {
       lines.push('Queue:');
-      gameState.globalResearch.queue.forEach((item) => {
+      queuedResearch.forEach((item) => {
         lines.push(`- ${item.itemId} (${item.turnsRemaining}T)`);
       });
     }

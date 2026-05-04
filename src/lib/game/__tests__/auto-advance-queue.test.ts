@@ -116,6 +116,55 @@ describe('Auto-Advance Queue Validation Tests', () => {
       const lane = updatedT5State.lanes.building;
       expect(lane.pendingQueue.length + (lane.active ? 1 : 0)).toBeGreaterThan(0);
     });
+
+    it('should display scientists at their delayed start when research lab is queued first', () => {
+      const controller = createTestController();
+
+      const labResult = controller.queueItem(1, 'research_lab', 1);
+      expect(labResult.success).toBe(true);
+
+      const scientistResult = controller.queueItem(1, 'scientist', 1);
+      expect(scientistResult.success).toBe(true);
+
+      const displayState = controller.getStateAtTurn(controller.getTotalTurns() - 1);
+      expect(displayState).toBeTruthy();
+
+      const buildingView = getLaneView(displayState!, 'building');
+      const colonistView = getLaneView(displayState!, 'colonist');
+      const labEntry = buildingView.entries.find((entry) => entry.itemId === 'research_lab');
+      const scientistEntry = colonistView.entries.find((entry) => entry.itemId === 'scientist');
+      const labCompletion = labEntry?.completionTurn ?? labEntry?.eta;
+
+      expect(labCompletion).toBeDefined();
+      expect(scientistEntry).toBeDefined();
+      expect(scientistEntry!.startTurn).not.toBe(1);
+      expect(scientistEntry!.startTurn).toBeGreaterThanOrEqual(labCompletion!);
+    });
+
+    it('should use the simulated lane view for delayed scientist auto-advance targets', () => {
+      const controller = createTestController();
+
+      const labResult = controller.queueItem(1, 'research_lab', 1);
+      expect(labResult.success).toBe(true);
+
+      const scientistResult = controller.queueItem(1, 'scientist', 1);
+      expect(scientistResult.success).toBe(true);
+
+      const planState = controller.getStateAtTurn(1);
+      const displayState = controller.getStateAtTurn(controller.getTotalTurns() - 1);
+      expect(planState).toBeTruthy();
+      expect(displayState).toBeTruthy();
+
+      const planEntry = getLaneView(planState!, 'colonist').entries.find((entry) => entry.id === scientistResult.itemId);
+      const displayEntry = getLaneView(displayState!, 'colonist').entries.find((entry) => entry.id === scientistResult.itemId);
+      const displayEndTurn = displayEntry?.completionTurn ?? displayEntry?.eta;
+      const maxTurn = controller.getTotalTurns() - 1;
+
+      expect(planEntry?.startTurn).toBe(1);
+      expect(displayEntry?.startTurn).not.toBe(1);
+      expect(displayEndTurn).toBeDefined();
+      expect(Math.min(displayEndTurn! + 1, maxTurn)).toBeGreaterThan(1);
+    });
   });
 
   describe('CRITICAL-2: Ships Invalid Turn Error', () => {

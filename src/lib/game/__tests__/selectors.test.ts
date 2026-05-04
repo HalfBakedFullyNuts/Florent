@@ -152,9 +152,58 @@ describe('Selectors', () => {
       const view = getLaneView(state, 'building');
 
       expect(view.entries).toHaveLength(2);
-      // Entries are reversed, so active (added last) appears first
+      // Entries are chronological by effective completion turn.
       expect(view.entries[0].status).toBe('active');
       expect(view.entries[1].status).toBe('pending');
+    });
+
+    it('should return entries sorted chronologically by effective completion turn', () => {
+      state.currentTurn = 9;
+      state.lanes.building.completionHistory = [
+        {
+          id: 'completed_late',
+          itemId: 'metal_mine',
+          status: 'completed',
+          quantity: 1,
+          turnsRemaining: 0,
+          startTurn: 5,
+          completionTurn: 8,
+        },
+        {
+          id: 'completed_early',
+          itemId: 'farm',
+          status: 'completed',
+          quantity: 1,
+          turnsRemaining: 0,
+          startTurn: 1,
+          completionTurn: 4,
+        },
+      ];
+      state.lanes.building.active = {
+        id: 'active_1',
+        itemId: 'farm',
+        status: 'active',
+        quantity: 1,
+        turnsRemaining: 2,
+        startTurn: 9,
+      };
+      state.lanes.building.pendingQueue = [{
+        id: 'pending_1',
+        itemId: 'metal_mine',
+        status: 'pending',
+        quantity: 1,
+        turnsRemaining: 4,
+      }];
+
+      const view = getLaneView(state, 'building');
+
+      expect(view.entries.map((entry) => entry.id)).toEqual([
+        'completed_early',
+        'completed_late',
+        'active_1',
+        'pending_1',
+      ]);
+      expect(view.entries.map((entry) => entry.completionTurn ?? entry.eta)).toEqual([4, 8, 11, 14]);
     });
 
     it('should work for all lane types', () => {

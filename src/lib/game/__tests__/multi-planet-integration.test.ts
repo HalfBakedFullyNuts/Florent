@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { createInitialGameState, addPlanet } from '../gameState';
 import { enqueueBuildingForPlanet, advanceTurnForPlanet, queueResearch } from '../commands';
+import { getGlobalResearchAtTurn, getGlobalResearchLaneView } from '../globalResearch';
 import { exportGameState } from '../../export/multiPlanetExporter';
 
 describe('Multi-Planet Integration', () => {
@@ -44,26 +45,25 @@ describe('Multi-Planet Integration', () => {
 
     // Ensure one planet has lab and scientists
     const earth = gameState.planets.get('planet-1')!;
-    earth.completedCounts['lab'] = 1;
+    earth.completedCounts['research_lab'] = 1;
     earth.population.scientists = 10;
-    earth.stocks.research_points = 1000;
+    gameState.globalResearch.stock = 1000;
 
     // Queue research (should work because Earth has prerequisites)
     // Use a valid research ID from game_data.json
     gameState = queueResearch(gameState, 'planet_management');
 
     // Research should be in global queue
-    expect(gameState.globalResearch.queue.length).toBe(1);
-    expect(gameState.globalResearch.queue[0].itemId).toBe('planet_management');
+    expect(gameState.globalResearch.lane.pendingQueue.length).toBe(1);
+    expect(gameState.globalResearch.lane.pendingQueue[0].itemId).toBe('planet_management');
 
-    // Complete research
-    gameState.globalResearch.queue[0].turnsRemaining = 0;
-    gameState.globalResearch.queue[0].status = 'completed';
-    gameState.globalResearch.completed.push('planet_management');
-    gameState.globalResearch.queue = [];
+    // Both planets should see the same global research lane.
+    const earthView = getGlobalResearchLaneView({ ...gameState, currentPlanetId: 'planet-1' }, 1);
+    const marsView = getGlobalResearchLaneView({ ...gameState, currentPlanetId: 'planet-2' }, 1);
+    expect(marsView).toEqual(earthView);
 
-    // Both planets should have access to the research
-    expect(gameState.globalResearch.completed).toContain('planet_management');
+    const completed = getGlobalResearchAtTurn(gameState, 24).completed;
+    expect(completed).toContain('planet_management');
   });
 
   test('export includes all planets', () => {
@@ -145,7 +145,7 @@ describe('Multi-Planet Integration', () => {
 
     // Add lab to Mars (not Earth)
     const mars = gameState.planets.get('planet-2')!;
-    mars.completedCounts['lab'] = 1;
+    mars.completedCounts['research_lab'] = 1;
     mars.population.scientists = 5;
 
     // Should now be able to research
@@ -157,7 +157,7 @@ describe('Multi-Planet Integration', () => {
 // Helper function to check if any planet has research prerequisites
 function hasResearchPrerequisites(gameState: any): boolean {
   for (const planet of gameState.planets.values()) {
-    if (planet.completedCounts['lab'] > 0 && planet.population.scientists > 0) {
+    if (planet.completedCounts['research_lab'] > 0 && planet.population.scientists > 0) {
       return true;
     }
   }

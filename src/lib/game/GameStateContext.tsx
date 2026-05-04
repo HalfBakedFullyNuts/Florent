@@ -75,7 +75,7 @@ export function GameStateProvider({ children }: GameStateProviderProps) {
     const controller = useMemo(() => {
         if (!currentPlanet || !currentPlanet.timeline) return null;
         return new GameController(currentPlanet, currentPlanet.timeline);
-    }, [currentPlanetId, currentPlanet]);
+    }, [currentPlanet]);
 
     // URL Auto-save
     useEffect(() => {

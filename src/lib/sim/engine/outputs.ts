@@ -9,7 +9,6 @@ import { RESOURCE_TYPES, FOOD_PER_WORKER } from '../rules/constants';
  * Compute net outputs per turn
  * Σ(baseOutputsPerUnit × abundance × count) − Σ(upkeeps) − populationUpkeep
  * Food upkeep is now subtracted from production, not stocks
- * Scientists produce 1 RP per scientist per turn
  */
 export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
   const netOutputs: NetOutputs = {
@@ -59,9 +58,6 @@ export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
   const populationFoodUpkeep = calculatePopulationFoodUpkeep(state);
   netOutputs.food -= populationFoodUpkeep;
 
-  // Scientists produce 1 RP per scientist per turn
-  netOutputs.research_points += state.population.scientists;
-
   return netOutputs;
 }
 
@@ -90,19 +86,6 @@ export function calculatePopulationFoodUpkeep(state: PlanetState): number {
  */
 export function computeProjectedNetOutputsPerTurn(state: PlanetState): NetOutputs {
   const projected = { ...computeNetOutputsPerTurn(state) };
-
-  // Future scientists from the colonist queue produce RP
-  const colonistLane = state.lanes.colonist;
-  const queuedColonists = [
-    ...(colonistLane.active ? [colonistLane.active] : []),
-    ...colonistLane.pendingQueue,
-  ];
-  for (const item of queuedColonists) {
-    const def = state.defs[item.itemId];
-    if (def?.colonistKind === 'scientist') {
-      projected.research_points += item.quantity;
-    }
-  }
 
   // Future production from queued buildings
   const buildingLane = state.lanes.building;

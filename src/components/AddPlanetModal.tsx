@@ -1,21 +1,37 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   ABUNDANCE_LIMITS,
   DEFAULT_SPACE,
+  DEFAULT_ADDED_PLANET_STARTING,
+  HOMEWORLD_PLANET_STARTING,
   PLANET_PRESETS,
   STARTER_PACKAGE,
   RESOURCE_COLORS,
+  type PlanetStartingSettings,
   validateAbundance,
   validateAllAbundances,
+  normalizePlanetStarting,
 } from '../lib/constants/planet';
+
+const STARTING_STRUCTURE_FIELDS: Array<{
+  id: keyof PlanetStartingSettings['structures'];
+  label: string;
+}> = [
+  { id: 'metal_mine', label: 'Metal Mines' },
+  { id: 'mineral_extractor', label: 'Mineral Extractors' },
+  { id: 'farm', label: 'Farms' },
+  { id: 'solar_generator', label: 'Solar Gens' },
+];
 
 interface AddPlanetModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddPlanet: (config: PlanetConfig) => void;
+  onAddPlanet: (config: PlanetConfig) => boolean | void;
   currentTurn: number;
+  initialConfig?: PlanetConfig;
+  mode?: 'add' | 'edit';
 }
 
 export interface PlanetConfig {
@@ -32,6 +48,7 @@ export interface PlanetConfig {
     groundCap: number;
     orbitalCap: number;
   };
+  starting?: PlanetStartingSettings;
 }
 
 /**
@@ -41,10 +58,12 @@ export function AddPlanetModal({
   isOpen,
   onClose,
   onAddPlanet,
-  currentTurn
+  currentTurn,
+  initialConfig,
+  mode = 'add',
 }: AddPlanetModalProps) {
-  const [name, setName] = useState('Colony');
-  const [startTurn, setStartTurn] = useState(currentTurn);
+  const [name, setName] = useState(initialConfig?.name ?? 'Colony');
+  const [startTurn, setStartTurn] = useState(initialConfig?.startTurn ?? currentTurn);
   // Explicitly type to avoid readonly literal types
   const [abundance, setAbundance] = useState<{
     metal: number;
@@ -57,8 +76,28 @@ export function AddPlanetModal({
     groundCap: number;
     orbitalCap: number;
   }>({ ...PLANET_PRESETS.HOMEWORLD.space });
+  const [starting, setStarting] = useState<PlanetStartingSettings>(() =>
+    normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING)
+  );
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setName(initialConfig?.name ?? 'Colony');
+    setStartTurn(initialConfig?.startTurn ?? currentTurn);
+    setAbundance(initialConfig
+      ? {
+        metal: Math.round(initialConfig.abundance.metal * 100),
+        mineral: Math.round(initialConfig.abundance.mineral * 100),
+        food: Math.round(initialConfig.abundance.food * 100),
+        energy: Math.round(initialConfig.abundance.energy * 100),
+        research_points: Math.round(initialConfig.abundance.research_points * 100),
+      }
+      : { ...PLANET_PRESETS.HOMEWORLD.abundance });
+    setSpace(initialConfig ? { ...initialConfig.space } : { ...PLANET_PRESETS.HOMEWORLD.space });
+    setStarting(normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING));
+  }, [isOpen, currentTurn, initialConfig]);
 
   const handleSubmit = useCallback(() => {
     // Validate and clamp all abundances before submitting
@@ -69,14 +108,15 @@ export function AddPlanetModal({
       Object.entries(validatedAbundance).map(([key, value]) => [key, value / 100])
     );
 
-    onAddPlanet({
+    const added = onAddPlanet({
       name,
       startTurn,
       abundance: abundanceMultipliers as typeof abundance,
       space,
+      starting: normalizePlanetStarting(starting),
     });
-    onClose();
-  }, [name, startTurn, abundance, space, onAddPlanet, onClose]);
+    if (added !== false) onClose();
+  }, [name, startTurn, abundance, space, starting, onAddPlanet, onClose]);
 
   const updateAbundance = useCallback((resource: string, value: number) => {
     // Allow free typing - validation happens on blur and submit
@@ -101,6 +141,30 @@ export function AddPlanetModal({
     // Create mutable copies to satisfy TypeScript
     setAbundance({ ...presetData.abundance });
     setSpace({ ...presetData.space });
+  }, []);
+
+  const applyHomeworldStarting = useCallback(() => {
+    setStarting(normalizePlanetStarting(HOMEWORLD_PLANET_STARTING));
+  }, []);
+
+  const updateStartingWorkers = useCallback((value: number) => {
+    setStarting(prev => ({
+      ...prev,
+      workersTotal: Math.max(0, Math.floor(value) || 0),
+    }));
+  }, []);
+
+  const updateStartingStructure = useCallback((
+    structureId: keyof PlanetStartingSettings['structures'],
+    value: number
+  ) => {
+    setStarting(prev => ({
+      ...prev,
+      structures: {
+        ...prev.structures,
+        [structureId]: Math.max(0, Math.floor(value) || 0),
+      },
+    }));
   }, []);
 
   const parseImportData = useCallback((text: string) => {
@@ -162,9 +226,9 @@ export function AddPlanetModal({
 
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-pink-nebula-panel border-2 border-pink-nebula-border rounded-lg p-6 max-w-2xl w-full mx-4">
+      <div className="bg-pink-nebula-panel border-2 border-pink-nebula-border rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <h2 className="text-2xl font-bold text-pink-nebula-accent-primary mb-6">
-          Add New Planet
+          {mode === 'edit' ? 'Edit Planet' : 'Add New Planet'}
         </h2>
 
         {/* Basic Settings */}
@@ -320,13 +384,62 @@ export function AddPlanetModal({
           </div>
         </div>
 
+        {/* Starting Setup */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-pink-nebula-text">
+              Starting Setup
+            </h3>
+            <button
+              type="button"
+              onClick={applyHomeworldStarting}
+              className="px-3 py-1 text-xs bg-pink-nebula-accent-primary text-white rounded hover:bg-pink-500 transition-colors"
+            >
+              Duplicate Homeworld
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-pink-nebula-text-secondary mb-1">
+                Starting Pop
+              </label>
+              <input
+                type="number"
+                value={starting.workersTotal}
+                onChange={(e) => updateStartingWorkers(parseInt(e.target.value, 10))}
+                onFocus={(e) => e.target.select()}
+                className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
+                min="0"
+                step="100"
+              />
+            </div>
+
+            {STARTING_STRUCTURE_FIELDS.map(field => (
+              <div key={field.id}>
+                <label className="block text-sm text-pink-nebula-text-secondary mb-1">
+                  {field.label}
+                </label>
+                <input
+                  type="number"
+                  value={starting.structures[field.id]}
+                  onChange={(e) => updateStartingStructure(field.id, parseInt(e.target.value, 10))}
+                  onFocus={(e) => e.target.select()}
+                  className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
+                  min="0"
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+
         {/* Starter Package Info */}
         <div className="mb-6 p-3 bg-slate-800 rounded border border-pink-nebula-border">
           <p className="text-sm text-pink-nebula-text-secondary">
-            <span className="font-semibold">Starter Package:</span> {STARTER_PACKAGE.WORKERS.toLocaleString()} workers, {STARTER_PACKAGE.METAL.toLocaleString()} metal, {STARTER_PACKAGE.MINERAL.toLocaleString()} mineral, {STARTER_PACKAGE.FOOD.toLocaleString()} food, {STARTER_PACKAGE.ENERGY} energy
+            <span className="font-semibold">Starter Resources:</span> {STARTER_PACKAGE.METAL.toLocaleString()} metal, {STARTER_PACKAGE.MINERAL.toLocaleString()} mineral, {STARTER_PACKAGE.FOOD.toLocaleString()} food, {STARTER_PACKAGE.ENERGY} energy
           </p>
           <p className="text-sm text-pink-nebula-text-secondary mt-1">
-            <span className="font-semibold">Starter Buildings:</span> {STARTER_PACKAGE.BUILDINGS.join(', ')}
+            <span className="font-semibold">Selected Start:</span> {starting.workersTotal.toLocaleString()} workers, Outpost x1, Metal Mine x{starting.structures.metal_mine}, Mineral Extractor x{starting.structures.mineral_extractor}, Farm x{starting.structures.farm}, Solar Gen x{starting.structures.solar_generator}
           </p>
         </div>
 
@@ -342,7 +455,7 @@ export function AddPlanetModal({
             onClick={handleSubmit}
             className="px-6 py-2 bg-pink-nebula-accent-primary text-white rounded-lg hover:bg-pink-500 transition-colors"
           >
-            Add Planet
+            {mode === 'edit' ? 'Save Planet' : 'Add Planet'}
           </button>
         </div>
       </div>

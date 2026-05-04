@@ -2,11 +2,19 @@
  * Multi-planet game state management
  */
 
-import { PlanetState, WorkItem, LaneId, ItemDefinition } from '../sim/engine/types';
+import { PlanetState, LaneState, ItemDefinition, LaneId, WorkItem } from '../sim/engine/types';
 import { createStandardStart, createInitialState } from '../sim/defs/seed';
 import { loadGameData } from '../sim/defs/adapter.client';
 import gameDataJson from './game_data.json';
 import { Timeline } from './state';
+import { getPlanetLimitAtTurn } from './globalResearch';
+import { tryActivateNext } from '../sim/engine/lanes';
+import {
+  STARTER_PACKAGE,
+  STARTING_STRUCTURE_IDS,
+  type PlanetStartingSettings,
+  normalizePlanetStarting,
+} from '../constants/planet';
 
 // ============================================================================
 // Types
@@ -26,13 +34,15 @@ export interface PlanetConfig {
     groundCap: number;
     orbitalCap: number;
   };
+  starting?: PlanetStartingSettings;
 }
 
 export interface GameState {
   planets: Map<string, ExtendedPlanetState>;
   currentPlanetId: string;
   globalResearch: {
-    queue: WorkItem[];
+    stock: number;
+    lane: LaneState;
     completed: string[];
   };
   nextPlanetId: number;
@@ -49,6 +59,90 @@ export interface ExtendedPlanetState extends PlanetState {
 
 // Load definitions once
 const itemDefinitions: Record<string, ItemDefinition> = loadGameData(gameDataJson as any);
+const PLANET_LANES: LaneId[] = ['building', 'ship', 'colonist', 'research'];
+
+function createStarterConfig(config: PlanetConfig) {
+  const starting = normalizePlanetStarting(config.starting);
+  const structures: Record<string, number> = { outpost: 1 };
+
+  for (const structureId of STARTING_STRUCTURE_IDS) {
+    const count = starting.structures[structureId];
+    if (count > 0) {
+      structures[structureId] = count;
+    }
+  }
+
+  return {
+    stocks: {
+      metal: STARTER_PACKAGE.METAL,
+      mineral: STARTER_PACKAGE.MINERAL,
+      food: STARTER_PACKAGE.FOOD,
+      energy: STARTER_PACKAGE.ENERGY,
+    },
+    abundance: {
+      metal: config.abundance.metal,
+      mineral: config.abundance.mineral,
+      food: config.abundance.food,
+      energy: config.abundance.energy,
+    },
+    population: {
+      workersTotal: starting.workersTotal,
+      soldiers: 0,
+      scientists: 0,
+    },
+    space: {
+      groundCap: config.space.groundCap,
+      orbitalCap: config.space.orbitalCap,
+    },
+    structures,
+  };
+}
+
+function resetWorkItemForStart(
+  item: WorkItem,
+  startTurn: number,
+  defs: Record<string, ItemDefinition>
+): WorkItem {
+  const def = defs[item.itemId];
+  return {
+    ...item,
+    status: 'pending',
+    turnsRemaining: item.isWait ? item.turnsRemaining : def?.durationTurns ?? item.turnsRemaining,
+    queuedTurn: startTurn,
+    startTurn: undefined,
+    completionTurn: undefined,
+  };
+}
+
+function getInitialLanePlans(planet: ExtendedPlanetState): Record<LaneId, WorkItem[]> {
+  const initialState = planet.timeline?.getStateAtTurn(planet.startTurn) ?? planet;
+  return PLANET_LANES.reduce((plans, laneId) => {
+    const lane = initialState.lanes[laneId];
+    plans[laneId] = [
+      ...(lane.active ? [lane.active] : []),
+      ...lane.pendingQueue,
+    ];
+    return plans;
+  }, {} as Record<LaneId, WorkItem[]>);
+}
+
+function applyLanePlans(
+  planet: ExtendedPlanetState,
+  lanePlans: Record<LaneId, WorkItem[]>,
+  startTurn: number
+): void {
+  for (const laneId of PLANET_LANES) {
+    const lane = planet.lanes[laneId];
+    lane.pendingQueue = [];
+    lane.active = null;
+    lane.completionHistory = [];
+
+    for (const item of lanePlans[laneId]) {
+      lane.pendingQueue.push(resetWorkItemForStart(item, startTurn, planet.defs));
+      tryActivateNext(planet, laneId);
+    }
+  }
+}
 
 // ============================================================================
 // Factory Functions
@@ -78,7 +172,13 @@ export function createInitialGameState(): GameState {
     planets,
     currentPlanetId: 'planet-1',
     globalResearch: {
-      queue: [],
+      stock: 0,
+      lane: {
+        pendingQueue: [],
+        active: null,
+        completionHistory: [],
+        maxQueueDepth: 9999,
+      },
       completed: [],
     },
     nextPlanetId: 2,
@@ -90,34 +190,16 @@ export function createInitialGameState(): GameState {
  * Add a new planet to the game
  */
 export function addPlanet(gameState: GameState, config: PlanetConfig): GameState {
-  if (gameState.planets.size >= gameState.maxPlanets) {
-    throw new Error('Maximum planet limit reached');
+  const requestedPlanetNumber = gameState.planets.size + 1;
+  const effectiveLimit = getPlanetLimitAtTurn(gameState, config.startTurn);
+  if (requestedPlanetNumber > effectiveLimit) {
+    throw new Error(`Maximum planet limit reached for turn ${config.startTurn}`);
   }
 
   const planetId = `planet-${gameState.nextPlanetId}`;
 
   // Create planet with starter configuration
-  const starterConfig = {
-    stocks: {
-      metal: 6000,
-      mineral: 4000,
-      food: 2000,
-      energy: 0,
-    },
-    abundance: config.abundance,
-    population: {
-      workersTotal: 5000,
-      soldiers: 0,
-      scientists: 0,
-    },
-    space: {
-      groundCap: config.space.groundCap,
-      orbitalCap: config.space.orbitalCap,
-    },
-    structures: {
-      outpost: 1,
-    },
-  };
+  const starterConfig = createStarterConfig(config);
 
   const newPlanet = createInitialState(itemDefinitions, starterConfig) as ExtendedPlanetState;
 
@@ -174,7 +256,7 @@ export function getCurrentPlanet(gameState: GameState): ExtendedPlanetState {
  */
 export function hasResearchPrerequisites(gameState: GameState): boolean {
   for (const planet of gameState.planets.values()) {
-    if (planet.completedCounts['lab'] > 0 && planet.population.scientists > 0) {
+    if (planet.completedCounts['research_lab'] > 0 && planet.population.scientists > 0) {
       return true;
     }
   }
@@ -185,9 +267,57 @@ export function hasResearchPrerequisites(gameState: GameState): boolean {
  * Get total research points across all planets
  */
 export function getTotalResearchPoints(gameState: GameState): number {
-  let total = 0;
-  for (const planet of gameState.planets.values()) {
-    total += planet.stocks.research_points || 0;
+  return gameState.globalResearch.stock || 0;
+}
+
+export function updatePlanetConfig(
+  gameState: GameState,
+  planetId: string,
+  config: PlanetConfig
+): GameState {
+  const planet = gameState.planets.get(planetId);
+  if (!planet) {
+    throw new Error(`Planet ${planetId} does not exist`);
   }
-  return total;
+  if (planetId === 'planet-1') {
+    throw new Error('Homeworld cannot be edited');
+  }
+  const planetNumber = Array.from(gameState.planets.keys()).indexOf(planetId) + 1;
+  const effectiveLimit = getPlanetLimitAtTurn(gameState, config.startTurn);
+  if (planetNumber > effectiveLimit) {
+    throw new Error(`Maximum planet limit reached for turn ${config.startTurn}`);
+  }
+
+  const lanePlans = getInitialLanePlans(planet);
+  const updatedPlanet = createInitialState(itemDefinitions, createStarterConfig(config)) as ExtendedPlanetState;
+  updatedPlanet.id = planet.id;
+  updatedPlanet.name = config.name;
+  updatedPlanet.startTurn = config.startTurn;
+  updatedPlanet.currentTurn = config.startTurn;
+  applyLanePlans(updatedPlanet, lanePlans, config.startTurn);
+  updatedPlanet.timeline = new Timeline(updatedPlanet);
+
+  const newPlanets = new Map(gameState.planets);
+  newPlanets.set(planetId, updatedPlanet);
+  return {
+    ...gameState,
+    planets: newPlanets,
+    currentPlanetId: planetId,
+  };
+}
+
+export function resetToHomeworld(gameState: GameState): GameState {
+  const homeworld = createStandardStart(itemDefinitions) as ExtendedPlanetState;
+  homeworld.id = 'planet-1';
+  homeworld.name = 'Homeworld';
+  homeworld.startTurn = 1;
+  homeworld.currentTurn = 1;
+  homeworld.timeline = new Timeline(homeworld);
+
+  return {
+    ...gameState,
+    planets: new Map([['planet-1', homeworld]]),
+    currentPlanetId: 'planet-1',
+    nextPlanetId: 2,
+  };
 }

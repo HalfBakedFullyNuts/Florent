@@ -25,7 +25,7 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
     { id: 'mineral', label: 'Mineral', color: 'text-blue-400' },
     { id: 'food', label: 'Food', color: 'text-green-400' },
     { id: 'energy', label: 'Energy', color: 'text-yellow-400' },
-    { id: 'research_points', label: 'Research', color: 'text-purple-400' },
+    { id: 'research_points', label: 'Research', color: 'text-yellow-400' },
   ] as const;
 
   const formatNumber = (num: number) => {
@@ -37,12 +37,12 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
     // Round to 1 decimal place for outputs
     const rounded = Math.round(output * 10) / 10;
     const isInteger = rounded % 1 === 0;
-    const absStr = isInteger
-      ? Math.abs(rounded).toString()
-      : Math.abs(rounded).toFixed(1);
-    const formatted = absStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.').replace('.', ',');
+    const [integerPart, decimalPart] = Math.abs(rounded)
+      .toFixed(isInteger ? 0 : 1)
+      .split('.');
+    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     const sign = rounded < 0 ? '-' : '+';
-    return `${sign}${isInteger ? absStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : formatted}`;
+    return `${sign}${decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger}`;
   };
 
   const getResourceColor = (output: number) => {
@@ -73,9 +73,9 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
           </thead>
           <tbody>
             {resources.map((resource) => {
-              const stored = summary.stocks[resource.id];
-              const abundance = summary.abundance[resource.id];
-              const output = summary.outputsPerTurn[resource.id];
+              const stored = summary.stocks[resource.id] ?? 0;
+              const abundance = summary.abundance[resource.id] ?? 1;
+              const output = summary.outputsPerTurn[resource.id] ?? 0;
               const abundancePercent = Math.round(abundance * 100);
 
               // Adjust opacity based on abundance level

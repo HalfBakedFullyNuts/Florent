@@ -6,6 +6,170 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.3] — 2026-05-04
+
+### Fixed
+- Global research lane timing now simulates far enough to show actual RP-gated start and completion turns before the player navigates to them.
+- Long research waits beyond the visible 200-turn simulator are projected from real scientist output and stay stable when clicking a completion turn.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.2.2` to `0.2.3`.
+
+---
+
+## [0.2.2] — 2026-05-04
+
+### Changed
+- Reset Queue now restores the session to Homeworld only: Homeworld's queue is reset, added planet tabs are removed, and future added planets start again from `planet-2`.
+- URL command replay records this as a reset-all-planets command so shared links reproduce the same cleanup.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.2.1` to `0.2.2`.
+
+---
+
+## [0.2.1] — 2026-05-04
+
+### Added
+- Global research refactor: RP is now a global session resource, the research lane renders independently of the active planet, and global research unlocks apply across all planets.
+- Planet-limit research now gates added planets by the actual PL unlock turn, including same-turn availability when PL research completes.
+- Added-planet setup now supports custom starting population plus starting metal mines, mineral extractors, farms, and solar generators, with a Duplicate Homeworld preset.
+
+### Fixed
+- Restored chronological queue display and delayed-start presentation for local prerequisites such as Research Lab -> Scientist.
+- Kept over-200-turn queue items ordered and visible while clamping turn navigation to the simulator's final turn.
+- Prevented invalid planet switches when returning from added planets.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.2.0` to `0.2.1`.
+
+---
+
+## [0.2.0] — 2026-05-03
+
+A persistence + PWA pass — the app now installs to your home screen, works offline once visited, and remembers multiple plans across sessions.
+
+### Added — Saves manager (IndexedDB)
+- New **Saves** button in the Planet Queue header opens a modal with three tabs:
+  - **Saves**: named, user-managed saves. Save current state, load, rename, delete, export-to-JSON.
+  - **History**: the last 30 auto-saves (ring buffer). Lets you revert to any prior auto-save, not just the latest.
+  - **Import**: upload a `.florent.json` file, or paste its JSON contents, then Load-now or Save-as-new-entry.
+- Auto-save now writes to **both** the URL hash (unchanged, still shareable) and an IndexedDB `history` store. Identical-content snapshots are deduped so the history doesn't fill with no-ops.
+- Storage layer at `src/lib/persistence/savesDb.ts` (uses [`idb`](https://www.npmjs.com/package/idb)) with two stores: `saves` (named) and `history` (auto-save ring buffer, capped at 30).
+- One-time migration: existing single-slot `florent_save` localStorage values are seeded into the IndexedDB history on first load, then the migration flag is set so it doesn't run again.
+
+### Added — JSON file export/import
+- "Export" button on each save and on the Save-current panel writes a human-readable `.florent.json`:
+  ```json
+  { "format": 1, "name": "Tech rush", "exportedAt": "2026-…", "app": "florent",
+    "metadata": { "planetCount": 1, "commandCount": 42, "planetNames": "Homeworld" },
+    "encoded": "<v2 share-URL payload>" }
+  ```
+- Import reads the same shape, validates `app === "florent"`, and verifies the encoded payload decodes before letting you load it.
+- Filenames are auto-generated as `<safe-name>_<YYYY-MM-DD-HH-mm>.florent.json`.
+
+### Added — PWA shell
+- `public/manifest.json` with name, theme colors, standalone display, icons in three sizes (192, 512, SVG) and `purpose: "maskable"` variants for Android shape-masking.
+- Generated placeholder icons (SVG master + 16/32/180/192/512 PNGs) using the project's pink-nebula palette: radial gradient, "IC" monogram, subtle rounded ring. Master SVG and `scripts/generate-icons.js` (one-off Sharp-based renderer) both committed; rerun the script to regenerate.
+- `public/sw.js` — hand-rolled service worker (~80 lines), registered from `layout.tsx` only on production hostnames so dev rebuilds don't trip its cache. Strategy:
+  - HTML navigation: **network-first**, falls back to cached app shell when offline.
+  - Same-origin static assets (`_next/`, `icons/`, `vendor/`, css/js/font/img): **cache-first with stale-while-revalidate** background refresh.
+  - Cross-origin requests pass through.
+- iOS Safari support: `apple-touch-icon` link, `apple-mobile-web-app-capable` meta, status-bar style `black-translucent`.
+
+### Tests
+- New `src/lib/persistence/__tests__/saveFile.test.ts` (7 tests): round-trip serialise/parse, rejection of non-JSON / non-Florent / un-decodable payloads, filename sanitisation, summary extraction. Full suite is now **400 passed / 1 skipped** (was 393).
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.9` to `0.2.0` (minor bump for the new feature surface).
+
+---
+
+## [0.1.9] — 2026-05-03
+
+### Fixed
+- **Drag handle / mobile arrow buttons disappeared once `viewTurn` advanced past queue items.** `canDrag` in `TabbedLaneDisplay.tsx` required `entry.status === 'pending' || 'active'`, but `getAdjustedLaneView` rewrites status to `'completed'` for any item whose finish turn is ≤ `viewTurn` — so previewing further into the timeline locked off reordering for everything you'd already passed. Cancel (✕) was always available regardless, so the restriction was inconsistent. Relaxed the check to `!disabled && !!onReorder && !isWaitItem`: any plan entry except auto-generated waits is now reorderable. Reordering past items is supported by the engine (`reorderQueueItem` re-runs the timeline from T1).
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.8` to `0.1.9`.
+
+---
+
+## [0.1.8] — 2026-05-03
+
+### Fixed
+- **`formatOutput` produced wrong European number format** in both `PlanetSummary.tsx` and `PlanetDashboard.tsx`: `1250.7` rendered as `+1,250.7` instead of `+1.250,7` because the thousands-separator regex inserted a `.` before the existing decimal `.`, then `replace('.', ',')` only swapped the first dot. Reworked to split on the decimal point first, then insert thousand separators only on the integer part. The two pre-existing test failures in `PlanetSummary.test.tsx` and `PlanetDashboard.test.tsx` now pass — full suite is **393 passed** (was 391/2).
+- **`react-hooks/rules-of-hooks` follow-up**: cleaned up all 11 `exhaustive-deps` warnings in `page.tsx`, `TabbedItemGrid.tsx`, and `GameStateContext.tsx`. Two patterns:
+  - **Real bugs fixed**: `executeCancellation` was missing `currentPlanet?.startTurn` and `isAutoJumpEnabled` (stale-closure risk on cancel-with-auto-jump); `tryQueue` was missing `getQty` and `humanizeReason` (now wrapped with `useCallback`); three callbacks (`confirmPendingCancellation`, `handleCancelItem`, `getMaxQuantity`) had unused `viewTurn` deps removed.
+  - **Intentional cache-busting deps** (gameState in `currentState`/`fullPlanState`/`firstEmptyTurns`, currentPlanetId in controller useMemos): suppressed with `eslint-disable-next-line react-hooks/exhaustive-deps` and a comment explaining why — the controller mutates its internal timeline outside React's awareness, so we add `gameState` as a re-evaluation trigger.
+
+### Removed
+- **Dead code**: `findNextEmptyQueueTurn` in `src/app/page.tsx` (~50 lines). Defined but never called from anywhere except its own recursion.
+
+### Changed
+- `tsconfig.tsbuildinfo` is now gitignored and untracked. Was polluting `git status` on every `tsc` run.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.7` to `0.1.8`.
+
+---
+
+## [0.1.7] — 2026-05-03
+
+### Added — Mobile responsiveness pass
+
+**Phase A — Make it usable on mobile**
+- Main layout (`src/app/page.tsx`): "Add to Queue" and "Planet Queue" Cards stack vertically on `< md` (was hardcoded side-by-side, jamming both into ~163px each).
+- `PlanetTabs`: tabs wrap to multiple lines on narrow widths instead of overflowing.
+- `TabbedItemGrid` + `TabbedLaneDisplay`: tab headers wrap and become equal-width on mobile (`flex-1`); item-row card height scales to `60vh` on mobile.
+- `TabbedItemGrid` item rows: switched from a 7-column fixed-width row (~620px min) to a two-row layout on mobile — name/duration/qty controls top, costs wrap below. Single-row table preserved on desktop via `md:contents` + `md:order-last`.
+- `QueueLaneEntry`: tighter column gaps and smaller font on mobile.
+- `HorizontalTimeline`: outer flex now wraps; slider gets its own row on mobile; auto-jump label has a shorter mobile copy; quick-jump and per-lane T1 buttons wrap.
+- Action button row in Planet Queue header: `flex-wrap` with `flex-1` buttons that fill available width below the header on mobile.
+- Header, planet tabs, warnings, timeline wrappers, main content: `px-3 md:px-6` (was `px-6` — wastes 48px of horizontal space on phones).
+
+**Phase B — Make it look good**
+- Mobile-only Build/Queue toggle bar (`src/app/page.tsx`): on `< md`, only one panel renders at a time so the user isn't scrolling through both stacked. Both render side-by-side on desktop.
+- `AddPlanetModal`: three internal `grid-cols-2` blocks now `grid-cols-1 sm:grid-cols-2`. Action buttons stack on mobile with primary action on top via `order-1 sm:order-2`. Modal padding scales (`p-4 md:p-6`).
+- Tap targets: primary action buttons use `min-h-[44px]` and `py-2.5` on mobile to meet the iOS 44×44pt guideline. Timeline step buttons enlarged to `w-11 h-11` on mobile.
+
+**Phase C — Touch correctness**
+- Replaced `alert()` for "link copied" with a transient toast (`fixed bottom-6 left-1/2`, auto-dismisses after 3s, `aria-live="polite"`).
+- Touch-friendly reorder: added ▲▼ arrow buttons on mobile that call `onReorder` directly with `actualIndex ± 1`. Drag handle remains for desktop. Footer hint adapts ("Drag ⋮⋮" on desktop, "Tap ▲▼" on mobile). Avoids the iOS HTML5-drag flakiness without adding a touch backend.
+
+### Changed
+- Card heights: lane Cards use `h-[60vh] md:h-[600px]` so phones don't get a 600px-tall scroll region eating most of the viewport.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.6` to `0.1.7`.
+
+---
+
+## [0.1.6] — 2026-05-03
+
+### Fixed
+- **`react-hooks/rules-of-hooks` violations in `src/app/page.tsx`**: 14 `useCallback` declarations (`handlePlanetSwitch`, `handleAddPlanet`, `handleCreatePlanet`, `handleQueueItem`, `handleQueueWait`, `executeCancellation`, `confirmPendingCancellation`, `handleCancelItem`, `handleQuantityChange`, `handleReorder`, `getMaxQuantity`, `handleAdvanceTurn`, `handleResetQueue`, plus `enrichEntriesWithValidation`) were declared *after* the early-return guard, meaning React would call them in different orders depending on whether the guard tripped. All hooks are now declared before the guard. No behavior change — purely an ordering fix.
+
+### Added
+- ESLint configuration (`.eslintrc.json` extending `next/core-web-vitals`). `npm run lint` now actually runs; previously it prompted for setup and was unenforceable.
+- Project pre-commit hook in `.claude/settings.json`: `PreToolUse` matcher on `Bash(git commit:*)` runs `npm run lint && npm run build` and blocks the commit (exit 2) on failure.
+- `docs/CODE_QUALITY.md` — full TypeScript-adapted Power-of-10 ruleset.
+
+### Changed
+- AI agent configuration consolidated. `Architecture/agents.md` and `LLM_AND_DEV_GUIDELINES.md` merged into `CLAUDE.md` (302 → 123 lines, no rules lost). Power-of-10 ruleset moved to `docs/CODE_QUALITY.md`.
+- Project-shared agent settings now live in committed `.claude/settings.json`; `.claude/settings.local.json` is gitignored as per-user. `.claude/worktrees/` also gitignored.
+- `.claude/settings.local.json` permission allowlist pruned (~20 stale entries removed: bare file paths, Windows leftovers, foreign user paths).
+- Role section in `CLAUDE.md` updated from a Shadowrun copy-paste to the actual Infinite Conflict context.
+
+### Removed
+- Stale milestone reports superseded by `CHANGELOG.md`/`WORKLOG.md`: `BUGFIX_SUMMARY.md`, `PROGRESS_SUMMARY.md`, `RESEARCH_PROGRESS.md`, and 5 `claudedocs/PHASE_*` files.
+- Empty orphan worktree directory `.claude/worktrees/pedantic-vaughan-1124cd/`.
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.1.4` to `0.1.6` (no `0.1.5` was released).
+
+---
+
 ## [0.1.4] — 2026-05-03
 
 ### Fixed

@@ -8,28 +8,36 @@ interface PlanetTabsProps {
   currentPlanetId: string;
   onPlanetSwitch: (planetId: string) => void;
   onAddPlanet: () => void;
+  onEditPlanet?: (planetId: string) => void;
   maxPlanets: number;
   onResetQueue?: () => void;
 }
 
 /**
- * PlanetTabs - Tab navigation for multiple planets, with optional Reset Queue button on the far right
+ * PlanetTabs - Tab navigation for multiple planets, with optional Reset Queue button on the far right.
  */
 export function PlanetTabs({
   planets,
   currentPlanetId,
   onPlanetSwitch,
   onAddPlanet,
+  onEditPlanet,
   maxPlanets,
   onResetQueue,
 }: PlanetTabsProps) {
   const planetArray = Array.from(planets.values());
-  const canAddPlanet = planets.size < maxPlanets;
 
-  // Planet emoji icons
   const getPlanetIcon = (index: number) => {
-    const icons = ['🌍', '🔴', '🌙', '🪐'];
+    const icons = ['Earth', 'Mars', 'Moon', 'Planet'];
     return icons[index % icons.length];
+  };
+
+  const handlePlanetClick = (planet: ExtendedPlanetState) => {
+    if (planet.id === currentPlanetId && planet.id !== 'planet-1' && onEditPlanet) {
+      onEditPlanet(planet.id);
+      return;
+    }
+    onPlanetSwitch(planet.id);
   };
 
   return (
@@ -44,14 +52,15 @@ export function PlanetTabs({
             role="button"
             tabIndex={0}
             key={planet.id}
-            onClick={() => onPlanetSwitch(planet.id)}
+            onClick={() => handlePlanetClick(planet)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                onPlanetSwitch(planet.id);
+                handlePlanetClick(planet);
               }
             }}
             suppressHydrationWarning
+            title={isActive && planet.id !== 'planet-1' ? 'Edit planet' : 'Switch planet'}
             className={`
               px-4 py-2 rounded-lg font-semibold transition-all duration-200
               flex items-center gap-2 cursor-pointer
@@ -61,48 +70,35 @@ export function PlanetTabs({
               }
             `}
           >
-            <span className="text-xl">{getPlanetIcon(index)}</span>
+            <span className="text-xs uppercase tracking-wide opacity-70">{getPlanetIcon(index)}</span>
             <span className="text-sm">{planet.name}</span>
             <span className="text-xs opacity-70" suppressHydrationWarning>T{planet.currentTurn}</span>
           </div>
         );
       })}
 
-      {canAddPlanet && (
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={onAddPlanet}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onAddPlanet();
-            }
-          }}
-          className="
-            px-4 py-2 rounded-lg font-semibold transition-all duration-200
-            bg-slate-700 text-pink-nebula-text hover:bg-slate-600
-            border-2 border-dashed border-pink-nebula-border
-            flex items-center gap-2 hover:scale-102 cursor-pointer
-          "
-        >
-          <span className="text-xl">➕</span>
-          <span className="text-sm">Add Planet</span>
-        </div>
-      )}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={onAddPlanet}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onAddPlanet();
+          }
+        }}
+        className="
+          px-4 py-2 rounded-lg font-semibold transition-all duration-200
+          bg-slate-700 text-pink-nebula-text hover:bg-slate-600
+          border-2 border-dashed border-pink-nebula-border
+          flex items-center gap-2 hover:scale-102 cursor-pointer
+        "
+      >
+        <span className="text-sm">+</span>
+        <span className="text-sm">Add Planet</span>
+        <span className="text-xs opacity-70">{planets.size}/{maxPlanets}</span>
+      </div>
 
-      {!canAddPlanet && (
-        <div className="
-          px-4 py-2 rounded-lg
-          bg-slate-800 text-pink-nebula-muted
-          border-2 border-dashed border-pink-nebula-border/30
-          flex items-center gap-2 opacity-50
-        ">
-          <span className="text-sm">Max Planets ({maxPlanets}/{maxPlanets})</span>
-        </div>
-      )}
-
-      {/* Reset Queue button — far right, pushes to end with ml-auto */}
       {onResetQueue && (
         <div
           role="button"
@@ -122,7 +118,6 @@ export function PlanetTabs({
           "
           title="Reset current planet queue to starting state"
         >
-          <span>↺</span>
           <span>Reset Queue</span>
         </div>
       )}

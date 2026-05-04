@@ -146,7 +146,7 @@ export function TabbedItemGrid({
       case 'mineral': return 'text-red-500'; // red
       case 'food': return 'text-green-500'; // green
       case 'energy': return 'text-blue-400'; // blue
-      case 'research_points': return 'text-purple-400';
+      case 'research_points': return 'text-yellow-400';
       case 'workers': return 'text-orange-400'; // orange
       case 'ground_space': return 'text-amber-600'; // brown
       case 'orbital_space': return 'text-blue-600'; // blue
@@ -167,9 +167,9 @@ export function TabbedItemGrid({
   // Per-item inline error message
   const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
 
-  const getQty = (itemId: string): string => itemQuantities[itemId] ?? '1';
+  const getQty = useCallback((itemId: string): string => itemQuantities[itemId] ?? '1', [itemQuantities]);
 
-  const humanizeReason = (reason: string | undefined, itemId: string): string => {
+  const humanizeReason = useCallback((reason: string | undefined, itemId: string): string => {
     const def = availableItems[itemId];
     switch (reason) {
       case 'REQ_MISSING': {
@@ -191,7 +191,7 @@ export function TabbedItemGrid({
       default:
         return reason || 'Cannot queue this item.';
     }
-  };
+  }, [availableItems]);
 
   const tryQueue = useCallback((itemId: string, laneId: LaneId) => {
     const raw = getQty(itemId);
@@ -216,7 +216,7 @@ export function TabbedItemGrid({
     onQueueItem(itemId, qty);
     setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-  }, [itemQuantities, itemErrors, canQueueItem, onQueueItem]);
+  }, [getQty, humanizeReason, canQueueItem, onQueueItem]);
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
