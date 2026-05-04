@@ -198,7 +198,14 @@ export function TabbedItemGrid({
   // Per-item inline error message
   const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
 
-  const getQty = useCallback((itemId: string): string => itemQuantities[itemId] ?? '1', [itemQuantities]);
+  const getDefaultQty = useCallback((itemId: string): string => {
+    return itemId === 'soldier' || itemId === 'scientist' ? '100' : '1';
+  }, []);
+
+  const getQty = useCallback(
+    (itemId: string): string => itemQuantities[itemId] ?? getDefaultQty(itemId),
+    [itemQuantities, getDefaultQty]
+  );
 
   const humanizeReason = useCallback((reason: string | undefined, itemId: string): string => {
     const def = availableItems[itemId];
@@ -245,9 +252,9 @@ export function TabbedItemGrid({
       return;
     }
     onQueueItem(itemId, qty);
-    setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
+    setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-  }, [getQty, humanizeReason, canQueueItem, onQueueItem]);
+  }, [getQty, getDefaultQty, humanizeReason, canQueueItem, onQueueItem]);
 
   const findMaxQueueQuantity = useCallback((itemId: string): number => {
     return getMaxImmediateQueueQuantity(itemId, canQueueItem);
@@ -262,9 +269,9 @@ export function TabbedItemGrid({
     }
 
     onQueueItem(itemId, maxQuantity);
-    setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
+    setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-  }, [findMaxQueueQuantity, canQueueItem, humanizeReason, onQueueItem]);
+  }, [findMaxQueueQuantity, canQueueItem, humanizeReason, onQueueItem, getDefaultQty]);
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
@@ -292,7 +299,7 @@ export function TabbedItemGrid({
       e.preventDefault();
       tryQueue(itemId, laneId);
     } else if (e.key === 'Escape') {
-      setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
+      setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
       setItemErrors(prev => ({ ...prev, [itemId]: '' }));
     }
   };
