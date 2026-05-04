@@ -1368,15 +1368,17 @@ export default function Home() {
 
         {/* Planet Tabs - Multi-planet navigation */}
         <div className="px-3 pb-2 md:px-6">
-          <PlanetTabs
-            planets={gameState.planets}
-            currentPlanetId={gameState.currentPlanetId}
-            onPlanetSwitch={handlePlanetSwitch}
-            onAddPlanet={handleAddPlanet}
-            onEditPlanet={handleEditPlanet}
-            maxPlanets={effectivePlanetLimit}
-            onResetQueue={handleResetQueue}
-          />
+          <div className="mx-auto max-w-[1800px]">
+            <PlanetTabs
+              planets={gameState.planets}
+              currentPlanetId={gameState.currentPlanetId}
+              onPlanetSwitch={handlePlanetSwitch}
+              onAddPlanet={handleAddPlanet}
+              onEditPlanet={handleEditPlanet}
+              maxPlanets={effectivePlanetLimit}
+              onResetQueue={handleResetQueue}
+            />
+          </div>
         </div>
 
         {activeShareMetadata && (
@@ -1622,7 +1624,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.16</div>
+          <div className="opacity-30 text-[10px]">v0.2.17</div>
         </footer>
       </div>
 

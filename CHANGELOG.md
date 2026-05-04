@@ -6,6 +6,19 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.17] — 2026-05-04
+
+### Fixed
+- Desktop planet tab bars now align to the same centered 1800px content rail as the build selector, shared-list banner, dashboard, timeline, and queue panels.
+
+### Tests
+- Re-verified PlanetDashboard, build-list selector, Saves modal, Export modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.17`.
+
+---
+
 ## [0.2.16] — 2026-05-04
 
 ### Fixed

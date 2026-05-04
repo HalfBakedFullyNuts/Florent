@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.17: Planet tab rail alignment.**
+The Homeworld/Add Planet/Reset Queue strip now sits inside the same centered desktop content rail as the build-list selector, shared-list banner, dashboard, timeline, and queue panels. This keeps the desktop layout from feeling edge-to-edge while preserving the mobile two-column tab grid.
+
 **2026-05-04 — v0.2.16: Desktop dashboard table repair.**
 The mobile dashboard alignment pass now has explicit desktop breakpoints for the Buildings table. Phones keep the compact proportional columns that prevent Energy values from clipping, while desktop restores the roomier fixed-width table behavior so building names and resource columns do not get squeezed inside the four-card overview.
 
