@@ -1456,7 +1456,7 @@ export default function Home() {
                 </div>
                 <div className="grid min-h-[46px] w-full grid-cols-2 gap-2 xl:grid-cols-4">
                   <button
-                    onClick={() => {
+                    onClick={async () => {
                       const metadata = requestShareMetadata();
                       if (!metadata) return;
 
@@ -1467,13 +1467,14 @@ export default function Home() {
                         return;
                       }
                       const { commandCount: cmds, url } = share;
-                      navigator.clipboard.writeText(url).then(() => {
+                      const copied = await copyTextToClipboard(url);
+                      if (copied) {
                         setToast(`Link copied — "${metadata.name}" by ${metadata.author}, ${cmds} command${cmds === 1 ? '' : 's'}`);
                         setTimeout(() => setToast(null), 3000);
-                      }).catch(() => {
+                      } else {
                         setToast('Could not copy — clipboard unavailable');
                         setTimeout(() => setToast(null), 3000);
-                      });
+                      }
                     }}
                     className="group inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-gradient-to-r from-emerald-500/95 to-teal-400/90 px-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-none transition duration-200 hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
                     title="Copy a share link that opens this build list"

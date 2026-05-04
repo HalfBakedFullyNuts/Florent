@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
 import './globals.css'
+import { serviceWorkerRegistrationScript } from './serviceWorkerRegistration'
 
 export const metadata: Metadata = {
   title: 'Infinite Conflict Simulator',
@@ -60,18 +61,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         <div className="min-h-screen text-pink-nebula-text relative">{children}</div>
 
-        {/* Register the PWA service worker (production builds only — dev rebuilds
-            invalidate the worker on every reload, which is noisy). */}
+        {/* Register the PWA service worker outside local dev hosts only — dev rebuilds
+            invalidate the worker on every reload, which is noisy and stale-cache prone. */}
         <Script id="sw-register" strategy="afterInteractive">
-          {`
-            if ('serviceWorker' in navigator && window.location.hostname !== 'localhost') {
-              window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch((err) => {
-                  console.warn('[SW] registration failed:', err);
-                });
-              });
-            }
-          `}
+          {serviceWorkerRegistrationScript}
         </Script>
       </body>
     </html>

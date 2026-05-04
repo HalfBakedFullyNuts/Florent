@@ -105,6 +105,28 @@ describe('share link flow', () => {
     });
   });
 
+  test('falls back to execCommand when clipboard API is unavailable', async () => {
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: undefined,
+    });
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand,
+    });
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('Fallback Opening')
+      .mockReturnValueOnce('Ada');
+    render(<Home />);
+
+    fireEvent.click(getQueueItem(/^Farm$/i));
+    fireEvent.click(screen.getByRole('button', { name: /share link/i }));
+
+    await waitFor(() => expect(execCommand).toHaveBeenCalledWith('copy'));
+    expect(await screen.findByText(/Link copied/i)).toBeInTheDocument();
+  });
+
   test('copies a debug state link with the current command history', async () => {
     const writeText = installClipboardMock();
     render(<Home />);
