@@ -49,13 +49,14 @@ export function consumeRestoreIntent(encoded: string | null): RestoreIntent | nu
 
     window.sessionStorage.removeItem(RESTORE_INTENT_STORAGE_KEY);
     const parsed = JSON.parse(raw) as Partial<RestoreIntent>;
-    const isFresh = typeof parsed.createdAt === 'number' && Date.now() - parsed.createdAt < RESTORE_INTENT_MAX_AGE_MS;
-    if (parsed.encoded !== encoded || !isFresh) return null;
+    const createdAt = parsed.createdAt;
+    const isFresh = typeof createdAt === 'number' && Date.now() - createdAt < RESTORE_INTENT_MAX_AGE_MS;
+    if (parsed.encoded !== encoded || !isFresh || typeof createdAt !== 'number') return null;
 
     return {
       encoded,
       shared: parsed.shared === true,
-      createdAt: parsed.createdAt,
+      createdAt,
     };
   } catch {
     return null;

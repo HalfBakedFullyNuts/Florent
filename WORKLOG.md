@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.14: Unified popup visual system.**
+The remaining popup surfaces were updated to match the new save/build-list visual language. Export Build Queue now has a glass/vault shell, scope badges, icon-led export actions, and polished Discord/image fallback states. Add/Edit Planet, the nested Planet Import popup, auto-wait confirmation, and dependency warnings now use the same rounded modal shell, icon badge headers, themed scroll areas, and intent-colored actions. The UI spec was updated so future popup work follows this shared pattern instead of drifting back into one-off modal styles.
+
 **2026-05-04 — v0.2.13: Save vault polish and restore intent hardening.**
 The Saves modal was brought in line with the newer queue/build-list visual language: glassy vault panel, cyan selected tabs, themed scroll areas, and unambiguous intent colors for opening, saving, exporting, and deletion. The save/restore flow now carries explicit owned-vs-shared intent through the reload handoff, preventing named saves and owned imports from being cached as shared lists. "Save as mine" now removes shared metadata from both the display summary and the encoded payload, so copied shared lists stay genuinely owned when exported, re-imported, or opened later. Pasted raw state fragments now use a neutral imported-build label, and file-read failures surface in the modal instead of failing quietly.
 

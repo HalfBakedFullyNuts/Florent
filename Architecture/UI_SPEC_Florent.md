@@ -158,13 +158,15 @@ Queue Button
   - Export Full List: violet with a list icon.
 - Labels should state the result, not just the category. Prefer "Copy Share Link" over "Share Link" and "Export Current" over "Export / Share".
 
-Save/Open Modals
+Modal Surfaces
 
 - Modal panels should use the same glass/vault language as the build-list selector: rounded 24-32px corners, subtle cyan rim lighting, dark translucent backgrounds, and themed `scroll-nebula` scroll areas.
 - Use intent colors consistently inside modal actions: cyan for load/open/restore, emerald for save/save-as-mine, amber for file export, red for destructive delete/remove.
 - Shared cached lists must be visually distinct from owned saves with sky/cyan borders and copy that explains they are local cache only.
 - "Save as mine" means ownership conversion, not just a label change. Strip shared identity from both UI metadata and the encoded payload before persisting.
 - File and pasted-link import controls should live in one clearly labeled import pane with an explicit "Load now" action and a separate "Save as mine" action.
+- Export, planet configuration, nested import, auto-wait, and dependency-warning popups should use the same header pattern: icon badge, small uppercase context label, strong title, short explanatory text, and an icon-only close button with an `aria-label`.
+- Confirmation modals should make the safe action visually distinct from the destructive or committing action. Keep/cancel-safe actions use emerald or quiet styling; destructive cascade actions use red.
 
 ### 5.3 Middle Column — "Queue"
 

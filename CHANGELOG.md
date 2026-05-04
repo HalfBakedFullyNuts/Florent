@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.14] — 2026-05-04
+
+### Changed
+- Export Build Queue now uses the polished glass/vault modal style with clearer scope badges, icon-led export options, and modern fallback/notification states.
+- Add/Edit Planet, Planet Import, auto-wait confirmation, and dependency-warning popups now share the same modal shell, header rhythm, focus styling, and intent-colored actions as the Saves modal.
+- UI guidelines now define the shared modal surface pattern for export, planet configuration, import, confirmation, and warning popups.
+
+### Tests
+- Re-verified Export modal, Saves modal, build-list selector, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.14`.
+
+---
+
 ## [0.2.13] — 2026-05-04
 
 ### Changed

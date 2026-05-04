@@ -21,6 +21,23 @@ const futureBuildingLane: LaneView = {
   ],
 };
 
+const futureShipLane: LaneView = {
+  laneId: 'ship',
+  entries: [
+    {
+      id: 'fighter-1',
+      itemId: 'fighter',
+      itemName: 'Fighter',
+      quantity: 5,
+      status: 'pending',
+      turnsRemaining: 8,
+      eta: 9,
+      completionTurn: 9,
+      queuedTurn: 1,
+    },
+  ],
+};
+
 const emptyLane = (laneId: LaneView['laneId']): LaneView => ({ laneId, entries: [] });
 
 describe('ExportModal', () => {
@@ -54,5 +71,84 @@ describe('ExportModal', () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('[5] - Farm'));
     expect(screen.getByText(/full queue was copied/i)).toBeInTheDocument();
+  });
+
+  test('image export renders a wider table canvas instead of the old compact list image', async () => {
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+        write,
+      },
+    });
+    Object.defineProperty(window, 'devicePixelRatio', {
+      configurable: true,
+      value: 1,
+    });
+
+    const gradient = { addColorStop: vi.fn() };
+    const context = {
+      beginPath: vi.fn(),
+      closePath: vi.fn(),
+      clip: vi.fn(),
+      createLinearGradient: vi.fn(() => gradient),
+      fill: vi.fn(),
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+      lineTo: vi.fn(),
+      measureText: vi.fn((text: string) => ({ width: text.length * 8 })),
+      moveTo: vi.fn(),
+      quadraticCurveTo: vi.fn(),
+      restore: vi.fn(),
+      save: vi.fn(),
+      scale: vi.fn(),
+      stroke: vi.fn(),
+    } as unknown as CanvasRenderingContext2D;
+
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(context);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => {
+      callback(new Blob(['png'], { type: 'image/png' }));
+    });
+    vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,test');
+
+    class MockClipboardItem {
+      constructor(public readonly items: Record<string, Blob>) {}
+    }
+
+    (globalThis as { ClipboardItem: typeof ClipboardItem }).ClipboardItem =
+      MockClipboardItem as unknown as typeof ClipboardItem;
+
+    const exportedCanvases: HTMLCanvasElement[] = [];
+    const createElement = document.createElement.bind(document);
+    vi.spyOn(document, 'createElement').mockImplementation((tagName, options) => {
+      const element = createElement(tagName, options);
+      if (tagName === 'canvas') {
+        exportedCanvases.push(element as HTMLCanvasElement);
+      }
+      return element;
+    });
+
+    render(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        buildingLane={futureBuildingLane}
+        shipLane={futureShipLane}
+        colonistLane={emptyLane('colonist')}
+        researchLane={emptyLane('research')}
+        currentTurn={1}
+        exportMode="full"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /export as image/i }));
+
+    await waitFor(() => expect(write).toHaveBeenCalled());
+    expect(exportedCanvases).toHaveLength(1);
+    const canvas = exportedCanvases[0];
+    expect(canvas.width).toBeGreaterThan(500);
+    expect(context.fillText).toHaveBeenCalledWith('STRUCTURE', expect.any(Number), expect.any(Number));
+    expect(context.fillText).toHaveBeenCalledWith('SHIP', expect.any(Number), expect.any(Number));
   });
 });
