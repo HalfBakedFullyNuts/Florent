@@ -30,6 +30,11 @@ Design tokens (CSS variable names / Tailwind tokens suggested)
 - --bg-secondary: #21182c; /* Panels, cards */
 - --accent-primary: #e91e63; /* Primary interactive */
 - --accent-secondary: #ff4081; /* Hover/highlight */
+- --accent-selected: #22d3ee; /* Active lane/tab selection */
+- --action-share: #10b981; /* Copy/share-link action */
+- --action-save: #0ea5e9; /* Saves/load actions */
+- --action-export-current: #f59e0b; /* Current-view export */
+- --action-export-full: #8b5cf6; /* Full-list export */
 - --text-primary: #e1dce6; /* Main text */
 - --text-secondary: #a39cb0; /* Muted text */
 - --border: #3c2d4a; /* Dividers / borders */
@@ -39,7 +44,9 @@ Design tokens (CSS variable names / Tailwind tokens suggested)
 Usage guidance
 
 - Backgrounds: Use `--bg-primary` for app shell, `--bg-secondary` for card/panel backgrounds.
-- Accents: Use `--accent-primary` for CTA buttons, active tab backgrounds, progress fills. `--accent-secondary` for hover states and emphasis.
+- Accents: Use `--accent-primary` / `--accent-secondary` for pink-nebula brand emphasis and primary confirmation flows, not for every selected surface.
+- Selection: Use `--accent-selected` (cyan/blue family) for active lane tabs and selected tab panels so tabs cannot be mistaken for primary/destructive actions.
+- Actions: Give high-risk or high-impact actions their own intent color and icon. Do not reuse the active-tab color for action buttons.
 - Text: `--text-primary` for all primary labels and values; `--text-secondary` for descriptions, legends, disabled text.
 - Borders: `--border` at 1px for separation lines, subtle card outlines.
 
@@ -129,8 +136,9 @@ Panel shell
 Category tabs (Structures/Ships/etc.)
 
 - Container: `--bg-secondary`.
-- Active tab: bottom border 3px solid `--accent-primary`, text color `--text-primary`.
+- Active tab: cyan/blue selected treatment using `--accent-selected`, text color `--text-primary`, and a clear icon. Do not use pink/magenta for active lane tabs.
 - Inactive tabs: `--text-secondary`.
+- Tab icons: include the lane icon inside every tab (Structures, Ships, Colonists, Research) so label recognition does not depend on color alone.
 
 Build items
 
@@ -143,6 +151,22 @@ Queue Button
 
 - Default: background `--accent-primary`, color `--text-primary`, border-radius 4px, padding 6px 10px.
 - Hover: background `--accent-secondary`.
+- Named queue-header actions must be visually distinct:
+  - Copy Share Link: green/teal with a link icon.
+  - Open Saves: blue with a save/disk icon.
+  - Export Current: amber with an upload/export icon.
+  - Export Full List: violet with a list icon.
+- Labels should state the result, not just the category. Prefer "Copy Share Link" over "Share Link" and "Export Current" over "Export / Share".
+
+Modal Surfaces
+
+- Modal panels should use the same glass/vault language as the build-list selector: rounded 24-32px corners, subtle cyan rim lighting, dark translucent backgrounds, and themed `scroll-nebula` scroll areas.
+- Use intent colors consistently inside modal actions: cyan for load/open/restore, emerald for save/save-as-mine, amber for file export, red for destructive delete/remove.
+- Shared cached lists must be visually distinct from owned saves with sky/cyan borders and copy that explains they are local cache only.
+- "Save as mine" means ownership conversion, not just a label change. Strip shared identity from both UI metadata and the encoded payload before persisting.
+- File and pasted-link import controls should live in one clearly labeled import pane with an explicit "Load now" action and a separate "Save as mine" action.
+- Export, planet configuration, nested import, auto-wait, and dependency-warning popups should use the same header pattern: icon badge, small uppercase context label, strong title, short explanatory text, and an icon-only close button with an `aria-label`.
+- Confirmation modals should make the safe action visually distinct from the destructive or committing action. Keep/cancel-safe actions use emerald or quiet styling; destructive cascade actions use red.
 
 ### 5.3 Middle Column — "Queue"
 

@@ -27,6 +27,15 @@ export interface ReorderResult {
   reason?: 'NOT_FOUND' | 'INVALID_TURN' | 'INVALID_LANE' | 'INVALID_INDEX' | 'CANNOT_REORDER_WAIT' | 'INVALID_ITEM';
 }
 
+interface QueueItemOptions {
+  force?: boolean;
+  preserveId?: string;
+  minStartTurn?: number;
+  completedResearch?: string[];
+  scheduledResearch?: string[];
+  blockedResearch?: string[];
+}
+
 /**
  * Game controller - manages timeline and exposes commands
  */
@@ -46,7 +55,7 @@ export class GameController {
     turn: number,
     itemId: string,
     requestedQty: number,
-    options?: { force?: boolean; preserveId?: string; minStartTurn?: number; completedResearch?: string[] }
+    options?: QueueItemOptions
   ): QueueResult {
     const state = this.timeline.getStateAtTurn(turn);
     if (!state) {
@@ -63,14 +72,23 @@ export class GameController {
     const lane = state.lanes[laneId];
 
     if (!options?.force) {
+      if (options?.blockedResearch?.length) {
+        return { success: false, reason: 'REQ_MISSING' };
+      }
+
       // Check if queue is full (max 10 items)
       if (lane.pendingQueue.length >= lane.maxQueueDepth) {
         return { success: false, reason: 'INVALID_LANE' };
       }
 
       // Validate queue operation
-      const validationState = options?.completedResearch
-        ? { ...state, completedResearch: Array.from(new Set([...(state.completedResearch || []), ...options.completedResearch])) }
+      const validationResearch = Array.from(new Set([
+        ...(state.completedResearch || []),
+        ...(options?.completedResearch || []),
+        ...(options?.minStartTurn !== undefined ? options?.scheduledResearch || [] : []),
+      ]));
+      const validationState = validationResearch.length > 0
+        ? { ...state, completedResearch: validationResearch }
         : state;
       const validation = canQueue(validationState, def, requestedQty);
       if (!validation.allowed) {
@@ -92,10 +110,18 @@ export class GameController {
       turnsRemaining: def.durationTurns,
       queuedTurn: turn,
       minStartTurn: options?.minStartTurn,
+      scheduledResearch: options?.scheduledResearch?.length ? options.scheduledResearch : undefined,
+      blockedResearch: options?.blockedResearch?.length ? options.blockedResearch : undefined,
     };
 
     // Push to queue, then eagerly activate so costs appear on the current turn.
     const success = this.timeline.mutateAtTurn(turn, (s) => {
+      if (options?.completedResearch?.length && options.minStartTurn === undefined) {
+        s.completedResearch = Array.from(new Set([
+          ...(s.completedResearch || []),
+          ...options.completedResearch,
+        ]));
+      }
       s.lanes[laneId].pendingQueue.push(workItem);
       tryActivateNext(s, laneId);
     });
@@ -759,7 +785,13 @@ export class GameController {
       }
 
       // Queue the actual item universally at T=turn, preserving original ID
-      this.queueItem(turn, item.itemId, item.quantity, { force: true, preserveId: item.id });
+      this.queueItem(turn, item.itemId, item.quantity, {
+        force: true,
+        preserveId: item.id,
+        minStartTurn: item.minStartTurn,
+        scheduledResearch: item.scheduledResearch,
+        blockedResearch: item.blockedResearch,
+      });
 
       // Advance cursor
       cursorTurn = validTurn + def.durationTurns;

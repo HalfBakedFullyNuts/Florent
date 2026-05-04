@@ -7,6 +7,8 @@ import type { LaneView } from '../game/selectors';
 import type { LaneId } from '../sim/engine/types';
 import { abbreviateName } from './abbreviations';
 
+export const DISCORD_MESSAGE_LIMIT = 2000;
+
 export interface QueueItem {
   turn: number;
   lane: LaneId;
@@ -89,8 +91,8 @@ export function formatAsText(laneViews: LaneView[], maxTurn?: number): string {
     // Abbreviate building names to save space
     const abbreviatedName = abbreviateName(item.name);
 
-    // Buildings show name only, ships/colonists show quantity
-    const itemText = item.lane === 'building'
+    // Structures and research are unique queue items; ships/colonists carry quantities.
+    const itemText = item.lane === 'building' || item.lane === 'research'
       ? abbreviatedName
       : `${item.quantity}x ${abbreviatedName}`;
 
@@ -99,20 +101,17 @@ export function formatAsText(laneViews: LaneView[], maxTurn?: number): string {
 }
 
 /**
- * Format queue as Discord table with character limit check
+ * Format queue as one or more Discord messages, each safe for non-Nitro users.
  * Format: Markdown table with code block
  *
- * Discord has an 8,192 character limit per message
- * If exceeded, prepends warning message
+ * Discord's normal message limit is 2,000 characters. The returned array is
+ * intended to be copied/pasted one message at a time.
  *
  * @param laneViews - Array of lane views to format
  * @param maxTurn - Optional maximum turn to include (for "current view" export)
  */
-export function formatAsDiscord(laneViews: LaneView[], maxTurn?: number): string {
+export function formatAsDiscordMessages(laneViews: LaneView[], maxTurn?: number): string[] {
   const items = extractQueueItems(laneViews, maxTurn);
-
-  const DISCORD_LIMIT = 8192;
-  const WARNING = 'Buildlist exceeds character limit on Discord\n\n';
 
   // Group items by turn
   const turnGroups = new Map<number, QueueItem[]>();
@@ -123,12 +122,13 @@ export function formatAsDiscord(laneViews: LaneView[], maxTurn?: number): string
     turnGroups.get(item.turn)!.push(item);
   });
 
-  // Build table
-  let table = '```\n';
-  table += '| Turn | Structure       | Ship            | Colonist        |\n';
-  table += '|------|-----------------|-----------------|-----------------|';
-
-  let exceedsLimit = false;
+  const header = [
+    '```',
+    '| Turn | Structure       | Ship            | Colonist        | Research        |',
+    '|------|-----------------|-----------------|-----------------|-----------------|',
+  ].join('\n');
+  const footer = '\n```';
+  const rows: string[] = [];
 
   // Sort by turn and add rows
   Array.from(turnGroups.entries())
@@ -137,31 +137,56 @@ export function formatAsDiscord(laneViews: LaneView[], maxTurn?: number): string
       const structure = turnItems.find(i => i.lane === 'building');
       const ship = turnItems.find(i => i.lane === 'ship');
       const colonist = turnItems.find(i => i.lane === 'colonist');
+      const research = turnItems.find(i => i.lane === 'research');
 
       // Abbreviate names to save space
       const structureText = structure ? abbreviateName(structure.name) : '';
       const shipText = ship ? `${ship.quantity}x ${abbreviateName(ship.name)}` : '';
       const colonistText = colonist ? `${colonist.quantity}x ${abbreviateName(colonist.name)}` : '';
+      const researchText = research ? abbreviateName(research.name) : '';
 
       const row = `\n| ${String(turn).padEnd(4)} | ${
-        structureText.padEnd(15)
+        fitDiscordCell(structureText)
       } | ${
-        shipText.padEnd(15)
+        fitDiscordCell(shipText)
       } | ${
-        colonistText.padEnd(15)
+        fitDiscordCell(colonistText)
+      } | ${
+        fitDiscordCell(researchText)
       } |`;
-
-      // Check if adding this row would exceed the limit (account for closing ```)
-      if (table.length + row.length + 4 > DISCORD_LIMIT) {
-        exceedsLimit = true;
-      }
-
-      table += row;
+      rows.push(row);
     });
 
-  table += '\n```';
+  if (rows.length === 0) {
+    return [`${header}${footer}`];
+  }
 
-  return exceedsLimit ? WARNING + table : table;
+  const messages: string[] = [];
+  let table = header;
+
+  rows.forEach(row => {
+    if (table !== header && table.length + row.length + footer.length > DISCORD_MESSAGE_LIMIT) {
+      messages.push(`${table}${footer}`);
+      table = header;
+    }
+    table += row;
+  });
+
+  messages.push(`${table}${footer}`);
+
+  return messages;
+}
+
+/**
+ * Format queue as Discord text. If multiple messages are required, they are
+ * returned separated by blank lines for backward-compatible callers.
+ */
+export function formatAsDiscord(laneViews: LaneView[], maxTurn?: number): string {
+  return formatAsDiscordMessages(laneViews, maxTurn).join('\n\n');
+}
+
+function fitDiscordCell(value: string): string {
+  return value.slice(0, 15).padEnd(15);
 }
 
 /**
@@ -169,11 +194,35 @@ export function formatAsDiscord(laneViews: LaneView[], maxTurn?: number): string
  * Returns true if successful, false otherwise
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
+  if (!text) return false;
+
   try {
-    await navigator.clipboard.writeText(text);
-    return true;
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch (err) {
+    console.warn('Clipboard API failed, trying textarea fallback:', err);
+  }
+
+  if (typeof document === 'undefined') return false;
+
+  let textarea: HTMLTextAreaElement | null = null;
+  try {
+    textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    return document.execCommand?.('copy') ?? false;
   } catch (err) {
     console.error('Failed to copy to clipboard:', err);
     return false;
+  } finally {
+    textarea?.remove();
   }
 }

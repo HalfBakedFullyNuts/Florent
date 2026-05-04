@@ -15,6 +15,15 @@ Short rationale (1-2 sentences).
 
 ## Recent Decisions - Turn-Based Simulator Implementation
 
+2026-05-04 — Guard Next Builds While Dev Is Running
+Local production builds refuse to run while port 3000 is serving `next dev`. This prevents `npm run build` from rewriting the active localhost webpack chunk cache and causing missing-module dev-server failures.
+
+2026-05-04 — Binary Share-Link Encoding
+New share and debug URLs use a v3 binary-packed payload with a `b3.` prefix to reduce URL length. Legacy v1/v2 compressed JSON links remain decodable so existing shared links and cached saves continue to load.
+
+2026-05-04 — Shared-Link Metadata and Separate Shared Saves
+Shared build links carry optional name/author metadata inside the compact URL payload so ownership can be shown without changing command replay. Opened shared links are stored in a dedicated IndexedDB `shared` store, keeping other players' lists separate from user-managed saves.
+
 2026-05-04 — Global Research and Configurable Colony Starts
 Research points and the research lane are modeled as global session state while research labs and scientists remain planet-local. Added-planet starting population and starter production structures are persisted in compact URL commands so edited colony starts replay deterministically without changing activation-time queue costs.
 
@@ -92,4 +101,3 @@ Game rules and agents live in `src/lib/game` so they can be tested independently
 
 Process requirement (new)
 - All contributors must add an ADR entry to this file whenever they make a non-trivial architectural decision (for example introducing a global store, adding server-side APIs, or changing how game logic is persisted).
-

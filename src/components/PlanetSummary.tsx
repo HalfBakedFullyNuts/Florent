@@ -34,15 +34,13 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
   };
 
   const formatOutput = (output: number) => {
-    // Round to 1 decimal place for outputs
+    // European format: thousands separated by '.', decimal by ',' (e.g. 1250.7 -> +1.250,7).
     const rounded = Math.round(output * 10) / 10;
-    const isInteger = rounded % 1 === 0;
-    const [integerPart, decimalPart] = Math.abs(rounded)
-      .toFixed(isInteger ? 0 : 1)
-      .split('.');
-    const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     const sign = rounded < 0 ? '-' : '+';
-    return `${sign}${decimalPart ? `${formattedInteger},${decimalPart}` : formattedInteger}`;
+    const [intStr, decStr] = Math.abs(rounded).toFixed(1).split('.');
+    const intWithSep = intStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const isInteger = decStr === '0';
+    return `${sign}${intWithSep}${isInteger ? '' : `,${decStr}`}`;
   };
 
   const getResourceColor = (output: number) => {

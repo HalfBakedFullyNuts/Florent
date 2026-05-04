@@ -42,7 +42,7 @@ export function PlanetTabs({
 
   return (
     <div
-      className="flex gap-2 mb-4 p-2 bg-pink-nebula-panel/50 rounded-lg border border-pink-nebula-border items-center"
+      className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/80 via-slate-950/45 to-pink-nebula-panel/70 p-2 shadow-xl shadow-black/20 backdrop-blur-xl"
       suppressHydrationWarning
     >
       {planetArray.map((planet, index) => {
@@ -62,11 +62,11 @@ export function PlanetTabs({
             suppressHydrationWarning
             title={isActive && planet.id !== 'planet-1' ? 'Edit planet' : 'Switch planet'}
             className={`
-              px-4 py-2 rounded-lg font-semibold transition-all duration-200
+              px-4 py-2 rounded-xl font-semibold transition-all duration-200
               flex items-center gap-2 cursor-pointer
               ${isActive
-                ? 'bg-pink-nebula-accent-primary text-white shadow-lg scale-105'
-                : 'bg-slate-700 text-pink-nebula-text hover:bg-slate-600 hover:scale-102'
+                ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow-lg shadow-pink-nebula-accent-primary/25 scale-[1.03]'
+                : 'border border-white/10 bg-white/5 text-pink-nebula-text hover:border-pink-nebula-accent-primary/45 hover:bg-white/10'
               }
             `}
           >
@@ -88,10 +88,10 @@ export function PlanetTabs({
           }
         }}
         className="
-          px-4 py-2 rounded-lg font-semibold transition-all duration-200
-          bg-slate-700 text-pink-nebula-text hover:bg-slate-600
-          border-2 border-dashed border-pink-nebula-border
-          flex items-center gap-2 hover:scale-102 cursor-pointer
+          px-4 py-2 rounded-xl font-semibold transition-all duration-200
+          border border-dashed border-pink-nebula-accent-primary/45 bg-pink-nebula-accent-primary/10
+          text-pink-nebula-text hover:border-pink-nebula-accent-secondary hover:bg-pink-nebula-accent-primary/20
+          flex items-center gap-2 cursor-pointer
         "
       >
         <span className="text-sm">+</span>
@@ -111,9 +111,9 @@ export function PlanetTabs({
             }
           }}
           className="
-            ml-auto px-3 py-2 rounded-lg font-semibold transition-all duration-200
-            bg-red-900/40 text-red-300 hover:bg-red-700 hover:text-white
-            border border-red-700/50
+            ml-auto px-3 py-2 rounded-xl font-semibold transition-all duration-200
+            bg-red-950/35 text-red-200 hover:bg-red-700/70 hover:text-white
+            border border-red-400/25 hover:border-red-300/60
             flex items-center gap-2 cursor-pointer text-sm
           "
           title="Reset current planet queue to starting state"

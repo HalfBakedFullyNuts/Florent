@@ -25,9 +25,16 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Claude Code per-user settings (project-shared settings live in .claude/settings.json)
+.claude/settings.local.json
+.claude/worktrees/
+
 # Build
 dist/
 build/
+
+# TypeScript incremental build cache (rewritten on every tsc run)
+tsconfig.tsbuildinfo
 
 # Mac
 *.swp

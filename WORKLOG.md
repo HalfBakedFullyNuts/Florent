@@ -9,17 +9,35 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
-**2026-05-04 — v0.2.7: Code-review cleanup pass.**
-The code review work items were implemented: PL checks now use planned milestones, late-start planet queue operations use the planet-local world-turn horizon, reset clears global research, the infinity queue action is max-now by contract, and added-planet starting fields keep editable drafts.
+**2026-05-04 — v0.2.14: Unified popup visual system.**
+The remaining popup surfaces were updated to match the new save/build-list visual language. Export Build Queue now has a glass/vault shell, scope badges, icon-led export actions, and polished Discord/image fallback states. Add/Edit Planet, the nested Planet Import popup, auto-wait confirmation, and dependency warnings now use the same rounded modal shell, icon badge headers, themed scroll areas, and intent-colored actions. The UI spec was updated so future popup work follows this shared pattern instead of drifting back into one-off modal styles.
 
-**2026-05-04 — v0.2.6: Batch maximum queue controls.**
-Ship and colonist rows now expose an infinity action for queueing the maximum currently valid batch size, and soldier/scientist quantity fields default to 100.
+**2026-05-04 — v0.2.13: Save vault polish and restore intent hardening.**
+The Saves modal was brought in line with the newer queue/build-list visual language: glassy vault panel, cyan selected tabs, themed scroll areas, and unambiguous intent colors for opening, saving, exporting, and deletion. The save/restore flow now carries explicit owned-vs-shared intent through the reload handoff, preventing named saves and owned imports from being cached as shared lists. "Save as mine" now removes shared metadata from both the display summary and the encoded payload, so copied shared lists stay genuinely owned when exported, re-imported, or opened later. Pasted raw state fragments now use a neutral imported-build label, and file-read failures surface in the modal instead of failing quietly.
 
-**2026-05-04 — v0.2.5: Graceful inactive planet views.**
-Added planets can now be viewed safely before their start turn: the app keeps tabs and timeline controls alive and shows an inactive-planet notice instead of an invalid-turn crash. The first three added planets are explicitly treated as part of the base four-planet allowance and are not PL-gated.
+**2026-05-04 — v0.2.12: Branch integration, sharing polish, and action clarity.**
+The branch now carries the latest `main` global-research fixes while keeping the PWA/share/save-cache work intact. Share/export flows were tightened with binary URLs, Discord chunking, research-inclusive exports, clipboard image export, and safer debug/reset handling. The build-list selector and queue panels were polished with persistent controls, clearer stacking, themed scrollbars, cyan lane-tab selection, and distinct icon/color treatments for share, saves, current export, and full-list export actions. Legacy localStorage migration now avoids noisy failures when IndexedDB or usable localStorage is absent, and Vitest binds jsdom storage explicitly so Node 25 no longer emits `--localstorage-file` warnings in page tests. Follow-up PR review fixes allow scheduled global research to unlock future local queue planning without starting early, revalidate those local gates when global research is canceled or reordered, recompute imported save-file metadata from the encoded payload, keep share-link copying working without the Clipboard API, prevent local dev hosts from registering stale PWA service workers, keep global RP accruing while front-of-queue research is blocked by unmet prerequisites, and cancel pending autosaves before restoring a selected save so the old build cannot overwrite the target hash. The latest sharing pass moved list name/author editing onto the page instead of prompt popups, made pasted shared URLs importable from the Saves modal, canonicalized share links to the app root for incognito/fresh-tab opens, made exports more forgiving with clipboard fallbacks, current-turn-to-full-queue fallback, chunk progress, and optional image download fallback instead of forced downloads, and hardened the service worker so local dev unregisters stale workers and 404 pages cannot replace the cached app shell.
 
-**2026-05-04 — v0.2.4: Text-editable added-planet starts.**
-The Add/Edit Planet modal now presents starting population and starting structure counts as explicit text-editable fields, so added planets expose those editable starting properties directly in the UI.
+**2026-05-04 — v0.2.11: Shared opened timestamps.**
+Shared build lists now display their opened date and time in selector/modal labels and are rendered newest-first so same-name shares remain distinguishable.
+
+**2026-05-04 — v0.2.10: Local build visibility.**
+The Build List selector now treats recent non-shared auto-saves as your local builds, refreshes when saves change, and lets those local entries be deleted from the selector.
+
+**2026-05-04 — v0.2.9: Clean dev startup.**
+The dev script now clears stale Next compiler output before launching, preventing missing server chunk errors after static export builds or branch changes.
+
+**2026-05-04 — v0.2.8: Build-list selector.**
+The main page now has a local build-list selector that separates your named saves from shared lists cached after opening links, with load/delete controls for both categories.
+
+**2026-05-04 — v0.2.7: Shared-list identity.**
+Share links now carry list name and author metadata, opened shared links show a clear shared-list banner, and the Saves modal keeps other players' lists in a separate Shared tab.
+
+**2026-05-04 — v0.2.6: PWA-safe share links.**
+Share links are now encoded at click time instead of waiting for debounced auto-save, and already-open PWA windows react to incoming `#state=...` links so another player's build list loads reliably.
+
+**2026-05-04 — v0.2.5: Global research edge-case hardening.**
+Planet-limit unlock lookup now avoids brute-force turn scans, and research drag/reorder rejects dependency-inverting moves so invalid queues cannot stall the planner.
 
 **2026-05-04 — v0.2.3: Stable global research timing projections.**
 Research lane display now runs the global research planner far enough to compute actual RP-gated start and completion turns, including long waits beyond the visible 200-turn simulator, so clicking a completion turn no longer changes the displayed schedule.

@@ -68,6 +68,28 @@ function prereqsMet(completed: string[], def: ItemDefinition): boolean {
   return (def.prerequisites || []).every((id) => completed.includes(id));
 }
 
+function canResearchOrderProgress(items: WorkItem[], completed: string[]): boolean {
+  const available = new Set(completed);
+  for (const item of items) {
+    if (item.isWait) continue;
+    const def = defs[item.itemId];
+    if (!def) return false;
+    for (const prereqId of def.prerequisites || []) {
+      if (!available.has(prereqId)) return false;
+    }
+    available.add(item.itemId);
+  }
+  return true;
+}
+
+function isBlockedByUnmetFrontPrereq(snapshot: GlobalResearchSnapshot): boolean {
+  if (snapshot.lane.active || snapshot.lane.pendingQueue.length === 0) return false;
+  const pending = snapshot.lane.pendingQueue[0];
+  if (pending.isWait) return false;
+  const def = defs[pending.itemId];
+  return !def || !prereqsMet(snapshot.completed, def);
+}
+
 function isResearchQueuedOrActive(lane: LaneState, itemId: string): boolean {
   return lane.active?.itemId === itemId || lane.pendingQueue.some((item) => item.itemId === itemId);
 }
@@ -182,24 +204,6 @@ function getPendingResearchStockCost(snapshot: GlobalResearchSnapshot): number |
   return snapshot.stock < cost ? cost : null;
 }
 
-function isResearchLaneBlocked(snapshot: GlobalResearchSnapshot): boolean {
-  if (snapshot.lane.active || snapshot.lane.pendingQueue.length === 0) {
-    return false;
-  }
-
-  const pending = snapshot.lane.pendingQueue[0];
-  if (pending.isWait) {
-    return false;
-  }
-
-  const def = defs[pending.itemId];
-  if (!def) {
-    return true;
-  }
-
-  return !prereqsMet(snapshot.completed, def);
-}
-
 function advanceResearchStockWait(
   gameState: GameState,
   snapshot: GlobalResearchSnapshot,
@@ -239,6 +243,37 @@ function advanceResearchStockWait(
   };
 }
 
+function advanceResearchStockThroughTurn(
+  gameState: GameState,
+  snapshot: GlobalResearchSnapshot,
+  targetTurn: number
+): GlobalResearchSnapshot {
+  let stock = snapshot.stock;
+  let turn = snapshot.turn;
+  const target = Math.min(RESEARCH_PLAN_MAX_TURN, targetTurn);
+  const variableOutputEnd = maxScientistOutputChangeTurn(gameState);
+
+  while (turn <= target && turn <= variableOutputEnd) {
+    stock += scientistOutputAtTurn(gameState, turn);
+    turn += 1;
+  }
+
+  if (turn <= target) {
+    const outputPerTurn = scientistOutputAtTurn(gameState, turn);
+    if (outputPerTurn > 0) {
+      stock += (target - turn + 1) * outputPerTurn;
+    }
+    turn = target + 1;
+  }
+
+  return {
+    ...snapshot,
+    turn,
+    stock,
+    outputPerTurn: scientistOutputAtTurn(gameState, target),
+  };
+}
+
 function simulateGlobalResearch(
   gameState: GameState,
   targetTurn: number,
@@ -251,10 +286,6 @@ function simulateGlobalResearch(
     snapshot.turn <= RESEARCH_PLAN_MAX_TURN &&
     (snapshot.turn <= target || (untilLaneSettled && (snapshot.lane.active || snapshot.lane.pendingQueue.length > 0)))
   ) {
-    if (untilLaneSettled && isResearchLaneBlocked(snapshot)) {
-      break;
-    }
-
     const stockCost = getPendingResearchStockCost(snapshot);
     if (stockCost !== null) {
       snapshot = advanceResearchStockWait(
@@ -269,6 +300,11 @@ function simulateGlobalResearch(
       if (untilLaneSettled && snapshot.turn > RESEARCH_PLAN_MAX_TURN) {
         break;
       }
+    }
+
+    if (isBlockedByUnmetFrontPrereq(snapshot)) {
+      snapshot = advanceResearchStockThroughTurn(gameState, snapshot, target);
+      break;
     }
 
     snapshot = runGlobalResearchTurn(gameState, snapshot);
@@ -383,6 +419,10 @@ export function getEarliestPlanetStartTurn(
 }
 
 export function getResearchCompletionTurns(gameState: GameState): Map<string, number> {
+  const lane = gameState.globalResearch.lane;
+  if (!lane.active && lane.pendingQueue.length === 0 && lane.completionHistory.length === 0) {
+    return new Map();
+  }
   return getGlobalResearchPlanView(gameState).completionTurns;
 }
 
@@ -538,6 +578,9 @@ export function reorderGlobalResearch(gameState: GameState, entryId: string, new
   if (oldIndex === -1) return gameState;
   const [item] = all.splice(oldIndex, 1);
   all.splice(Math.max(0, Math.min(newIndex, all.length)), 0, item);
+  if (!canResearchOrderProgress(all, gameState.globalResearch.completed || [])) {
+    return gameState;
+  }
   lane.active = null;
   lane.pendingQueue = all;
   return {

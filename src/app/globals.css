@@ -299,6 +299,34 @@ body > .min-h-screen { z-index: 1; position: relative; }
   box-shadow: 0 0 10px rgba(233, 30, 99, 0.5);
 }
 
+/* Themed scrollbars for dense planning panes */
+.scroll-nebula {
+  scrollbar-color: rgba(255, 64, 129, 0.55) rgba(12, 8, 18, 0.45);
+  scrollbar-width: thin;
+}
+
+.scroll-nebula::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.scroll-nebula::-webkit-scrollbar-track {
+  background: linear-gradient(180deg, rgba(12, 8, 18, 0.7), rgba(33, 24, 44, 0.55));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.scroll-nebula::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(255, 64, 129, 0.9), rgba(124, 58, 237, 0.72));
+  border: 2px solid rgba(12, 8, 18, 0.85);
+  border-radius: 999px;
+  box-shadow: 0 0 12px rgba(255, 64, 129, 0.25);
+}
+
+.scroll-nebula::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(255, 107, 167, 1), rgba(192, 132, 252, 0.92));
+}
+
 /* Token mappings for Tailwind usage (use these in tailwind.config.js theme.extend if desired):
 	--bg-primary -> theme('colors.pink-nebula.bg')
 	--bg-secondary -> theme('colors.pink-nebula.panel')

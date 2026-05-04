@@ -6,91 +6,211 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
-## [0.2.7] — 2026-05-04
+## [0.2.14] — 2026-05-04
 
-### Fixed
-- Replaced the PL earliest-start turn scan with planned research milestones so add-planet limit checks no longer resimulate up to the planning ceiling.
-- Removed fixed T199 queue lookups from late-start planet operations; auto-jump, cancellation checks, and max quantity now use the active planet's world-turn horizon.
-- Reset Queue now clears global research state as part of the full homeworld reset.
-- The infinity batch button now explicitly queues the maximum immediately available quantity, while normal queueing still allows soft-wait items.
-- Added-planet starting property inputs keep editable draft text and normalize only on blur or submit.
+### Changed
+- Export Build Queue now uses the polished glass/vault modal style with clearer scope badges, icon-led export options, and modern fallback/notification states.
+- Add/Edit Planet, Planet Import, auto-wait confirmation, and dependency-warning popups now share the same modal shell, header rhythm, focus styling, and intent-colored actions as the Saves modal.
+- UI guidelines now define the shared modal surface pattern for export, planet configuration, import, confirmation, and warning popups.
+
+### Tests
+- Re-verified Export modal, Saves modal, build-list selector, restore handoff tests, and lint.
 
 ### Bumped
-- `package.json` and `src/app/page.tsx` footer from `0.2.6` to `0.2.7`.
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.14`.
+
+---
+
+## [0.2.13] — 2026-05-04
+
+### Changed
+- Saves modal now uses the same polished glass/vault treatment as the new build-list selector, with clearer tab styling, themed scroll areas, and distinct action colors for load, save, export, and delete.
+- Imported raw state fragments without share metadata now default to "Imported build list" instead of implying they are shared links.
+
+### Fixed
+- Restoring named saves, recent local builds, and imported owned lists now carries an explicit owned/shared restore intent through the reload handoff, so owned lists are not cached back as shared lists.
+- "Save as mine" now strips shared identity from both the saved summary and the encoded payload, preventing exported or re-imported copies from resurrecting the original shared author/name.
+- Owned save exports defensively strip stale embedded share metadata from older saved payloads.
+- File import now reports read errors instead of silently leaving the import box empty.
+
+### Tests
+- Added Saves modal coverage for owned restore, shared restore, pasted shared-link restore, and shared-to-owned metadata stripping.
+- Re-verified restore handoff, build-list selector, save-file parsing, Saves modal tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.13`.
+
+---
+
+## [0.2.12] — 2026-05-04
+
+### Added
+- Binary share-link encoding shortens exported URLs while preserving backwards compatibility with existing encoded build links.
+- Build-list selector and queue panels received clearer visual hierarchy, themed scrollbars, and persistent action controls.
+- Queue action buttons now use distinct intent colors and icons: Copy Share Link, Open Saves, Export Current, and Export Full List.
+- Shared list name and author fields now live directly on the page, so copying a share link no longer interrupts the flow with prompts.
+- Save import now accepts pasted shared URLs, `#state=...` fragments, raw encoded payloads, and `.florent.json` files.
+
+### Changed
+- Active lane tabs now use a cyan/sky selected treatment with lane icons, separating navigation state from action buttons.
+- Ported the latest `main` global-research review fixes into this branch without removing PWA/share/cache work.
+- Updated UI design documentation to codify the new lane-tab and queue-action button guidelines.
+
+### Fixed
+- Legacy localStorage-to-IndexedDB migration now exits safely when IndexedDB or usable localStorage is unavailable, removing noisy test/dev warnings.
+- Vitest now binds jsdom's browser storage under Node 25 so page tests no longer emit `--localstorage-file` warnings.
+- Local queue planning now accepts items gated by scheduled global research and holds them until the research completion turn.
+- Local queue research gates now revalidate after global research cancel/reorder changes, preventing stale scheduled unlocks from activating.
+- Imported save files now recompute display metadata from the encoded payload instead of trusting stale or edited JSON metadata.
+- Build-list dropdown stacking now stays above planet rows and dashboard content.
+- Planet-limit research planning uses completion milestones and avoids brute-force turn scans.
+- Research reordering rejects dependency-inverting moves.
+- Debug/share/export flows include current research lane state and chunk Discord output for non-Nitro message limits.
+- Export copy now falls back to a textarea clipboard path when the Clipboard API is blocked, and current-turn export falls back to the full queue instead of appearing empty before the first completion.
+- Image export no longer forces a download when clipboard image copy is blocked; it keeps download as an explicit fallback action.
+- Share links now canonicalize to the app root URL, avoiding bad static-export routes when opened in a fresh/incognito tab.
+- Share-link copying now uses the safe clipboard fallback path in restricted or older browser contexts.
+- PWA service-worker registration now skips and cleans up local dev hosts including `localhost`, `127.0.0.1`, and IPv6 loopback.
+- PWA service worker now unregisters itself on local dev hosts and refuses to cache 404 responses as the app shell, preventing stale localhost share links from opening the not-found page.
+- Blocked front-of-queue global research now stalls research activation without freezing global RP accrual.
+- Restoring a selected save now cancels any pending autosave first, preventing the previous build from overwriting the selected restore hash before reload.
+
+### Tests
+- Verified full Vitest suite, lint, production build, and localhost smoke checks during this patch sequence.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.12`.
+
+---
+
+## [0.2.11] — 2026-05-04
+
+### Fixed
+- Cached shared build lists now show an explicit opened date - time timestamp in the Build List selector and Shared saves tab.
+- Shared build lists are defensively sorted newest-first by opened timestamp before rendering.
+
+### Tests
+- Added selector coverage for newest-first shared-list ordering and timestamped shared labels.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.11`.
+
+---
+
+## [0.2.10] — 2026-05-04
+
+### Fixed
+- Build List selector now includes recent non-shared auto-saves under "Your lists", so local builds are visible even before they have been named.
+- Selector refreshes when saves, shared cache entries, or history entries change elsewhere in the app.
+
+### Added
+- Recent local builds can be deleted from the selector, alongside named saves and cached shared lists.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.10`.
+
+---
+
+## [0.2.9] — 2026-05-04
+
+### Fixed
+- Dev startup now clears the stale `.next` compiler cache before launching, avoiding server errors where Next tries to load missing chunks after a static export build or branch switch.
+- The clean script now removes both `out` and `.next` so local rebuilds start from a consistent cache state.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.9`.
+
+---
+
+## [0.2.8] — 2026-05-04
+
+### Added
+- Main-page Build List selector for loading local named saves and shared lists cached from opened share links.
+- Selector clearly separates "Your lists" from "Shared lists cached on this device" and notes that shared lists are local cache only.
+- Delete action in the selector removes either owned saves or cached shared lists from this device.
+
+### Tests
+- Added component coverage for owned/shared list display, shared-list load, and owned-list delete.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.8`.
+
+---
+
+## [0.2.7] — 2026-05-04
+
+### Added
+- Share links can now carry a build-list name and author, entered when copying a share link.
+- Opened shared links now display a "Shared list" banner with the list name and author.
+- Saves now include a separate Shared tab for build lists opened from other players, keeping them distinct from the user's named saves.
+
+### Changed
+- Share metadata is preserved in URL/local snapshots while editing an opened shared list.
+- IndexedDB schema upgraded to v2 with a dedicated `shared` store.
+
+### Tests
+- Added coverage for share metadata round-tripping, shared-link loading UI, and save-summary extraction.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.7`.
 
 ---
 
 ## [0.2.6] — 2026-05-04
 
-### Added
-- Batchable ship and colonist rows now include an infinity button that queues the maximum amount currently valid.
+### Fixed
+- Share Link now encodes and persists the current plan at click time, so copied build links no longer depend on the debounced auto-save hash being up to date.
+- Already-open PWA sessions now import a new `#state=...` link on hash change, covering installed-app link opens that reuse the current window instead of remounting the app.
+- Auto-save now updates the share hash with `history.replaceState`, avoiding self-triggered hash imports and browser-history spam.
 
-### Changed
-- Soldier and scientist batch inputs now default to 100 instead of 1.
+### Tests
+- Added URL-state helper coverage and PWA-style share-link integration coverage.
 
 ### Bumped
-- `package.json` and `src/app/page.tsx` footer from `0.2.5` to `0.2.6`.
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.6`.
 
 ---
 
 ## [0.2.5] — 2026-05-04
 
 ### Fixed
-- Viewing an added planet before its start turn now shows a recoverable inactive-planet state instead of replacing the app with an invalid-turn error.
-- Planet-local queue controls are hidden while the selected planet does not exist at the viewed turn, while tabs and turn navigation remain usable.
-
-### Changed
-- Homeworld plus the first three added planets can use any chosen start turn without PL research gating; PL research gates only the fifth planet and beyond.
+- Planet-limit start-turn lookup now derives unlock turns from planned research completions instead of scanning up to 1,000,000 turns.
+- Global research simulation now fails fast when an invalid front-of-queue prerequisite order cannot progress.
+- Research reordering now rejects moves that put a research item before its prerequisites.
 
 ### Bumped
-- `package.json` and `src/app/page.tsx` footer from `0.2.4` to `0.2.5`.
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.5`.
 
 ---
 
 ## [0.2.4] — 2026-05-04
 
-### Changed
-- Added-planet starting properties now use explicit text-editable fields for starting population, metal mines, mineral extractors, farms, and solar generators.
+Port of the global research planning workflow from `main` onto the PWA/saves branch.
 
-### Bumped
-- `package.json` and `src/app/page.tsx` footer from `0.2.3` to `0.2.4`.
-
----
-
-## [0.2.3] — 2026-05-04
+### Added
+- Global research is now planned as a session-wide lane/resource, with RP stock, scientist output, research completions, and unlocks shared across all planets.
+- Planet-limit research now gates additional planets by the actual unlock turn, including edit/add flows for future colonies.
+- Added-planet setup supports custom starting population, starting economy structures, and a Duplicate Homeworld preset.
 
 ### Fixed
-- Global research lane timing now simulates far enough to show actual RP-gated start and completion turns before the player navigates to them.
-- Long research waits beyond the visible 200-turn simulator are projected from real scientist output and stay stable when clicking a completion turn.
+- Global research lane timing now simulates far enough to show actual RP-gated start/completion turns, including long waits beyond the visible 200-turn slider.
+- Reset Queue now restores the session to Homeworld only while preserving the global research plan semantics from the imported workflow.
+- Kept the branch's PWA, IndexedDB saves, save-history, and queue-restore fixes intact while adding global research command replay.
 
 ### Bumped
-- `package.json` and `src/app/page.tsx` footer from `0.2.2` to `0.2.3`.
-
----
-
-## [0.2.2] — 2026-05-04
-
-### Changed
-- Reset Queue now restores the session to Homeworld only: Homeworld's queue is reset, added planet tabs are removed, and future added planets start again from `planet-2`.
-- URL command replay records this as a reset-all-planets command so shared links reproduce the same cleanup.
-
-### Bumped
-- `package.json` and `src/app/page.tsx` footer from `0.2.1` to `0.2.2`.
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.4`.
 
 ---
 
 ## [0.2.1] — 2026-05-04
 
-### Added
-- Global research refactor: RP is now a global session resource, the research lane renders independently of the active planet, and global research unlocks apply across all planets.
-- Planet-limit research now gates added planets by the actual PL unlock turn, including same-turn availability when PL research completes.
-- Added-planet setup now supports custom starting population plus starting metal mines, mineral extractors, farms, and solar generators, with a Duplicate Homeworld preset.
+Fixes for two regressions reported against v0.2.0's saves pass.
 
 ### Fixed
-- Restored chronological queue display and delayed-start presentation for local prerequisites such as Research Lab -> Scientist.
-- Kept over-200-turn queue items ordered and visible while clamping turn navigation to the simulator's final turn.
-- Prevented invalid planet switches when returning from added planets.
-
+- **Auto-save history was always empty** ("No auto-save history yet" in the History tab even after queue changes). `pushHistory` in `savesDb.ts` was calling `store.add({ id: undefined, ... })` on the autoIncrement+keyPath history store. IndexedDB's spec rejects an explicit-undefined keyPath value with `DataError: Evaluating the object store's key path yielded a value that is not a valid key.` — for autoIncrement stores you must omit the field entirely. The error was swallowed by the call site's `.catch(console.warn)`, so the history just silently stayed empty. Fixed by stripping `id` from the value passed to `add()`.
+- **Queue did not restore on refresh** even though the URL hash and localStorage held the right encoded payload. Two bugs stacked:
+  1. `CommandHistory.loadFromSnapshot` in `urlState.ts` read v2 'q' commands with v1 indices: it used `cmd[3]` for itemCode (which is the qty in v2) and `cmd[4]` for qty (which is undefined in v2). Result: every queued item got rewritten as item code = qty. A queued Farm (item 11, qty 1) became `["q", 0, 1, 1]` (battleship) on reload, then failed the prereq check and silently dropped. Fixed by branching on `typeof cmd[3]` and reading the right indices for each format.
+  2. The bootstrap `useEffect` in `page.tsx` called `replayCommands(createInitialGameState(), ...)` — a *fresh* game state with a *new* planet/timeline. The memoized `controller` (deps `[currentPlanetId]`) stayed bound to the *original* planet from `useState`'s initializer, never seeing the replayed mutations. Bootstrap now replays into the existing `gameState` so the controller's timeline gets mutated in place. Side-effects (`replayCommands`, `commandHistory.loadFromSnapshot`) are kept *outside* the `setGameState` updater — React StrictMode invokes updaters twice in dev to detect impurity, which had been queueing every command twice with duplicate deterministic IDs (`__s1` collision, console warning).
 ### Bumped
 - `package.json` and `src/app/page.tsx` footer from `0.2.0` to `0.2.1`.
 

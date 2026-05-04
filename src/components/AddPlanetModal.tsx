@@ -2,6 +2,19 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import {
+  ClipboardPaste,
+  Database,
+  Globe2,
+  Home,
+  Import,
+  Layers,
+  Rocket,
+  Save,
+  Sparkles,
+  Users,
+  X,
+} from 'lucide-react';
+import {
   ABUNDANCE_LIMITS,
   DEFAULT_SPACE,
   DEFAULT_ADDED_PLANET_STARTING,
@@ -25,40 +38,13 @@ const STARTING_STRUCTURE_FIELDS: Array<{
   { id: 'solar_generator', label: 'Solar Gens' },
 ];
 
-type StartingDraft = {
-  workersTotal: string;
-  structures: Record<keyof PlanetStartingSettings['structures'], string>;
-};
-type StartingDraftField = 'workersTotal' | keyof PlanetStartingSettings['structures'];
-
-function formatStartingDraft(starting: PlanetStartingSettings): StartingDraft {
-  return {
-    workersTotal: String(starting.workersTotal),
-    structures: {
-      metal_mine: String(starting.structures.metal_mine),
-      mineral_extractor: String(starting.structures.mineral_extractor),
-      farm: String(starting.structures.farm),
-      solar_generator: String(starting.structures.solar_generator),
-    },
-  };
-}
-
-function parseDraftNumber(value: string): number {
-  const parsed = parseInt(value, 10);
-  return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
-}
-
-function normalizeStartingDraft(draft: StartingDraft): PlanetStartingSettings {
-  return normalizePlanetStarting({
-    workersTotal: parseDraftNumber(draft.workersTotal),
-    structures: {
-      metal_mine: parseDraftNumber(draft.structures.metal_mine),
-      mineral_extractor: parseDraftNumber(draft.structures.mineral_extractor),
-      farm: parseDraftNumber(draft.structures.farm),
-      solar_generator: parseDraftNumber(draft.structures.solar_generator),
-    },
-  });
-}
+const PANEL_CLASS = 'rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/15';
+const INPUT_CLASS = 'w-full min-h-[42px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-pink-nebula-text outline-none transition-all placeholder:text-pink-nebula-muted/60 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20';
+const COMPACT_INPUT_CLASS = 'w-20 min-h-[36px] rounded-xl border border-white/10 bg-slate-950/70 px-2 py-1 text-right text-sm text-pink-nebula-text outline-none transition-all focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20';
+const SECONDARY_BUTTON_CLASS = 'inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-pink-nebula-text transition-all hover:border-cyan-200/35 hover:bg-white/[0.1] focus:outline-none focus:ring-2 focus:ring-cyan-300/20';
+const PRIMARY_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-emerald-200/35 bg-emerald-400/15 px-4 py-2 text-sm font-black text-emerald-50 shadow-lg shadow-emerald-500/10 transition-all hover:bg-emerald-400/25 focus:outline-none focus:ring-2 focus:ring-emerald-300/25';
+const QUIET_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-black text-pink-nebula-muted transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/20';
+const LABEL_CLASS = 'mb-1 block text-xs font-bold uppercase tracking-[0.16em] text-pink-nebula-muted';
 
 interface AddPlanetModalProps {
   isOpen: boolean;
@@ -114,9 +100,6 @@ export function AddPlanetModal({
   const [starting, setStarting] = useState<PlanetStartingSettings>(() =>
     normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING)
   );
-  const [startingDraft, setStartingDraft] = useState<StartingDraft>(() =>
-    formatStartingDraft(normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING))
-  );
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
 
@@ -134,9 +117,7 @@ export function AddPlanetModal({
       }
       : { ...PLANET_PRESETS.HOMEWORLD.abundance });
     setSpace(initialConfig ? { ...initialConfig.space } : { ...PLANET_PRESETS.HOMEWORLD.space });
-    const nextStarting = normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING);
-    setStarting(nextStarting);
-    setStartingDraft(formatStartingDraft(nextStarting));
+    setStarting(normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING));
   }, [isOpen, currentTurn, initialConfig]);
 
   const handleSubmit = useCallback(() => {
@@ -148,19 +129,15 @@ export function AddPlanetModal({
       Object.entries(validatedAbundance).map(([key, value]) => [key, value / 100])
     );
 
-    const normalizedStarting = normalizeStartingDraft(startingDraft);
-    setStarting(normalizedStarting);
-    setStartingDraft(formatStartingDraft(normalizedStarting));
-
     const added = onAddPlanet({
       name,
       startTurn,
       abundance: abundanceMultipliers as typeof abundance,
       space,
-      starting: normalizedStarting,
+      starting: normalizePlanetStarting(starting),
     });
     if (added !== false) onClose();
-  }, [name, startTurn, abundance, space, startingDraft, onAddPlanet, onClose]);
+  }, [name, startTurn, abundance, space, starting, onAddPlanet, onClose]);
 
   const updateAbundance = useCallback((resource: string, value: number) => {
     // Allow free typing - validation happens on blur and submit
@@ -188,32 +165,28 @@ export function AddPlanetModal({
   }, []);
 
   const applyHomeworldStarting = useCallback(() => {
-    const nextStarting = normalizePlanetStarting(HOMEWORLD_PLANET_STARTING);
-    setStarting(nextStarting);
-    setStartingDraft(formatStartingDraft(nextStarting));
+    setStarting(normalizePlanetStarting(HOMEWORLD_PLANET_STARTING));
   }, []);
 
-  const updateStartingDraft = useCallback((field: StartingDraftField, value: string) => {
-    const digitsOnly = value.replace(/\D/g, '');
-    setStartingDraft(prev => {
-      if (field === 'workersTotal') {
-        return { ...prev, workersTotal: digitsOnly };
-      }
-      return {
-        ...prev,
-        structures: {
-          ...prev.structures,
-          [field]: digitsOnly,
-        },
-      };
-    });
+  const updateStartingWorkers = useCallback((value: number) => {
+    setStarting(prev => ({
+      ...prev,
+      workersTotal: Math.max(0, Math.floor(value) || 0),
+    }));
   }, []);
 
-  const commitStartingDraft = useCallback(() => {
-    const normalized = normalizeStartingDraft(startingDraft);
-    setStarting(normalized);
-    setStartingDraft(formatStartingDraft(normalized));
-  }, [startingDraft]);
+  const updateStartingStructure = useCallback((
+    structureId: keyof PlanetStartingSettings['structures'],
+    value: number
+  ) => {
+    setStarting(prev => ({
+      ...prev,
+      structures: {
+        ...prev.structures,
+        [structureId]: Math.max(0, Math.floor(value) || 0),
+      },
+    }));
+  }, []);
 
   const parseImportData = useCallback((text: string) => {
     const result: {
@@ -273,21 +246,56 @@ export function AddPlanetModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <div className="bg-pink-nebula-panel border-2 border-pink-nebula-border rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <h2 className="text-2xl font-bold text-pink-nebula-accent-primary mb-6">
-          {mode === 'edit' ? 'Edit Planet' : 'Add New Planet'}
-        </h2>
+    <div
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-sm sm:items-center md:p-6"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="planet-modal-title"
+        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-200/20 bg-gradient-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <header className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 md:px-6">
+          <div className="flex gap-3">
+            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/25 bg-cyan-300/10 text-cyan-50 shadow-lg shadow-cyan-500/10">
+              <Globe2 className="h-6 w-6" aria-hidden="true" />
+            </span>
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">
+                Planet setup
+              </div>
+              <h2 id="planet-modal-title" className="mt-1 text-2xl font-black text-pink-nebula-text">
+                {mode === 'edit' ? 'Edit Planet' : 'Add New Planet'}
+              </h2>
+              <p className="mt-1 text-sm text-pink-nebula-muted">
+                Configure start turn, abundance, space, and the starting colony package.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/30"
+            aria-label="Close"
+          >
+            <X className="h-5 w-5" aria-hidden="true" />
+          </button>
+        </header>
+
+        <div className="scroll-nebula overflow-y-auto px-4 py-4 md:px-6 md:py-5">
 
         {/* Basic Settings */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-pink-nebula-text mb-3">
+        <div className={`${PANEL_CLASS} mb-4`}>
+          <h3 className="mb-3 flex items-center gap-2 text-lg font-black text-pink-nebula-text">
+            <Rocket className="h-5 w-5 text-cyan-100" aria-hidden="true" />
             Basic Settings
           </h3>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-pink-nebula-text-secondary mb-1">
+              <label className={LABEL_CLASS}>
                 Planet Name
               </label>
               <input
@@ -295,13 +303,13 @@ export function AddPlanetModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 onFocus={(e) => e.target.select()}
-                className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
+                className={INPUT_CLASS}
                 placeholder="Enter planet name"
               />
             </div>
 
             <div>
-              <label className="block text-sm text-pink-nebula-text-secondary mb-1">
+              <label className={LABEL_CLASS}>
                 Start Turn
               </label>
               <input
@@ -309,7 +317,7 @@ export function AddPlanetModal({
                 value={startTurn}
                 onChange={(e) => setStartTurn(Math.max(1, parseInt(e.target.value) || 1))}
                 onFocus={(e) => e.target.select()}
-                className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
+                className={INPUT_CLASS}
                 min="1"
               />
             </div>
@@ -317,49 +325,52 @@ export function AddPlanetModal({
         </div>
 
         {/* Resource Abundances */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-3">
+        <div className={`${PANEL_CLASS} mb-4`}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
             <div>
-              <h3 className="text-lg font-semibold text-pink-nebula-text">
+              <h3 className="flex items-center gap-2 text-lg font-black text-pink-nebula-text">
+                <Sparkles className="h-5 w-5 text-cyan-100" aria-hidden="true" />
                 Resource Abundances
               </h3>
-              <p className="text-sm text-pink-nebula-text-secondary">
+              <p className="mt-1 text-sm text-pink-nebula-muted">
                 Percentages affect production rates (50% - 200%)
               </p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => applyPreset('home-galaxy')}
-                className="px-3 py-1 text-xs bg-slate-700 text-pink-nebula-text rounded hover:bg-slate-600 transition-colors"
+                className={SECONDARY_BUTTON_CLASS}
               >
                 Home Galaxy Avg (60%)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('free-galaxy')}
-                className="px-3 py-1 text-xs bg-slate-700 text-pink-nebula-text rounded hover:bg-slate-600 transition-colors"
+                className={SECONDARY_BUTTON_CLASS}
               >
                 Free Galaxy Avg (80%)
               </button>
               <button
                 type="button"
                 onClick={() => applyPreset('homeworld')}
-                className="px-3 py-1 text-xs bg-pink-nebula-accent-primary text-white rounded hover:bg-pink-500 transition-colors"
+                className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border border-cyan-200/35 bg-cyan-300/15 px-3 py-2 text-xs font-black text-cyan-50 shadow-lg shadow-cyan-500/10 transition-all hover:bg-cyan-300/25 focus:outline-none focus:ring-2 focus:ring-cyan-300/25"
               >
+                <Home className="h-4 w-4" aria-hidden="true" />
                 Homeworld (100%)
               </button>
               <button
                 type="button"
                 onClick={() => setImportModalOpen(true)}
-                className="px-3 py-1 text-xs bg-slate-700 text-pink-nebula-text rounded hover:bg-slate-600 transition-colors"
+                className={SECONDARY_BUTTON_CLASS}
               >
+                <ClipboardPaste className="h-4 w-4" aria-hidden="true" />
                 Import Data
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {Object.entries(abundance)
               .filter(([resource]) => resource !== 'research_points')
               .map(([resource, value]) => (
@@ -374,14 +385,14 @@ export function AddPlanetModal({
                       onChange={(e) => updateAbundance(resource, parseFloat(e.target.value))}
                       onBlur={(e) => validateAbundanceField(resource, parseFloat(e.target.value))}
                       onFocus={(e) => e.target.select()}
-                      className="w-16 px-2 py-1 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none text-right"
+                      className={COMPACT_INPUT_CLASS}
                       min={ABUNDANCE_LIMITS.MIN}
                       max={ABUNDANCE_LIMITS.MAX}
                       step="1"
                     />
                     <span className="text-sm text-pink-nebula-text">%</span>
                   </div>
-                  <span className="text-xs text-pink-nebula-text-secondary">
+                  <span className="text-xs text-pink-nebula-muted">
                     {value < 100 ? '(scarce)' : value > 100 ? '(rich)' : '(normal)'}
                   </span>
                 </div>
@@ -390,14 +401,15 @@ export function AddPlanetModal({
         </div>
 
         {/* Space Budgets */}
-        <div className="mb-6">
-          <h3 className="text-lg font-semibold text-pink-nebula-text mb-3">
+        <div className={`${PANEL_CLASS} mb-4`}>
+          <h3 className="mb-3 flex items-center gap-2 text-lg font-black text-pink-nebula-text">
+            <Layers className="h-5 w-5 text-cyan-100" aria-hidden="true" />
             Space Budgets
           </h3>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-amber-700 mb-1">
+              <label className="mb-1 block text-xs font-bold uppercase tracking-[0.16em] text-amber-100/80">
                 Ground Space Capacity
               </label>
               <input
@@ -407,14 +419,14 @@ export function AddPlanetModal({
                   ...prev,
                   groundCap: Math.max(10, parseInt(e.target.value) || 25)
                 }))}
-                className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
+                className={INPUT_CLASS}
                 min="10"
                 max="100"
               />
             </div>
 
             <div>
-              <label className="block text-sm text-blue-800 mb-1">
+              <label className="mb-1 block text-xs font-bold uppercase tracking-[0.16em] text-sky-100/80">
                 Orbital Space Capacity
               </label>
               <input
@@ -424,7 +436,7 @@ export function AddPlanetModal({
                   ...prev,
                   orbitalCap: Math.max(5, parseInt(e.target.value) || 15)
                 }))}
-                className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
+                className={INPUT_CLASS}
                 min="5"
                 max="50"
               />
@@ -433,20 +445,16 @@ export function AddPlanetModal({
         </div>
 
         {/* Starting Setup */}
-        <div className="mb-6">
+        <div className={`${PANEL_CLASS} mb-4`}>
           <div className="flex items-center justify-between mb-3">
-            <div>
-              <h3 className="text-lg font-semibold text-pink-nebula-text">
-                Starting Properties
-              </h3>
-              <p className="text-sm text-pink-nebula-text-secondary">
-                Type the starting population and built structures for this added planet.
-              </p>
-            </div>
+            <h3 className="flex items-center gap-2 text-lg font-black text-pink-nebula-text">
+              <Users className="h-5 w-5 text-cyan-100" aria-hidden="true" />
+              Starting Setup
+            </h3>
             <button
               type="button"
               onClick={applyHomeworldStarting}
-              className="px-3 py-1 text-xs bg-pink-nebula-accent-primary text-white rounded hover:bg-pink-500 transition-colors"
+              className={SECONDARY_BUTTON_CLASS}
             >
               Duplicate Homeworld
             </button>
@@ -454,35 +462,32 @@ export function AddPlanetModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-pink-nebula-text-secondary mb-1">
+              <label className={LABEL_CLASS}>
                 Starting Pop
               </label>
               <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={startingDraft.workersTotal}
-                onChange={(e) => updateStartingDraft('workersTotal', e.target.value)}
-                onBlur={commitStartingDraft}
+                type="number"
+                value={starting.workersTotal}
+                onChange={(e) => updateStartingWorkers(parseInt(e.target.value, 10))}
                 onFocus={(e) => e.target.select()}
-                className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
+                className={INPUT_CLASS}
+                min="0"
+                step="100"
               />
             </div>
 
             {STARTING_STRUCTURE_FIELDS.map(field => (
               <div key={field.id}>
-                <label className="block text-sm text-pink-nebula-text-secondary mb-1">
+                <label className={LABEL_CLASS}>
                   {field.label}
                 </label>
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={startingDraft.structures[field.id]}
-                  onChange={(e) => updateStartingDraft(field.id, e.target.value)}
-                  onBlur={commitStartingDraft}
+                  type="number"
+                  value={starting.structures[field.id]}
+                  onChange={(e) => updateStartingStructure(field.id, parseInt(e.target.value, 10))}
                   onFocus={(e) => e.target.select()}
-                  className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
+                  className={INPUT_CLASS}
+                  min="0"
                 />
               </div>
             ))}
@@ -490,72 +495,114 @@ export function AddPlanetModal({
         </div>
 
         {/* Starter Package Info */}
-        <div className="mb-6 p-3 bg-slate-800 rounded border border-pink-nebula-border">
-          <p className="text-sm text-pink-nebula-text-secondary">
+        <div className="mb-4 rounded-2xl border border-sky-200/20 bg-sky-400/10 p-4">
+          <p className="text-sm text-sky-50/85">
             <span className="font-semibold">Starter Resources:</span> {STARTER_PACKAGE.METAL.toLocaleString()} metal, {STARTER_PACKAGE.MINERAL.toLocaleString()} mineral, {STARTER_PACKAGE.FOOD.toLocaleString()} food, {STARTER_PACKAGE.ENERGY} energy
           </p>
-          <p className="text-sm text-pink-nebula-text-secondary mt-1">
+          <p className="mt-1 text-sm text-sky-50/75">
             <span className="font-semibold">Selected Start:</span> {starting.workersTotal.toLocaleString()} workers, Outpost x1, Metal Mine x{starting.structures.metal_mine}, Mineral Extractor x{starting.structures.mineral_extractor}, Farm x{starting.structures.farm}, Solar Gen x{starting.structures.solar_generator}
           </p>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-3">
+        <div className="grid gap-2 sm:grid-cols-2">
           <button
+            type="button"
             onClick={onClose}
-            className="px-6 py-2 bg-slate-700 text-pink-nebula-text rounded-lg hover:bg-slate-600 transition-colors"
+            className={`${QUIET_BUTTON_CLASS} order-2 sm:order-1`}
           >
             Cancel
           </button>
           <button
+            type="button"
             onClick={handleSubmit}
-            className="px-6 py-2 bg-pink-nebula-accent-primary text-white rounded-lg hover:bg-pink-500 transition-colors"
+            className={`${PRIMARY_BUTTON_CLASS} order-1 sm:order-2`}
           >
+            {mode === 'edit' ? <Save className="h-4 w-4" aria-hidden="true" /> : <Rocket className="h-4 w-4" aria-hidden="true" />}
             {mode === 'edit' ? 'Save Planet' : 'Add Planet'}
           </button>
+        </div>
         </div>
       </div>
 
       {/* Import Modal */}
       {importModalOpen && (
-        <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-10">
-          <div className="bg-pink-nebula-panel border-2 border-pink-nebula-border rounded-lg p-6 max-w-3xl w-full mx-4">
-            <h3 className="text-xl font-bold text-pink-nebula-accent-primary mb-4">
-              Import Planet Data
-            </h3>
+        <div
+          className="absolute inset-0 z-10 flex items-start justify-center overflow-y-auto bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center md:p-4"
+          onClick={(event) => {
+            event.stopPropagation();
+            setImportModalOpen(false);
+            setImportText('');
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="planet-import-title"
+            className="my-auto w-full max-w-3xl overflow-hidden rounded-3xl border border-cyan-200/20 bg-gradient-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 md:px-6">
+              <div className="flex gap-3">
+                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/25 bg-cyan-300/10 text-cyan-50">
+                  <Database className="h-6 w-6" aria-hidden="true" />
+                </span>
+                <div>
+                  <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">Planet import</div>
+                  <h3 id="planet-import-title" className="mt-1 text-2xl font-black text-pink-nebula-text">
+                    Import Planet Data
+                  </h3>
+                  <p className="mt-1 text-sm text-pink-nebula-muted">
+                    Paste planet data from your game. We extract ground/orbital space and resource abundance percentages.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setImportModalOpen(false);
+                  setImportText('');
+                }}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/30"
+                aria-label="Close import"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </header>
 
-            <p className="text-sm text-pink-nebula-text-secondary mb-3">
-              Paste planet data from your game. The import will extract:
-            </p>
-            <ul className="text-sm text-pink-nebula-text-secondary mb-4 list-disc list-inside">
-              <li>Ground Space and Orbital Space</li>
-              <li>Resource abundance percentages (Metal, Mineral, Food, Energy)</li>
-            </ul>
+            <div className="px-4 py-4 md:px-6 md:py-5">
+            <div className="mb-4 rounded-2xl border border-sky-200/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-50/80">
+              Extracts Ground Space, Orbital Space, and abundance percentages for Metal, Mineral, Food, and Energy.
+            </div>
 
             <textarea
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
               placeholder="Paste planet data here..."
-              className="w-full h-64 px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none font-mono text-sm"
+              className="h-64 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-sm text-pink-nebula-text outline-none transition-all placeholder:text-pink-nebula-muted/55 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
               autoFocus
             />
 
-            <div className="flex justify-end gap-3 mt-4">
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
               <button
+                type="button"
                 onClick={() => {
                   setImportModalOpen(false);
                   setImportText('');
                 }}
-                className="px-6 py-2 bg-slate-700 text-pink-nebula-text rounded-lg hover:bg-slate-600 transition-colors"
+                className={`${QUIET_BUTTON_CLASS} order-2 sm:order-1`}
               >
                 Cancel
               </button>
               <button
+                type="button"
                 onClick={handleImport}
-                className="px-6 py-2 bg-pink-nebula-accent-primary text-white rounded-lg hover:bg-pink-500 transition-colors"
+                className={`${PRIMARY_BUTTON_CLASS} order-1 sm:order-2`}
               >
+                <Import className="h-4 w-4" aria-hidden="true" />
                 Import
               </button>
+            </div>
             </div>
           </div>
         </div>

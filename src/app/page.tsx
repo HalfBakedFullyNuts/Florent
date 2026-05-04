@@ -1,15 +1,32 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { GameController } from '../lib/game/commands';
-import { createInitialGameState, addPlanet, updatePlanetConfig, resetToHomeworld, switchPlanet, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
-import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns, getFirstFreeTurnForLane } from '../lib/game/selectors';
+import { createInitialGameState, addPlanet, updatePlanetConfig, resetToHomeworld, switchPlanet, getLocalResearchGateForItem, refreshLocalResearchGates, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
+import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns, getFirstFreeTurnForLane, type LaneView } from '../lib/game/selectors';
 import { validateAllQueueItems, type QueueValidationResult, getValidationMessage, getDependentQueueItems } from '../lib/game/validation';
 import { loadGameData } from '../lib/sim/defs/adapter.client';
-import type { LaneId } from '../lib/sim/engine/types';
+import type { LaneId, PlanetState } from '../lib/sim/engine/types';
 import gameDataRaw from '../lib/game/game_data.json';
 import { setupLogging } from '../lib/game/logging-utils';
-import { CommandHistory, loadStateFromURL, saveStateToURL, extractPlanetConfigs, getPlanetIndex, estimateEncodedSize, loadStateFromLocalStorage, replayCommands } from '../lib/game/urlState';
+import {
+  CommandHistory,
+  buildShareURL,
+  clearStateFromURL,
+  decodeGameState,
+  encodeGameState,
+  extractPlanetConfigs,
+  getEncodedStateFromURL,
+  getPlanetIndex,
+  getShareMetadataFromSnapshot,
+  estimateEncodedSize,
+  loadStateFromLocalStorage,
+  loadStateFromURL,
+  normaliseShareMetadata,
+  replayCommands,
+  saveEncodedStateToURL,
+  type ShareMetadata,
+} from '../lib/game/urlState';
 import {
   cancelGlobalResearch,
   canQueueGlobalResearch,
@@ -33,8 +50,47 @@ import { ExportModal } from '../components/ExportModal';
 import { PlanetTabs } from '../components/PlanetTabs';
 import { AddPlanetModal, type PlanetConfig } from '../components/AddPlanetModal';
 import { Card } from '@/components/ui/card';
+import { DependencyWarningModal } from '../components/DependencyWarningModal';
+import { SavesModal } from '../components/SavesModal';
+import { BuildListSelector } from '../components/BuildListSelector';
+import { clearAutosaveTimer, consumeRestoreIntent, prepareRestoreForReload, type AutosaveTimer } from './restoreState';
 
-function withPlanetMetadata(snapshot: any, existing: ExtendedPlanetState): ExtendedPlanetState {
+// Persistence
+import { pushHistory, migrateLegacyLocalStorage, saveSharedLink } from '../lib/persistence/savesDb';
+import { buildSaveSummary } from '../lib/persistence/saveSummary';
+
+type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
+type RestoreOptions = { shared?: boolean };
+const SHARE_AUTHOR_STORAGE_KEY = 'florent_share_author';
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall through to the textarea fallback below.
+  }
+
+  let textarea: HTMLTextAreaElement | null = null;
+  try {
+    textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    textarea?.remove();
+  }
+}
+
+function withPlanetMetadata(snapshot: PlanetState, existing: ExtendedPlanetState): ExtendedPlanetState {
   return {
     ...snapshot,
     id: existing.id,
@@ -43,6 +99,50 @@ function withPlanetMetadata(snapshot: any, existing: ExtendedPlanetState): Exten
     currentTurn: snapshot.currentTurn ?? existing.currentTurn,
     timeline: existing.timeline,
   } as ExtendedPlanetState;
+}
+
+type ActionGlyphName = 'link' | 'saves' | 'export' | 'full-list';
+
+function ActionGlyph({ name }: { name: ActionGlyphName }) {
+  if (name === 'link') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
+        <path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1" />
+      </svg>
+    );
+  }
+
+  if (name === 'saves') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 3h11l3 3v15H5z" />
+        <path d="M8 3v6h8V3" />
+        <path d="M8 17h8" />
+      </svg>
+    );
+  }
+
+  if (name === 'export') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3v12" />
+        <path d="m7 8 5-5 5 5" />
+        <path d="M5 15v4h14v-4" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 6h12" />
+      <path d="M8 12h12" />
+      <path d="M8 18h12" />
+      <path d="M4 6h.01" />
+      <path d="M4 12h.01" />
+      <path d="M4 18h.01" />
+    </svg>
+  );
 }
 
 /**
@@ -60,14 +160,81 @@ export default function Home() {
   const [commandHistory] = useState(() => new CommandHistory());
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [isMounted, setIsMounted] = useState(false);
+  const [activeShareMetadata, setActiveShareMetadata] = useState<ShareMetadata | null>(null);
+  const [shareListName, setShareListName] = useState('');
+  const [shareAuthor, setShareAuthor] = useState('');
+  // Bootstrap-once guard: React StrictMode runs effects twice in dev; we only
+  // want to restore state on the first mount, otherwise the second run replays
+  // commands on top of the already-restored state and double-counts everything.
+  const bootstrappedRef = useRef(false);
+  const lastAppliedShareRef = useRef<string | null>(null);
+  const autosaveTimerRef = useRef<AutosaveTimer | null>(null);
+  const restoreInProgressRef = useRef(false);
+
+  const rememberOpenedSharedLink = useCallback((encoded: string, snapshot: LoadedGameSnapshot) => {
+    const share = getShareMetadataFromSnapshot(snapshot) ?? normaliseShareMetadata({
+      name: 'Shared build list',
+      author: 'Unknown commander',
+      sharedAt: new Date().toISOString(),
+    });
+    setActiveShareMetadata(share);
+    if (!share) return;
+    if (typeof window.indexedDB === 'undefined') return;
+
+    const summary = buildSaveSummary(encoded);
+    saveSharedLink({
+      encoded,
+      name: share.name,
+      author: share.author,
+      summary,
+    }).catch((e) => console.warn('[saves] shared link save failed:', e));
+  }, []);
+
+  const restoreShareSnapshot = useCallback((snapshot: LoadedGameSnapshot, encoded?: string | null, options?: RestoreOptions) => {
+    const replayedState = replayCommands(createInitialGameState(), snapshot.cmds);
+    commandHistory.loadFromSnapshot(snapshot.cmds);
+    if (encoded) {
+      if (options?.shared) {
+        rememberOpenedSharedLink(encoded, snapshot);
+      } else {
+        setActiveShareMetadata(null);
+      }
+    } else {
+      setActiveShareMetadata(getShareMetadataFromSnapshot(snapshot));
+    }
+    setGameState(() => ({
+      ...replayedState,
+      planets: new Map(replayedState.planets),
+    }));
+  }, [commandHistory, rememberOpenedSharedLink]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      setShareAuthor(window.localStorage.getItem(SHARE_AUTHOR_STORAGE_KEY) ?? '');
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!activeShareMetadata) return;
+    setShareListName(activeShareMetadata.name);
+    if (activeShareMetadata.author !== 'Unknown commander') {
+      setShareAuthor(activeShareMetadata.author);
+    }
+  }, [activeShareMetadata]);
 
   useEffect(() => {
     setIsMounted(true);
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
 
-    // Load state from URL or LocalStorage after hydration
+    // Load state from URL or LocalStorage after hydration. URL wins so an
+    // incoming shared build is not masked by this device's last local save.
     let urlSnapshot = loadStateFromURL();
+    const encodedFromURL = getEncodedStateFromURL();
 
     if (urlSnapshot) {
+      lastAppliedShareRef.current = encodedFromURL;
       console.log('[URL State] Loading from URL:', {
         planets: urlSnapshot.planets.length,
         commands: urlSnapshot.cmds.length,
@@ -82,16 +249,12 @@ export default function Home() {
       }
     }
 
-    if (urlSnapshot && urlSnapshot.cmds.length > 0) {
-      // Reconstruct state by replaying commands
-      const state = replayCommands(createInitialGameState(), urlSnapshot.cmds);
-
-      // Restore command history (rebuilds seqId map so future cancels work)
-      commandHistory.loadFromSnapshot(urlSnapshot.cmds);
-
-      setGameState(state);
+    if (urlSnapshot) {
+      const restoreIntent = consumeRestoreIntent(encodedFromURL);
+      const shouldRememberSharedLink = Boolean(encodedFromURL && (!restoreIntent || restoreIntent.shared));
+      restoreShareSnapshot(urlSnapshot, encodedFromURL, { shared: shouldRememberSharedLink });
     }
-  }, [commandHistory]);
+  }, [restoreShareSnapshot]);
 
   const [showAddPlanetModal, setShowAddPlanetModal] = useState(false);
   const [planetModalTurn, setPlanetModalTurn] = useState(1);
@@ -101,13 +264,20 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [queueValidation, setQueueValidation] = useState<Map<string, QueueValidationResult>>(new Map());
   const [showExportModal, setShowExportModal] = useState<'current' | 'full' | null>(null);
+  const [showSavesModal, setShowSavesModal] = useState(false);
   const [exportSnapshot, setExportSnapshot] = useState<{
-    buildingLane: any;
-    shipLane: any;
-    colonistLane: any;
+    buildingLane: LaneView;
+    shipLane: LaneView;
+    colonistLane: LaneView;
+    researchLane: LaneView;
     currentTurn: number;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'building' | 'ship' | 'colonist' | 'research'>('building');
+  // Mobile-only toggle between Build (Add to Queue) and Queue (Planet Queue) panels.
+  // Both render side-by-side on md+ screens; on mobile only the active one is shown.
+  const [mobileView, setMobileView] = useState<'build' | 'queue'>('build');
+  // Transient toast message; null when nothing to show. Auto-clears after 3s.
+  const [toast, setToast] = useState<string | null>(null);
   const [pendingCancellation, setPendingCancellation] = useState<{
     laneId: 'building' | 'ship' | 'colonist' | 'research';
     entry: any;
@@ -120,6 +290,49 @@ export default function Home() {
     reason: string;
   }>>([]);
 
+  const resetToCleanState = useCallback((message?: string) => {
+    commandHistory.clear();
+    lastAppliedShareRef.current = null;
+    setActiveShareMetadata(null);
+    setGameState(createInitialGameState());
+    setViewTurn(1);
+    setQueueValidation(new Map());
+    setPendingCancellation(null);
+    setCascadeWarnings([]);
+    setError(null);
+    clearStateFromURL();
+    if (message) {
+      setToast(message);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }, [commandHistory]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const encoded = getEncodedStateFromURL();
+      if (!encoded) {
+        resetToCleanState('Build list reset');
+        return;
+      }
+      if (encoded === lastAppliedShareRef.current) return;
+
+      const snapshot = decodeGameState(encoded);
+      if (!snapshot) {
+        setError('Shared build link could not be loaded.');
+        return;
+      }
+
+      lastAppliedShareRef.current = encoded;
+      const restoreIntent = consumeRestoreIntent(encoded);
+      restoreShareSnapshot(snapshot, encoded, { shared: !restoreIntent || restoreIntent.shared });
+      setToast('Shared build list loaded from link');
+      setTimeout(() => setToast(null), 3000);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [resetToCleanState, restoreShareSnapshot]);
+
   // Get current planet ID (only changes when switching planets, not on every mutation)
   const currentPlanetId = gameState.currentPlanetId;
 
@@ -129,29 +342,42 @@ export default function Home() {
   }, [gameState.planets, currentPlanetId]);
   const planTurn = currentPlanet?.startTurn ?? 1;
 
-  // Initialize controller for the current planet (for timeline/turn management)
-  // Use useMemo to avoid recreating controller unnecessarily
+  // Initialize controller for the current planet and timeline identity.
+  // Ordinary queue mutations preserve the same timeline cache; planet edits replace it.
   const controller = useMemo(() => {
     if (!currentPlanet || !currentPlanet.timeline) {
       return null;
     }
-    // IMPORTANT: Pass the existing timeline to avoid recomputing all turns
     return new GameController(currentPlanet, currentPlanet.timeline);
-  }, [currentPlanet]); // Recreate on planet switch or timeline replacement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPlanetId, currentPlanet?.timeline]);
 
   // Note: viewTurn is synced synchronously in handlePlanetSwitch/handleCreatePlanet
   // to avoid render timing issues with planets that have different start turns
 
-  // Auto-save to URL on state changes (debounced)
+  // One-time migration of any pre-IndexedDB localStorage save into the history store.
   useEffect(() => {
-    const timer = setTimeout(() => {
+    migrateLegacyLocalStorage(buildSaveSummary).catch((e) => console.warn('[saves] migration failed:', e));
+  }, []);
+
+  // Auto-save to URL + IndexedDB history on state changes (debounced).
+  useEffect(() => {
+    if (restoreInProgressRef.current) return;
+    clearAutosaveTimer(autosaveTimerRef);
+
+    autosaveTimerRef.current = setTimeout(() => {
+      autosaveTimerRef.current = null;
+      if (restoreInProgressRef.current) return;
+
       try {
         const planetConfigs = extractPlanetConfigs(gameState);
         const commands = commandHistory.getCommands();
 
         // Only save if we have commands (don't save empty initial state)
         if (commands.length > 0) {
-          saveStateToURL(planetConfigs, commands);
+          const encoded = encodeGameState(planetConfigs, commands, activeShareMetadata);
+          saveEncodedStateToURL(encoded);
+          lastAppliedShareRef.current = encoded;
 
           // Log size information
           const sizeInfo = estimateEncodedSize(planetConfigs, commands);
@@ -162,17 +388,23 @@ export default function Home() {
             jsonSize: sizeInfo.json,
             compressedSize: sizeInfo.encoded,
           });
+
+          // Push to IndexedDB ring buffer so the user can revert auto-saves.
+          // pushHistory dedupes against the most-recent identical encoded payload.
+          const summary = buildSaveSummary(encoded);
+          pushHistory(encoded, summary).catch((e) => console.warn('[saves] history push failed:', e));
         }
       } catch (error) {
         console.error('[URL State] Failed to save:', error);
       }
     }, 1000); // Debounce: wait 1 second after last change
 
-    return () => clearTimeout(timer);
-  }, [gameState, commandHistory]);
+    return () => clearAutosaveTimer(autosaveTimerRef);
+  }, [gameState, commandHistory, activeShareMetadata]);
 
-  // Memoize currentState to ensure React detects changes when viewTurn changes
-  // Note: We pass viewTurn directly - controller.getStateAtTurn returns a cloned state
+  // Memoize currentState to ensure React detects changes when viewTurn changes.
+  // gameState is intentionally a dep so queue mutations re-run getStateAtTurn —
+  // the controller mutates its internal timeline outside React's awareness.
   const currentState = useMemo(() => {
     if (!controller) return undefined;
     return controller.getStateAtTurn(viewTurn);
@@ -216,14 +448,6 @@ export default function Home() {
     () => getResearchCompletionTurns(gameState),
     [gameState]
   );
-  const getGlobalCompletedResearchForTurn = useCallback((turn: number) => {
-    return Array.from(new Set([
-      ...(gameState.globalResearch.completed || []),
-      ...Array.from(researchCompletionTurns.entries())
-        .filter(([, completionTurn]) => completionTurn <= turn)
-        .map(([id]) => id),
-    ]));
-  }, [gameState.globalResearch.completed, researchCompletionTurns]);
   const effectivePlanetLimit = useMemo(
     () => globalResearch.planetLimit,
     [globalResearch.planetLimit]
@@ -319,8 +543,9 @@ export default function Home() {
     return [...warnings, ...cascadeItems];
   }, [warnings, cascadeWarnings]);
 
-  // Calculate first empty turn for each lane (for timeline quick jump buttons)
-  // Always search from turn 1, not from viewTurn, so the button shows a consistent target
+  // Calculate first empty turn for each lane (for timeline quick jump buttons).
+  // gameState is intentionally a dep so queue mutations re-evaluate (controller mutates
+  // its timeline outside React's awareness — same pattern as currentState/fullPlanState).
   const firstEmptyTurns = useMemo(() => {
     if (!controller) return { building: null, ship: null, colonist: null };
     const getState = (turn: number) => controller.getStateAtTurn(turn);
@@ -410,14 +635,49 @@ export default function Home() {
 
     // Validate against the state at that future turn (or T1 if lane is empty)
     const validationTurn = Math.max(1, firstFreeTurn);
-    const validationState = controller.getStateAtTurn(validationTurn) ?? t1State;
-    validationState.completedResearch = Array.from(new Set([
-      ...(validationState.completedResearch || []),
-      ...getGlobalCompletedResearchForTurn(validationTurn),
-    ]));
+    const baseValidationState = controller.getStateAtTurn(validationTurn) ?? t1State;
+    const researchGate = getLocalResearchGateForItem(gameState, itemId, validationTurn, defs, researchCompletionTurns);
+    if (researchGate.blockedResearch.length > 0) {
+      return {
+        allowed: false,
+        canQueueEventually: false,
+        waitTurnsNeeded: 0,
+        blockers: [],
+        reason: 'REQ_MISSING',
+      };
+    }
 
-    return validateQueueItem(validationState, itemId, quantity);
-  }, [defs, controller, gameState, getGlobalCompletedResearchForTurn, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
+    const researchReadyTurn = researchGate.minStartTurn;
+    const validationState = {
+      ...baseValidationState,
+      completedResearch: Array.from(new Set([
+        ...(baseValidationState.completedResearch || []),
+        ...researchGate.completedResearch,
+        ...researchGate.scheduledResearch,
+      ])),
+    };
+
+    const result = validateQueueItem(validationState, itemId, quantity);
+    if (researchReadyTurn !== undefined && researchReadyTurn > validationTurn && result.canQueueEventually !== false) {
+      const turnsUntilReady = researchReadyTurn - validationTurn;
+      return {
+        ...result,
+        allowed: false,
+        canQueueEventually: true,
+        waitTurnsNeeded: Math.max(result.waitTurnsNeeded ?? 0, turnsUntilReady),
+        blockers: [
+          ...(result.blockers || []),
+          {
+            type: 'PREREQUISITE',
+            turnsUntilReady,
+            message: `Waiting for scheduled research (${turnsUntilReady} turns)`,
+          },
+        ],
+      };
+    }
+
+    return result;
+  }, [defs, controller, gameState, researchCompletionTurns, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
 
   const editingPlanetConfig = useMemo<PlanetConfig | undefined>(() => {
     if (!editingPlanetId) return undefined;
@@ -536,7 +796,7 @@ export default function Home() {
         const nextState = queueGlobalResearch(gameState, itemId);
         const queuedEntry = nextState.globalResearch.lane.pendingQueue[nextState.globalResearch.lane.pendingQueue.length - 1];
         if (queuedEntry) commandHistory.recordQueueResearch(itemId, queuedEntry.id);
-        setGameState(nextState);
+        setGameState(refreshLocalResearchGates(nextState));
         return;
       }
 
@@ -545,21 +805,18 @@ export default function Home() {
         return;
       }
 
-      const completedResearch = getGlobalCompletedResearchForTurn(viewTurn);
-      const researchPrereqs = (def?.prerequisites || []).filter((id: string) => defs[id]?.lane === 'research');
-      const missingUnscheduled = researchPrereqs.find((id: string) => !completedResearch.includes(id) && !researchCompletionTurns.has(id));
+      const researchGate = getLocalResearchGateForItem(gameState, itemId, planTurn, defs, researchCompletionTurns);
+      const missingUnscheduled = researchGate.blockedResearch[0];
       if (missingUnscheduled) {
         setError(`Missing research prerequisite: ${defs[missingUnscheduled]?.name || missingUnscheduled}`);
         return;
       }
-      const minStartTurn = researchPrereqs.reduce((turn: number | undefined, id: string) => {
-        const completionTurn = completedResearch.includes(id) ? undefined : researchCompletionTurns.get(id);
-        return completionTurn === undefined ? turn : Math.max(turn ?? 1, completionTurn);
-      }, undefined as number | undefined);
 
       const result = controller.queueItem(planTurn, itemId, quantity, {
-        completedResearch,
-        minStartTurn,
+        completedResearch: researchGate.completedResearch,
+        scheduledResearch: researchGate.scheduledResearch,
+        blockedResearch: researchGate.blockedResearch,
+        minStartTurn: researchGate.minStartTurn,
       });
       if (!result.success) {
         setError(result.reason || 'Cannot queue item');
@@ -598,7 +855,7 @@ export default function Home() {
       console.error('Error in handleQueueItem:', e);
       setError((e as Error).message || 'Unknown error');
     }
-  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory, isAutoJumpEnabled, getGlobalCompletedResearchForTurn, researchCompletionTurns, planetTimelineEndTurn, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
+  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory, isAutoJumpEnabled, researchCompletionTurns, planetTimelineEndTurn, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
 
   const handleQueueWait = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', waitTurns: number) => {
     setError(null);
@@ -613,7 +870,7 @@ export default function Home() {
           const nextState = queueGlobalResearchWait(prev, waitTurns);
           const queuedEntry = nextState.globalResearch.lane.pendingQueue[nextState.globalResearch.lane.pendingQueue.length - 1];
           if (queuedEntry) commandHistory.recordQueueResearchWait(waitTurns, queuedEntry.id);
-          return nextState;
+          return refreshLocalResearchGates(nextState);
         });
         return;
       }
@@ -648,7 +905,7 @@ export default function Home() {
   const executeCancellation = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
     if (laneId === 'research') {
       commandHistory.recordCancel(0, laneId, entry.id);
-      setGameState(prev => cancelGlobalResearch(prev, entry.id));
+      setGameState(prev => refreshLocalResearchGates(cancelGlobalResearch(prev, entry.id)));
       return;
     }
 
@@ -859,8 +1116,13 @@ export default function Home() {
   const handleReorder = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entryId: string, newIndex: number) => {
     setError(null);
     if (laneId === 'research') {
+      const nextState = reorderGlobalResearch(gameState, entryId, newIndex);
+      if (nextState === gameState) {
+        setError('Cannot move research before its prerequisites.');
+        return;
+      }
       commandHistory.recordReorder(0, laneId, entryId, newIndex);
-      setGameState(prev => reorderGlobalResearch(prev, entryId, newIndex));
+      setGameState(refreshLocalResearchGates(nextState));
       return;
     }
     if (!controller) {
@@ -980,10 +1242,72 @@ export default function Home() {
       buildingLane: enrichedBuildingLane || { laneId: 'building' as const, entries: [] },
       shipLane: enrichedShipLane || { laneId: 'ship' as const, entries: [] },
       colonistLane: enrichedColonistLane || { laneId: 'colonist' as const, entries: [] },
+      researchLane: enrichedResearchLane || { laneId: 'research' as const, entries: [] },
       currentTurn: viewTurn,
     });
     setShowExportModal(mode);
-  }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, viewTurn]);
+  }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, enrichedResearchLane, viewTurn]);
+
+  // Snapshot the current encoded state for the saves modal — encapsulates the
+  // same encode-once-then-summarise pattern used by the auto-save effect.
+  const getCurrentSnapshot = useCallback(() => {
+    try {
+      const planetConfigs = extractPlanetConfigs(gameState);
+      const commands = commandHistory.getCommands();
+      if (commands.length === 0) return null;
+      const encoded = encodeGameState(planetConfigs, commands, activeShareMetadata);
+      const summary = buildSaveSummary(encoded);
+      return { encoded, summary };
+    } catch {
+      return null;
+    }
+  }, [gameState, commandHistory, activeShareMetadata]);
+
+  const buildCurrentShareURL = useCallback((metadata?: ShareMetadata | null) => {
+    const planetConfigs = extractPlanetConfigs(gameState);
+    const commands = commandHistory.getCommands();
+    if (commands.length === 0) return null;
+
+    const encoded = encodeGameState(planetConfigs, commands, metadata ?? activeShareMetadata);
+    saveEncodedStateToURL(encoded);
+    lastAppliedShareRef.current = encoded;
+    return {
+      commandCount: commands.length,
+      url: buildShareURL(encoded),
+    };
+  }, [gameState, commandHistory, activeShareMetadata]);
+
+  const getShareMetadataForCurrentBuild = useCallback(() => {
+    const fallbackName = activeShareMetadata?.name || `${currentPlanet?.name ?? 'Homeworld'} build list`;
+    return normaliseShareMetadata({
+      name: shareListName.trim() || fallbackName,
+      author: shareAuthor.trim() || undefined,
+      sharedAt: new Date().toISOString(),
+    });
+  }, [activeShareMetadata, currentPlanet?.name, shareAuthor, shareListName]);
+
+  // Restore a save: push the encoded state into the URL hash and reload so the
+  // existing hash-based bootstrap rebuilds command history from scratch.
+  // Reload (vs trying to splice state in-place) avoids any stale closures and
+  // keeps the restore path identical to the share-link flow.
+  const handleRestoreSave = useCallback((encoded: string, label: string, options?: RestoreOptions) => {
+    if (typeof window === 'undefined') return;
+    try {
+      prepareRestoreForReload({
+        encoded,
+        shared: options?.shared === true,
+        autosaveTimerRef,
+        restoreInProgressRef,
+        lastAppliedShareRef,
+      });
+      setToast(`Loading "${label}"…`);
+      // Reload so loadStateFromURL runs cleanly on next mount.
+      setTimeout(() => window.location.reload(), 200);
+    } catch (e) {
+      restoreInProgressRef.current = false;
+      setError(`Failed to restore: ${(e as Error).message}`);
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">
@@ -1000,12 +1324,50 @@ export default function Home() {
       {/* Main Content Container */}
       <div className="flex flex-col flex-1 relative z-10">
         {/* Header */}
-        <header className="bg-pink-nebula-panel px-6 py-4 border-b border-pink-nebula-border">
-          <h1 className="text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
+        <header className="border-b border-white/10 bg-gradient-to-r from-pink-nebula-panel/95 via-[#190f22]/95 to-pink-nebula-panel/85 px-3 py-3 shadow-2xl shadow-black/20 md:px-6 md:py-4">
+          <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-3">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-pink-nebula-accent-secondary/80">Command planner</div>
+              <h1 className="text-lg font-black tracking-wide text-pink-nebula-text md:text-2xl">Infinite Conflict Simulator</h1>
+            </div>
+            <div className="hidden rounded-full border border-pink-nebula-accent-primary/25 bg-pink-nebula-accent-primary/10 px-3 py-1 text-xs font-semibold text-pink-100 sm:block">
+              Local-first build planning
+            </div>
+          </div>
         </header>
 
+        <BuildListSelector onRestore={handleRestoreSave} />
+
+        <div className="px-3 pb-3 md:px-6">
+          <div className="mx-auto grid max-w-[1800px] gap-2 rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-3 shadow-lg shadow-black/15 backdrop-blur-xl md:grid-cols-[minmax(220px,1fr)_minmax(180px,280px)_auto] md:items-end">
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">Shared list name</span>
+              <input
+                type="text"
+                value={shareListName}
+                onChange={(e) => setShareListName(e.target.value)}
+                placeholder={`${currentPlanet?.name ?? 'Homeworld'} build list`}
+                className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">Author</span>
+              <input
+                type="text"
+                value={shareAuthor}
+                onChange={(e) => setShareAuthor(e.target.value)}
+                placeholder="Optional commander name"
+                className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+              />
+            </label>
+            <p className="text-xs leading-relaxed text-cyan-100/60 md:max-w-xs">
+              Used when copying a share link. No popups; edit it here whenever the plan gets a proper name.
+            </p>
+          </div>
+        </div>
+
         {/* Planet Tabs - Multi-planet navigation */}
-        <div className="px-6 py-2">
+        <div className="px-3 pb-2 md:px-6">
           <PlanetTabs
             planets={gameState.planets}
             currentPlanetId={gameState.currentPlanetId}
@@ -1017,6 +1379,17 @@ export default function Home() {
           />
         </div>
 
+        {activeShareMetadata && (
+          <div className="px-3 md:px-6">
+            <div className="max-w-[1800px] mx-auto rounded-2xl border border-blue-300/25 bg-blue-950/35 px-4 py-3 text-sm text-blue-100 shadow-xl shadow-blue-950/20 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+              <span className="font-semibold uppercase tracking-wide text-blue-200">Shared list</span>
+              <span className="font-bold text-pink-nebula-text">{activeShareMetadata.name}</span>
+              <span className="text-blue-200/80">by {activeShareMetadata.author}</span>
+              <span className="text-blue-200/60 sm:ml-auto">Opened from a shared link; save as mine from Saves → Shared.</span>
+            </div>
+          </div>
+        )}
+
         {/* Error Display */}
         {error && (
           <div className="mx-auto mt-4 w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl px-6 bg-red-900/20 border border-red-400 rounded p-4 text-red-400">
@@ -1026,7 +1399,7 @@ export default function Home() {
 
         {/* Warnings Panel — includes engine warnings + cascade-removal notices */}
         {allWarnings.length > 0 && (
-          <div className="px-6 mt-4">
+          <div className="px-3 md:px-6 mt-4">
             <WarningsPanel warnings={allWarnings} />
           </div>
         )}
@@ -1040,12 +1413,12 @@ export default function Home() {
             stocksEstimated={currentState?.activationUsedProjectedProduction === true}
           />
         ) : (
-          <div className="w-full max-w-[1800px] mx-auto px-6 py-4">
+          <div className="w-full max-w-[1800px] mx-auto px-3 py-4 md:px-6">
             <Card className="p-5 border-amber-500/50 bg-amber-950/20">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-amber-300">Planet not active at this turn</h2>
-                  <p className="text-sm text-pink-nebula-text-secondary mt-1">
+                  <p className="text-sm text-pink-nebula-muted mt-1">
                     {planetUnavailableReason || `No planet state is available for T${viewTurn}.`}
                   </p>
                 </div>
@@ -1053,7 +1426,7 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setViewTurn(currentPlanet.startTurn)}
-                    className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
+                    className="rounded-xl border border-pink-nebula-accent-secondary/45 bg-pink-nebula-accent-primary px-4 py-2 font-semibold text-white transition-colors hover:bg-pink-nebula-accent-secondary"
                   >
                     Go to T{currentPlanet.startTurn}
                   </button>
@@ -1064,7 +1437,7 @@ export default function Home() {
         )}
 
         {/* Horizontal Timeline - Between dashboard and queues */}
-        <div className="w-full max-w-[1800px] mx-auto px-6">
+        <div className="w-full max-w-[1800px] mx-auto px-3 md:px-6">
           <HorizontalTimeline
             currentTurn={viewTurn}
             totalTurns={timelineMaxTurn}
@@ -1076,20 +1449,45 @@ export default function Home() {
         </div>
 
         {/* Main Content - Side-by-side Tabbed Displays */}
-        <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
+        <main className="flex-1 max-w-[1800px] mx-auto w-full px-3 md:px-6 py-4 md:py-6">
           {!isPlanetViewAvailable ? (
             <Card className="p-6">
               <h2 className="text-2xl font-bold text-pink-nebula-text mb-3">Queue unavailable</h2>
-              <p className="text-sm text-pink-nebula-text-secondary">
+              <p className="text-sm text-pink-nebula-muted">
                 Move to a turn where this planet exists before adding planet-local queue items. Planet tabs,
-                turn navigation, and Add Planet remain available.
+                turn navigation, global research, and Add Planet remain available.
               </p>
             </Card>
           ) : (
-          <div className="flex gap-6">
+            <>
+              {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
+              <div className="md:hidden flex gap-1 mb-3 rounded-2xl border border-white/10 bg-pink-nebula-panel/70 p-1 shadow-xl shadow-black/20">
+                <button
+                  onClick={() => setMobileView('build')}
+                  className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                    mobileView === 'build'
+                      ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
+                      : 'text-pink-nebula-text hover:bg-white/10'
+                  }`}
+                >
+                  ➕ Build
+                </button>
+                <button
+                  onClick={() => setMobileView('queue')}
+                  className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                    mobileView === 'queue'
+                      ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
+                      : 'text-pink-nebula-text hover:bg-white/10'
+                  }`}
+                >
+                  📋 Queue {totalQueuedItems > 0 && <span className="ml-1 text-xs opacity-80">({totalQueuedItems})</span>}
+                </button>
+              </div>
+
+              <div className="flex flex-col md:flex-row gap-4 md:gap-6">
             {/* Left: Add to Queue (Item Selection) */}
-            <Card className="flex-1 p-6">
-              <h2 className="text-2xl font-bold text-pink-nebula-text mb-6">Add to Queue</h2>
+            <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'build' ? 'block' : 'hidden md:block'}`}>
+              <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text mb-4 md:mb-6">Add to Queue</h2>
               <TabbedItemGrid
                 availableItems={availableItems}
                 onQueueItem={handleQueueItem}
@@ -1101,49 +1499,81 @@ export default function Home() {
             </Card>
 
             {/* Right: Planet Queue (Lane Display) */}
-            <Card className="flex-1 p-6" data-export-target="planet-queue">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
-                  {/* Live Queue Item Count */}
-                  {totalQueuedItems > 0 && (
-                    <div className="text-sm text-pink-nebula-text-secondary">
-                      <span className="font-mono">
-                        {totalQueuedItems} queued | {isMounted ? window.location.href.length : 0} chars
-                      </span>
-                    </div>
-                  )}
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      const url = window.location.href;
-                      navigator.clipboard.writeText(url).then(() => {
-                        alert(`✅ Shareable link copied!\n\nURL: ${url.length} characters\nCommands: ${commandHistory.getCommands().length}\n\nPaste this link to reload your exact game state.`);
-                      }).catch(() => {
-                        alert(`Share this URL:\n\n${url}`);
-                      });
-                    }}
-                    className="px-4 py-2 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors flex items-center gap-2"
-                    title="Copy shareable link with game state"
-                  >
-                    <span>📋</span>
-                    <span>Share Link</span>
-                  </button>
-                  <div className="flex gap-2">
-                    <button
-                      className="px-4 py-2 border border-pink-nebula-text text-pink-nebula-text rounded hover:bg-pink-nebula-text hover:text-pink-nebula-bg transition-colors"
-                      onClick={() => openExportModal('current')}
-                      title="Export current planet data"
-                    >
-                      Export / Share
-                    </button>
+            <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'queue' ? 'block' : 'hidden md:block'}`} data-export-target="planet-queue">
+              <div className="mb-4 space-y-3 md:mb-6">
+                <div className="flex min-h-[34px] flex-wrap items-center gap-2 md:gap-4">
+                  <h2 className="shrink-0 text-xl md:text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
+                  <div className="flex min-h-[28px] items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-pink-nebula-muted md:text-sm">
+                    <span className="font-mono text-pink-nebula-text">{totalQueuedItems} queued</span>
+                    <span className="text-pink-nebula-muted/45">|</span>
+                    <span className="font-mono text-pink-nebula-text">{isMounted ? window.location.href.length : 0}</span>
+                    <span className="hidden sm:inline">chars</span>
                   </div>
+                </div>
+                <div className="grid min-h-[46px] w-full grid-cols-2 gap-2 xl:grid-cols-4">
+                  <button
+                    onClick={async () => {
+                      const metadata = getShareMetadataForCurrentBuild();
+                      if (!metadata) return;
+
+                      const share = buildCurrentShareURL(metadata);
+                      if (!share) {
+                        setToast('No queued plan to share yet');
+                        setTimeout(() => setToast(null), 3000);
+                        return;
+                      }
+                      const { commandCount: cmds, url } = share;
+                      const copied = await copyTextToClipboard(url);
+                      if (copied) {
+                        try {
+                          if (shareAuthor.trim()) {
+                            window.localStorage.setItem(SHARE_AUTHOR_STORAGE_KEY, shareAuthor.trim());
+                          }
+                        } catch { /* ignore */ }
+                        setToast(`Link copied — "${metadata.name}" by ${metadata.author}, ${cmds} command${cmds === 1 ? '' : 's'}`);
+                        setTimeout(() => setToast(null), 3000);
+                      } else {
+                        setToast('Could not copy — clipboard unavailable');
+                        setTimeout(() => setToast(null), 3000);
+                      }
+                    }}
+                    className="group inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-gradient-to-r from-emerald-500/95 to-teal-400/90 px-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-none transition duration-200 hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
+                    title="Copy a share link that opens this build list"
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-950/10 bg-slate-950/[0.12] text-slate-950" aria-hidden="true">
+                      <ActionGlyph name="link" />
+                    </span>
+                    <span className="truncate">Copy Share Link</span>
+                  </button>
+                  <button
+                    onClick={() => setShowSavesModal(true)}
+                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-sky-300/35 bg-sky-500/[0.14] px-3 text-sm font-bold text-sky-100 outline-none transition-colors duration-200 hover:border-sky-200/60 hover:bg-sky-500/[0.24] focus:ring-2 focus:ring-sky-300/35"
+                    title="Save, load, and import plans (stored on this device)"
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-sky-100/15 bg-sky-200/10 text-sky-100" aria-hidden="true">
+                      <ActionGlyph name="saves" />
+                    </span>
+                    <span className="truncate">Open Saves</span>
+                  </button>
+                  <button
+                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-amber-300/35 bg-amber-500/[0.14] px-3 text-sm font-bold text-amber-100 outline-none transition-colors duration-200 hover:border-amber-200/60 hover:bg-amber-500/[0.24] focus:ring-2 focus:ring-amber-300/35"
+                    onClick={() => openExportModal('current')}
+                    title="Export only the currently visible build order"
+                  >
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-amber-100/15 bg-amber-200/10 text-amber-100" aria-hidden="true">
+                      <ActionGlyph name="export" />
+                    </span>
+                    <span className="truncate">Export Current</span>
+                  </button>
                   <button
                     onClick={() => openExportModal('full')}
-                    className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
+                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-violet-300/35 bg-violet-500/[0.16] px-3 text-sm font-bold text-violet-100 outline-none transition-colors duration-200 hover:border-violet-200/60 hover:bg-violet-500/[0.26] focus:ring-2 focus:ring-violet-300/35"
+                    title="Export the full build list across all future turns"
                   >
-                    Export Full List
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-violet-100/15 bg-violet-200/10 text-violet-100" aria-hidden="true">
+                      <ActionGlyph name="full-list" />
+                    </span>
+                    <span className="truncate">Export Full List</span>
                   </button>
                 </div>
               </div>
@@ -1165,7 +1595,8 @@ export default function Home() {
                 maxTurn={timelineMaxTurn}
               />
             </Card>
-          </div>
+              </div>
+            </>
           )}
         </main>
 
@@ -1173,11 +1604,16 @@ export default function Home() {
         <footer className="mt-8 text-center text-xs text-pink-nebula-text-secondary pb-8 space-y-2">
           <button
             className="hover:text-pink-nebula-text transition-colors opacity-50 hover:opacity-100"
-            onClick={() => {
-              const hash = window.location.hash;
-              if (hash) {
-                navigator.clipboard.writeText(window.location.href);
-                alert('Debug URL copied to clipboard!');
+            onClick={async () => {
+              const share = buildCurrentShareURL(activeShareMetadata);
+              if (share) {
+                const copied = await copyTextToClipboard(share.url);
+                if (copied) {
+                  setToast('Debug URL copied to clipboard');
+                  setTimeout(() => setToast(null), 3000);
+                } else {
+                  window.prompt('Copy debug URL', share.url);
+                }
               } else {
                 alert('No state to copy yet.');
               }
@@ -1186,7 +1622,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.7</div>
+          <div className="opacity-30 text-[10px]">v0.2.14</div>
         </footer>
       </div>
 
@@ -1201,6 +1637,7 @@ export default function Home() {
           buildingLane={exportSnapshot.buildingLane}
           shipLane={exportSnapshot.shipLane}
           colonistLane={exportSnapshot.colonistLane}
+          researchLane={exportSnapshot.researchLane}
           currentTurn={exportSnapshot.currentTurn}
           exportMode={showExportModal}
         />
@@ -1218,6 +1655,25 @@ export default function Home() {
         mode={editingPlanetId ? 'edit' : 'add'}
         initialConfig={editingPlanetConfig}
       />
+
+      {/* Saves Modal — IndexedDB-backed named saves, auto-save history, and JSON import */}
+      <SavesModal
+        isOpen={showSavesModal}
+        onClose={() => setShowSavesModal(false)}
+        getCurrentSnapshot={getCurrentSnapshot}
+        onRestore={handleRestoreSave}
+      />
+
+      {/* Transient toast — shown after copy-link, etc. */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 max-w-[90vw] bg-pink-nebula-panel border border-pink-nebula-accent-primary rounded-lg shadow-2xl text-pink-nebula-text text-sm font-medium pointer-events-none animate-in fade-in slide-in-from-bottom-2"
+        >
+          {toast}
+        </div>
+      )}
     </div>
   );
 }

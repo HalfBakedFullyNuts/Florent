@@ -310,7 +310,7 @@ export function TabbedItemGrid({
   return (
     <div className="w-full">
       {/* Tab Headers */}
-      <div className="flex gap-2 mb-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
         {ALL_LANES.map((laneId) => {
           const tabConfig = LANE_CONFIG[laneId];
           const isActive = activeTab === laneId;
@@ -319,29 +319,28 @@ export function TabbedItemGrid({
             <button
               key={laneId}
               onClick={() => setActiveTab(laneId)}
-              className={`
-                px-4 py-2 rounded-t-lg font-semibold transition-all duration-[350ms]
-                ${isActive
-                  ? 'bg-slate-800 text-pink-nebula-text border-b-2 border-pink-nebula-accent-primary'
-                  : 'bg-slate-700 text-pink-nebula-muted hover:bg-slate-750'
-                }
-              `}
+              aria-pressed={isActive}
+              className={laneTabClass(isActive)}
             >
-              <span className="mr-2">{tabConfig.icon}</span>
-              {tabConfig.title}
+              <span className={laneIconClass(isActive)} aria-hidden="true">
+                {tabConfig.icon}
+              </span>
+              <span className="truncate">{tabConfig.title}</span>
             </button>
           );
         })}
       </div>
 
       {/* Active Tab Content */}
-      <Card className="p-4 h-[600px] overflow-y-auto">
-        <div className="flex items-center gap-2 mb-4 pb-3 border-b border-pink-nebula-border">
-          <span className="text-xl">{config.icon}</span>
+      <Card className="scroll-nebula h-[60vh] overflow-y-auto p-3 pr-4 md:h-[600px] md:p-4 md:pr-5">
+        <div className="mb-4 flex items-center gap-2 border-b border-white/10 pb-3">
+          <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
+            {config.icon}
+          </span>
           <h3 className="text-lg font-bold text-pink-nebula-text">
             {config.title}
           </h3>
-          <span className="ml-auto text-sm text-pink-nebula-muted">
+          <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
             {items.length} items
           </span>
         </div>
@@ -349,24 +348,30 @@ export function TabbedItemGrid({
         <div className="space-y-2">
           {/* Manual Wait Controls Row */}
           {onQueueWait && (
-            <div className="w-full flex items-center gap-4 p-3 bg-pink-nebula-panel border border-pink-nebula-border rounded mb-4 shadow-sm">
-              <div className="text-pink-nebula-text font-semibold flex-1">
-                Wait (Pause Queue)
+            <div className="mb-4 flex w-full flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/45 p-3 shadow-inner shadow-black/25 sm:flex-row sm:items-center">
+              <div className="min-w-0 flex-1">
+                <div className="text-pink-nebula-text font-semibold">
+                  Wait (Pause Queue)
+                </div>
+                <div className="text-xs text-pink-nebula-muted">
+                  Insert idle turns into the active lane.
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 sm:justify-end">
                 <input
                   type="number"
                   min="1"
                   max="100"
-                  className="w-16 bg-slate-800 text-pink-nebula-text border border-pink-nebula-border rounded px-2 py-1 text-center"
+                  className="h-10 w-16 rounded-xl border border-pink-nebula-border/80 bg-slate-950/70 px-2 text-center text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25"
                   value={waitTurnsInput}
                   onChange={(e) => setWaitTurnsInput(e.target.value)}
                 />
-                <span className="text-pink-nebula-muted text-sm mr-2">turns</span>
+                <span className="mr-1 text-sm text-pink-nebula-muted">turns</span>
                 <button
                   onClick={handleQueueWait}
-                  className="px-4 py-1 bg-slate-700 hover:bg-slate-600 text-pink-nebula-text rounded border border-pink-nebula-border transition-colors text-sm font-semibold"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-cyan-300/35 bg-cyan-400/15 px-4 text-sm font-bold text-cyan-100 transition-colors hover:border-cyan-200/60 hover:bg-cyan-400/25 focus:outline-none focus:ring-2 focus:ring-cyan-300/35"
                 >
+                  <span aria-hidden="true">⏸</span>
                   Inject Wait
                 </button>
               </div>
@@ -405,123 +410,144 @@ export function TabbedItemGrid({
                     }
                   `}
                 >
-                  {/* Single row layout */}
-                  <div className="flex items-center gap-2 text-sm font-mono">
-                    {/* Item Name - fixed width for alignment */}
-                    <div className="text-pink-nebula-text font-semibold whitespace-nowrap w-40 truncate flex items-center gap-1">
-                      {item.name}
-                      {hasWait && (
-                        <span
-                          className="text-xs text-yellow-400 font-normal ml-1"
-                          title={
-                            waitTurns > 0
-                              ? `Can be queued now, but won't start for ~${waitTurns} turns (resources/prerequisites need more time to be ready)`
-                              : `Can be queued, but needs production first (e.g. queue scientists for research)`
-                          }
-                        >
-                          {waitTurns > 0 ? `⏳~${waitTurns}t` : '⏳'}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Costs in fixed-width columns (just numbers, color-coded) */}
-                    {costColumns.map((resource) => {
-                      const amount = costsMap[resource] || 0;
-                      return (
-                        <div
-                          key={resource}
-                          className={`w-16 text-right ${amount > 0 ? getResourceColor(resource) : 'text-transparent'}`}
-                          title={resource}
-                        >
-                          {amount > 0 ? formatNumber(amount) : '-'}
-                        </div>
-                      );
-                    })}
-
-                    {/* Energy Upkeep (consumption per turn after completion) */}
-                    <div
-                      className={`w-12 text-right ${energyUpkeep > 0 ? 'text-blue-400' : 'text-transparent'}`}
-                      title="Energy consumption per turn"
-                    >
-                      {energyUpkeep > 0 ? `-${formatNumber(energyUpkeep)}⚡` : '-'}
-                    </div>
-
-                    {/* Spacer */}
-                    <div className="flex-1" />
-
-                    {/* Duration */}
-                    <div className="text-pink-nebula-muted whitespace-nowrap w-8 text-right">
-                      {item.durationTurns}T
-                    </div>
-
-                    {/* Quantity input + Button for batchable items (ships/colonists) */}
-                    {isBatchable && (
-                      <div className="flex flex-col items-end gap-0.5">
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={getQty(item.id)}
-                            onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                            onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              (e.target as HTMLInputElement).select();
-                            }}
-                            onFocus={(e) => (e.target as HTMLInputElement).select()}
-                            disabled={!queueable}
-                            className={`
-                              w-14 px-2 py-0.5 bg-pink-nebula-bg border rounded
-                              text-pink-nebula-text text-sm text-center font-mono
-                              focus:outline-none focus:border-pink-nebula-accent-primary
-                              ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
-                              ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
-                            `}
-                            placeholder="qty"
-                          />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              tryQueue(item.id, activeTab);
-                            }}
-                            disabled={!queueable}
-                            className={`
-                              px-2 py-0.5 rounded text-sm
-                              ${queueable
-                                ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
-                                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                              }
-                            `}
+                  {/* Two-row on mobile, single row on desktop */}
+                  <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-xs md:text-sm font-mono">
+                    {/* Top row on mobile: name + duration + qty controls (right side) */}
+                    <div className="flex items-center gap-2 min-w-0 md:contents">
+                      {/* Item Name */}
+                      <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1">
+                        {item.name}
+                        {hasWait && (
+                          <span
+                            className="text-xs text-yellow-400 font-normal ml-1"
+                            title={
+                              waitTurns > 0
+                                ? `Can be queued now, but won't start for ~${waitTurns} turns (resources/prerequisites need more time to be ready)`
+                                : `Can be queued, but needs production first (e.g. queue scientists for research)`
+                            }
                           >
-                            +
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              tryQueueMax(item.id);
-                            }}
-                            disabled={!maxQueueableNow}
-                            title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
-                            aria-label={`Queue maximum ${item.name}`}
-                            className={`
-                              w-7 py-0.5 rounded text-sm font-bold
-                              ${maxQueueableNow
-                                ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
-                                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                              }
-                            `}
-                          >
-                            ∞
-                          </button>
-                        </div>
-                        {itemErrors[item.id] && (
-                          <span className="text-red-400 text-xs leading-tight max-w-[120px] text-right">
-                            {itemErrors[item.id]}
+                            {waitTurns > 0 ? `⏳~${waitTurns}t` : '⏳'}
                           </span>
                         )}
                       </div>
-                    )}
+
+                      {/* Duration — appears top-right on mobile, after spacer on desktop */}
+                      <div className="text-pink-nebula-muted whitespace-nowrap text-right md:order-last md:w-8 md:flex-none">
+                        {item.durationTurns}T
+                      </div>
+
+                      {/* Quantity input + Button for batchable items — top-right on mobile, end of row on desktop */}
+                      {isBatchable && (
+                        <div className="flex flex-col items-end gap-0.5 md:order-last">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={getQty(item.id)}
+                              onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                              onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                (e.target as HTMLInputElement).select();
+                              }}
+                              onFocus={(e) => (e.target as HTMLInputElement).select()}
+                              disabled={!queueable}
+                              className={`
+                                w-14 px-2 py-1 bg-pink-nebula-bg border rounded
+                                text-pink-nebula-text text-sm text-center font-mono
+                                focus:outline-none focus:border-pink-nebula-accent-primary
+                                ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
+                                ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
+                              `}
+                              placeholder="qty"
+                            />
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                tryQueue(item.id, activeTab);
+                              }}
+                              disabled={!queueable}
+                              className={`
+                                min-w-[32px] px-2 py-1 rounded text-base font-semibold
+                                ${queueable
+                                  ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
+                                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                }
+                              `}
+                            >
+                              +
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                tryQueueMax(item.id);
+                              }}
+                              disabled={!maxQueueableNow}
+                              title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
+                              aria-label={`Queue maximum ${item.name}`}
+                              className={`
+                                min-w-[42px] px-2 py-1 rounded text-xs font-bold
+                                ${maxQueueableNow
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                }
+                              `}
+                            >
+                              Max
+                            </button>
+                          </div>
+                          {itemErrors[item.id] && (
+                            <span className="text-red-400 text-xs leading-tight max-w-[120px] text-right">
+                              {itemErrors[item.id]}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Bottom row on mobile: cost columns (wraps freely); inline on desktop */}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 md:contents">
+                      {/* Costs in fixed-width columns (just numbers, color-coded) */}
+                      {costColumns.map((resource) => {
+                        const amount = costsMap[resource] || 0;
+                        if (amount === 0) {
+                          // Hide on mobile, keep transparent on desktop for column alignment
+                          return (
+                            <div
+                              key={resource}
+                              className="hidden md:block w-16 text-right text-transparent"
+                              title={resource}
+                            >
+                              -
+                            </div>
+                          );
+                        }
+                        return (
+                          <div
+                            key={resource}
+                            className={`md:w-16 text-right whitespace-nowrap ${getResourceColor(resource)}`}
+                            title={resource}
+                          >
+                            {formatNumber(amount)}
+                          </div>
+                        );
+                      })}
+
+                      {/* Energy Upkeep (consumption per turn after completion) */}
+                      {energyUpkeep > 0 ? (
+                        <div className="md:w-12 text-right text-blue-400 whitespace-nowrap" title="Energy consumption per turn">
+                          -{formatNumber(energyUpkeep)}⚡
+                        </div>
+                      ) : (
+                        <div className="hidden md:block w-12 text-right text-transparent" title="Energy consumption per turn">
+                          -
+                        </div>
+                      )}
+
+                      {/* Spacer (desktop only) */}
+                      <div className="hidden md:block flex-1" />
+                    </div>
                   </div>
                 </div>
               );
@@ -531,4 +557,20 @@ export function TabbedItemGrid({
       </Card>
     </div>
   );
+}
+
+function laneTabClass(isActive: boolean): string {
+  const base = 'inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-none transition-colors duration-200 sm:text-base';
+  if (isActive) {
+    return `${base} border-cyan-200/65 bg-gradient-to-r from-cyan-400/30 via-sky-400/[0.22] to-blue-500/[0.18] text-cyan-50 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-100/15`;
+  }
+  return `${base} border-white/10 bg-white/[0.055] text-pink-nebula-muted hover:border-cyan-300/40 hover:bg-cyan-300/[0.08] hover:text-pink-nebula-text`;
+}
+
+function laneIconClass(isActive: boolean): string {
+  return `grid h-7 w-7 shrink-0 place-items-center rounded-xl border text-sm ${
+    isActive
+      ? 'border-cyan-100/25 bg-cyan-50/[0.12] text-white shadow-[0_0_14px_rgba(34,211,238,0.24)]'
+      : 'border-white/10 bg-white/[0.05] opacity-80'
+  }`;
 }

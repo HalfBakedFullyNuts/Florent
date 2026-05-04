@@ -3,8 +3,15 @@
  * Test export format generation for text and Discord formats
  */
 
-import { describe, it, expect } from 'vitest';
-import { formatAsText, formatAsDiscord, extractQueueItems } from '../formatters';
+import { describe, it, expect, vi } from 'vitest';
+import {
+  DISCORD_MESSAGE_LIMIT,
+  formatAsText,
+  formatAsDiscord,
+  formatAsDiscordMessages,
+  extractQueueItems,
+  copyToClipboard,
+} from '../formatters';
 import type { LaneView } from '../../game/selectors';
 
 describe('Export Formatters (TICKET-5)', () => {
@@ -302,6 +309,32 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(lines[1]).toBe('[9] - 5x Fighter');
     });
 
+    it('should include research without quantity', () => {
+      const lanesWithResearch: LaneView[] = [
+        ...mockLaneViews,
+        {
+          laneId: 'research',
+          entries: [
+            {
+              id: 'research-1',
+              itemId: 'planet_management',
+              itemName: 'Planet Management',
+              quantity: 1,
+              status: 'pending',
+              turnsRemaining: 5,
+              eta: 12,
+              completionTurn: 12,
+              queuedTurn: 1,
+            },
+          ],
+        },
+      ];
+
+      const text = formatAsText(lanesWithResearch);
+      expect(text).toContain('[12] - Planet Management');
+      expect(text).not.toContain('[12] - 1x Planet Management');
+    });
+
     it('should handle empty queue', () => {
       const emptyLanes: LaneView[] = [
         { laneId: 'building', entries: [] },
@@ -326,6 +359,7 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(discord).toContain('| Turn | Structure');
       expect(discord).toContain('| Ship');
       expect(discord).toContain('| Colonist');
+      expect(discord).toContain('| Research');
 
       // Should contain the data (with abbreviations)
       expect(discord).toContain('Farm');
@@ -343,8 +377,8 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(discord).not.toContain('Soldier');
     });
 
-    it('should show warning if exceeds 8192 character limit', () => {
-      // Create a very long queue that will exceed the limit
+    it('should split long Discord exports into 2000-character messages', () => {
+      // Create a very long queue that will exceed the normal Discord limit.
       const longEntries: LaneView[] = [
         {
           laneId: 'building',
@@ -362,8 +396,13 @@ describe('Export Formatters (TICKET-5)', () => {
         },
       ];
 
-      const discord = formatAsDiscord(longEntries);
-      expect(discord).toContain('Buildlist exceeds character limit on Discord');
+      const messages = formatAsDiscordMessages(longEntries);
+      expect(messages.length).toBeGreaterThan(1);
+      messages.forEach(message => {
+        expect(message.length).toBeLessThanOrEqual(DISCORD_MESSAGE_LIMIT);
+        expect(message.startsWith('```')).toBe(true);
+        expect(message.endsWith('```')).toBe(true);
+      });
     });
 
     it('should handle empty queue', () => {
@@ -401,6 +440,7 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(discord).toContain('| Turn | Structure');
       expect(discord).toContain('| Ship');
       expect(discord).toContain('| Colonist');
+      expect(discord).toContain('| Research');
 
       // Should contain actual data rows (not just headers, with abbreviations)
       expect(discord).toContain('Farm');
@@ -415,6 +455,50 @@ describe('Export Formatters (TICKET-5)', () => {
         !line.includes('---')
       );
       expect(dataRows.length).toBeGreaterThan(0);
+    });
+
+    it('should include research in Discord export', () => {
+      const lanesWithResearch: LaneView[] = [
+        {
+          laneId: 'research',
+          entries: [
+            {
+              id: 'research-1',
+              itemId: 'planet_management',
+              itemName: 'Planet Management',
+              quantity: 1,
+              status: 'pending',
+              turnsRemaining: 5,
+              eta: 12,
+              completionTurn: 12,
+              queuedTurn: 1,
+            },
+          ],
+        },
+      ];
+
+      const discord = formatAsDiscord(lanesWithResearch);
+
+      expect(discord).toContain('| Research');
+      expect(discord).toContain('Planet Manageme');
+      expect(discord).not.toContain('1x Planet');
+    });
+  });
+
+  describe('copyToClipboard', () => {
+    it('falls back to a textarea copy when the Clipboard API is unavailable', async () => {
+      Object.defineProperty(window.navigator, 'clipboard', {
+        configurable: true,
+        value: undefined,
+      });
+      const execCommand = vi.fn().mockReturnValue(true);
+      Object.defineProperty(document, 'execCommand', {
+        configurable: true,
+        value: execCommand,
+      });
+
+      await expect(copyToClipboard('hello discord')).resolves.toBe(true);
+      expect(execCommand).toHaveBeenCalledWith('copy');
     });
   });
 });

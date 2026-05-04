@@ -103,7 +103,7 @@ Max 3 lines per function explaining purpose and logic in plain English. Prefer w
 
 ## Versioning
 
-Current version lives in **two places**: `package.json` and the footer in `src/app/page.tsx`. Increment the patch version by 0.0.1 for every change delivered — no exceptions. Update both locations together. Version segments are decimal integers, not single digits: patch values may continue through double digits up to 20 (for example `0.2.9` → `0.2.10` → `0.2.20`). Do not roll over to the next minor version just because the patch reaches 10; ask before choosing a rollover after patch 20.
+Current version lives in **two places**: `package.json` and the footer in `src/app/page.tsx`. Increment the patch version by 0.0.1 for every change delivered — no exceptions. Update both locations together.
 
 ## Strategy
 

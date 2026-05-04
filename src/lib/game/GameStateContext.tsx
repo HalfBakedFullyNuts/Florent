@@ -72,10 +72,13 @@ export function GameStateProvider({ children }: GameStateProviderProps) {
         return gameState.planets.get(currentPlanetId) || null;
     }, [gameState.planets, currentPlanetId]);
 
+    // Recreate only when switching planets or replacing the timeline.
+    // Queue mutations preserve the existing timeline cache.
     const controller = useMemo(() => {
         if (!currentPlanet || !currentPlanet.timeline) return null;
         return new GameController(currentPlanet, currentPlanet.timeline);
-    }, [currentPlanet]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPlanetId, currentPlanet?.timeline]);
 
     // URL Auto-save
     useEffect(() => {
