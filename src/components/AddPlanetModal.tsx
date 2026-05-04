@@ -25,6 +25,41 @@ const STARTING_STRUCTURE_FIELDS: Array<{
   { id: 'solar_generator', label: 'Solar Gens' },
 ];
 
+type StartingDraft = {
+  workersTotal: string;
+  structures: Record<keyof PlanetStartingSettings['structures'], string>;
+};
+type StartingDraftField = 'workersTotal' | keyof PlanetStartingSettings['structures'];
+
+function formatStartingDraft(starting: PlanetStartingSettings): StartingDraft {
+  return {
+    workersTotal: String(starting.workersTotal),
+    structures: {
+      metal_mine: String(starting.structures.metal_mine),
+      mineral_extractor: String(starting.structures.mineral_extractor),
+      farm: String(starting.structures.farm),
+      solar_generator: String(starting.structures.solar_generator),
+    },
+  };
+}
+
+function parseDraftNumber(value: string): number {
+  const parsed = parseInt(value, 10);
+  return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+}
+
+function normalizeStartingDraft(draft: StartingDraft): PlanetStartingSettings {
+  return normalizePlanetStarting({
+    workersTotal: parseDraftNumber(draft.workersTotal),
+    structures: {
+      metal_mine: parseDraftNumber(draft.structures.metal_mine),
+      mineral_extractor: parseDraftNumber(draft.structures.mineral_extractor),
+      farm: parseDraftNumber(draft.structures.farm),
+      solar_generator: parseDraftNumber(draft.structures.solar_generator),
+    },
+  });
+}
+
 interface AddPlanetModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -79,6 +114,9 @@ export function AddPlanetModal({
   const [starting, setStarting] = useState<PlanetStartingSettings>(() =>
     normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING)
   );
+  const [startingDraft, setStartingDraft] = useState<StartingDraft>(() =>
+    formatStartingDraft(normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING))
+  );
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
 
@@ -96,7 +134,9 @@ export function AddPlanetModal({
       }
       : { ...PLANET_PRESETS.HOMEWORLD.abundance });
     setSpace(initialConfig ? { ...initialConfig.space } : { ...PLANET_PRESETS.HOMEWORLD.space });
-    setStarting(normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING));
+    const nextStarting = normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING);
+    setStarting(nextStarting);
+    setStartingDraft(formatStartingDraft(nextStarting));
   }, [isOpen, currentTurn, initialConfig]);
 
   const handleSubmit = useCallback(() => {
@@ -108,15 +148,19 @@ export function AddPlanetModal({
       Object.entries(validatedAbundance).map(([key, value]) => [key, value / 100])
     );
 
+    const normalizedStarting = normalizeStartingDraft(startingDraft);
+    setStarting(normalizedStarting);
+    setStartingDraft(formatStartingDraft(normalizedStarting));
+
     const added = onAddPlanet({
       name,
       startTurn,
       abundance: abundanceMultipliers as typeof abundance,
       space,
-      starting: normalizePlanetStarting(starting),
+      starting: normalizedStarting,
     });
     if (added !== false) onClose();
-  }, [name, startTurn, abundance, space, starting, onAddPlanet, onClose]);
+  }, [name, startTurn, abundance, space, startingDraft, onAddPlanet, onClose]);
 
   const updateAbundance = useCallback((resource: string, value: number) => {
     // Allow free typing - validation happens on blur and submit
@@ -144,28 +188,32 @@ export function AddPlanetModal({
   }, []);
 
   const applyHomeworldStarting = useCallback(() => {
-    setStarting(normalizePlanetStarting(HOMEWORLD_PLANET_STARTING));
+    const nextStarting = normalizePlanetStarting(HOMEWORLD_PLANET_STARTING);
+    setStarting(nextStarting);
+    setStartingDraft(formatStartingDraft(nextStarting));
   }, []);
 
-  const updateStartingWorkers = useCallback((value: number) => {
-    setStarting(prev => ({
-      ...prev,
-      workersTotal: Math.max(0, Math.floor(value) || 0),
-    }));
+  const updateStartingDraft = useCallback((field: StartingDraftField, value: string) => {
+    const digitsOnly = value.replace(/\D/g, '');
+    setStartingDraft(prev => {
+      if (field === 'workersTotal') {
+        return { ...prev, workersTotal: digitsOnly };
+      }
+      return {
+        ...prev,
+        structures: {
+          ...prev.structures,
+          [field]: digitsOnly,
+        },
+      };
+    });
   }, []);
 
-  const updateStartingStructure = useCallback((
-    structureId: keyof PlanetStartingSettings['structures'],
-    value: number
-  ) => {
-    setStarting(prev => ({
-      ...prev,
-      structures: {
-        ...prev.structures,
-        [structureId]: Math.max(0, Math.floor(value) || 0),
-      },
-    }));
-  }, []);
+  const commitStartingDraft = useCallback(() => {
+    const normalized = normalizeStartingDraft(startingDraft);
+    setStarting(normalized);
+    setStartingDraft(formatStartingDraft(normalized));
+  }, [startingDraft]);
 
   const parseImportData = useCallback((text: string) => {
     const result: {
@@ -387,9 +435,14 @@ export function AddPlanetModal({
         {/* Starting Setup */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-semibold text-pink-nebula-text">
-              Starting Setup
-            </h3>
+            <div>
+              <h3 className="text-lg font-semibold text-pink-nebula-text">
+                Starting Properties
+              </h3>
+              <p className="text-sm text-pink-nebula-text-secondary">
+                Type the starting population and built structures for this added planet.
+              </p>
+            </div>
             <button
               type="button"
               onClick={applyHomeworldStarting}
@@ -405,13 +458,14 @@ export function AddPlanetModal({
                 Starting Pop
               </label>
               <input
-                type="number"
-                value={starting.workersTotal}
-                onChange={(e) => updateStartingWorkers(parseInt(e.target.value, 10))}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={startingDraft.workersTotal}
+                onChange={(e) => updateStartingDraft('workersTotal', e.target.value)}
+                onBlur={commitStartingDraft}
                 onFocus={(e) => e.target.select()}
                 className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
-                min="0"
-                step="100"
               />
             </div>
 
@@ -421,12 +475,14 @@ export function AddPlanetModal({
                   {field.label}
                 </label>
                 <input
-                  type="number"
-                  value={starting.structures[field.id]}
-                  onChange={(e) => updateStartingStructure(field.id, parseInt(e.target.value, 10))}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={startingDraft.structures[field.id]}
+                  onChange={(e) => updateStartingDraft(field.id, e.target.value)}
+                  onBlur={commitStartingDraft}
                   onFocus={(e) => e.target.select()}
                   className="w-full px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none"
-                  min="0"
                 />
               </div>
             ))}

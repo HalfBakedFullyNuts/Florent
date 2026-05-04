@@ -1,6 +1,7 @@
 import { describe, test, expect } from 'vitest';
 import { createInitialGameState, addPlanet, resetToHomeworld, switchPlanet, updatePlanetConfig } from '../gameState';
 import { CommandHistory, replayCommands } from '../urlState';
+import { queueGlobalResearch } from '../globalResearch';
 
 describe('Multi-Planet State Management', () => {
   test('creates game with initial planet', () => {
@@ -190,6 +191,9 @@ describe('Multi-Planet State Management', () => {
       space: { groundCap: 60, orbitalCap: 40 },
     });
     gameState = switchPlanet(gameState, 'planet-2');
+    gameState.globalResearch.stock = 500;
+    gameState.globalResearch.completed = ['planet_management'];
+    gameState = queueGlobalResearch(gameState, 'pl_6');
 
     const reset = resetToHomeworld(gameState);
 
@@ -198,10 +202,15 @@ describe('Multi-Planet State Management', () => {
     expect(reset.nextPlanetId).toBe(2);
     expect(reset.planets.has('planet-2')).toBe(false);
     expect(reset.planets.get('planet-1')!.lanes.building.pendingQueue).toEqual([]);
+    expect(reset.globalResearch.stock).toBe(0);
+    expect(reset.globalResearch.completed).toEqual([]);
+    expect(reset.globalResearch.lane.pendingQueue).toEqual([]);
+    expect(reset.globalResearch.lane.completionHistory).toEqual([]);
   });
 
   test('replays reset-all command by removing added planets', () => {
     const commandHistory = new CommandHistory();
+    commandHistory.recordQueueResearch('planet_management', 'queued-pm');
     commandHistory.recordAddPlanet({
       name: 'Mars',
       startTurn: 1,
@@ -216,6 +225,20 @@ describe('Multi-Planet State Management', () => {
     expect(replayed.planets.size).toBe(1);
     expect(replayed.currentPlanetId).toBe('planet-1');
     expect(replayed.nextPlanetId).toBe(2);
+    expect(replayed.globalResearch.lane.pendingQueue).toEqual([]);
+    expect(replayed.globalResearch.completed).toEqual([]);
+  });
+
+  test('replays research queued after reset-all while dropping research queued before it', () => {
+    const commandHistory = new CommandHistory();
+    commandHistory.recordQueueResearch('planet_management', 'queued-before-reset');
+    commandHistory.recordResetAllPlanets();
+    commandHistory.recordQueueResearch('planet_management', 'queued-after-reset');
+
+    const replayed = replayCommands(createInitialGameState(), commandHistory.getCommands());
+
+    expect(replayed.globalResearch.lane.pendingQueue).toHaveLength(1);
+    expect(replayed.globalResearch.lane.pendingQueue[0].itemId).toBe('planet_management');
   });
 
   test('switches between planets', () => {
@@ -310,6 +333,23 @@ describe('Multi-Planet State Management', () => {
         space: { groundCap: 25, orbitalCap: 15 },
       });
     }).toThrow('Maximum planet limit reached');
+  });
+
+  test('allows the first three added planets to use arbitrary start turns without PL research', () => {
+    let gameState = createInitialGameState();
+
+    for (const [index, startTurn] of [46, 1, 175].entries()) {
+      gameState = addPlanet(gameState, {
+        name: `Base Colony ${index + 1}`,
+        startTurn,
+        abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+        space: { groundCap: 25, orbitalCap: 15 },
+      });
+    }
+
+    expect(gameState.planets.get('planet-2')?.startTurn).toBe(46);
+    expect(gameState.planets.get('planet-3')?.startTurn).toBe(1);
+    expect(gameState.planets.get('planet-4')?.startTurn).toBe(175);
   });
 
   test('tracks per-planet turns correctly', () => {

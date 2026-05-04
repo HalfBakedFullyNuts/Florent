@@ -1,6 +1,6 @@
 {
   "name": "infinite-conflict-planner",
-  "version": "0.2.3",
+  "version": "0.2.7",
   "private": true,
   "scripts": {
     "dev": "next dev",

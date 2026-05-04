@@ -24,6 +24,37 @@ export interface TabbedItemGridProps {
   currentTurn?: number;
 }
 
+export function getMaxImmediateQueueQuantity(
+  itemId: string,
+  canQueueItem: (itemId: string, quantity: number) => SmartQueueCheckShape
+): number {
+  const canQueueNow = (quantity: number) => canQueueItem(itemId, quantity).allowed;
+  if (!canQueueNow(1)) return 0;
+
+  let low = 1;
+  let high = 2;
+  const MAX_SEARCH_QUANTITY = 1_000_000;
+
+  while (high < MAX_SEARCH_QUANTITY && canQueueNow(high)) {
+    low = high;
+    high *= 2;
+  }
+
+  high = Math.min(high, MAX_SEARCH_QUANTITY);
+  if (canQueueNow(high)) return high;
+
+  while (low + 1 < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (canQueueNow(mid)) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low;
+}
+
 /**
  * TabbedItemGrid - Tabbed interface for queue items
  * Shows only the active tab's items
@@ -167,7 +198,14 @@ export function TabbedItemGrid({
   // Per-item inline error message
   const [itemErrors, setItemErrors] = useState<Record<string, string>>({});
 
-  const getQty = useCallback((itemId: string): string => itemQuantities[itemId] ?? '1', [itemQuantities]);
+  const getDefaultQty = useCallback((itemId: string): string => {
+    return itemId === 'soldier' || itemId === 'scientist' ? '100' : '1';
+  }, []);
+
+  const getQty = useCallback(
+    (itemId: string): string => itemQuantities[itemId] ?? getDefaultQty(itemId),
+    [itemQuantities, getDefaultQty]
+  );
 
   const humanizeReason = useCallback((reason: string | undefined, itemId: string): string => {
     const def = availableItems[itemId];
@@ -214,9 +252,26 @@ export function TabbedItemGrid({
       return;
     }
     onQueueItem(itemId, qty);
-    setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
+    setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-  }, [getQty, humanizeReason, canQueueItem, onQueueItem]);
+  }, [getQty, getDefaultQty, humanizeReason, canQueueItem, onQueueItem]);
+
+  const findMaxQueueQuantity = useCallback((itemId: string): number => {
+    return getMaxImmediateQueueQuantity(itemId, canQueueItem);
+  }, [canQueueItem]);
+
+  const tryQueueMax = useCallback((itemId: string) => {
+    const maxQuantity = findMaxQueueQuantity(itemId);
+    if (maxQuantity < 1) {
+      const validation = canQueueItem(itemId, 1);
+      setItemErrors(prev => ({ ...prev, [itemId]: humanizeReason(validation.reason, itemId) }));
+      return;
+    }
+
+    onQueueItem(itemId, maxQuantity);
+    setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
+    setItemErrors(prev => ({ ...prev, [itemId]: '' }));
+  }, [findMaxQueueQuantity, canQueueItem, humanizeReason, onQueueItem, getDefaultQty]);
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
@@ -244,7 +299,7 @@ export function TabbedItemGrid({
       e.preventDefault();
       tryQueue(itemId, laneId);
     } else if (e.key === 'Escape') {
-      setItemQuantities(prev => ({ ...prev, [itemId]: '1' }));
+      setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
       setItemErrors(prev => ({ ...prev, [itemId]: '' }));
     }
   };
@@ -333,6 +388,7 @@ export function TabbedItemGrid({
               const costsMap = item.costsPerUnit || {};
               const energyUpkeep = item.upkeepPerUnit?.energy || 0;
               const isBatchable = activeTab === 'ship' || activeTab === 'colonist';
+              const maxQueueableNow = queueCheck.allowed;
 
               return (
                 <div
@@ -439,6 +495,24 @@ export function TabbedItemGrid({
                             `}
                           >
                             +
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              tryQueueMax(item.id);
+                            }}
+                            disabled={!maxQueueableNow}
+                            title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
+                            aria-label={`Queue maximum ${item.name}`}
+                            className={`
+                              w-7 py-0.5 rounded text-sm font-bold
+                              ${maxQueueableNow
+                                ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
+                                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                              }
+                            `}
+                          >
+                            ∞
                           </button>
                         </div>
                         {itemErrors[item.id] && (

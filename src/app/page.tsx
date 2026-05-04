@@ -16,6 +16,7 @@ import {
   getEarliestPlanetStartTurn,
   getGlobalResearchAtTurn,
   getGlobalResearchLaneView,
+  getPlanetLimitAtTurn,
   getResearchCompletionTurns,
   queueGlobalResearch,
   queueGlobalResearchWait,
@@ -179,6 +180,32 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, viewTurn, gameState]);
   const totalTurns = controller?.getTotalTurns() || 200;
+  const planetTimelineEndTurn = currentPlanet
+    ? currentPlanet.startTurn + totalTurns - 1
+    : totalTurns;
+  const timelineMaxTurn = Math.max(200, planetTimelineEndTurn, viewTurn);
+  const currentPlanetNumber = useMemo(() => {
+    if (!currentPlanet) return 0;
+    return Array.from(gameState.planets.keys()).indexOf(currentPlanet.id) + 1;
+  }, [currentPlanet, gameState.planets]);
+  const planetLimitAtStart = useMemo(() => {
+    if (!currentPlanet) return 0;
+    return getPlanetLimitAtTurn(gameState, currentPlanet.startTurn);
+  }, [gameState, currentPlanet]);
+  const planetUnavailableReason = useMemo(() => {
+    if (!currentPlanet) return 'No planet selected.';
+    if (currentPlanetNumber > 4 && currentPlanetNumber > planetLimitAtStart) {
+      return `${currentPlanet.name} is blocked by planet-limit research at T${currentPlanet.startTurn}.`;
+    }
+    if (viewTurn < currentPlanet.startTurn) {
+      return `${currentPlanet.name} starts on T${currentPlanet.startTurn} and does not exist yet at T${viewTurn}.`;
+    }
+    if (!currentState) {
+      return `${currentPlanet.name} has no simulated state at T${viewTurn}.`;
+    }
+    return null;
+  }, [currentPlanet, currentPlanetNumber, planetLimitAtStart, viewTurn, currentState]);
+  const isPlanetViewAvailable = planetUnavailableReason === null;
 
   const defs = currentState?.defs || loadGameData(gameDataRaw as any);
   const globalResearch = useMemo(
@@ -243,10 +270,10 @@ export default function Home() {
   // future state so delayed prerequisites have their actual start/completion turns.
   const fullPlanState = useMemo(() => {
     if (!controller) return undefined;
-    return controller.getStateAtTurn(totalTurns - 1);
+    return controller.getStateAtTurn(planetTimelineEndTurn);
   // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controller, totalTurns, gameState]);
+  }, [controller, planetTimelineEndTurn, gameState]);
 
   // Helper to adjust the status of the global queue items relative to the current viewTurn
   const getAdjustedLaneView = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research') => {
@@ -297,10 +324,10 @@ export default function Home() {
   const firstEmptyTurns = useMemo(() => {
     if (!controller) return { building: null, ship: null, colonist: null };
     const getState = (turn: number) => controller.getStateAtTurn(turn);
-    return getFirstEmptyTurns(getState, planTurn, totalTurns);
+    return getFirstEmptyTurns(getState, planTurn, planetTimelineEndTurn);
   // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controller, totalTurns, gameState, planTurn]);
+  }, [controller, planetTimelineEndTurn, gameState, planTurn]);
 
   // Enrich all lanes with validation state in a single useMemo
   const enrichedLanes = useMemo(() => ({
@@ -362,6 +389,16 @@ export default function Home() {
       };
     }
 
+    if (!isPlanetViewAvailable) {
+      return {
+        allowed: false,
+        canQueueEventually: false,
+        waitTurnsNeeded: 0,
+        blockers: [],
+        reason: planetUnavailableReason || 'Planet is not active at this turn',
+      };
+    }
+
     // Get the T1 state (where the full plan lives) to calculate first-free turn
     const t1State = controller.getStateAtTurn(planTurn);
     if (!t1State) {
@@ -380,7 +417,7 @@ export default function Home() {
     ]));
 
     return validateQueueItem(validationState, itemId, quantity);
-  }, [defs, controller, gameState, getGlobalCompletedResearchForTurn, planTurn]);
+  }, [defs, controller, gameState, getGlobalCompletedResearchForTurn, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
 
   const editingPlanetConfig = useMemo<PlanetConfig | undefined>(() => {
     if (!editingPlanetId) return undefined;
@@ -425,6 +462,12 @@ export default function Home() {
   const handleAddPlanet = useCallback(() => {
     setError(null);
     const nextPlanetNumber = gameState.planets.size + 1;
+    if (nextPlanetNumber <= 4) {
+      setEditingPlanetId(null);
+      setPlanetModalTurn(viewTurn);
+      setShowAddPlanetModal(true);
+      return;
+    }
     const earliestTurn = getEarliestPlanetStartTurn(gameState, nextPlanetNumber, viewTurn);
     if (earliestTurn === null) {
       setError(`Planet limit ${nextPlanetNumber} is not unlocked or scheduled in the research queue.`);
@@ -457,10 +500,13 @@ export default function Home() {
         return true;
       }
       const nextPlanetNumber = gameState.planets.size + 1;
-      const earliestTurn = getEarliestPlanetStartTurn(gameState, nextPlanetNumber, config.startTurn);
-      const adjustedConfig = earliestTurn !== null && config.startTurn < earliestTurn
-        ? { ...config, startTurn: earliestTurn }
-        : config;
+      let adjustedConfig = config;
+      if (nextPlanetNumber > 4) {
+        const earliestTurn = getEarliestPlanetStartTurn(gameState, nextPlanetNumber, config.startTurn);
+        adjustedConfig = earliestTurn !== null && config.startTurn < earliestTurn
+          ? { ...config, startTurn: earliestTurn }
+          : config;
+      }
       const newGameState = addPlanet(gameState, adjustedConfig);
       const newPlanetId = `planet-${newGameState.nextPlanetId - 1}`;
       commandHistory.recordAddPlanet(adjustedConfig);
@@ -491,6 +537,11 @@ export default function Home() {
         const queuedEntry = nextState.globalResearch.lane.pendingQueue[nextState.globalResearch.lane.pendingQueue.length - 1];
         if (queuedEntry) commandHistory.recordQueueResearch(itemId, queuedEntry.id);
         setGameState(nextState);
+        return;
+      }
+
+      if (!isPlanetViewAvailable) {
+        setError(planetUnavailableReason || 'Planet is not active at this turn');
         return;
       }
 
@@ -533,13 +584,13 @@ export default function Home() {
       // AUTO-ADVANCE: Move to the completion turn of the item we just added
       // Shows the turn immediately following the new structure's completion
       if (isAutoJumpEnabled && def && result.itemId) {
-        const displayState = controller.getStateAtTurn(totalTurns - 1);
+        const displayState = controller.getStateAtTurn(planetTimelineEndTurn);
         if (displayState) {
           const laneView = getLaneView(displayState, def.lane);
           const newlyAdded = laneView.entries.find(e => e.id === result.itemId);
           if (newlyAdded) {
             const endTurn = newlyAdded.completionTurn ?? newlyAdded.eta ?? viewTurn;
-            setViewTurn(Math.min(endTurn + 1, totalTurns - 1));
+            setViewTurn(Math.min(endTurn + 1, planetTimelineEndTurn));
           }
         }
       }
@@ -547,7 +598,7 @@ export default function Home() {
       console.error('Error in handleQueueItem:', e);
       setError((e as Error).message || 'Unknown error');
     }
-  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory, isAutoJumpEnabled, getGlobalCompletedResearchForTurn, researchCompletionTurns, totalTurns, planTurn]);
+  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory, isAutoJumpEnabled, getGlobalCompletedResearchForTurn, researchCompletionTurns, planetTimelineEndTurn, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
 
   const handleQueueWait = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', waitTurns: number) => {
     setError(null);
@@ -603,7 +654,7 @@ export default function Home() {
 
     // Check if it's the last item before we cancel it
     let wasLastItem = false;
-    const maxTurn = totalTurns - 1;
+    const maxTurn = planetTimelineEndTurn;
     const preCancelState = controller!.getStateAtTurn(maxTurn);
     if (preCancelState) {
       const laneView = getLaneView(preCancelState, laneId);
@@ -717,7 +768,7 @@ export default function Home() {
 
       setQueueValidation(validationMap);
     }
-  }, [controller, viewTurn, gameState, setGameState, commandHistory, planTurn, totalTurns, currentPlanet?.startTurn, isAutoJumpEnabled]);
+  }, [controller, viewTurn, gameState, setGameState, commandHistory, planTurn, planetTimelineEndTurn, currentPlanet?.startTurn, isAutoJumpEnabled]);
 
   const confirmPendingCancellation = useCallback(() => {
     if (!pendingCancellation || !controller) return;
@@ -750,7 +801,7 @@ export default function Home() {
     try {
       // 1. Dependency Analysis for prerequisites
       // Need to validate the full timeline to catch future breakages
-      const state = controller.getStateAtTurn(199);
+      const state = controller.getStateAtTurn(planetTimelineEndTurn);
       if (state) {
         const getLaneEntries = (s: any, lId: 'building' | 'ship' | 'colonist' | 'research') => getLaneView(s, lId).entries;
         const brokenDependencies = getDependentQueueItems(state, entry, laneId, getLaneEntries);
@@ -772,7 +823,7 @@ export default function Home() {
     } catch (e) {
       setError((e as Error).message || 'Unknown error');
     }
-  }, [controller, executeCancellation]);
+  }, [controller, executeCancellation, planetTimelineEndTurn]);
 
   const handleQuantityChange = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any, newQuantity: number) => {
     setError(null);
@@ -846,7 +897,7 @@ export default function Home() {
 
   const getMaxQuantity = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any): number => {
     if (!controller) return entry.quantity;
-    const state = controller.getStateAtTurn(199);
+    const state = controller.getStateAtTurn(planetTimelineEndTurn);
     if (!state) return entry.quantity;
 
     const def = state.defs[entry.itemId];
@@ -870,7 +921,7 @@ export default function Home() {
     }
 
     return maxValid;
-  }, [controller, canQueueItem]);
+  }, [controller, canQueueItem, planetTimelineEndTurn]);
 
   const handleAdvanceTurn = useCallback(() => {
     setError(null);
@@ -914,6 +965,8 @@ export default function Home() {
       setQueueValidation(new Map());
       setCascadeWarnings([]);
       setEditingPlanetId(null);
+      setExportSnapshot(null);
+      setShowExportModal(null);
 
       commandHistory.recordResetAllPlanets();
       setGameState(resetState);
@@ -931,13 +984,6 @@ export default function Home() {
     });
     setShowExportModal(mode);
   }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, viewTurn]);
-
-  // Guard against undefined state AFTER all hooks are called
-  if (!currentState || !summary || !enrichedBuildingLane || !enrichedShipLane || !enrichedColonistLane || !enrichedResearchLane) {
-    return <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text p-6">
-      <h1 className="text-2xl font-bold">Error: Invalid turn {viewTurn}</h1>
-    </div>;
-  }
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">
@@ -986,18 +1032,42 @@ export default function Home() {
         )}
 
         {/* Planet Dashboard - Horizontal Overview */}
-        <PlanetDashboard
-          summary={summary}
-          defs={defs}
-          turnsToHousingCap={currentState ? getTurnsUntilHousingCap(currentState, viewTurn) : null}
-          stocksEstimated={currentState?.activationUsedProjectedProduction === true}
-        />
+        {summary ? (
+          <PlanetDashboard
+            summary={summary}
+            defs={defs}
+            turnsToHousingCap={currentState ? getTurnsUntilHousingCap(currentState, viewTurn) : null}
+            stocksEstimated={currentState?.activationUsedProjectedProduction === true}
+          />
+        ) : (
+          <div className="w-full max-w-[1800px] mx-auto px-6 py-4">
+            <Card className="p-5 border-amber-500/50 bg-amber-950/20">
+              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-amber-300">Planet not active at this turn</h2>
+                  <p className="text-sm text-pink-nebula-text-secondary mt-1">
+                    {planetUnavailableReason || `No planet state is available for T${viewTurn}.`}
+                  </p>
+                </div>
+                {currentPlanet && (
+                  <button
+                    type="button"
+                    onClick={() => setViewTurn(currentPlanet.startTurn)}
+                    className="px-4 py-2 bg-pink-nebula-accent-primary text-pink-nebula-bg font-semibold rounded-lg hover:bg-pink-nebula-accent-secondary transition-colors"
+                  >
+                    Go to T{currentPlanet.startTurn}
+                  </button>
+                )}
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Horizontal Timeline - Between dashboard and queues */}
         <div className="w-full max-w-[1800px] mx-auto px-6">
           <HorizontalTimeline
             currentTurn={viewTurn}
-            totalTurns={totalTurns}
+            totalTurns={timelineMaxTurn}
             onTurnChange={setViewTurn}
             firstEmptyTurns={firstEmptyTurns}
             isAutoJumpEnabled={isAutoJumpEnabled}
@@ -1007,6 +1077,15 @@ export default function Home() {
 
         {/* Main Content - Side-by-side Tabbed Displays */}
         <main className="flex-1 max-w-[1800px] mx-auto w-full px-6 py-6">
+          {!isPlanetViewAvailable ? (
+            <Card className="p-6">
+              <h2 className="text-2xl font-bold text-pink-nebula-text mb-3">Queue unavailable</h2>
+              <p className="text-sm text-pink-nebula-text-secondary">
+                Move to a turn where this planet exists before adding planet-local queue items. Planet tabs,
+                turn navigation, and Add Planet remain available.
+              </p>
+            </Card>
+          ) : (
           <div className="flex gap-6">
             {/* Left: Add to Queue (Item Selection) */}
             <Card className="flex-1 p-6">
@@ -1083,10 +1162,11 @@ export default function Home() {
                 activeTab={activeTab}
                 onTabChange={setActiveTab}
                 onTurnClick={setViewTurn}
-                maxTurn={totalTurns - 1}
+                maxTurn={timelineMaxTurn}
               />
             </Card>
           </div>
+          )}
         </main>
 
         {/* Footer */}
@@ -1106,7 +1186,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.3</div>
+          <div className="opacity-30 text-[10px]">v0.2.7</div>
         </footer>
       </div>
 

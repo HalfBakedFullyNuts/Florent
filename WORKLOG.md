@@ -9,6 +9,18 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.7: Code-review cleanup pass.**
+The code review work items were implemented: PL checks now use planned milestones, late-start planet queue operations use the planet-local world-turn horizon, reset clears global research, the infinity queue action is max-now by contract, and added-planet starting fields keep editable drafts.
+
+**2026-05-04 — v0.2.6: Batch maximum queue controls.**
+Ship and colonist rows now expose an infinity action for queueing the maximum currently valid batch size, and soldier/scientist quantity fields default to 100.
+
+**2026-05-04 — v0.2.5: Graceful inactive planet views.**
+Added planets can now be viewed safely before their start turn: the app keeps tabs and timeline controls alive and shows an inactive-planet notice instead of an invalid-turn crash. The first three added planets are explicitly treated as part of the base four-planet allowance and are not PL-gated.
+
+**2026-05-04 — v0.2.4: Text-editable added-planet starts.**
+The Add/Edit Planet modal now presents starting population and starting structure counts as explicit text-editable fields, so added planets expose those editable starting properties directly in the UI.
+
 **2026-05-04 — v0.2.3: Stable global research timing projections.**
 Research lane display now runs the global research planner far enough to compute actual RP-gated start and completion turns, including long waits beyond the visible 200-turn simulator, so clicking a completion turn no longer changes the displayed schedule.
 
