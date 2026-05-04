@@ -6,6 +6,25 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.7] — 2026-05-04
+
+### Added
+- Share links can now carry a build-list name and author, entered when copying a share link.
+- Opened shared links now display a "Shared list" banner with the list name and author.
+- Saves now include a separate Shared tab for build lists opened from other players, keeping them distinct from the user's named saves.
+
+### Changed
+- Share metadata is preserved in URL/local snapshots while editing an opened shared list.
+- IndexedDB schema upgraded to v2 with a dedicated `shared` store.
+
+### Tests
+- Added coverage for share metadata round-tripping, shared-link loading UI, and save-summary extraction.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.7`.
+
+---
+
 ## [0.2.6] — 2026-05-04
 
 ### Fixed

@@ -7,6 +7,11 @@ const validEncoded = encodeGameState(
   [{ name: 'Homeworld', startTurn: 1, abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 }, space: { groundCap: 60, orbitalCap: 40 } }],
   [['q', 0, 11, 1]],
 );
+const sharedEncoded = encodeGameState(
+  [{ name: 'Homeworld', startTurn: 1, abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 }, space: { groundCap: 60, orbitalCap: 40 } }],
+  [['q', 0, 11, 1]],
+  { name: 'Shared Opener', author: 'Ada', sharedAt: '2026-05-04T12:00:00.000Z' },
+);
 
 describe('saveFile', () => {
   it('round-trips encoded payload through serialise/parse', () => {
@@ -52,6 +57,12 @@ describe('saveSummary', () => {
     expect(summary.planetCount).toBe(1);
     expect(summary.commandCount).toBe(1);
     expect(summary.planetNames).toBe('Homeworld');
+  });
+
+  it('extracts shared-link metadata from encoded payloads', () => {
+    const summary = buildSaveSummary(sharedEncoded);
+    expect(summary.shareName).toBe('Shared Opener');
+    expect(summary.shareAuthor).toBe('Ada');
   });
 
   it('returns a zero summary for an unparseable payload', () => {

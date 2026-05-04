@@ -24,6 +24,10 @@ export interface SaveSummary {
   maxTurn: number;
   /** Comma-joined planet names (truncated for display). */
   planetNames: string;
+  /** Optional display name carried by a shared link. */
+  shareName?: string;
+  /** Optional author carried by a shared link. */
+  shareAuthor?: string;
 }
 
 export interface SaveRecord {
@@ -44,6 +48,16 @@ export interface HistoryRecord {
   summary: SaveSummary;
 }
 
+export interface SharedRecord {
+  /** Stable id derived from the encoded payload. */
+  id: string;
+  name: string;
+  author: string;
+  openedAt: number;
+  encoded: string;
+  summary: SaveSummary;
+}
+
 interface FlorentDB extends DBSchema {
   saves: {
     key: string;
@@ -55,10 +69,15 @@ interface FlorentDB extends DBSchema {
     value: HistoryRecord;
     indexes: { 'by-savedAt': number };
   };
+  shared: {
+    key: string;
+    value: SharedRecord;
+    indexes: { 'by-openedAt': number };
+  };
 }
 
 const DB_NAME = 'florent';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let cached: Promise<IDBPDatabase<FlorentDB>> | null = null;
 
@@ -76,6 +95,10 @@ function getDB(): Promise<IDBPDatabase<FlorentDB>> {
         if (!db.objectStoreNames.contains('history')) {
           const history = db.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
           history.createIndex('by-savedAt', 'savedAt');
+        }
+        if (!db.objectStoreNames.contains('shared')) {
+          const shared = db.createObjectStore('shared', { keyPath: 'id' });
+          shared.createIndex('by-openedAt', 'openedAt');
         }
       },
     });
@@ -185,6 +208,50 @@ export async function getHistoryEntry(id: number): Promise<HistoryRecord | undef
 export async function clearHistory(): Promise<void> {
   const db = await getDB();
   await db.clear('history');
+}
+
+// ---------------------------------------------------------------------------
+// Shared links (opened from other players)
+// ---------------------------------------------------------------------------
+
+export async function listShared(): Promise<SharedRecord[]> {
+  const db = await getDB();
+  const all = await db.getAllFromIndex('shared', 'by-openedAt');
+  return all.reverse(); // newest first
+}
+
+export async function saveSharedLink(input: {
+  encoded: string;
+  name: string;
+  author: string;
+  summary: SaveSummary;
+}): Promise<void> {
+  const db = await getDB();
+  const id = buildSharedRecordId(input.encoded);
+  const now = Date.now();
+  const final: SharedRecord = {
+    id,
+    encoded: input.encoded,
+    name: input.name,
+    author: input.author,
+    summary: input.summary,
+    openedAt: now,
+  };
+  await db.put('shared', final);
+}
+
+export async function deleteSharedLink(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('shared', id);
+}
+
+function buildSharedRecordId(encoded: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < encoded.length; i++) {
+    hash ^= encoded.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `shared-${(hash >>> 0).toString(36)}`;
 }
 
 // ---------------------------------------------------------------------------

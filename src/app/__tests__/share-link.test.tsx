@@ -5,6 +5,7 @@ import Home from '../page';
 import {
   decodeGameState,
   encodeGameState,
+  getShareMetadataFromSnapshot,
 } from '../../lib/game/urlState';
 import type { PlanetConfig } from '../../lib/game/gameState';
 
@@ -74,6 +75,7 @@ function getQueueItem(label: RegExp): HTMLElement {
 
 describe('share link flow', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
     installLocalStorageMock();
     window.history.replaceState(null, '', '/');
     window.localStorage.clear();
@@ -82,6 +84,9 @@ describe('share link flow', () => {
 
   test('copies a fresh encoded link immediately when clicked', async () => {
     const writeText = installClipboardMock();
+    vi.spyOn(window, 'prompt')
+      .mockReturnValueOnce('Ada Opening')
+      .mockReturnValueOnce('Ada');
     render(<Home />);
 
     fireEvent.click(getQueueItem(/^Farm$/i));
@@ -94,11 +99,19 @@ describe('share link flow', () => {
 
     expect(copiedURL).toContain('#state=');
     expect(snapshot?.cmds).toHaveLength(1);
+    expect(snapshot ? getShareMetadataFromSnapshot(snapshot) : null).toMatchObject({
+      name: 'Ada Opening',
+      author: 'Ada',
+    });
   });
 
   test('loads a shared build when the hash changes after mount', async () => {
     const commands: Parameters<typeof encodeGameState>[1] = [['q', 0, 11, 1]];
-    const encoded = encodeGameState([homeworldConfig], commands);
+    const encoded = encodeGameState([homeworldConfig], commands, {
+      name: 'Neighbor Tech Rush',
+      author: 'Lin',
+      sharedAt: '2026-05-04T12:00:00.000Z',
+    });
     render(<Home />);
 
     expect(screen.queryByText(/1 queued/i)).not.toBeInTheDocument();
@@ -107,5 +120,8 @@ describe('share link flow', () => {
     fireEvent(window, new Event('hashchange'));
 
     await screen.findByText(/1 queued/i);
+    expect(screen.getByText('Shared list')).toBeInTheDocument();
+    expect(screen.getByText('Neighbor Tech Rush')).toBeInTheDocument();
+    expect(screen.getByText('by Lin')).toBeInTheDocument();
   });
 });

@@ -182,9 +182,22 @@ interface GameSnapshot {
   v: number;
   planets: (V1CompactPlanetConfig | V2CompactPlanetConfig)[];
   cmds: CommandType[];
+  share?: V2ShareMetadata;
 }
 
 const STATE_HASH_PREFIX = 'state=';
+
+interface V2ShareMetadata {
+  n?: string;
+  a?: string;
+  t?: string;
+}
+
+export interface ShareMetadata {
+  name: string;
+  author: string;
+  sharedAt: string;
+}
 
 // ---------------------------------------------------------------------------
 // Planet config helpers
@@ -397,13 +410,16 @@ export class CommandHistory {
 
 export function encodeGameState(
   planets: PlanetConfig[],
-  commands: V2CommandType[]
+  commands: V2CommandType[],
+  shareMetadata?: Partial<ShareMetadata> | null
 ): string {
+  const share = compactShareMetadata(shareMetadata);
   const snapshot: GameSnapshot = {
     v: STATE_VERSION_V2,
     planets: planets.map(compactPlanetConfigV2),
     cmds: commands,
   };
+  if (share) snapshot.share = share;
   return LZString.compressToEncodedURIComponent(JSON.stringify(snapshot));
 }
 
@@ -420,6 +436,49 @@ export function decodeGameState(encoded: string): GameSnapshot | null {
   } catch {
     return null;
   }
+}
+
+export function normaliseShareMetadata(
+  metadata?: Partial<ShareMetadata> | null
+): ShareMetadata | null {
+  if (!metadata) return null;
+
+  const name = cleanShareField(metadata.name, 80);
+  const author = cleanShareField(metadata.author, 60);
+  const sharedAt = cleanShareField(metadata.sharedAt, 40) || new Date().toISOString();
+
+  if (!name && !author) return null;
+  return {
+    name: name || 'Shared build list',
+    author: author || 'Unknown commander',
+    sharedAt,
+  };
+}
+
+function compactShareMetadata(
+  metadata?: Partial<ShareMetadata> | null
+): V2ShareMetadata | undefined {
+  const normalized = normaliseShareMetadata(metadata);
+  if (!normalized) return undefined;
+  return {
+    n: normalized.name,
+    a: normalized.author,
+    t: normalized.sharedAt,
+  };
+}
+
+function cleanShareField(value: string | undefined, maxLength: number): string {
+  return (value ?? '').trim().replace(/\s+/g, ' ').slice(0, maxLength);
+}
+
+export function getShareMetadataFromSnapshot(snapshot: GameSnapshot): ShareMetadata | null {
+  const share = snapshot.share;
+  if (!share) return null;
+  return normaliseShareMetadata({
+    name: share.n,
+    author: share.a,
+    sharedAt: share.t,
+  });
 }
 
 // ---------------------------------------------------------------------------

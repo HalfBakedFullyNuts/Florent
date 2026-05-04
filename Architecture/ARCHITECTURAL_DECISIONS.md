@@ -15,6 +15,9 @@ Short rationale (1-2 sentences).
 
 ## Recent Decisions - Turn-Based Simulator Implementation
 
+2026-05-04 — Shared-Link Metadata and Separate Shared Saves
+Shared build links carry optional name/author metadata inside the compact URL payload so ownership can be shown without changing command replay. Opened shared links are stored in a dedicated IndexedDB `shared` store, keeping other players' lists separate from user-managed saves.
+
 2026-05-04 — Global Research and Configurable Colony Starts
 Research points and the research lane are modeled as global session state while research labs and scientists remain planet-local. Added-planet starting population and starter production structures are persisted in compact URL commands so edited colony starts replay deterministically without changing activation-time queue costs.
 
@@ -92,4 +95,3 @@ Game rules and agents live in `src/lib/game` so they can be tested independently
 
 Process requirement (new)
 - All contributors must add an ADR entry to this file whenever they make a non-trivial architectural decision (for example introducing a global store, adding server-side APIs, or changing how game logic is persisted).
-

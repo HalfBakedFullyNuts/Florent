@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.7: Shared-list identity.**
+Share links now carry list name and author metadata, opened shared links show a clear shared-list banner, and the Saves modal keeps other players' lists in a separate Shared tab.
+
 **2026-05-04 — v0.2.6: PWA-safe share links.**
 Share links are now encoded at click time instead of waiting for debounced auto-save, and already-open PWA windows react to incoming `#state=...` links so another player's build list loads reliably.
 

@@ -4,11 +4,14 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   listSaves,
   listHistory,
+  listShared,
   saveSave,
   deleteSave,
+  deleteSharedLink,
   renameSave,
   type SaveRecord,
   type HistoryRecord,
+  type SharedRecord,
   type SaveSummary,
 } from '../lib/persistence/savesDb';
 import {
@@ -18,7 +21,7 @@ import {
   buildDefaultFilename,
 } from '../lib/persistence/saveFile';
 
-type Tab = 'saves' | 'history' | 'import';
+type Tab = 'saves' | 'shared' | 'history' | 'import';
 
 export interface SavesModalProps {
   isOpen: boolean;
@@ -36,6 +39,7 @@ export interface SavesModalProps {
 export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: SavesModalProps) {
   const [tab, setTab] = useState<Tab>('saves');
   const [saves, setSaves] = useState<SaveRecord[]>([]);
+  const [shared, setShared] = useState<SharedRecord[]>([]);
   const [history, setHistory] = useState<HistoryRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,8 +52,9 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
     setLoading(true);
     setError(null);
     try {
-      const [s, h] = await Promise.all([listSaves(), listHistory()]);
+      const [s, sharedLinks, h] = await Promise.all([listSaves(), listShared(), listHistory()]);
       setSaves(s);
+      setShared(sharedLinks);
       setHistory(h);
     } catch (e) {
       setError((e as Error).message || 'Failed to read saves');
@@ -83,6 +88,12 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
     await refresh();
   }, [refresh]);
 
+  const handleDeleteShared = useCallback(async (id: string) => {
+    if (!confirm('Remove this shared list from this device?')) return;
+    await deleteSharedLink(id);
+    await refresh();
+  }, [refresh]);
+
   const handleRename = useCallback(async () => {
     if (!renamingId || !renameValue.trim()) return;
     await renameSave(renamingId, renameValue.trim());
@@ -106,6 +117,20 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
     const json = serialiseSaveFile({ name: save.name, encoded: save.encoded, summary: save.summary });
     downloadSaveFile(buildDefaultFilename(save.name), json);
   }, []);
+
+  const handleSaveSharedAsMine = useCallback(async (sharedList: SharedRecord) => {
+    const id = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
+      ? (crypto as Crypto).randomUUID()
+      : `s-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    await saveSave({
+      id,
+      name: `${sharedList.name} (copy)`,
+      encoded: sharedList.encoded,
+      summary: sharedList.summary,
+    });
+    setTab('saves');
+    await refresh();
+  }, [refresh]);
 
   const handleFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -177,6 +202,9 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
         <div className="flex gap-1 mb-4 p-1 bg-pink-nebula-bg/50 rounded border border-pink-nebula-border">
           <TabButton active={tab === 'saves'} onClick={() => setTab('saves')}>
             💾 Saves {saves.length > 0 && <span className="opacity-60">({saves.length})</span>}
+          </TabButton>
+          <TabButton active={tab === 'shared'} onClick={() => setTab('shared')}>
+            🤝 Shared {shared.length > 0 && <span className="opacity-60">({shared.length})</span>}
           </TabButton>
           <TabButton active={tab === 'history'} onClick={() => setTab('history')}>
             🕓 History {history.length > 0 && <span className="opacity-60">({history.length})</span>}
@@ -287,6 +315,57 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
           </div>
         )}
 
+        {tab === 'shared' && (
+          <div>
+            <p className="text-xs text-pink-nebula-muted mb-3">
+              Build lists opened from shared links. Saving one as your own creates a separate named save.
+            </p>
+            {loading && <p className="text-pink-nebula-muted text-sm">Loading…</p>}
+            {!loading && shared.length === 0 && (
+              <p className="text-pink-nebula-muted text-sm py-4 text-center">No shared lists opened yet.</p>
+            )}
+            <ul className="space-y-2 max-h-[50vh] overflow-y-auto">
+              {shared.map((s) => (
+                <li
+                  key={s.id}
+                  className="p-3 bg-blue-950/20 border border-blue-400/30 rounded"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-1">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-pink-nebula-text break-all">{s.name}</div>
+                      <div className="text-xs text-blue-200/80">Shared by {s.author}</div>
+                    </div>
+                    <div className="text-xs text-pink-nebula-muted whitespace-nowrap">
+                      {new Date(s.openedAt).toLocaleString()}
+                    </div>
+                  </div>
+                  <SummaryLine summary={s.summary} />
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <button
+                      onClick={() => { onRestore(s.encoded, s.name); onClose(); }}
+                      className="px-3 py-1.5 bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white rounded text-xs font-semibold"
+                    >
+                      ↩ Open
+                    </button>
+                    <button
+                      onClick={() => handleSaveSharedAsMine(s)}
+                      className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-pink-nebula-text rounded text-xs"
+                    >
+                      💾 Save as mine
+                    </button>
+                    <button
+                      onClick={() => handleDeleteShared(s.id)}
+                      className="px-3 py-1.5 bg-red-900/40 hover:bg-red-700 text-red-300 hover:text-white rounded text-xs"
+                    >
+                      🗑 Remove
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {tab === 'history' && (
           <div>
             <p className="text-xs text-pink-nebula-muted mb-3">
@@ -379,6 +458,11 @@ function SummaryLine({ summary }: { summary: SaveSummary }) {
   return (
     <div className="text-xs text-pink-nebula-muted">
       {summary.planetCount} planet{summary.planetCount === 1 ? '' : 's'} · {summary.commandCount} command{summary.commandCount === 1 ? '' : 's'}
+      {summary.shareName && (
+        <span className="block text-blue-200/80">
+          Shared list: {summary.shareName}{summary.shareAuthor ? ` by ${summary.shareAuthor}` : ''}
+        </span>
+      )}
       {summary.planetNames && <span className="block break-all">{summary.planetNames}</span>}
     </div>
   );

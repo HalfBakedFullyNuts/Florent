@@ -17,11 +17,14 @@ import {
   extractPlanetConfigs,
   getEncodedStateFromURL,
   getPlanetIndex,
+  getShareMetadataFromSnapshot,
   estimateEncodedSize,
   loadStateFromLocalStorage,
   loadStateFromURL,
+  normaliseShareMetadata,
   replayCommands,
   saveEncodedStateToURL,
+  type ShareMetadata,
 } from '../lib/game/urlState';
 import {
   cancelGlobalResearch,
@@ -49,10 +52,11 @@ import { DependencyWarningModal } from '../components/DependencyWarningModal';
 import { SavesModal } from '../components/SavesModal';
 
 // Persistence
-import { pushHistory, migrateLegacyLocalStorage } from '../lib/persistence/savesDb';
+import { pushHistory, migrateLegacyLocalStorage, saveSharedLink } from '../lib/persistence/savesDb';
 import { buildSaveSummary } from '../lib/persistence/saveSummary';
 
 type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
+const SHARE_AUTHOR_STORAGE_KEY = 'florent_share_author';
 
 function withPlanetMetadata(snapshot: PlanetState, existing: ExtendedPlanetState): ExtendedPlanetState {
   return {
@@ -80,20 +84,38 @@ export default function Home() {
   const [commandHistory] = useState(() => new CommandHistory());
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [isMounted, setIsMounted] = useState(false);
+  const [activeShareMetadata, setActiveShareMetadata] = useState<ShareMetadata | null>(null);
   // Bootstrap-once guard: React StrictMode runs effects twice in dev; we only
   // want to restore state on the first mount, otherwise the second run replays
   // commands on top of the already-restored state and double-counts everything.
   const bootstrappedRef = useRef(false);
   const lastAppliedShareRef = useRef<string | null>(null);
 
-  const restoreShareSnapshot = useCallback((snapshot: LoadedGameSnapshot) => {
+  const rememberOpenedSharedLink = useCallback((encoded: string, snapshot: LoadedGameSnapshot) => {
+    const share = getShareMetadataFromSnapshot(snapshot);
+    setActiveShareMetadata(share);
+    if (!share) return;
+    if (typeof window.indexedDB === 'undefined') return;
+
+    const summary = buildSaveSummary(encoded);
+    saveSharedLink({
+      encoded,
+      name: share.name,
+      author: share.author,
+      summary,
+    }).catch((e) => console.warn('[saves] shared link save failed:', e));
+  }, []);
+
+  const restoreShareSnapshot = useCallback((snapshot: LoadedGameSnapshot, encoded?: string | null) => {
     const replayedState = replayCommands(createInitialGameState(), snapshot.cmds);
     commandHistory.loadFromSnapshot(snapshot.cmds);
+    setActiveShareMetadata(getShareMetadataFromSnapshot(snapshot));
+    if (encoded) rememberOpenedSharedLink(encoded, snapshot);
     setGameState(() => ({
       ...replayedState,
       planets: new Map(replayedState.planets),
     }));
-  }, [commandHistory]);
+  }, [commandHistory, rememberOpenedSharedLink]);
 
   useEffect(() => {
     setIsMounted(true);
@@ -103,9 +125,10 @@ export default function Home() {
     // Load state from URL or LocalStorage after hydration. URL wins so an
     // incoming shared build is not masked by this device's last local save.
     let urlSnapshot = loadStateFromURL();
+    const encodedFromURL = getEncodedStateFromURL();
 
     if (urlSnapshot) {
-      lastAppliedShareRef.current = getEncodedStateFromURL();
+      lastAppliedShareRef.current = encodedFromURL;
       console.log('[URL State] Loading from URL:', {
         planets: urlSnapshot.planets.length,
         commands: urlSnapshot.cmds.length,
@@ -121,7 +144,7 @@ export default function Home() {
     }
 
     if (urlSnapshot) {
-      restoreShareSnapshot(urlSnapshot);
+      restoreShareSnapshot(urlSnapshot, encodedFromURL);
     }
   }, [restoreShareSnapshot]);
 
@@ -137,7 +160,7 @@ export default function Home() {
       }
 
       lastAppliedShareRef.current = encoded;
-      restoreShareSnapshot(snapshot);
+      restoreShareSnapshot(snapshot, encoded);
       setToast('Shared build list loaded from link');
       setTimeout(() => setToast(null), 3000);
     };
@@ -215,7 +238,7 @@ export default function Home() {
 
         // Only save if we have commands (don't save empty initial state)
         if (commands.length > 0) {
-          const encoded = encodeGameState(planetConfigs, commands);
+          const encoded = encodeGameState(planetConfigs, commands, activeShareMetadata);
           saveEncodedStateToURL(encoded);
           lastAppliedShareRef.current = encoded;
 
@@ -240,7 +263,7 @@ export default function Home() {
     }, 1000); // Debounce: wait 1 second after last change
 
     return () => clearTimeout(timer);
-  }, [gameState, commandHistory]);
+  }, [gameState, commandHistory, activeShareMetadata]);
 
   // Memoize currentState to ensure React detects changes when viewTurn changes.
   // gameState is intentionally a dep so queue mutations re-run getStateAtTurn —
@@ -1018,27 +1041,56 @@ export default function Home() {
       const planetConfigs = extractPlanetConfigs(gameState);
       const commands = commandHistory.getCommands();
       if (commands.length === 0) return null;
-      const encoded = encodeGameState(planetConfigs, commands);
+      const encoded = encodeGameState(planetConfigs, commands, activeShareMetadata);
       const summary = buildSaveSummary(encoded);
       return { encoded, summary };
     } catch {
       return null;
     }
-  }, [gameState, commandHistory]);
+  }, [gameState, commandHistory, activeShareMetadata]);
 
-  const getCurrentShareURL = useCallback(() => {
+  const buildCurrentShareURL = useCallback((metadata?: ShareMetadata | null) => {
     const planetConfigs = extractPlanetConfigs(gameState);
     const commands = commandHistory.getCommands();
     if (commands.length === 0) return null;
 
-    const encoded = encodeGameState(planetConfigs, commands);
+    const encoded = encodeGameState(planetConfigs, commands, metadata ?? activeShareMetadata);
     saveEncodedStateToURL(encoded);
     lastAppliedShareRef.current = encoded;
     return {
       commandCount: commands.length,
       url: buildShareURL(encoded),
     };
-  }, [gameState, commandHistory]);
+  }, [gameState, commandHistory, activeShareMetadata]);
+
+  const requestShareMetadata = useCallback(() => {
+    const defaultName = activeShareMetadata?.name || `${currentPlanet?.name ?? 'Homeworld'} build list`;
+    const name = window.prompt('Name this shared build list', defaultName);
+    if (name === null) return null;
+
+    let storedAuthor = '';
+    try {
+      storedAuthor = window.localStorage.getItem(SHARE_AUTHOR_STORAGE_KEY) ?? '';
+    } catch { /* ignore */ }
+
+    const defaultAuthor = activeShareMetadata?.author === 'Unknown commander'
+      ? storedAuthor
+      : activeShareMetadata?.author || storedAuthor;
+    const author = window.prompt('Author name for this shared link', defaultAuthor);
+    if (author === null) return null;
+
+    const metadata = normaliseShareMetadata({
+      name,
+      author,
+      sharedAt: new Date().toISOString(),
+    });
+    if (!metadata) return null;
+
+    try {
+      window.localStorage.setItem(SHARE_AUTHOR_STORAGE_KEY, metadata.author);
+    } catch { /* ignore */ }
+    return metadata;
+  }, [activeShareMetadata, currentPlanet?.name]);
 
   // Restore a save: push the encoded state into the URL hash and reload so the
   // existing hash-based bootstrap rebuilds command history from scratch.
@@ -1094,6 +1146,17 @@ export default function Home() {
             onResetQueue={handleResetQueue}
           />
         </div>
+
+        {activeShareMetadata && (
+          <div className="px-3 md:px-6">
+            <div className="max-w-[1800px] mx-auto rounded-lg border border-blue-400/30 bg-blue-950/30 px-4 py-3 text-sm text-blue-100 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+              <span className="font-semibold uppercase tracking-wide text-blue-200">Shared list</span>
+              <span className="font-bold text-pink-nebula-text">{activeShareMetadata.name}</span>
+              <span className="text-blue-200/80">by {activeShareMetadata.author}</span>
+              <span className="text-blue-200/60 sm:ml-auto">Opened from a shared link; save as mine from Saves → Shared.</span>
+            </div>
+          </div>
+        )}
 
         {/* Error Display */}
         {error && (
@@ -1186,7 +1249,10 @@ export default function Home() {
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => {
-                      const share = getCurrentShareURL();
+                      const metadata = requestShareMetadata();
+                      if (!metadata) return;
+
+                      const share = buildCurrentShareURL(metadata);
                       if (!share) {
                         setToast('No queued plan to share yet');
                         setTimeout(() => setToast(null), 3000);
@@ -1194,7 +1260,7 @@ export default function Home() {
                       }
                       const { commandCount: cmds, url } = share;
                       navigator.clipboard.writeText(url).then(() => {
-                        setToast(`Link copied — ${cmds} command${cmds === 1 ? '' : 's'}, ${url.length} chars`);
+                        setToast(`Link copied — "${metadata.name}" by ${metadata.author}, ${cmds} command${cmds === 1 ? '' : 's'}`);
                         setTimeout(() => setToast(null), 3000);
                       }).catch(() => {
                         setToast('Could not copy — clipboard unavailable');
@@ -1256,7 +1322,7 @@ export default function Home() {
           <button
             className="hover:text-pink-nebula-text transition-colors opacity-50 hover:opacity-100"
             onClick={() => {
-              const share = getCurrentShareURL();
+              const share = buildCurrentShareURL(activeShareMetadata);
               if (share) {
                 navigator.clipboard.writeText(share.url);
                 alert('Debug URL copied to clipboard!');
@@ -1268,7 +1334,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.6</div>
+          <div className="opacity-30 text-[10px]">v0.2.7</div>
         </footer>
       </div>
 

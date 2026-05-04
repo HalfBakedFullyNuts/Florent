@@ -4,6 +4,7 @@ import {
   decodeGameState,
   encodeGameState,
   getEncodedStateFromURL,
+  getShareMetadataFromSnapshot,
   loadStateFromURL,
   saveEncodedStateToURL,
 } from '../urlState';
@@ -63,11 +64,21 @@ describe('URL state helpers', () => {
 
   test('builds share URLs from the current app URL and encoded state', () => {
     const commands: Parameters<typeof encodeGameState>[1] = [['q', 0, 11, 1]];
-    const encoded = encodeGameState([homeworldConfig], commands);
+    const encoded = encodeGameState([homeworldConfig], commands, {
+      name: 'Orbital Rush',
+      author: 'Ada',
+      sharedAt: '2026-05-04T12:00:00.000Z',
+    });
     const url = buildShareURL(encoded);
+    const snapshot = decodeGameState(new URL(url).hash.substring(7));
 
     expect(url).toBe(`${window.location.origin}/planner/?view=queue#state=${encoded}`);
-    expect(decodeGameState(new URL(url).hash.substring(7))?.cmds).toHaveLength(1);
+    expect(snapshot?.cmds).toHaveLength(1);
+    expect(snapshot ? getShareMetadataFromSnapshot(snapshot) : null).toEqual({
+      name: 'Orbital Rush',
+      author: 'Ada',
+      sharedAt: '2026-05-04T12:00:00.000Z',
+    });
   });
 
   test('persists encoded state without requiring a hash navigation event', () => {
