@@ -308,7 +308,8 @@ export function clampBatchAtActivation(
   def: ItemDefinition,
   requested: number,
   projectedBonus?: Partial<Record<ResourceId, number>>,
-  minStartTurn?: number
+  minStartTurn?: number,
+  scheduledResearch: string[] = []
 ): number {
   let maxAffordable = requested;
 
@@ -318,6 +319,7 @@ export function clampBatchAtActivation(
       const globalResearchWillBeReady =
         isResearchPrereq(state, prereqId) &&
         def.lane !== 'research' &&
+        scheduledResearch.includes(prereqId) &&
         minStartTurn !== undefined &&
         state.currentTurn >= minStartTurn;
 

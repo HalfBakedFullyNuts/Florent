@@ -387,6 +387,10 @@ export function getEarliestPlanetStartTurn(
 }
 
 export function getResearchCompletionTurns(gameState: GameState): Map<string, number> {
+  const lane = gameState.globalResearch.lane;
+  if (!lane.active && lane.pendingQueue.length === 0 && lane.completionHistory.length === 0) {
+    return new Map();
+  }
   return getGlobalResearchPlanView(gameState).completionTurns;
 }
 

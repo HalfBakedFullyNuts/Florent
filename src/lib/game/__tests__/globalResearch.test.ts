@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { createInitialGameState, addPlanet } from '../gameState';
+import {
+  createInitialGameState,
+  addPlanet,
+  getLocalResearchGateForItem,
+  refreshLocalResearchGates,
+  type ExtendedPlanetState,
+} from '../gameState';
 import {
   getGlobalResearchAtTurn,
   getGlobalResearchLaneView,
@@ -11,12 +17,73 @@ import {
   queueGlobalResearchWait,
   reorderGlobalResearch,
 } from '../globalResearch';
+import { GameController } from '../commands';
 import { Timeline } from '../state';
 import { CommandHistory, replayCommands } from '../urlState';
+import { createStandardStart } from '../../sim/defs/seed';
+import type { ItemDefinition } from '../../sim/engine/types';
 
 function refreshTimeline(gameState: ReturnType<typeof createInitialGameState>, planetId: string) {
   const planet = gameState.planets.get(planetId)!;
   planet.timeline = new Timeline(planet);
+}
+
+const zeroCosts = {
+  metal: 0,
+  mineral: 0,
+  food: 0,
+  energy: 0,
+  research_points: 0,
+  workers: 0,
+  space: 0,
+  space_orbital: 0,
+};
+
+const zeroUpkeep = {
+  metal: 0,
+  mineral: 0,
+  food: 0,
+  energy: 0,
+  research_points: 0,
+};
+
+function makeDef(overrides: Partial<ItemDefinition> & Pick<ItemDefinition, 'id' | 'name'>): ItemDefinition {
+  return {
+    id: overrides.id,
+    name: overrides.name,
+    lane: overrides.lane ?? 'building',
+    type: overrides.type ?? 'structure',
+    tier: overrides.tier ?? 1,
+    durationTurns: overrides.durationTurns ?? 1,
+    costsPerUnit: overrides.costsPerUnit ?? zeroCosts,
+    effectsOnComplete: overrides.effectsOnComplete ?? {},
+    upkeepPerUnit: overrides.upkeepPerUnit ?? zeroUpkeep,
+    isAbundanceScaled: overrides.isAbundanceScaled ?? false,
+    prerequisites: overrides.prerequisites ?? [],
+    unique: overrides.unique,
+  };
+}
+
+function createLocalResearchGateDefs(): Record<string, ItemDefinition> {
+  return {
+    outpost: makeDef({ id: 'outpost', name: 'Outpost' }),
+    metal_mine: makeDef({ id: 'metal_mine', name: 'Metal Mine' }),
+    mineral_extractor: makeDef({ id: 'mineral_extractor', name: 'Mineral Extractor' }),
+    farm: makeDef({ id: 'farm', name: 'Farm' }),
+    solar_generator: makeDef({ id: 'solar_generator', name: 'Solar Generator' }),
+    fleet_technology: makeDef({
+      id: 'fleet_technology',
+      name: 'Fleet Technology',
+      lane: 'research',
+      unique: true,
+    }),
+    advanced_structure: makeDef({
+      id: 'advanced_structure',
+      name: 'Advanced Structure',
+      durationTurns: 3,
+      prerequisites: ['fleet_technology'],
+    }),
+  };
 }
 
 describe('global research', () => {
@@ -208,6 +275,57 @@ describe('global research', () => {
     expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBeNull();
     const laneView = getGlobalResearchLaneView(gameState, 1);
     expect(laneView.entries.find((entry) => entry.itemId === 'pl_6')?.startTurn).toBeUndefined();
+  });
+
+  test('local queued items revalidate scheduled research after global research is cancelled', () => {
+    const defs = createLocalResearchGateDefs();
+    let gameState = createInitialGameState();
+    const planet = createStandardStart(defs) as ExtendedPlanetState;
+    planet.id = 'planet-1';
+    planet.name = 'Homeworld';
+    planet.startTurn = 1;
+    planet.timeline = new Timeline(planet);
+    gameState = {
+      ...gameState,
+      planets: new Map([['planet-1', planet]]),
+      globalResearch: {
+        ...gameState.globalResearch,
+        stock: 1000,
+      },
+    };
+
+    gameState = queueGlobalResearch(gameState, 'fleet_technology', 'research-fleet');
+    const researchGate = getLocalResearchGateForItem(gameState, 'advanced_structure', 1, defs);
+    expect(researchGate.scheduledResearch).toEqual(['fleet_technology']);
+
+    const controller = new GameController(planet, planet.timeline);
+    const result = controller.queueItem(1, 'advanced_structure', 1, {
+      preserveId: 'local-advanced',
+      completedResearch: researchGate.completedResearch,
+      scheduledResearch: researchGate.scheduledResearch,
+      blockedResearch: researchGate.blockedResearch,
+      minStartTurn: researchGate.minStartTurn,
+    });
+    expect(result.success).toBe(true);
+
+    const queuedPlanet = controller.getStateAtTurn(1)! as ExtendedPlanetState;
+    queuedPlanet.id = planet.id;
+    queuedPlanet.name = planet.name;
+    queuedPlanet.startTurn = planet.startTurn;
+    queuedPlanet.timeline = planet.timeline;
+    gameState = {
+      ...gameState,
+      planets: new Map([['planet-1', queuedPlanet]]),
+    };
+
+    gameState = refreshLocalResearchGates(cancelGlobalResearch(gameState, 'research-fleet'));
+    const refreshedStart = gameState.planets.get('planet-1')!.timeline!.getStateAtTurn(1)!;
+    const pending = refreshedStart.lanes.building.pendingQueue[0];
+
+    expect(pending.itemId).toBe('advanced_structure');
+    expect(pending.blockedResearch).toEqual(['fleet_technology']);
+    expect(pending.scheduledResearch).toBeUndefined();
+    expect(gameState.planets.get('planet-1')!.timeline!.getStateAtTurn(30)?.lanes.building.active).toBeNull();
   });
 
   test('URL replay restores global research queue, wait, cancel, and reorder commands', () => {

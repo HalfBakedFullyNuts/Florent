@@ -20,7 +20,15 @@
  */
 
 import LZString from 'lz-string';
-import { GameState, PlanetConfig, addPlanet, resetToHomeworld, updatePlanetConfig } from './gameState';
+import {
+  GameState,
+  PlanetConfig,
+  addPlanet,
+  getLocalResearchGateForItem,
+  refreshLocalResearchGates,
+  resetToHomeworld,
+  updatePlanetConfig,
+} from './gameState';
 import { GameController } from './commands';
 import { cancelGlobalResearch, queueGlobalResearch, queueGlobalResearchWait, reorderGlobalResearch } from './globalResearch';
 import { LaneId } from '../sim/engine/types';
@@ -1032,7 +1040,14 @@ export function replayCommands(
           const planet = gameState.planets.get(planetId);
           if (planet?.timeline) {
             const controller = new GameController(planet, planet.timeline);
-            controller.queueItem(planet.startTurn, itemId, qty, { preserveId: deterministicId });
+            const researchGate = getLocalResearchGateForItem(gameState, itemId, planet.startTurn, planet.defs);
+            controller.queueItem(planet.startTurn, itemId, qty, {
+              preserveId: deterministicId,
+              completedResearch: researchGate.completedResearch,
+              scheduledResearch: researchGate.scheduledResearch,
+              blockedResearch: researchGate.blockedResearch,
+              minStartTurn: researchGate.minStartTurn,
+            });
           }
           break;
         }
@@ -1052,7 +1067,7 @@ export function replayCommands(
           if (!entryId) break;
 
           if (laneId === 'research') {
-            gameState = cancelGlobalResearch(gameState, entryId);
+            gameState = refreshLocalResearchGates(cancelGlobalResearch(gameState, entryId));
             break;
           }
 
@@ -1076,7 +1091,7 @@ export function replayCommands(
           if (!entryId) break;
 
           if (laneId === 'research') {
-            gameState = reorderGlobalResearch(gameState, entryId, newIdx);
+            gameState = refreshLocalResearchGates(reorderGlobalResearch(gameState, entryId, newIdx));
             break;
           }
 
@@ -1123,7 +1138,7 @@ export function replayCommands(
           const itemId = typeof itemRef === 'number'
             ? V2_ITEM_IDS[itemRef] ?? ''
             : itemRef as string;
-          if (itemId) gameState = queueGlobalResearch(gameState, itemId, deterministicId);
+          if (itemId) gameState = refreshLocalResearchGates(queueGlobalResearch(gameState, itemId, deterministicId));
           break;
         }
 
@@ -1132,7 +1147,7 @@ export function replayCommands(
           const deterministicId = `__s${seqCounter}`;
           seqToEntryId.set(seqCounter, deterministicId);
           const turns = cmd[1] as number;
-          gameState = queueGlobalResearchWait(gameState, turns, deterministicId);
+          gameState = refreshLocalResearchGates(queueGlobalResearchWait(gameState, turns, deterministicId));
           break;
         }
 

@@ -33,6 +33,7 @@ interface QueueItemOptions {
   minStartTurn?: number;
   completedResearch?: string[];
   scheduledResearch?: string[];
+  blockedResearch?: string[];
 }
 
 /**
@@ -71,6 +72,10 @@ export class GameController {
     const lane = state.lanes[laneId];
 
     if (!options?.force) {
+      if (options?.blockedResearch?.length) {
+        return { success: false, reason: 'REQ_MISSING' };
+      }
+
       // Check if queue is full (max 10 items)
       if (lane.pendingQueue.length >= lane.maxQueueDepth) {
         return { success: false, reason: 'INVALID_LANE' };
@@ -105,6 +110,8 @@ export class GameController {
       turnsRemaining: def.durationTurns,
       queuedTurn: turn,
       minStartTurn: options?.minStartTurn,
+      scheduledResearch: options?.scheduledResearch?.length ? options.scheduledResearch : undefined,
+      blockedResearch: options?.blockedResearch?.length ? options.blockedResearch : undefined,
     };
 
     // Push to queue, then eagerly activate so costs appear on the current turn.
@@ -778,7 +785,13 @@ export class GameController {
       }
 
       // Queue the actual item universally at T=turn, preserving original ID
-      this.queueItem(turn, item.itemId, item.quantity, { force: true, preserveId: item.id });
+      this.queueItem(turn, item.itemId, item.quantity, {
+        force: true,
+        preserveId: item.id,
+        minStartTurn: item.minStartTurn,
+        scheduledResearch: item.scheduledResearch,
+        blockedResearch: item.blockedResearch,
+      });
 
       // Advance cursor
       cursorTurn = validTurn + def.durationTurns;

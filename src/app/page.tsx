@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { GameController } from '../lib/game/commands';
-import { createInitialGameState, addPlanet, updatePlanetConfig, resetToHomeworld, switchPlanet, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
+import { createInitialGameState, addPlanet, updatePlanetConfig, resetToHomeworld, switchPlanet, getLocalResearchGateForItem, refreshLocalResearchGates, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
 import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns, getFirstFreeTurnForLane, type LaneView } from '../lib/game/selectors';
 import { validateAllQueueItems, type QueueValidationResult, getValidationMessage, getDependentQueueItems } from '../lib/game/validation';
 import { loadGameData } from '../lib/sim/defs/adapter.client';
@@ -407,14 +407,6 @@ export default function Home() {
     () => getResearchCompletionTurns(gameState),
     [gameState]
   );
-  const getGlobalCompletedResearchForTurn = useCallback((turn: number) => {
-    return Array.from(new Set([
-      ...(gameState.globalResearch.completed || []),
-      ...Array.from(researchCompletionTurns.entries())
-        .filter(([, completionTurn]) => completionTurn <= turn)
-        .map(([id]) => id),
-    ]));
-  }, [gameState.globalResearch.completed, researchCompletionTurns]);
   const effectivePlanetLimit = useMemo(
     () => globalResearch.planetLimit,
     [globalResearch.planetLimit]
@@ -603,10 +595,8 @@ export default function Home() {
     // Validate against the state at that future turn (or T1 if lane is empty)
     const validationTurn = Math.max(1, firstFreeTurn);
     const baseValidationState = controller.getStateAtTurn(validationTurn) ?? t1State;
-    const completedResearch = getGlobalCompletedResearchForTurn(validationTurn);
-    const researchPrereqs = (def.prerequisites || []).filter((id: string) => defs[id]?.lane === 'research');
-    const missingUnscheduled = researchPrereqs.find((id: string) => !completedResearch.includes(id) && !researchCompletionTurns.has(id));
-    if (missingUnscheduled) {
+    const researchGate = getLocalResearchGateForItem(gameState, itemId, validationTurn, defs, researchCompletionTurns);
+    if (researchGate.blockedResearch.length > 0) {
       return {
         allowed: false,
         canQueueEventually: false,
@@ -616,17 +606,13 @@ export default function Home() {
       };
     }
 
-    const scheduledResearch = researchPrereqs.filter((id: string) => !completedResearch.includes(id) && researchCompletionTurns.has(id));
-    const researchReadyTurn = researchPrereqs.reduce((turn: number | undefined, id: string) => {
-      const completionTurn = researchCompletionTurns.get(id);
-      return completionTurn === undefined ? turn : Math.max(turn ?? validationTurn, completionTurn);
-    }, undefined as number | undefined);
+    const researchReadyTurn = researchGate.minStartTurn;
     const validationState = {
       ...baseValidationState,
       completedResearch: Array.from(new Set([
         ...(baseValidationState.completedResearch || []),
-        ...completedResearch,
-        ...scheduledResearch,
+        ...researchGate.completedResearch,
+        ...researchGate.scheduledResearch,
       ])),
     };
 
@@ -650,7 +636,7 @@ export default function Home() {
     }
 
     return result;
-  }, [defs, controller, gameState, getGlobalCompletedResearchForTurn, researchCompletionTurns, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
+  }, [defs, controller, gameState, researchCompletionTurns, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
 
   const editingPlanetConfig = useMemo<PlanetConfig | undefined>(() => {
     if (!editingPlanetId) return undefined;
@@ -769,7 +755,7 @@ export default function Home() {
         const nextState = queueGlobalResearch(gameState, itemId);
         const queuedEntry = nextState.globalResearch.lane.pendingQueue[nextState.globalResearch.lane.pendingQueue.length - 1];
         if (queuedEntry) commandHistory.recordQueueResearch(itemId, queuedEntry.id);
-        setGameState(nextState);
+        setGameState(refreshLocalResearchGates(nextState));
         return;
       }
 
@@ -778,23 +764,18 @@ export default function Home() {
         return;
       }
 
-      const completedResearch = getGlobalCompletedResearchForTurn(viewTurn);
-      const researchPrereqs = (def?.prerequisites || []).filter((id: string) => defs[id]?.lane === 'research');
-      const missingUnscheduled = researchPrereqs.find((id: string) => !completedResearch.includes(id) && !researchCompletionTurns.has(id));
+      const researchGate = getLocalResearchGateForItem(gameState, itemId, planTurn, defs, researchCompletionTurns);
+      const missingUnscheduled = researchGate.blockedResearch[0];
       if (missingUnscheduled) {
         setError(`Missing research prerequisite: ${defs[missingUnscheduled]?.name || missingUnscheduled}`);
         return;
       }
-      const scheduledResearch = researchPrereqs.filter((id: string) => !completedResearch.includes(id) && researchCompletionTurns.has(id));
-      const minStartTurn = researchPrereqs.reduce((turn: number | undefined, id: string) => {
-        const completionTurn = researchCompletionTurns.get(id);
-        return completionTurn === undefined ? turn : Math.max(turn ?? 1, completionTurn);
-      }, undefined as number | undefined);
 
       const result = controller.queueItem(planTurn, itemId, quantity, {
-        completedResearch,
-        scheduledResearch,
-        minStartTurn,
+        completedResearch: researchGate.completedResearch,
+        scheduledResearch: researchGate.scheduledResearch,
+        blockedResearch: researchGate.blockedResearch,
+        minStartTurn: researchGate.minStartTurn,
       });
       if (!result.success) {
         setError(result.reason || 'Cannot queue item');
@@ -833,7 +814,7 @@ export default function Home() {
       console.error('Error in handleQueueItem:', e);
       setError((e as Error).message || 'Unknown error');
     }
-  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory, isAutoJumpEnabled, getGlobalCompletedResearchForTurn, researchCompletionTurns, planetTimelineEndTurn, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
+  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory, isAutoJumpEnabled, researchCompletionTurns, planetTimelineEndTurn, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
 
   const handleQueueWait = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', waitTurns: number) => {
     setError(null);
@@ -848,7 +829,7 @@ export default function Home() {
           const nextState = queueGlobalResearchWait(prev, waitTurns);
           const queuedEntry = nextState.globalResearch.lane.pendingQueue[nextState.globalResearch.lane.pendingQueue.length - 1];
           if (queuedEntry) commandHistory.recordQueueResearchWait(waitTurns, queuedEntry.id);
-          return nextState;
+          return refreshLocalResearchGates(nextState);
         });
         return;
       }
@@ -883,7 +864,7 @@ export default function Home() {
   const executeCancellation = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
     if (laneId === 'research') {
       commandHistory.recordCancel(0, laneId, entry.id);
-      setGameState(prev => cancelGlobalResearch(prev, entry.id));
+      setGameState(prev => refreshLocalResearchGates(cancelGlobalResearch(prev, entry.id)));
       return;
     }
 
@@ -1100,7 +1081,7 @@ export default function Home() {
         return;
       }
       commandHistory.recordReorder(0, laneId, entryId, newIndex);
-      setGameState(nextState);
+      setGameState(refreshLocalResearchGates(nextState));
       return;
     }
     if (!controller) {

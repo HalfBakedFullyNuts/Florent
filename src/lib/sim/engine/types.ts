@@ -89,6 +89,8 @@ export interface WorkItem {
   startTurn?: number; // Turn when work started (set when activated)
   completionTurn?: number; // Turn when work completed (set when finished)
   minStartTurn?: number; // Earliest world turn this item may activate
+  scheduledResearch?: string[]; // Research prereqs expected from the global lane before activation
+  blockedResearch?: string[]; // Research prereqs that are no longer completed or scheduled
   isWait?: boolean; // True for wait items (pauses lane for N turns)
   isAutoWait?: boolean; // True for auto-inserted wait items (can be overwritten/collapsed)
 }

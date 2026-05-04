@@ -7,7 +7,7 @@ import { createStandardStart, createInitialState } from '../sim/defs/seed';
 import { loadGameData } from '../sim/defs/adapter.client';
 import gameDataJson from './game_data.json';
 import { Timeline } from './state';
-import { getPlanetLimitAtTurn } from './globalResearch';
+import { getPlanetLimitAtTurn, getResearchCompletionTurns } from './globalResearch';
 import { tryActivateNext } from '../sim/engine/lanes';
 import {
   STARTER_PACKAGE,
@@ -62,6 +62,13 @@ const itemDefinitions: Record<string, ItemDefinition> = loadGameData(gameDataJso
 const PLANET_LANES: LaneId[] = ['building', 'ship', 'colonist', 'research'];
 const BASE_PLANET_LIMIT = 4;
 
+export interface LocalResearchGateOptions {
+  completedResearch: string[];
+  scheduledResearch: string[];
+  blockedResearch: string[];
+  minStartTurn?: number;
+}
+
 export function createInitialGlobalResearchState(): GameState['globalResearch'] {
   return {
     stock: 0,
@@ -110,6 +117,172 @@ function createStarterConfig(config: PlanetConfig) {
     },
     structures,
   };
+}
+
+function getCompletedResearchAtTurnFromPlan(
+  gameState: GameState,
+  completionTurns: Map<string, number>,
+  turn: number
+): string[] {
+  return Array.from(new Set([
+    ...(gameState.globalResearch.completed || []),
+    ...Array.from(completionTurns.entries())
+      .filter(([, completionTurn]) => completionTurn <= turn)
+      .map(([id]) => id),
+  ]));
+}
+
+function getResearchPrereqs(
+  def: ItemDefinition | undefined,
+  defs: Record<string, ItemDefinition>
+): string[] {
+  return (def?.prerequisites || []).filter((id) => defs[id]?.lane === 'research');
+}
+
+function getLocalResearchGateForItemWithPlan(
+  gameState: GameState,
+  itemId: string,
+  atTurn: number,
+  defs: Record<string, ItemDefinition>,
+  completionTurns: Map<string, number>
+): LocalResearchGateOptions {
+  const completedResearch = getCompletedResearchAtTurnFromPlan(gameState, completionTurns, atTurn);
+  const completedSet = new Set(completedResearch);
+  const researchPrereqs = getResearchPrereqs(defs[itemId], defs);
+  const scheduledResearch: string[] = [];
+  const blockedResearch: string[] = [];
+  let minStartTurn: number | undefined;
+
+  for (const prereqId of researchPrereqs) {
+    if (completedSet.has(prereqId)) continue;
+
+    const completionTurn = completionTurns.get(prereqId);
+    if (completionTurn !== undefined) {
+      scheduledResearch.push(prereqId);
+      minStartTurn = Math.max(minStartTurn ?? atTurn, completionTurn);
+    } else {
+      blockedResearch.push(prereqId);
+    }
+  }
+
+  return {
+    completedResearch,
+    scheduledResearch,
+    blockedResearch,
+    minStartTurn,
+  };
+}
+
+export function getLocalResearchGateForItem(
+  gameState: GameState,
+  itemId: string,
+  atTurn: number,
+  defs: Record<string, ItemDefinition> = itemDefinitions,
+  completionTurns: Map<string, number> = getResearchCompletionTurns(gameState)
+): LocalResearchGateOptions {
+  return getLocalResearchGateForItemWithPlan(
+    gameState,
+    itemId,
+    atTurn,
+    defs,
+    completionTurns
+  );
+}
+
+function refreshWorkItemResearchGate(
+  gameState: GameState,
+  item: WorkItem,
+  startTurn: number,
+  defs: Record<string, ItemDefinition>,
+  completionTurns: Map<string, number>
+): WorkItem {
+  if (item.isWait || item.itemId === '__wait__') {
+    return {
+      ...item,
+      minStartTurn: undefined,
+      scheduledResearch: undefined,
+      blockedResearch: undefined,
+    };
+  }
+
+  if (getResearchPrereqs(defs[item.itemId], defs).length === 0) {
+    return {
+      ...item,
+      minStartTurn: undefined,
+      scheduledResearch: undefined,
+      blockedResearch: undefined,
+    };
+  }
+
+  const gate = getLocalResearchGateForItemWithPlan(
+    gameState,
+    item.itemId,
+    startTurn,
+    defs,
+    completionTurns
+  );
+
+  return {
+    ...item,
+    minStartTurn: gate.scheduledResearch.length > 0 ? gate.minStartTurn : undefined,
+    scheduledResearch: gate.scheduledResearch.length > 0 ? gate.scheduledResearch : undefined,
+    blockedResearch: gate.blockedResearch.length > 0 ? gate.blockedResearch : undefined,
+  };
+}
+
+function refreshLanePlansResearchGates(
+  gameState: GameState,
+  lanePlans: Record<LaneId, WorkItem[]>,
+  startTurn: number,
+  defs: Record<string, ItemDefinition>,
+  completionTurns: Map<string, number>
+): Record<LaneId, WorkItem[]> {
+  return PLANET_LANES.reduce((plans, laneId) => {
+    plans[laneId] = lanePlans[laneId].map((item) =>
+      refreshWorkItemResearchGate(gameState, item, startTurn, defs, completionTurns)
+    );
+    return plans;
+  }, {} as Record<LaneId, WorkItem[]>);
+}
+
+function getPlanetConfigFromInitialState(planet: ExtendedPlanetState): PlanetConfig {
+  const initialState = planet.timeline?.getStateAtTurn(planet.startTurn) ?? planet;
+  return {
+    name: planet.name,
+    startTurn: planet.startTurn,
+    abundance: {
+      metal: initialState.abundance.metal,
+      mineral: initialState.abundance.mineral,
+      food: initialState.abundance.food,
+      energy: initialState.abundance.energy,
+      research_points: initialState.abundance.research_points,
+    },
+    space: {
+      groundCap: initialState.space.groundCap,
+      orbitalCap: initialState.space.orbitalCap,
+    },
+    starting: {
+      workersTotal: initialState.population.workersTotal,
+      structures: STARTING_STRUCTURE_IDS.reduce((structures, structureId) => {
+        structures[structureId] = initialState.completedCounts[structureId] ?? 0;
+        return structures;
+      }, {} as PlanetStartingSettings['structures']),
+    },
+  };
+}
+
+function createCleanPlanetBase(planet: ExtendedPlanetState): ExtendedPlanetState {
+  const defs = planet.defs || itemDefinitions;
+  const base = planet.id === 'planet-1'
+    ? createStandardStart(defs)
+    : createInitialState(defs, createStarterConfig(getPlanetConfigFromInitialState(planet)));
+
+  const extended = base as ExtendedPlanetState;
+  extended.id = planet.id;
+  extended.name = planet.name;
+  extended.startTurn = planet.startTurn;
+  extended.currentTurn = planet.startTurn;
+  return extended;
 }
 
 function resetWorkItemForStart(
@@ -215,6 +388,11 @@ export function addPlanet(gameState: GameState, config: PlanetConfig): GameState
   newPlanet.name = config.name;
   newPlanet.startTurn = config.startTurn;
   newPlanet.currentTurn = config.startTurn;
+  newPlanet.completedResearch = getCompletedResearchAtTurnFromPlan(
+    gameState,
+    getResearchCompletionTurns(gameState),
+    config.startTurn
+  );
 
   // Keep research lane but empty (for compatibility with turn engine)
   // Research is handled globally but we need the lane structure
@@ -299,11 +477,17 @@ export function updatePlanetConfig(
 
   const lanePlans = getInitialLanePlans(planet);
   const updatedPlanet = createInitialState(itemDefinitions, createStarterConfig(config)) as ExtendedPlanetState;
+  const completionTurns = getResearchCompletionTurns(gameState);
   updatedPlanet.id = planet.id;
   updatedPlanet.name = config.name;
   updatedPlanet.startTurn = config.startTurn;
   updatedPlanet.currentTurn = config.startTurn;
-  applyLanePlans(updatedPlanet, lanePlans, config.startTurn);
+  updatedPlanet.completedResearch = getCompletedResearchAtTurnFromPlan(gameState, completionTurns, config.startTurn);
+  applyLanePlans(
+    updatedPlanet,
+    refreshLanePlansResearchGates(gameState, lanePlans, config.startTurn, updatedPlanet.defs, completionTurns),
+    config.startTurn
+  );
   updatedPlanet.timeline = new Timeline(updatedPlanet);
 
   const newPlanets = new Map(gameState.planets);
@@ -312,6 +496,52 @@ export function updatePlanetConfig(
     ...gameState,
     planets: newPlanets,
     currentPlanetId: planetId,
+  };
+}
+
+export function refreshLocalResearchGates(gameState: GameState): GameState {
+  const completionTurns = getResearchCompletionTurns(gameState);
+  const newPlanets = new Map<string, ExtendedPlanetState>();
+
+  for (const [planetId, planet] of gameState.planets.entries()) {
+    const lanePlans = getInitialLanePlans(planet);
+    const refreshedStart = createCleanPlanetBase(planet);
+    refreshedStart.completedResearch = getCompletedResearchAtTurnFromPlan(
+      gameState,
+      completionTurns,
+      planet.startTurn
+    );
+
+    applyLanePlans(
+      refreshedStart,
+      refreshLanePlansResearchGates(
+        gameState,
+        lanePlans,
+        planet.startTurn,
+        refreshedStart.defs,
+        completionTurns
+      ),
+      planet.startTurn
+    );
+
+    const timeline = new Timeline(refreshedStart);
+    const currentTurn = planet.currentTurn ?? planet.startTurn;
+    const currentSnapshot = timeline.getStateAtTurn(currentTurn) ?? refreshedStart;
+    const refreshedPlanet = {
+      ...currentSnapshot,
+      id: planet.id,
+      name: planet.name,
+      startTurn: planet.startTurn,
+      currentTurn,
+      timeline,
+    } as ExtendedPlanetState;
+
+    newPlanets.set(planetId, refreshedPlanet);
+  }
+
+  return {
+    ...gameState,
+    planets: newPlanets,
   };
 }
 

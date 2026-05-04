@@ -88,6 +88,19 @@ describe('GameController queueItem research gates', () => {
     expect(controller.getStateAtTurn(6)?.lanes.building.active?.startTurn).toBe(5);
   });
 
+  test('does not trust a stale minStartTurn without a scheduled research prereq', () => {
+    const controller = createResearchGateController();
+
+    const result = controller.queueItem(1, 'advanced_structure', 1, {
+      force: true,
+      minStartTurn: 5,
+    });
+
+    expect(result.success).toBe(true);
+    expect(controller.getStateAtTurn(6)?.lanes.building.active).toBeNull();
+    expect(controller.getStateAtTurn(6)?.lanes.building.pendingQueue[0]?.itemId).toBe('advanced_structure');
+  });
+
   test('activates immediately when global research is already completed', () => {
     const controller = createResearchGateController();
 
