@@ -154,12 +154,11 @@ export async function pushHistory(encoded: string, summary: SaveSummary): Promis
     return; // nothing changed since last auto-save
   }
 
-  await store.add({
-    id: undefined as unknown as number, // autoIncrement will assign
-    savedAt: Date.now(),
-    encoded,
-    summary,
-  } as HistoryRecord);
+  // IMPORTANT: do NOT include `id` in the value — IndexedDB rejects an
+  // explicit-undefined keyPath value with DataError. The autoIncrement-only
+  // contract is "omit the field, the engine assigns one".
+  const newEntry = { savedAt: Date.now(), encoded, summary };
+  await store.add(newEntry as unknown as HistoryRecord);
 
   // Prune oldest entries beyond HISTORY_LIMIT.
   const count = await store.count();

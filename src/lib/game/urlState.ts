@@ -251,6 +251,11 @@ export class CommandHistory {
   /**
    * Load commands from a decoded snapshot (e.g. after loading from URL).
    * Rebuilds the seqId map so future cancels from this session work correctly.
+   *
+   * Handles both v1 and v2 'q' command shapes:
+   *   v1: ['q', planetIdx, turn, itemId(string), qty]   (5 elements)
+   *   v2: ['q', planetIdx, itemCode(number), qty]       (4 elements)
+   * The cmd[3] type discriminates: string => v1, number => v2.
    */
   loadFromSnapshot(cmds: CommandType[]) {
     this.commands = [];
@@ -262,11 +267,21 @@ export class CommandHistory {
         const seqId = this.nextSeqId++;
         // Items replayed from URL get deterministic IDs __s1, __s2, …
         this.entryIdToSeqId.set(`__s${seqId}`, seqId);
-        // Normalise to v2 regardless of source version
-        const itemCode = typeof cmd[3] === 'string'
-          ? V2_ITEM_CODE[cmd[3] as string] ?? -1
-          : cmd[3] as number;
-        this.commands.push(['q', cmd[1] as number, itemCode, cmd[4] as number ?? 1]);
+        let planetIdx: number;
+        let itemCode: number;
+        let qty: number;
+        if (typeof cmd[3] === 'string') {
+          // v1: cmd[3] is the string itemId, cmd[4] is qty.
+          planetIdx = cmd[1] as number;
+          itemCode = V2_ITEM_CODE[cmd[3] as string] ?? -1;
+          qty = (cmd[4] as number) ?? 1;
+        } else {
+          // v2: cmd[2] is the numeric itemCode, cmd[3] is qty.
+          planetIdx = cmd[1] as number;
+          itemCode = cmd[2] as number;
+          qty = (cmd[3] as number) ?? 1;
+        }
+        this.commands.push(['q', planetIdx, itemCode, qty]);
       } else {
         // Keep all other commands as-is (they are version-normalised during replay)
         this.commands.push(cmd as V2CommandType);

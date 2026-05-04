@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { GameController } from '../lib/game/commands';
 import { createInitialGameState, addPlanet, switchPlanet, getCurrentPlanet, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
 import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns, getFirstFreeTurnForLane, getFirstFreeTurnForResearch } from '../lib/game/selectors';
@@ -44,9 +44,15 @@ export default function Home() {
   const [commandHistory] = useState(() => new CommandHistory());
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [isMounted, setIsMounted] = useState(false);
+  // Bootstrap-once guard: React StrictMode runs effects twice in dev; we only
+  // want to restore state on the first mount, otherwise the second run replays
+  // commands on top of the already-restored state and double-counts everything.
+  const bootstrappedRef = useRef(false);
 
   useEffect(() => {
     setIsMounted(true);
+    if (bootstrappedRef.current) return;
+    bootstrappedRef.current = true;
 
     // Load state from URL or LocalStorage after hydration
     let urlSnapshot = loadStateFromURL();
@@ -67,14 +73,19 @@ export default function Home() {
     }
 
     if (urlSnapshot && urlSnapshot.cmds.length > 0) {
-      // Reconstruct state by replaying commands
-      const state = replayCommands(createInitialGameState(), urlSnapshot.cmds);
-
-      // Restore command history (rebuilds seqId map so future cancels work)
+      // Replay commands into the EXISTING gameState (mutates planet timelines
+      // in place). The memoized controller is bound to that same timeline, so
+      // it'll pick up the queued items without needing to recreate.
+      //
+      // CRITICAL: side-effects (replayCommands, loadFromSnapshot) must run
+      // OUTSIDE the setState updater — React StrictMode invokes updaters
+      // twice in dev to detect impurity, which would queue every command
+      // twice with duplicate deterministic IDs. Updater stays pure.
+      replayCommands(gameState, urlSnapshot.cmds);
       commandHistory.loadFromSnapshot(urlSnapshot.cmds);
-
-      setGameState(state);
+      setGameState((current) => ({ ...current, planets: new Map(current.planets) }));
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [commandHistory]);
 
   const [showAddPlanetModal, setShowAddPlanetModal] = useState(false);
@@ -113,6 +124,8 @@ export default function Home() {
   // Initialize controller for the current planet (for timeline/turn management).
   // Intentionally depends only on currentPlanetId — recreating on every planet-state
   // change would discard the controller's internal timeline cache (very expensive).
+  // Bootstrap restoration (URL/localStorage) mutates this controller's timeline
+  // in-place so the cache stays valid; see the bootstrap useEffect below.
   const controller = useMemo(() => {
     if (!currentPlanet || !currentPlanet.timeline) {
       return null;
@@ -994,7 +1007,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.0</div>
+          <div className="opacity-30 text-[10px]">v0.2.1</div>
         </footer>
       </div>
 

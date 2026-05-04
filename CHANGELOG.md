@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.1] — 2026-05-04
+
+Fixes for two regressions reported against v0.2.0's saves pass.
+
+### Fixed
+- **Auto-save history was always empty** ("No auto-save history yet" in the History tab even after queue changes). `pushHistory` in `savesDb.ts` was calling `store.add({ id: undefined, ... })` on the autoIncrement+keyPath history store. IndexedDB's spec rejects an explicit-undefined keyPath value with `DataError: Evaluating the object store's key path yielded a value that is not a valid key.` — for autoIncrement stores you must omit the field entirely. The error was swallowed by the call site's `.catch(console.warn)`, so the history just silently stayed empty. Fixed by stripping `id` from the value passed to `add()`.
+- **Queue did not restore on refresh** even though the URL hash and localStorage held the right encoded payload. Two bugs stacked:
+  1. `CommandHistory.loadFromSnapshot` in `urlState.ts` read v2 'q' commands with v1 indices: it used `cmd[3]` for itemCode (which is the qty in v2) and `cmd[4]` for qty (which is undefined in v2). Result: every queued item got rewritten as item code = qty. A queued Farm (item 11, qty 1) became `["q", 0, 1, 1]` (battleship) on reload, then failed the prereq check and silently dropped. Fixed by branching on `typeof cmd[3]` and reading the right indices for each format.
+  2. The bootstrap `useEffect` in `page.tsx` called `replayCommands(createInitialGameState(), ...)` — a *fresh* game state with a *new* planet/timeline. The memoized `controller` (deps `[currentPlanetId]`) stayed bound to the *original* planet from `useState`'s initializer, never seeing the replayed mutations. Bootstrap now replays into the existing `gameState` so the controller's timeline gets mutated in place. Side-effects (`replayCommands`, `commandHistory.loadFromSnapshot`) are kept *outside* the `setGameState` updater — React StrictMode invokes updaters twice in dev to detect impurity, which had been queueing every command twice with duplicate deterministic IDs (`__s1` collision, console warning).
+
+### Bumped
+- `package.json` and `src/app/page.tsx` footer from `0.2.0` to `0.2.1`.
+
+---
+
 ## [0.2.0] — 2026-05-03
 
 A persistence + PWA pass — the app now installs to your home screen, works offline once visited, and remembers multiple plans across sessions.
