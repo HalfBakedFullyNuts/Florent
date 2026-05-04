@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.11: Shared opened timestamps.**
+Shared build lists now display their opened date and time in selector/modal labels and are rendered newest-first so same-name shares remain distinguishable.
+
 **2026-05-04 — v0.2.10: Local build visibility.**
 The Build List selector now treats recent non-shared auto-saves as your local builds, refreshes when saves change, and lets those local entries be deleted from the selector.
 

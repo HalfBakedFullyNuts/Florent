@@ -13,6 +13,7 @@ import {
   type SaveRecord,
   type SharedRecord,
 } from '../lib/persistence/savesDb';
+import { formatOpenedTimestamp } from '../lib/persistence/saveLabels';
 
 type BuildListOption =
   | { kind: 'history'; id: string; label: string; record: HistoryRecord }
@@ -56,7 +57,7 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
         .slice(0, RECENT_LOCAL_LIMIT);
       setRecentLocalLists(recentOwnedHistory);
       setOwnLists(own);
-      setSharedLists(shared);
+      setSharedLists([...shared].sort((a, b) => b.openedAt - a.openedAt));
     } catch (e) {
       setError((e as Error).message || 'Could not load build lists');
     } finally {
@@ -89,7 +90,7 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
     const shared = sharedLists.map((record): BuildListOption => ({
       kind: 'shared',
       id: record.id,
-      label: `${record.name} by ${record.author}`,
+      label: buildSharedLabel(record),
       record,
     }));
     return [...recentLocal, ...own, ...shared];
@@ -167,7 +168,7 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
               <optgroup label="Shared lists cached on this device">
                 {sharedLists.map((list) => (
                   <option key={list.id} value={`shared:${list.id}`}>
-                    {list.name} by {list.author}
+                    {buildSharedLabel(list)}
                   </option>
                 ))}
               </optgroup>
@@ -202,7 +203,7 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
         {selected && (
           <div className="mt-2 text-xs text-pink-nebula-muted">
             {selected.kind === 'shared'
-              ? `Shared cached list: ${selected.record.name} by ${selected.record.author}`
+              ? `Shared cached list: ${selected.record.name} by ${selected.record.author}; opened ${formatOpenedTimestamp(selected.record.openedAt)}`
               : selected.kind === 'history'
                 ? `Your recent local build: ${selected.record.summary.planetNames || 'local build'}`
                 : `Your saved list: ${selected.label}`}
@@ -221,4 +222,8 @@ function optionKey(option: BuildListOption): string {
 function buildRecentLocalLabel(record: HistoryRecord): string {
   const planets = record.summary.planetNames || 'local build';
   return `Recent local build - ${planets} (${new Date(record.savedAt).toLocaleString()})`;
+}
+
+function buildSharedLabel(record: SharedRecord): string {
+  return `${record.name} by ${record.author} - opened ${formatOpenedTimestamp(record.openedAt)}`;
 }

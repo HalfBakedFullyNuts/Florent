@@ -6,6 +6,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.11] — 2026-05-04
+
+### Fixed
+- Cached shared build lists now show an explicit opened date - time timestamp in the Build List selector and Shared saves tab.
+- Shared build lists are defensively sorted newest-first by opened timestamp before rendering.
+
+### Tests
+- Added selector coverage for newest-first shared-list ordering and timestamped shared labels.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.11`.
+
+---
+
 ## [0.2.10] — 2026-05-04
 
 ### Fixed

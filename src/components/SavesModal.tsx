@@ -20,6 +20,7 @@ import {
   parseSaveFile,
   buildDefaultFilename,
 } from '../lib/persistence/saveFile';
+import { formatOpenedTimestamp } from '../lib/persistence/saveLabels';
 
 type Tab = 'saves' | 'shared' | 'history' | 'import';
 
@@ -54,7 +55,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
     try {
       const [s, sharedLinks, h] = await Promise.all([listSaves(), listShared(), listHistory()]);
       setSaves(s);
-      setShared(sharedLinks);
+      setShared([...sharedLinks].sort((a, b) => b.openedAt - a.openedAt));
       setHistory(h);
     } catch (e) {
       setError((e as Error).message || 'Failed to read saves');
@@ -336,7 +337,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
                       <div className="text-xs text-blue-200/80">Shared by {s.author}</div>
                     </div>
                     <div className="text-xs text-pink-nebula-muted whitespace-nowrap">
-                      {new Date(s.openedAt).toLocaleString()}
+                      Opened {formatOpenedTimestamp(s.openedAt)}
                     </div>
                   </div>
                   <SummaryLine summary={s.summary} />
