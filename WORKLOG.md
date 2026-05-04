@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.16: Desktop dashboard table repair.**
+The mobile dashboard alignment pass now has explicit desktop breakpoints for the Buildings table. Phones keep the compact proportional columns that prevent Energy values from clipping, while desktop restores the roomier fixed-width table behavior so building names and resource columns do not get squeezed inside the four-card overview.
+
 **2026-05-04 — v0.2.15: Mobile alignment pass.**
 Mobile layout now uses explicit grids where free-wrapping flex rows had made controls drift out of alignment. Planet tabs keep Homeworld/Add Planet in a two-column rhythm and give Reset Queue its own full row, while timeline quick jumps split Start/Mid/End and lane-empty shortcuts into separate aligned rows. The planet dashboard now shares the same mobile gutters as the rest of the page, and the Buildings table uses proportional columns so energy values are not clipped on narrow screens.
 

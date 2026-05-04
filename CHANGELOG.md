@@ -6,6 +6,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.16] — 2026-05-04
+
+### Fixed
+- Desktop dashboard Buildings tables now restore roomier fixed column sizing at medium-and-up breakpoints while keeping the compact proportional mobile layout.
+- Long building names no longer inherit the mobile wrapping pressure on desktop, keeping the four-card dashboard readable again.
+
+### Tests
+- Re-verified PlanetDashboard, build-list selector, Saves modal, Export modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.16`.
+
+---
+
 ## [0.2.15] — 2026-05-04
 
 ### Fixed
