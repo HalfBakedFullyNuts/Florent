@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.8: Build-list selector.**
+The main page now has a local build-list selector that separates your named saves from shared lists cached after opening links, with load/delete controls for both categories.
+
 **2026-05-04 — v0.2.7: Shared-list identity.**
 Share links now carry list name and author metadata, opened shared links show a clear shared-list banner, and the Saves modal keeps other players' lists in a separate Shared tab.
 

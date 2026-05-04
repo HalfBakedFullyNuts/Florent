@@ -50,6 +50,7 @@ import { AddPlanetModal, type PlanetConfig } from '../components/AddPlanetModal'
 import { Card } from '@/components/ui/card';
 import { DependencyWarningModal } from '../components/DependencyWarningModal';
 import { SavesModal } from '../components/SavesModal';
+import { BuildListSelector } from '../components/BuildListSelector';
 
 // Persistence
 import { pushHistory, migrateLegacyLocalStorage, saveSharedLink } from '../lib/persistence/savesDb';
@@ -1134,6 +1135,8 @@ export default function Home() {
           <h1 className="text-lg md:text-2xl font-bold tracking-wide">Infinite Conflict Simulator</h1>
         </header>
 
+        <BuildListSelector onRestore={handleRestoreSave} />
+
         {/* Planet Tabs - Multi-planet navigation */}
         <div className="px-3 md:px-6 py-2">
           <PlanetTabs
@@ -1334,7 +1337,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.7</div>
+          <div className="opacity-30 text-[10px]">v0.2.8</div>
         </footer>
       </div>
 

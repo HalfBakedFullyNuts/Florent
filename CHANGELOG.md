@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.8] — 2026-05-04
+
+### Added
+- Main-page Build List selector for loading local named saves and shared lists cached from opened share links.
+- Selector clearly separates "Your lists" from "Shared lists cached on this device" and notes that shared lists are local cache only.
+- Delete action in the selector removes either owned saves or cached shared lists from this device.
+
+### Tests
+- Added component coverage for owned/shared list display, shared-list load, and owned-list delete.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.8`.
+
+---
+
 ## [0.2.7] — 2026-05-04
 
 ### Added
