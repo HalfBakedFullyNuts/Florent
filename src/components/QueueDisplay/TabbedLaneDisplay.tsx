@@ -22,6 +22,7 @@ export interface TabbedLaneDisplayProps {
   activeTab?: LaneId;
   onTabChange?: (tab: LaneId) => void;
   onTurnClick?: (turn: number) => void;
+  maxTurn?: number;
 }
 
 /**
@@ -44,6 +45,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   activeTab: externalActiveTab,
   onTabChange,
   onTurnClick,
+  maxTurn = 199,
 }: TabbedLaneDisplayProps) {
   const [internalActiveTab, setInternalActiveTab] = useState<LaneId>('building');
   const [draggedItem, setDraggedItem] = useState<{ laneId: LaneId; entryId: string } | null>(null);
@@ -260,6 +262,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                       def={def}
                       busyWorkers={busyWorkers}
                       onTurnClick={onTurnClick}
+                      maxTurn={maxTurn}
                     />
                   </div>
                 </div>

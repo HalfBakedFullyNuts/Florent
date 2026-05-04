@@ -146,7 +146,7 @@ export function TabbedItemGrid({
       case 'mineral': return 'text-red-500'; // red
       case 'food': return 'text-green-500'; // green
       case 'energy': return 'text-blue-400'; // blue
-      case 'research_points': return 'text-purple-400';
+      case 'research_points': return 'text-yellow-400';
       case 'workers': return 'text-orange-400'; // orange
       case 'ground_space': return 'text-amber-600'; // brown
       case 'orbital_space': return 'text-blue-600'; // blue

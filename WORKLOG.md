@@ -7,6 +7,22 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ---
 
+## May 2026 — Global research and colony-start controls
+
+**2026-05-04 — v0.2.3: Stable global research timing projections.**
+Research lane display now runs the global research planner far enough to compute actual RP-gated start and completion turns, including long waits beyond the visible 200-turn simulator, so clicking a completion turn no longer changes the displayed schedule.
+
+**2026-05-04 — v0.2.2: Reset Queue clears added planets.**
+The Reset Queue button now returns planning to Homeworld only, removing added planet tabs and resetting the home queue while preserving the command-replay semantics through a dedicated reset-all command.
+
+**2026-05-04 — v0.2.1: Global research + configurable added planets.**
+Research points moved from planet-local stock to global session state, while scientists and unique research labs remain planet-local. PL research now acts as the true global planet-limit gate, the research lane renders consistently regardless of active planet, and added planets can be configured with starting population plus starting metal mines, mineral extractors, farms, and solar generators.
+
+**2026-05-04 — Queue chronology regression fix.**
+Normal planet queues once again render from the simulated future snapshot so local prerequisite stalls display correctly. Lane views keep chronological ordering internally, while the UI still shows latest/future entries first.
+
+---
+
 ## October 2025 — Bootstrap and architecture
 
 **2025-10-09 — Initial commit (`6c330af`).**

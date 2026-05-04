@@ -13,9 +13,14 @@
  */
 
 import LZString from 'lz-string';
-import { GameState, PlanetConfig, addPlanet } from './gameState';
-import { GameController, queueResearch } from './commands';
+import { GameState, PlanetConfig, addPlanet, resetToHomeworld, updatePlanetConfig } from './gameState';
+import { GameController } from './commands';
+import { cancelGlobalResearch, queueGlobalResearch, queueGlobalResearchWait, reorderGlobalResearch } from './globalResearch';
 import { LaneId } from '../sim/engine/types';
+import {
+  DEFAULT_ADDED_PLANET_STARTING,
+  normalizePlanetStarting,
+} from '../constants/planet';
 
 const STATE_VERSION_V1 = 1;
 const STATE_VERSION_V2 = 2;
@@ -74,6 +79,42 @@ const V2_ITEM_IDS: readonly string[] = [
   'strip_mineral_extractor', // 47
   'trader',                  // 48
   'worker',                  // 49
+  'planet_management',       // 50
+  'resource_collection',     // 51
+  'fleet_technology',        // 52
+  'pl_6',                    // 53
+  'pl_8',                    // 54
+  'pl_10',                   // 55
+  'pl_12',                   // 56
+  'pl_14',                   // 57
+  'pl_16',                   // 58
+  'pl_18',                   // 59
+  'pl_20',                   // 60
+  'pl_22',                   // 61
+  'pl_24',                   // 62
+  'merchant_research',       // 63
+  'trader_research',         // 64
+  'war_ship_design',         // 65
+  'warp_theory',             // 66
+  'destroyer_research',      // 67
+  'cruiser_research',        // 68
+  'battleship_research',     // 69
+  'hyperspace_beacon_research', // 70
+  'jump_gate_research',      // 71
+  'core_metal_mine_research', // 72
+  'core_mineral_extractor_research', // 73
+  'hydroponics_lab_research', // 74
+  'solar_array_research',    // 75
+  'mass_production',         // 76
+  'land_enhancement',        // 77
+  'metal_refinery_research', // 78
+  'mineral_processor_research', // 79
+  'food_purifier_research',  // 80
+  'energy_booster_research', // 81
+  'strip_metal_mine_research', // 82
+  'strip_mineral_extractor_research', // 83
+  'hydroponics_dome_research', // 84
+  'solar_station_research',  // 85
 ];
 
 const V2_ITEM_CODE: Record<string, number> = Object.fromEntries(
@@ -90,6 +131,13 @@ const V2_LANE_DEC: Record<string, LaneId> = {
 // Default planet values — omitted from v2 URL to save space
 const DEFAULT_ABUNDANCE = [1, 1, 1, 1, 1];
 const DEFAULT_SPACE: [number, number] = [60, 40];
+const DEFAULT_STARTING_POP = DEFAULT_ADDED_PLANET_STARTING.workersTotal;
+const DEFAULT_STARTING_STRUCTURES: [number, number, number, number] = [
+  DEFAULT_ADDED_PLANET_STARTING.structures.metal_mine,
+  DEFAULT_ADDED_PLANET_STARTING.structures.mineral_extractor,
+  DEFAULT_ADDED_PLANET_STARTING.structures.farm,
+  DEFAULT_ADDED_PLANET_STARTING.structures.solar_generator,
+];
 
 // ---------------------------------------------------------------------------
 // Command types
@@ -104,6 +152,7 @@ type V1CommandType =
   | ['p', V1CompactPlanetConfig]
   | ['s', number]
   | ['qr', string]
+  | ['qw', number]
   | ['reset', number];
 
 // v2 format
@@ -112,8 +161,11 @@ type V2CommandType =
   | ['c', number, string, number]           // cancel: planetIdx, laneCode, seqId
   | ['r', number, string, number, number]   // reorder: planetIdx, laneCode, seqId, newIdx
   | ['p', V2CompactPlanetConfig]            // add planet
+  | ['ep', number, V2CompactPlanetConfig]   // edit planet: planetIdx, config
   | ['s', number]                           // switch planet
   | ['qr', number]                          // queue research: itemCode
+  | ['qw', number]                          // queue research wait: turns
+  | ['xa']                                  // reset all additional planets and home queue
   | ['x', number];                          // reset: planetIdx
 
 // Union used at runtime
@@ -123,7 +175,7 @@ interface V1CompactPlanetConfig {
   n: string; t: number; a: number[]; s: [number, number];
 }
 interface V2CompactPlanetConfig {
-  n: string; a?: number[]; s?: [number, number];
+  n: string; st?: number; a?: number[]; s?: [number, number]; p?: number; b?: [number, number, number, number];
 }
 
 interface GameSnapshot {
@@ -138,6 +190,7 @@ interface GameSnapshot {
 
 function compactPlanetConfigV2(config: PlanetConfig): V2CompactPlanetConfig {
   const compact: V2CompactPlanetConfig = { n: config.name };
+  if (config.startTurn !== 1) compact.st = config.startTurn;
   const a = [
     config.abundance.metal, config.abundance.mineral,
     config.abundance.food, config.abundance.energy,
@@ -146,20 +199,39 @@ function compactPlanetConfigV2(config: PlanetConfig): V2CompactPlanetConfig {
   if (a.some((v, i) => v !== DEFAULT_ABUNDANCE[i])) compact.a = a;
   const s: [number, number] = [config.space.groundCap, config.space.orbitalCap];
   if (s[0] !== DEFAULT_SPACE[0] || s[1] !== DEFAULT_SPACE[1]) compact.s = s;
+  const starting = normalizePlanetStarting(config.starting);
+  if (starting.workersTotal !== DEFAULT_STARTING_POP) compact.p = starting.workersTotal;
+  const b: [number, number, number, number] = [
+    starting.structures.metal_mine,
+    starting.structures.mineral_extractor,
+    starting.structures.farm,
+    starting.structures.solar_generator,
+  ];
+  if (b.some((v, i) => v !== DEFAULT_STARTING_STRUCTURES[i])) compact.b = b;
   return compact;
 }
 
 function expandPlanetConfigV2(compact: V2CompactPlanetConfig): PlanetConfig {
   const a = compact.a ?? DEFAULT_ABUNDANCE;
   const s = compact.s ?? DEFAULT_SPACE;
+  const b = compact.b ?? DEFAULT_STARTING_STRUCTURES;
   return {
     name: compact.n,
-    startTurn: 1,
+    startTurn: compact.st ?? 1,
     abundance: {
       metal: a[0], mineral: a[1], food: a[2],
       energy: a[3], research_points: a[4],
     },
     space: { groundCap: s[0], orbitalCap: s[1] },
+    starting: {
+      workersTotal: compact.p ?? DEFAULT_STARTING_POP,
+      structures: {
+        metal_mine: b[0],
+        mineral_extractor: b[1],
+        farm: b[2],
+        solar_generator: b[3],
+      },
+    },
   };
 }
 
@@ -172,6 +244,7 @@ function expandPlanetConfigV1(compact: V1CompactPlanetConfig): PlanetConfig {
       energy: compact.a[3], research_points: compact.a[4],
     },
     space: { groundCap: compact.s[0], orbitalCap: compact.s[1] },
+    starting: normalizePlanetStarting(),
   };
 }
 
@@ -227,21 +300,37 @@ export class CommandHistory {
     this.commands.push(['p', compactPlanetConfigV2(config)]);
   }
 
+  recordEditPlanet(planetIdx: number, config: PlanetConfig) {
+    this.commands.push(['ep', planetIdx, compactPlanetConfigV2(config)]);
+  }
+
   recordSwitchPlanet(planetIdx: number) {
     this.commands.push(['s', planetIdx]);
   }
 
-  recordQueueResearch(itemId: string) {
+  recordQueueResearch(itemId: string, entryId: string) {
     const itemCode = V2_ITEM_CODE[itemId];
     if (itemCode === undefined) {
       console.warn(`[CommandHistory] Unknown research item: ${itemId}`);
       return;
     }
+    const seqId = this.nextSeqId++;
+    this.entryIdToSeqId.set(entryId, seqId);
     this.commands.push(['qr', itemCode]);
+  }
+
+  recordQueueResearchWait(turns: number, entryId: string) {
+    const seqId = this.nextSeqId++;
+    this.entryIdToSeqId.set(entryId, seqId);
+    this.commands.push(['qw', turns]);
   }
 
   recordReset(planetIdx: number) {
     this.commands.push(['x', planetIdx]);
+  }
+
+  recordResetAllPlanets() {
+    this.commands.push(['xa']);
   }
 
   getCommands(): V2CommandType[] {
@@ -282,6 +371,10 @@ export class CommandHistory {
           qty = (cmd[3] as number) ?? 1;
         }
         this.commands.push(['q', planetIdx, itemCode, qty]);
+      } else if (cmd[0] === 'qr' || cmd[0] === 'qw') {
+        const seqId = this.nextSeqId++;
+        this.entryIdToSeqId.set(`__s${seqId}`, seqId);
+        this.commands.push(cmd as V2CommandType);
       } else {
         // Keep all other commands as-is (they are version-normalised during replay)
         this.commands.push(cmd as V2CommandType);
@@ -414,7 +507,7 @@ export function replayCommands(
           const planet = gameState.planets.get(planetId);
           if (planet?.timeline) {
             const controller = new GameController(planet, planet.timeline);
-            controller.queueItem(1, itemId, qty, { preserveId: deterministicId });
+            controller.queueItem(planet.startTurn, itemId, qty, { preserveId: deterministicId });
           }
           break;
         }
@@ -432,6 +525,11 @@ export function replayCommands(
             planetIdx = cmd[1] as number;
           }
           if (!entryId) break;
+
+          if (laneId === 'research') {
+            gameState = cancelGlobalResearch(gameState, entryId);
+            break;
+          }
 
           const planetId = Array.from(gameState.planets.keys())[planetIdx];
           const planet = gameState.planets.get(planetId);
@@ -452,11 +550,16 @@ export function replayCommands(
           const entryId = seqToEntryId.get(seqId) ?? '';
           if (!entryId) break;
 
+          if (laneId === 'research') {
+            gameState = reorderGlobalResearch(gameState, entryId, newIdx);
+            break;
+          }
+
           const planetId = Array.from(gameState.planets.keys())[planetIdx];
           const planet = gameState.planets.get(planetId);
           if (planet?.timeline) {
             const controller = new GameController(planet, planet.timeline);
-            controller.reorderQueueItem(1, laneId, entryId, newIdx);
+            controller.reorderQueueItem(planet.startTurn, laneId, entryId, newIdx);
           }
           break;
         }
@@ -470,6 +573,16 @@ export function replayCommands(
           break;
         }
 
+        case 'ep': {
+          const planetIdx = cmd[1] as number;
+          const rawConfig = cmd[2] as V2CompactPlanetConfig;
+          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          if (planetId) {
+            gameState = updatePlanetConfig(gameState, planetId, expandPlanetConfigV2(rawConfig));
+          }
+          break;
+        }
+
         case 's': {
           const planetIdx = cmd[1] as number;
           const planetId = Array.from(gameState.planets.keys())[planetIdx];
@@ -478,11 +591,23 @@ export function replayCommands(
         }
 
         case 'qr': {
+          seqCounter++;
+          const deterministicId = `__s${seqCounter}`;
+          seqToEntryId.set(seqCounter, deterministicId);
           const itemRef = cmd[1];
           const itemId = typeof itemRef === 'number'
             ? V2_ITEM_IDS[itemRef] ?? ''
             : itemRef as string;
-          if (itemId) gameState = queueResearch(gameState, itemId);
+          if (itemId) gameState = queueGlobalResearch(gameState, itemId, deterministicId);
+          break;
+        }
+
+        case 'qw': {
+          seqCounter++;
+          const deterministicId = `__s${seqCounter}`;
+          seqToEntryId.set(seqCounter, deterministicId);
+          const turns = cmd[1] as number;
+          gameState = queueGlobalResearchWait(gameState, turns, deterministicId);
           break;
         }
 
@@ -495,6 +620,11 @@ export function replayCommands(
             const controller = new GameController(planet, planet.timeline);
             controller.resetQueue();
           }
+          break;
+        }
+
+        case 'xa': {
+          gameState = resetToHomeworld(gameState);
           break;
         }
 
@@ -514,21 +644,33 @@ export function replayCommands(
 // ---------------------------------------------------------------------------
 
 export function extractPlanetConfigs(gameState: GameState): PlanetConfig[] {
-  return Array.from(gameState.planets.values()).map(planet => ({
-    name: planet.name,
-    startTurn: planet.startTurn,
-    abundance: {
-      metal: planet.abundance?.metal ?? 1,
-      mineral: planet.abundance?.mineral ?? 1,
-      food: planet.abundance?.food ?? 1,
-      energy: planet.abundance?.energy ?? 1,
-      research_points: planet.abundance?.research_points ?? 1,
-    },
-    space: {
-      groundCap: planet.space?.groundCap ?? 60,
-      orbitalCap: planet.space?.orbitalCap ?? 40,
-    },
-  }));
+  return Array.from(gameState.planets.values()).map(planet => {
+    const initialState = planet.timeline?.getStateAtTurn(planet.startTurn) ?? planet;
+    return {
+      name: planet.name,
+      startTurn: planet.startTurn,
+      abundance: {
+        metal: initialState.abundance?.metal ?? 1,
+        mineral: initialState.abundance?.mineral ?? 1,
+        food: initialState.abundance?.food ?? 1,
+        energy: initialState.abundance?.energy ?? 1,
+        research_points: initialState.abundance?.research_points ?? 1,
+      },
+      space: {
+        groundCap: initialState.space?.groundCap ?? 60,
+        orbitalCap: initialState.space?.orbitalCap ?? 40,
+      },
+      starting: {
+        workersTotal: initialState.population?.workersTotal ?? DEFAULT_STARTING_POP,
+        structures: {
+          metal_mine: initialState.completedCounts?.metal_mine ?? 0,
+          mineral_extractor: initialState.completedCounts?.mineral_extractor ?? 0,
+          farm: initialState.completedCounts?.farm ?? 0,
+          solar_generator: initialState.completedCounts?.solar_generator ?? 0,
+        },
+      },
+    };
+  });
 }
 
 export function getPlanetIndex(gameState: GameState, planetId: string): number {

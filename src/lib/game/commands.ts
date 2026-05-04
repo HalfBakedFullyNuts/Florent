@@ -42,7 +42,12 @@ export class GameController {
    * Queue an item in a lane at specific turn
    * Validates prerequisites and energy forward-check before queueing
    */
-  queueItem(turn: number, itemId: string, requestedQty: number, options?: { force?: boolean; preserveId?: string }): QueueResult {
+  queueItem(
+    turn: number,
+    itemId: string,
+    requestedQty: number,
+    options?: { force?: boolean; preserveId?: string; minStartTurn?: number; completedResearch?: string[] }
+  ): QueueResult {
     const state = this.timeline.getStateAtTurn(turn);
     if (!state) {
       return { success: false, reason: 'INVALID_LANE' };
@@ -64,7 +69,10 @@ export class GameController {
       }
 
       // Validate queue operation
-      const validation = canQueue(state, def, requestedQty);
+      const validationState = options?.completedResearch
+        ? { ...state, completedResearch: Array.from(new Set([...(state.completedResearch || []), ...options.completedResearch])) }
+        : state;
+      const validation = canQueue(validationState, def, requestedQty);
       if (!validation.allowed) {
         return { success: false, reason: validation.reason };
       }
@@ -83,6 +91,7 @@ export class GameController {
       status: 'pending' as const,
       turnsRemaining: def.durationTurns,
       queuedTurn: turn,
+      minStartTurn: options?.minStartTurn,
     };
 
     // Push to queue, then eagerly activate so costs appear on the current turn.
@@ -314,7 +323,7 @@ export class GameController {
    * in completionHistory and returns NOT_FOUND.
    */
   cancelPlannedItem(laneId: LaneId, entryId: string): CancelResult {
-    const turn = this.timeline.getStateAtTurn(1)?.currentTurn ?? 1;
+    const turn = this.timeline.getInitialTurn();
     const state = this.timeline.getStateAtTurn(turn);
     if (!state) return { success: false, reason: 'INVALID_TURN' };
 
@@ -792,7 +801,7 @@ export class GameController {
    * preserving the planet's startTurn so timeline offsets stay correct.
    */
   resetQueue(): boolean {
-    const state = this.timeline.getStateAtTurn(1);
+    const state = this.timeline.getStateAtTurn(this.timeline.getInitialTurn());
     if (!state) return false;
 
     // Build a fresh starting state using the same item definitions
@@ -851,6 +860,7 @@ export class GameController {
 // ============================================================================
 
 import type { GameState, ExtendedPlanetState } from './gameState';
+import { queueGlobalResearch } from './globalResearch';
 
 /**
  * Queue a building on a specific planet
@@ -932,129 +942,9 @@ export function advanceTurnForPlanet(
   };
 }
 
-/**
- * Calculate the earliest turn when research can start based on RP accumulation
- */
-function calculateEarliestResearchTurn(
-  gameState: GameState,
-  rpCost: number,
-  currentTurn: number
-): number {
-  // Sum current RP across all planets
-  let totalRP = 0;
-  let totalScientists = 0;
-
-  for (const planet of Array.from(gameState.planets.values())) {
-    totalRP += planet.stocks.research_points || 0;
-    totalScientists += planet.population.scientists || 0;
-  }
-
-  // If we already have enough RP, start now
-  if (totalRP >= rpCost) {
-    return currentTurn;
-  }
-
-  // If no scientists, research can never start
-  if (totalScientists === 0) {
-    throw new Error('No scientists available to generate research points');
-  }
-
-  // Calculate turns needed to accumulate enough RP
-  // Each scientist produces 1 RP per turn
-  const rpNeeded = rpCost - totalRP;
-  const turnsNeeded = Math.ceil(rpNeeded / totalScientists);
-
-  return currentTurn + turnsNeeded;
-}
-
-/**
- * Queue research (global queue)
- * Automatically schedules research for the earliest turn when enough RP is available
- */
 export function queueResearch(
   gameState: GameState,
   itemId: string
 ): GameState {
-  // Check if any planet has prerequisites
-  let hasPrereqs = false;
-  let totalScientists = 0;
-
-  for (const planet of Array.from(gameState.planets.values())) {
-    if (planet.completedCounts['lab'] > 0 && planet.population.scientists > 0) {
-      hasPrereqs = true;
-    }
-    totalScientists += planet.population.scientists || 0;
-  }
-
-  if (!hasPrereqs) {
-    throw new Error('No planet has lab and scientists for research');
-  }
-
-  if (totalScientists === 0) {
-    throw new Error('No scientists available to generate research points');
-  }
-
-  // Get research definition
-  const def = gameState.planets.values().next().value?.defs[itemId];
-  if (!def) {
-    throw new Error(`Research ${itemId} not found`);
-  }
-
-  // Calculate earliest turn when research can start
-  const cost = def.costsPerUnit?.research_points || 0;
-  const currentPlanet = gameState.planets.get(gameState.currentPlanetId);
-  const currentTurn = currentPlanet?.currentTurn || 1;
-  const earliestTurn = calculateEarliestResearchTurn(gameState, cost, currentTurn);
-
-  // Deduct research points from planets (prioritize highest stock)
-  let remainingCost = cost;
-  const sortedPlanets = Array.from(gameState.planets.values()).sort(
-    (a, b) => (b.stocks.research_points || 0) - (a.stocks.research_points || 0)
-  );
-
-  const newPlanets = new Map(gameState.planets);
-  for (const planet of sortedPlanets) {
-    if (remainingCost <= 0) break;
-
-    const planetRP = planet.stocks.research_points || 0;
-    const deduction = Math.min(planetRP, remainingCost);
-
-    const updatedPlanet = { ...planet };
-    updatedPlanet.stocks.research_points = planetRP - deduction;
-    newPlanets.set(planet.id, updatedPlanet);
-
-    remainingCost -= deduction;
-  }
-
-  // Add to global research queue with calculated start turn
-  const workItem = {
-    id: generateWorkItemId(),
-    itemId,
-    status: 'pending' as const,
-    quantity: 1,
-    turnsRemaining: def.durationTurns,
-    queuedTurn: earliestTurn, // Queue for earliest possible turn
-  };
-
-  // Log the scheduling decision
-  if (earliestTurn > currentTurn) {
-    getLogger().logQueueOperation(
-      currentTurn,
-      'queue',
-      'research',
-      itemId,
-      def.name,
-      1,
-      `Scheduled for turn ${earliestTurn} (waiting for ${cost - remainingCost} RP, ${totalScientists} scientists producing ${totalScientists} RP/turn)`
-    );
-  }
-
-  return {
-    ...gameState,
-    planets: newPlanets,
-    globalResearch: {
-      ...gameState.globalResearch,
-      queue: [...gameState.globalResearch.queue, workItem],
-    },
-  };
+  return queueGlobalResearch(gameState, itemId);
 }

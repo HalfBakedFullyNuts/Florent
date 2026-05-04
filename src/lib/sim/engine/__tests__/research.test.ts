@@ -208,14 +208,14 @@ describe('Research System', () => {
   });
 
   describe('Research Points Production', () => {
-    it('should produce 1 RP per scientist per turn', () => {
+    it('should not bank scientist RP on the local planet', () => {
       const initialRP = state.stocks.research_points;
       const scientists = state.population.scientists;
 
       runTurn(state, buffer);
 
-      // Each scientist produces 1 RP per turn
-      expect(state.stocks.research_points).toBe(initialRP + scientists);
+      expect(scientists).toBeGreaterThan(0);
+      expect(state.stocks.research_points).toBe(initialRP);
     });
 
     it('should not produce RP when no scientists', () => {
@@ -233,7 +233,7 @@ describe('Research System', () => {
 
       runTurn(state, buffer);
 
-      expect(state.stocks.research_points).toBe(initialRP + 50);
+      expect(state.stocks.research_points).toBe(initialRP);
     });
 
     it('should accumulate RP over multiple turns', () => {
@@ -244,7 +244,8 @@ describe('Research System', () => {
       runTurn(state, buffer);
       runTurn(state, buffer);
 
-      expect(state.stocks.research_points).toBe(initialRP + scientists * 3);
+      expect(scientists).toBeGreaterThan(0);
+      expect(state.stocks.research_points).toBe(initialRP);
     });
   });
 
@@ -452,8 +453,9 @@ describe('Research System', () => {
         runTurn(state, buffer);
       }
 
-      // Should have 100 RP (20 scientists * 5 turns)
-      expect(state.stocks.research_points).toBe(100);
+      // Planet-local RP stays at 0; global research owns the real RP bank.
+      expect(state.stocks.research_points).toBe(0);
+      state.stocks.research_points = 100;
 
       // Queue test_research_1
       const canQueueResult = canQueue(state, testResearch1, 1);
@@ -505,8 +507,8 @@ describe('Research System', () => {
         runTurn(state, buffer);
       }
 
-      // Should have exactly 100 RP (no rounding errors)
-      expect(state.stocks.research_points).toBe(100);
+      // Planet-local RP stays unchanged; global research owns accumulation.
+      expect(state.stocks.research_points).toBe(0);
     });
 
     it('should not allow negative RP', () => {

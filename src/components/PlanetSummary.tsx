@@ -25,7 +25,7 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
     { id: 'mineral', label: 'Mineral', color: 'text-blue-400' },
     { id: 'food', label: 'Food', color: 'text-green-400' },
     { id: 'energy', label: 'Energy', color: 'text-yellow-400' },
-    { id: 'research_points', label: 'Research', color: 'text-purple-400' },
+    { id: 'research_points', label: 'Research', color: 'text-yellow-400' },
   ] as const;
 
   const formatNumber = (num: number) => {
@@ -71,9 +71,9 @@ export function PlanetSummary({ summary }: PlanetSummaryProps) {
           </thead>
           <tbody>
             {resources.map((resource) => {
-              const stored = summary.stocks[resource.id];
-              const abundance = summary.abundance[resource.id];
-              const output = summary.outputsPerTurn[resource.id];
+              const stored = summary.stocks[resource.id] ?? 0;
+              const abundance = summary.abundance[resource.id] ?? 1;
+              const output = summary.outputsPerTurn[resource.id] ?? 0;
               const abundancePercent = Math.round(abundance * 100);
 
               // Adjust opacity based on abundance level

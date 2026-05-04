@@ -6,6 +6,25 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.4] — 2026-05-04
+
+Port of the global research planning workflow from `main` onto the PWA/saves branch.
+
+### Added
+- Global research is now planned as a session-wide lane/resource, with RP stock, scientist output, research completions, and unlocks shared across all planets.
+- Planet-limit research now gates additional planets by the actual unlock turn, including edit/add flows for future colonies.
+- Added-planet setup supports custom starting population, starting economy structures, and a Duplicate Homeworld preset.
+
+### Fixed
+- Global research lane timing now simulates far enough to show actual RP-gated start/completion turns, including long waits beyond the visible 200-turn slider.
+- Reset Queue now restores the session to Homeworld only while preserving the global research plan semantics from the imported workflow.
+- Kept the branch's PWA, IndexedDB saves, save-history, and queue-restore fixes intact while adding global research command replay.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.4`.
+
+---
+
 ## [0.2.1] — 2026-05-04
 
 Fixes for two regressions reported against v0.2.0's saves pass.
@@ -15,7 +34,6 @@ Fixes for two regressions reported against v0.2.0's saves pass.
 - **Queue did not restore on refresh** even though the URL hash and localStorage held the right encoded payload. Two bugs stacked:
   1. `CommandHistory.loadFromSnapshot` in `urlState.ts` read v2 'q' commands with v1 indices: it used `cmd[3]` for itemCode (which is the qty in v2) and `cmd[4]` for qty (which is undefined in v2). Result: every queued item got rewritten as item code = qty. A queued Farm (item 11, qty 1) became `["q", 0, 1, 1]` (battleship) on reload, then failed the prereq check and silently dropped. Fixed by branching on `typeof cmd[3]` and reading the right indices for each format.
   2. The bootstrap `useEffect` in `page.tsx` called `replayCommands(createInitialGameState(), ...)` — a *fresh* game state with a *new* planet/timeline. The memoized `controller` (deps `[currentPlanetId]`) stayed bound to the *original* planet from `useState`'s initializer, never seeing the replayed mutations. Bootstrap now replays into the existing `gameState` so the controller's timeline gets mutated in place. Side-effects (`replayCommands`, `commandHistory.loadFromSnapshot`) are kept *outside* the `setGameState` updater — React StrictMode invokes updaters twice in dev to detect impurity, which had been queueing every command twice with duplicate deterministic IDs (`__s1` collision, console warning).
-
 ### Bumped
 - `package.json` and `src/app/page.tsx` footer from `0.2.0` to `0.2.1`.
 

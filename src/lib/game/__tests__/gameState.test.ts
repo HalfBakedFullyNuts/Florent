@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { createInitialGameState, addPlanet, switchPlanet } from '../gameState';
+import { createInitialGameState, addPlanet, resetToHomeworld, switchPlanet, updatePlanetConfig } from '../gameState';
+import { CommandHistory, replayCommands } from '../urlState';
 
 describe('Multi-Planet State Management', () => {
   test('creates game with initial planet', () => {
@@ -7,7 +8,8 @@ describe('Multi-Planet State Management', () => {
 
     expect(gameState.planets.size).toBe(1);
     expect(gameState.currentPlanetId).toBe('planet-1');
-    expect(gameState.globalResearch.queue).toEqual([]);
+    expect(gameState.globalResearch.stock).toBe(0);
+    expect(gameState.globalResearch.lane.pendingQueue).toEqual([]);
     expect(gameState.globalResearch.completed).toEqual([]);
     expect(gameState.nextPlanetId).toBe(2);
     expect(gameState.maxPlanets).toBe(4);
@@ -68,6 +70,154 @@ describe('Multi-Planet State Management', () => {
     expect(mars!.space.orbitalCap).toBe(20);
   });
 
+  test('adds new planet with custom starting population and structures', () => {
+    let gameState = createInitialGameState();
+
+    gameState = addPlanet(gameState, {
+      name: 'Established Colony',
+      startTurn: 12,
+      abundance: {
+        metal: 1,
+        mineral: 1,
+        food: 1,
+        energy: 1,
+        research_points: 1,
+      },
+      space: {
+        groundCap: 60,
+        orbitalCap: 40,
+      },
+      starting: {
+        workersTotal: 20000,
+        structures: {
+          metal_mine: 3,
+          mineral_extractor: 3,
+          farm: 1,
+          solar_generator: 1,
+        },
+      },
+    });
+
+    const colony = gameState.planets.get('planet-2')!;
+    expect(colony.population.workersTotal).toBe(20000);
+    expect(colony.population.workersIdle).toBe(20000);
+    expect(colony.completedCounts.outpost).toBe(1);
+    expect(colony.completedCounts.metal_mine).toBe(3);
+    expect(colony.completedCounts.mineral_extractor).toBe(3);
+    expect(colony.completedCounts.farm).toBe(1);
+    expect(colony.completedCounts.solar_generator).toBe(1);
+    expect(colony.space.groundUsed).toBe(8);
+  });
+
+  test('edits an added planet starting setup', () => {
+    let gameState = createInitialGameState();
+    gameState = addPlanet(gameState, {
+      name: 'Mars',
+      startTurn: 5,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 60, orbitalCap: 40 },
+    });
+
+    gameState = updatePlanetConfig(gameState, 'planet-2', {
+      name: 'Mars Prime',
+      startTurn: 8,
+      abundance: { metal: 1.2, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 70, orbitalCap: 40 },
+      starting: {
+        workersTotal: 15000,
+        structures: {
+          metal_mine: 2,
+          mineral_extractor: 1,
+          farm: 1,
+          solar_generator: 1,
+        },
+      },
+    });
+
+    const mars = gameState.planets.get('planet-2')!;
+    expect(mars.name).toBe('Mars Prime');
+    expect(mars.startTurn).toBe(8);
+    expect(mars.population.workersTotal).toBe(15000);
+    expect(mars.completedCounts.metal_mine).toBe(2);
+    expect(mars.completedCounts.mineral_extractor).toBe(1);
+    expect(mars.completedCounts.farm).toBe(1);
+    expect(mars.completedCounts.solar_generator).toBe(1);
+    expect(mars.space.groundUsed).toBe(5);
+    expect(mars.space.groundCap).toBe(70);
+  });
+
+  test('replays custom starting setup from command history', () => {
+    const commandHistory = new CommandHistory();
+    commandHistory.recordAddPlanet({
+      name: 'Replay Colony',
+      startTurn: 3,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 60, orbitalCap: 40 },
+      starting: {
+        workersTotal: 18000,
+        structures: {
+          metal_mine: 2,
+          mineral_extractor: 2,
+          farm: 1,
+          solar_generator: 1,
+        },
+      },
+    });
+
+    const replayed = replayCommands(createInitialGameState(), commandHistory.getCommands());
+    const colony = replayed.planets.get('planet-2')!;
+    expect(colony.population.workersTotal).toBe(18000);
+    expect(colony.completedCounts.metal_mine).toBe(2);
+    expect(colony.completedCounts.mineral_extractor).toBe(2);
+    expect(colony.completedCounts.farm).toBe(1);
+    expect(colony.completedCounts.solar_generator).toBe(1);
+  });
+
+  test('reset to homeworld removes added planets and resets home queue', () => {
+    let gameState = createInitialGameState();
+    const home = gameState.planets.get('planet-1')!;
+    home.lanes.building.pendingQueue.push({
+      id: 'queued-farm',
+      itemId: 'farm',
+      status: 'pending',
+      quantity: 1,
+      turnsRemaining: 4,
+    });
+    gameState = addPlanet(gameState, {
+      name: 'Mars',
+      startTurn: 1,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 60, orbitalCap: 40 },
+    });
+    gameState = switchPlanet(gameState, 'planet-2');
+
+    const reset = resetToHomeworld(gameState);
+
+    expect(reset.planets.size).toBe(1);
+    expect(reset.currentPlanetId).toBe('planet-1');
+    expect(reset.nextPlanetId).toBe(2);
+    expect(reset.planets.has('planet-2')).toBe(false);
+    expect(reset.planets.get('planet-1')!.lanes.building.pendingQueue).toEqual([]);
+  });
+
+  test('replays reset-all command by removing added planets', () => {
+    const commandHistory = new CommandHistory();
+    commandHistory.recordAddPlanet({
+      name: 'Mars',
+      startTurn: 1,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 60, orbitalCap: 40 },
+    });
+    commandHistory.recordSwitchPlanet(1);
+    commandHistory.recordResetAllPlanets();
+
+    const replayed = replayCommands(createInitialGameState(), commandHistory.getCommands());
+
+    expect(replayed.planets.size).toBe(1);
+    expect(replayed.currentPlanetId).toBe('planet-1');
+    expect(replayed.nextPlanetId).toBe(2);
+  });
+
   test('switches between planets', () => {
     let gameState = createInitialGameState();
     gameState = addPlanet(gameState, {
@@ -126,7 +276,7 @@ describe('Multi-Planet State Management', () => {
 
     // Research should be in gameState, not per-planet
     expect(gameState.globalResearch).toBeDefined();
-    expect(gameState.globalResearch.queue).toEqual([]);
+    expect(gameState.globalResearch.lane.pendingQueue).toEqual([]);
     expect(gameState.globalResearch.completed).toEqual([]);
 
     // Planets have research lanes for compatibility but they're not used

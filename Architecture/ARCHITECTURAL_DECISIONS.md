@@ -15,6 +15,9 @@ Short rationale (1-2 sentences).
 
 ## Recent Decisions - Turn-Based Simulator Implementation
 
+2026-05-04 — Global Research and Configurable Colony Starts
+Research points and the research lane are modeled as global session state while research labs and scientists remain planet-local. Added-planet starting population and starter production structures are persisted in compact URL commands so edited colony starts replay deterministically without changing activation-time queue costs.
+
 2026-04-30 — Activation-Time Pricing for All Costs
 Resource and RP costs are deducted at activation time (not queue time), aligning with workers and space. Queueing is intent registration only — pending items affect no stocks. The unified queue gate (`canQueue`) accepts any item whose costs are reachable via current stocks plus net production, and rejects only when prereqs are absent, planet limit is met, energy projection turns negative, or a required resource has non-positive net production. Auto-wait items are injected into a queued item's lane when its prereq is queued but not yet built (using `calculatePrereqWaitTurns`). Lane priority (building > ship > colonist > research) is implicit in `LANE_ORDER` traversal: each lane's `clampBatchAtActivation` sees stocks already debited by prior lanes that turn.
 

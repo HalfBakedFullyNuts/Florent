@@ -52,6 +52,7 @@ export interface LaneEntry {
   queuedTurn?: number; // Turn when item was queued
   startTurn?: number; // Turn when work started
   completionTurn?: number; // Turn when work completed
+  minStartTurn?: number; // Earliest world turn this item may activate
   invalid?: boolean; // Whether this item is invalid (fails validation)
   invalidReason?: string; // Human-readable reason for invalidity
   missingPrereqs?: string[]; // List of missing prerequisites
@@ -270,6 +271,7 @@ function workItemToLaneEntry(
     queuedTurn: item.queuedTurn,
     startTurn: overrides?.startTurn ?? item.startTurn,
     completionTurn: overrides?.completionTurn ?? item.completionTurn,
+    minStartTurn: item.minStartTurn,
     isWait: item.isWait,
     isAutoWait: item.isAutoWait,
   };
@@ -320,11 +322,16 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   }
 
   const lane = state.lanes[laneId];
-  const entries: LaneEntry[] = [];
+  const entries: Array<{ entry: LaneEntry; order: number }> = [];
+  let order = 0;
+  const addEntry = (entry: LaneEntry) => {
+    entries.push({ entry, order: order++ });
+  };
 
-  // Add completed items (most recent first)
-  for (const completed of [...lane.completionHistory].reverse()) {
-    entries.push(workItemToLaneEntry(completed, state.defs, 'completed'));
+  // Add completed items in history order. The final sort below keeps the
+  // selector contract chronological even when callers pass simulated snapshots.
+  for (const completed of lane.completionHistory) {
+    addEntry(workItemToLaneEntry(completed, state.defs, 'completed'));
   }
 
   // Build timeline for pending items
@@ -333,11 +340,12 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   for (const pending of lane.pendingQueue) {
     const def = state.defs[pending.itemId];
     const duration = pending.isWait ? pending.turnsRemaining : (def?.durationTurns || 4);
-    const displayEnd = scheduleStart + duration - 1;
+    const displayStart = Math.max(scheduleStart, pending.minStartTurn ?? scheduleStart);
+    const displayEnd = displayStart + duration - 1;
 
-    entries.push(workItemToLaneEntry(pending, state.defs, 'pending', {
+    addEntry(workItemToLaneEntry(pending, state.defs, 'pending', {
       eta: displayEnd,
-      startTurn: scheduleStart,
+      startTurn: displayStart,
       completionTurn: displayEnd,
     }));
 
@@ -347,11 +355,22 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   // Add active entry
   if (lane.active) {
     const eta = state.currentTurn + lane.active.turnsRemaining;
-    entries.push(workItemToLaneEntry(lane.active, state.defs, 'active', { eta }));
+    addEntry(workItemToLaneEntry(lane.active, state.defs, 'active', { eta }));
   }
 
-  entries.reverse();
-  return { laneId, entries };
+  entries.sort((a, b) => {
+    const finishA = a.entry.completionTurn ?? a.entry.eta ?? Number.MAX_SAFE_INTEGER;
+    const finishB = b.entry.completionTurn ?? b.entry.eta ?? Number.MAX_SAFE_INTEGER;
+    if (finishA !== finishB) return finishA - finishB;
+
+    const startA = a.entry.startTurn ?? a.entry.queuedTurn ?? finishA;
+    const startB = b.entry.startTurn ?? b.entry.queuedTurn ?? finishB;
+    if (startA !== startB) return startA - startB;
+
+    return a.order - b.order;
+  });
+
+  return { laneId, entries: entries.map(({ entry }) => entry) };
 }
 
 /** Threshold for capacity warnings (95%). */

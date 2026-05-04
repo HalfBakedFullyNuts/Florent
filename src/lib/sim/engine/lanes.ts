@@ -121,6 +121,9 @@ export function tryActivateNext(
   if (lane.pendingQueue.length === 0 || lane.active) return;
 
   const pending = lane.pendingQueue[0];
+  if (pending.minStartTurn !== undefined && state.currentTurn < pending.minStartTurn) {
+    return;
+  }
 
   if (pending.isWait) {
     activateWaitItem(state, lane, laneId, pending);
@@ -133,13 +136,13 @@ export function tryActivateNext(
     return;
   }
 
-  const actualQty = clampBatchAtActivation(state, def, pending.quantity, projectedBonus);
+  const actualQty = clampBatchAtActivation(state, def, pending.quantity, projectedBonus, pending.minStartTurn);
   if (actualQty === 0) return;
 
   // Detect whether the bonus was the deciding factor: would this have stalled without it?
   const neededProjection =
     projectedBonus != null &&
-    clampBatchAtActivation(state, def, pending.quantity) === 0;
+    clampBatchAtActivation(state, def, pending.quantity, undefined, pending.minStartTurn) === 0;
 
   deductActivationCosts(state, def, actualQty, laneId);
   if (neededProjection) {

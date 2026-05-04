@@ -61,6 +61,10 @@ export function hasPrereqs(state: PlanetState, def: ItemDefinition): boolean {
   return true;
 }
 
+function isResearchPrereq(state: PlanetState, prereqId: string): boolean {
+  return state.defs[prereqId]?.lane === 'research';
+}
+
 /**
  * Check if housing exists for colonist at activation time
  * Projects future housing capacity by scanning the queue
@@ -303,14 +307,25 @@ export function clampBatchAtActivation(
   state: PlanetState,
   def: ItemDefinition,
   requested: number,
-  projectedBonus?: Partial<Record<ResourceId, number>>
+  projectedBonus?: Partial<Record<ResourceId, number>>,
+  minStartTurn?: number
 ): number {
   let maxAffordable = requested;
 
   // Check if prerequisites are ACTUALLY completed
   if (def.prerequisites && def.prerequisites.length > 0) {
     for (const prereqId of def.prerequisites) {
-      if (!state.completedResearch?.includes(prereqId) && (state.completedCounts[prereqId] || 0) <= 0) {
+      const globalResearchWillBeReady =
+        isResearchPrereq(state, prereqId) &&
+        def.lane !== 'research' &&
+        minStartTurn !== undefined &&
+        state.currentTurn >= minStartTurn;
+
+      if (
+        !state.completedResearch?.includes(prereqId) &&
+        !globalResearchWillBeReady &&
+        (state.completedCounts[prereqId] || 0) <= 0
+      ) {
         return 0; // Prerequisite not yet built, stall queue
       }
     }
