@@ -1,10 +1,11 @@
 /**
  * IndexedDB persistence layer for game saves and auto-save history.
  *
- * Two stores:
+ * Three stores:
  *   - `saves`     : named saves the user manages explicitly.
  *   - `history`   : ring buffer of the most recent N auto-saves; lets the user
  *                   "undo" back to any prior auto-save without losing it.
+ *   - `shared`    : build lists opened from shared links, cached locally.
  *
  * The encoded payload uses the same v2 format as the share URL — see
  * `src/lib/game/urlState.ts`. Storing the encoded string keeps this layer
@@ -14,6 +15,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
 export const HISTORY_LIMIT = 30;
+export const SAVES_CHANGED_EVENT = 'florent:saves-changed';
 
 export interface SaveSummary {
   /** Number of planets in the save. */
@@ -135,11 +137,13 @@ export async function saveSave(record: Omit<SaveRecord, 'createdAt' | 'updatedAt
     updatedAt: now,
   };
   await db.put('saves', final);
+  notifySavesChanged();
 }
 
 export async function deleteSave(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('saves', id);
+  notifySavesChanged();
 }
 
 export async function renameSave(id: string, name: string): Promise<void> {
@@ -149,6 +153,7 @@ export async function renameSave(id: string, name: string): Promise<void> {
   existing.name = name;
   existing.updatedAt = Date.now();
   await db.put('saves', existing);
+  notifySavesChanged();
 }
 
 // ---------------------------------------------------------------------------
@@ -198,6 +203,7 @@ export async function pushHistory(encoded: string, summary: SaveSummary): Promis
   }
 
   await tx.done;
+  notifySavesChanged();
 }
 
 export async function getHistoryEntry(id: number): Promise<HistoryRecord | undefined> {
@@ -205,9 +211,16 @@ export async function getHistoryEntry(id: number): Promise<HistoryRecord | undef
   return db.get('history', id);
 }
 
+export async function deleteHistoryEntry(id: number): Promise<void> {
+  const db = await getDB();
+  await db.delete('history', id);
+  notifySavesChanged();
+}
+
 export async function clearHistory(): Promise<void> {
   const db = await getDB();
   await db.clear('history');
+  notifySavesChanged();
 }
 
 // ---------------------------------------------------------------------------
@@ -238,11 +251,13 @@ export async function saveSharedLink(input: {
     openedAt: now,
   };
   await db.put('shared', final);
+  notifySavesChanged();
 }
 
 export async function deleteSharedLink(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('shared', id);
+  notifySavesChanged();
 }
 
 function buildSharedRecordId(encoded: string): string {
@@ -252,6 +267,11 @@ function buildSharedRecordId(encoded: string): string {
     hash = Math.imul(hash, 16777619);
   }
   return `shared-${(hash >>> 0).toString(36)}`;
+}
+
+function notifySavesChanged(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent(SAVES_CHANGED_EVENT));
 }
 
 // ---------------------------------------------------------------------------

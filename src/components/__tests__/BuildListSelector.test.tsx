@@ -1,19 +1,24 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { BuildListSelector } from '../BuildListSelector';
 import {
+  deleteHistoryEntry,
   deleteSave,
   deleteSharedLink,
+  listHistory,
   listSaves,
   listShared,
 } from '../../lib/persistence/savesDb';
 
 vi.mock('../../lib/persistence/savesDb', () => ({
+  deleteHistoryEntry: vi.fn(),
   deleteSave: vi.fn(),
   deleteSharedLink: vi.fn(),
+  listHistory: vi.fn(),
   listSaves: vi.fn(),
   listShared: vi.fn(),
+  SAVES_CHANGED_EVENT: 'florent:saves-changed',
 }));
 
 const ownList = {
@@ -46,16 +51,45 @@ const sharedList = {
   },
 };
 
+const ownHistory = {
+  id: 42,
+  savedAt: 4,
+  encoded: 'history-encoded',
+  summary: {
+    planetCount: 1,
+    commandCount: 2,
+    maxTurn: 0,
+    planetNames: 'Homeworld',
+  },
+};
+
+const sharedHistory = {
+  id: 43,
+  savedAt: 5,
+  encoded: 'shared-history-encoded',
+  summary: {
+    planetCount: 1,
+    commandCount: 2,
+    maxTurn: 0,
+    planetNames: 'Homeworld',
+    shareName: 'Neighbor Rush',
+    shareAuthor: 'Lin',
+  },
+};
+
 describe('BuildListSelector', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     Object.defineProperty(window, 'indexedDB', {
       configurable: true,
       value: {},
     });
     vi.mocked(listSaves).mockResolvedValue([ownList]);
     vi.mocked(listShared).mockResolvedValue([sharedList]);
+    vi.mocked(listHistory).mockResolvedValue([]);
     vi.mocked(deleteSave).mockResolvedValue(undefined);
     vi.mocked(deleteSharedLink).mockResolvedValue(undefined);
+    vi.mocked(deleteHistoryEntry).mockResolvedValue(undefined);
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
@@ -78,6 +112,31 @@ describe('BuildListSelector', () => {
     expect(onRestore).toHaveBeenCalledWith('shared-encoded', 'Neighbor Rush by Lin');
   });
 
+  test('shows recent non-shared auto-saves as your lists', async () => {
+    vi.mocked(listSaves).mockResolvedValue([]);
+    vi.mocked(listHistory).mockResolvedValue([sharedHistory, ownHistory]);
+
+    render(<BuildListSelector onRestore={vi.fn()} />);
+
+    expect(await screen.findByText(/Recent local build - Homeworld/i)).toBeInTheDocument();
+    expect(screen.queryByText(/shared-history/i)).not.toBeInTheDocument();
+    expect(screen.getByText('Neighbor Rush by Lin')).toBeInTheDocument();
+  });
+
+  test('refreshes when saves change elsewhere', async () => {
+    vi.mocked(listSaves).mockResolvedValueOnce([]).mockResolvedValue([ownList]);
+    render(<BuildListSelector onRestore={vi.fn()} />);
+
+    expect(await screen.findByText('Neighbor Rush by Lin')).toBeInTheDocument();
+    expect(screen.queryByText('My Rush')).not.toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent('florent:saves-changed'));
+    });
+
+    expect(await screen.findByText('My Rush')).toBeInTheDocument();
+  });
+
   test('deletes the selected owned list', async () => {
     render(<BuildListSelector onRestore={vi.fn()} />);
 
@@ -87,5 +146,18 @@ describe('BuildListSelector', () => {
 
     await waitFor(() => expect(deleteSave).toHaveBeenCalledWith('own-1'));
     expect(deleteSharedLink).not.toHaveBeenCalled();
+  });
+
+  test('deletes the selected recent local build', async () => {
+    vi.mocked(listSaves).mockResolvedValue([]);
+    vi.mocked(listHistory).mockResolvedValue([ownHistory]);
+    render(<BuildListSelector onRestore={vi.fn()} />);
+
+    const select = await screen.findByLabelText(/select build list/i);
+    fireEvent.change(select, { target: { value: 'history:42' } });
+    fireEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+
+    await waitFor(() => expect(deleteHistoryEntry).toHaveBeenCalledWith(42));
+    expect(deleteSave).not.toHaveBeenCalled();
   });
 });

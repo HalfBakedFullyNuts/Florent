@@ -6,6 +6,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.10] — 2026-05-04
+
+### Fixed
+- Build List selector now includes recent non-shared auto-saves under "Your lists", so local builds are visible even before they have been named.
+- Selector refreshes when saves, shared cache entries, or history entries change elsewhere in the app.
+
+### Added
+- Recent local builds can be deleted from the selector, alongside named saves and cached shared lists.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.10`.
+
+---
+
 ## [0.2.9] — 2026-05-04
 
 ### Fixed
