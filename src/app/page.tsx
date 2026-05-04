@@ -99,6 +99,50 @@ function withPlanetMetadata(snapshot: PlanetState, existing: ExtendedPlanetState
   } as ExtendedPlanetState;
 }
 
+type ActionGlyphName = 'link' | 'saves' | 'export' | 'full-list';
+
+function ActionGlyph({ name }: { name: ActionGlyphName }) {
+  if (name === 'link') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
+        <path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1" />
+      </svg>
+    );
+  }
+
+  if (name === 'saves') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 3h11l3 3v15H5z" />
+        <path d="M8 3v6h8V3" />
+        <path d="M8 17h8" />
+      </svg>
+    );
+  }
+
+  if (name === 'export') {
+    return (
+      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3v12" />
+        <path d="m7 8 5-5 5 5" />
+        <path d="M5 15v4h14v-4" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 6h12" />
+      <path d="M8 12h12" />
+      <path d="M8 18h12" />
+      <path d="M4 6h.01" />
+      <path d="M4 12h.01" />
+      <path d="M4 18h.01" />
+    </svg>
+  );
+}
+
 /**
  * Main game page - Multi-planet support
  *
@@ -1407,32 +1451,43 @@ export default function Home() {
                         setTimeout(() => setToast(null), 3000);
                       });
                     }}
-                    className="group inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border border-pink-nebula-accent-secondary/45 bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary px-4 text-sm font-bold text-white shadow-lg shadow-pink-nebula-accent-primary/20 outline-none transition-colors duration-200 hover:from-pink-nebula-accent-secondary hover:to-pink-nebula-accent-primary focus:ring-2 focus:ring-pink-nebula-accent-secondary/40"
-                    title="Copy shareable link with game state"
+                    className="group inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-gradient-to-r from-emerald-500/95 to-teal-400/90 px-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-none transition duration-200 hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
+                    title="Copy a share link that opens this build list"
                   >
-                    <span className="h-2 w-2 rounded-full bg-white/80 shadow-[0_0_10px_rgba(255,255,255,0.75)]" />
-                    <span>Share Link</span>
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-950/10 bg-slate-950/[0.12] text-slate-950" aria-hidden="true">
+                      <ActionGlyph name="link" />
+                    </span>
+                    <span className="truncate">Copy Share Link</span>
                   </button>
                   <button
                     onClick={() => setShowSavesModal(true)}
-                    className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-pink-nebula-text outline-none transition-colors duration-200 hover:border-pink-nebula-accent-primary/45 hover:bg-white/[0.11] focus:ring-2 focus:ring-pink-nebula-accent-primary/30"
+                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-sky-300/35 bg-sky-500/[0.14] px-3 text-sm font-bold text-sky-100 outline-none transition-colors duration-200 hover:border-sky-200/60 hover:bg-sky-500/[0.24] focus:ring-2 focus:ring-sky-300/35"
                     title="Save, load, and import plans (stored on this device)"
                   >
-                    <span className="h-2 w-2 rounded-full bg-blue-300/80 shadow-[0_0_10px_rgba(147,197,253,0.65)]" />
-                    <span>Saves</span>
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-sky-100/15 bg-sky-200/10 text-sky-100" aria-hidden="true">
+                      <ActionGlyph name="saves" />
+                    </span>
+                    <span className="truncate">Open Saves</span>
                   </button>
                   <button
-                    className="inline-flex h-11 min-w-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-pink-nebula-text outline-none transition-colors duration-200 hover:border-pink-nebula-accent-primary/45 hover:bg-white/[0.10] focus:ring-2 focus:ring-pink-nebula-accent-primary/30"
+                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-amber-300/35 bg-amber-500/[0.14] px-3 text-sm font-bold text-amber-100 outline-none transition-colors duration-200 hover:border-amber-200/60 hover:bg-amber-500/[0.24] focus:ring-2 focus:ring-amber-300/35"
                     onClick={() => openExportModal('current')}
-                    title="Export current planet data"
+                    title="Export only the currently visible build order"
                   >
-                    Export / Share
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-amber-100/15 bg-amber-200/10 text-amber-100" aria-hidden="true">
+                      <ActionGlyph name="export" />
+                    </span>
+                    <span className="truncate">Export Current</span>
                   </button>
                   <button
                     onClick={() => openExportModal('full')}
-                    className="inline-flex h-11 min-w-0 items-center justify-center rounded-2xl border border-pink-nebula-accent-primary/35 bg-pink-nebula-accent-primary/15 px-4 text-sm font-bold text-pink-100 outline-none transition-colors duration-200 hover:border-pink-nebula-accent-secondary/55 hover:bg-pink-nebula-accent-primary/25 focus:ring-2 focus:ring-pink-nebula-accent-primary/35"
+                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-violet-300/35 bg-violet-500/[0.16] px-3 text-sm font-bold text-violet-100 outline-none transition-colors duration-200 hover:border-violet-200/60 hover:bg-violet-500/[0.26] focus:ring-2 focus:ring-violet-300/35"
+                    title="Export the full build list across all future turns"
                   >
-                    Export Full List
+                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-violet-100/15 bg-violet-200/10 text-violet-100" aria-hidden="true">
+                      <ActionGlyph name="full-list" />
+                    </span>
+                    <span className="truncate">Export Full List</span>
                   </button>
                 </div>
               </div>

@@ -85,15 +85,11 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
               key={laneId}
               onClick={() => setActiveTab(laneId)}
               aria-pressed={isActive}
-              className={`
-                inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-none transition-colors duration-200 sm:text-base
-                ${isActive
-                  ? 'border-pink-nebula-accent-secondary/55 bg-gradient-to-r from-pink-nebula-accent-primary/95 to-pink-nebula-accent-secondary/80 text-white shadow-lg shadow-pink-nebula-accent-primary/20'
-                  : 'border-white/10 bg-white/[0.06] text-pink-nebula-muted hover:border-pink-nebula-accent-primary/45 hover:bg-white/[0.11] hover:text-pink-nebula-text'
-                }
-              `}
+              className={laneTabClass(isActive)}
             >
-              <span className={`h-2.5 w-2.5 rounded-full ${laneDotClass(laneId)} ${isActive ? 'shadow-[0_0_12px_rgba(255,255,255,0.45)]' : ''}`} />
+              <span className={laneIconClass(isActive)} aria-hidden="true">
+                {tabConfig.icon}
+              </span>
               <span className="truncate">{tabConfig.title}</span>
             </button>
           );
@@ -103,7 +99,9 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
       {/* Active Tab Content */}
       <Card className="scroll-nebula h-[60vh] overflow-y-auto p-3 pr-4 md:h-[600px] md:p-4 md:pr-5">
         <div className="mb-4 flex items-center gap-2 border-b border-white/10 pb-3">
-          <span className={`h-3 w-3 rounded-full ${laneDotClass(activeTab)} shadow-[0_0_14px_rgba(255,64,129,0.28)]`} />
+          <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
+            {config.icon}
+          </span>
           <h3 className="text-lg font-bold text-pink-nebula-text">
             {config.title}
           </h3>
@@ -291,17 +289,18 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   );
 });
 
-function laneDotClass(laneId: LaneId): string {
-  switch (laneId) {
-    case 'building':
-      return 'bg-amber-300';
-    case 'ship':
-      return 'bg-blue-300';
-    case 'colonist':
-      return 'bg-emerald-300';
-    case 'research':
-      return 'bg-violet-300';
-    default:
-      return 'bg-pink-nebula-accent-secondary';
+function laneTabClass(isActive: boolean): string {
+  const base = 'inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-none transition-colors duration-200 sm:text-base';
+  if (isActive) {
+    return `${base} border-cyan-200/65 bg-gradient-to-r from-cyan-400/30 via-sky-400/[0.22] to-blue-500/[0.18] text-cyan-50 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-100/15`;
   }
+  return `${base} border-white/10 bg-white/[0.055] text-pink-nebula-muted hover:border-cyan-300/40 hover:bg-cyan-300/[0.08] hover:text-pink-nebula-text`;
+}
+
+function laneIconClass(isActive: boolean): string {
+  return `grid h-7 w-7 shrink-0 place-items-center rounded-xl border text-sm ${
+    isActive
+      ? 'border-cyan-100/25 bg-cyan-50/[0.12] text-white shadow-[0_0_14px_rgba(34,211,238,0.24)]'
+      : 'border-white/10 bg-white/[0.05] opacity-80'
+  }`;
 }
