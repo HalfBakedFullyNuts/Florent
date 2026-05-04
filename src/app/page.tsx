@@ -53,6 +53,7 @@ import { Card } from '@/components/ui/card';
 import { DependencyWarningModal } from '../components/DependencyWarningModal';
 import { SavesModal } from '../components/SavesModal';
 import { BuildListSelector } from '../components/BuildListSelector';
+import { clearAutosaveTimer, prepareRestoreForReload, type AutosaveTimer } from './restoreState';
 
 // Persistence
 import { pushHistory, migrateLegacyLocalStorage, saveSharedLink } from '../lib/persistence/savesDb';
@@ -164,6 +165,8 @@ export default function Home() {
   // commands on top of the already-restored state and double-counts everything.
   const bootstrappedRef = useRef(false);
   const lastAppliedShareRef = useRef<string | null>(null);
+  const autosaveTimerRef = useRef<AutosaveTimer | null>(null);
+  const restoreInProgressRef = useRef(false);
 
   const rememberOpenedSharedLink = useCallback((encoded: string, snapshot: LoadedGameSnapshot) => {
     const share = getShareMetadataFromSnapshot(snapshot);
@@ -327,7 +330,13 @@ export default function Home() {
 
   // Auto-save to URL + IndexedDB history on state changes (debounced).
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (restoreInProgressRef.current) return;
+    clearAutosaveTimer(autosaveTimerRef);
+
+    autosaveTimerRef.current = setTimeout(() => {
+      autosaveTimerRef.current = null;
+      if (restoreInProgressRef.current) return;
+
       try {
         const planetConfigs = extractPlanetConfigs(gameState);
         const commands = commandHistory.getCommands();
@@ -358,7 +367,7 @@ export default function Home() {
       }
     }, 1000); // Debounce: wait 1 second after last change
 
-    return () => clearTimeout(timer);
+    return () => clearAutosaveTimer(autosaveTimerRef);
   }, [gameState, commandHistory, activeShareMetadata]);
 
   // Memoize currentState to ensure React detects changes when viewTurn changes.
@@ -1272,11 +1281,17 @@ export default function Home() {
   const handleRestoreSave = useCallback((encoded: string, label: string) => {
     if (typeof window === 'undefined') return;
     try {
-      window.location.hash = `state=${encoded}`;
+      prepareRestoreForReload({
+        encoded,
+        autosaveTimerRef,
+        restoreInProgressRef,
+        lastAppliedShareRef,
+      });
       setToast(`Loading "${label}"…`);
       // Reload so loadStateFromURL runs cleanly on next mount.
       setTimeout(() => window.location.reload(), 200);
     } catch (e) {
+      restoreInProgressRef.current = false;
       setError(`Failed to restore: ${(e as Error).message}`);
     }
   }, []);

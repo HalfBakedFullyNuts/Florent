@@ -31,6 +31,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Share-link copying now uses the safe clipboard fallback path in restricted or older browser contexts.
 - PWA service-worker registration now skips and cleans up local dev hosts including `localhost`, `127.0.0.1`, and IPv6 loopback.
 - Blocked front-of-queue global research now stalls research activation without freezing global RP accrual.
+- Restoring a selected save now cancels any pending autosave first, preventing the previous build from overwriting the selected restore hash before reload.
 
 ### Tests
 - Verified full Vitest suite, lint, production build, and localhost smoke checks during this patch sequence.
