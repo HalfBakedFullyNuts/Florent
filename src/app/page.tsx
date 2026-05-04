@@ -1296,19 +1296,17 @@ export default function Home() {
 
             {/* Right: Planet Queue (Lane Display) */}
             <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'queue' ? 'block' : 'hidden md:block'}`} data-export-target="planet-queue">
-              <div className="flex flex-wrap items-center gap-2 md:gap-4 justify-between mb-4 md:mb-6">
-                <div className="flex flex-wrap items-center gap-2 md:gap-4 min-w-0">
-                  <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
-                  {/* Live Queue Item Count */}
-                  {totalQueuedItems > 0 && (
-                    <div className="text-xs md:text-sm text-pink-nebula-text-secondary">
-                      <span className="font-mono">
-                        {totalQueuedItems} queued <span className="hidden sm:inline">| {isMounted ? window.location.href.length : 0} chars</span>
-                      </span>
-                    </div>
-                  )}
+              <div className="mb-4 space-y-3 md:mb-6">
+                <div className="flex min-h-[34px] flex-wrap items-center gap-2 md:gap-4">
+                  <h2 className="shrink-0 text-xl md:text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
+                  <div className="flex min-h-[28px] items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-pink-nebula-muted md:text-sm">
+                    <span className="font-mono text-pink-nebula-text">{totalQueuedItems} queued</span>
+                    <span className="text-pink-nebula-muted/45">|</span>
+                    <span className="font-mono text-pink-nebula-text">{isMounted ? window.location.href.length : 0}</span>
+                    <span className="hidden sm:inline">chars</span>
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                <div className="grid min-h-[46px] w-full grid-cols-2 gap-2 xl:grid-cols-4">
                   <button
                     onClick={() => {
                       const metadata = requestShareMetadata();
@@ -1329,22 +1327,22 @@ export default function Home() {
                         setTimeout(() => setToast(null), 3000);
                       });
                     }}
-                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-xl border border-pink-nebula-accent-secondary/35 bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white font-semibold shadow-lg shadow-pink-nebula-accent-primary/20 transition-all hover:-translate-y-0.5 hover:shadow-pink-nebula-accent-primary/35 flex items-center justify-center gap-2 text-sm md:text-base"
+                    className="group inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border border-pink-nebula-accent-secondary/45 bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary px-4 text-sm font-bold text-white shadow-lg shadow-pink-nebula-accent-primary/20 outline-none transition-colors duration-200 hover:from-pink-nebula-accent-secondary hover:to-pink-nebula-accent-primary focus:ring-2 focus:ring-pink-nebula-accent-secondary/40"
                     title="Copy shareable link with game state"
                   >
-                    <span>📋</span>
+                    <span className="h-2 w-2 rounded-full bg-white/80 shadow-[0_0_10px_rgba(255,255,255,0.75)]" />
                     <span>Share Link</span>
                   </button>
                   <button
                     onClick={() => setShowSavesModal(true)}
-                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 hover:border-pink-nebula-accent-primary/45 text-pink-nebula-text font-semibold transition-all flex items-center justify-center gap-2 text-sm md:text-base"
+                    className="inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.06] px-4 text-sm font-semibold text-pink-nebula-text outline-none transition-colors duration-200 hover:border-pink-nebula-accent-primary/45 hover:bg-white/[0.11] focus:ring-2 focus:ring-pink-nebula-accent-primary/30"
                     title="Save, load, and import plans (stored on this device)"
                   >
-                    <span>💾</span>
+                    <span className="h-2 w-2 rounded-full bg-blue-300/80 shadow-[0_0_10px_rgba(147,197,253,0.65)]" />
                     <span>Saves</span>
                   </button>
                   <button
-                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-xl border border-white/15 bg-white/5 text-pink-nebula-text hover:border-pink-nebula-accent-primary/50 hover:bg-white/10 transition-all text-sm md:text-base"
+                    className="inline-flex h-11 min-w-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] px-4 text-sm font-semibold text-pink-nebula-text outline-none transition-colors duration-200 hover:border-pink-nebula-accent-primary/45 hover:bg-white/[0.10] focus:ring-2 focus:ring-pink-nebula-accent-primary/30"
                     onClick={() => openExportModal('current')}
                     title="Export current planet data"
                   >
@@ -1352,7 +1350,7 @@ export default function Home() {
                   </button>
                   <button
                     onClick={() => openExportModal('full')}
-                    className="flex-1 sm:flex-initial px-3 md:px-4 py-2.5 md:py-2 min-h-[44px] md:min-h-0 rounded-xl border border-pink-nebula-accent-primary/35 bg-pink-nebula-accent-primary/15 text-pink-100 font-semibold hover:bg-pink-nebula-accent-primary/25 transition-all text-sm md:text-base"
+                    className="inline-flex h-11 min-w-0 items-center justify-center rounded-2xl border border-pink-nebula-accent-primary/35 bg-pink-nebula-accent-primary/15 px-4 text-sm font-bold text-pink-100 outline-none transition-colors duration-200 hover:border-pink-nebula-accent-secondary/55 hover:bg-pink-nebula-accent-primary/25 focus:ring-2 focus:ring-pink-nebula-accent-primary/35"
                   >
                     Export Full List
                   </button>

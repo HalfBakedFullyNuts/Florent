@@ -250,7 +250,7 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
             <button
               onClick={handleLoad}
               disabled={!selected}
-              className="min-h-[46px] rounded-xl border border-pink-nebula-accent-secondary/40 bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-pink-nebula-accent-primary/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-pink-nebula-accent-primary/35 disabled:translate-y-0 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-none disabled:bg-white/5 disabled:text-pink-nebula-muted disabled:shadow-none"
+              className="min-h-[46px] rounded-xl border border-pink-nebula-accent-secondary/40 bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-pink-nebula-accent-primary/20 transition-colors duration-200 hover:from-pink-nebula-accent-secondary hover:to-pink-nebula-accent-primary disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-none disabled:bg-white/5 disabled:text-pink-nebula-muted disabled:shadow-none"
             >
               Load
             </button>
