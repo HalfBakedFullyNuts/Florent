@@ -6,6 +6,17 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.9] — 2026-05-04
+
+### Fixed
+- Dev startup now clears the stale `.next` compiler cache before launching, avoiding server errors where Next tries to load missing chunks after a static export build or branch switch.
+- The clean script now removes both `out` and `.next` so local rebuilds start from a consistent cache state.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.9`.
+
+---
+
 ## [0.2.8] — 2026-05-04
 
 ### Added

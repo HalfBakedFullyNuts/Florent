@@ -1,11 +1,11 @@
 {
   "name": "infinite-conflict-planner",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "rimraf .next && next dev",
     "build": "npm run clean && next build",
-    "clean": "rimraf out",
+    "clean": "rimraf out .next",
     "start": "next start",
     "lint": "next lint",
     "test": "vitest"

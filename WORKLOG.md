@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.9: Clean dev startup.**
+The dev script now clears stale Next compiler output before launching, preventing missing server chunk errors after static export builds or branch changes.
+
 **2026-05-04 — v0.2.8: Build-list selector.**
 The main page now has a local build-list selector that separates your named saves from shared lists cached after opening links, with load/delete controls for both categories.
 
