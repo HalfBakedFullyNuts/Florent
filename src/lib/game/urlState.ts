@@ -184,6 +184,8 @@ interface GameSnapshot {
   cmds: CommandType[];
 }
 
+const STATE_HASH_PREFIX = 'state=';
+
 // ---------------------------------------------------------------------------
 // Planet config helpers
 // ---------------------------------------------------------------------------
@@ -430,17 +432,40 @@ export function saveStateToURL(
 ): void {
   if (typeof window === 'undefined') return;
   const encoded = encodeGameState(planets, commands);
-  window.location.hash = `state=${encoded}`;
+  saveEncodedStateToURL(encoded);
+}
+
+export function buildShareURL(encoded: string): string {
+  if (typeof window === 'undefined') return `#${STATE_HASH_PREFIX}${encoded}`;
+  const url = new URL(window.location.href);
+  url.hash = `${STATE_HASH_PREFIX}${encoded}`;
+  return url.toString();
+}
+
+export function saveEncodedStateToURL(encoded: string): void {
+  if (typeof window === 'undefined') return;
+  const url = buildShareURL(encoded);
+  try {
+    window.history.replaceState(window.history.state, '', url);
+  } catch {
+    window.location.hash = `${STATE_HASH_PREFIX}${encoded}`;
+  }
   try {
     window.localStorage.setItem('florent_save', encoded);
   } catch { /* ignore */ }
 }
 
-export function loadStateFromURL(): GameSnapshot | null {
+export function getEncodedStateFromURL(): string | null {
   if (typeof window === 'undefined') return null;
   const hash = window.location.hash;
-  if (!hash || !hash.startsWith('#state=')) return null;
-  return decodeGameState(hash.substring(7));
+  if (!hash || !hash.startsWith(`#${STATE_HASH_PREFIX}`)) return null;
+  return hash.substring(STATE_HASH_PREFIX.length + 1);
+}
+
+export function loadStateFromURL(): GameSnapshot | null {
+  if (typeof window === 'undefined') return null;
+  const encoded = getEncodedStateFromURL();
+  return encoded ? decodeGameState(encoded) : null;
 }
 
 export function loadStateFromLocalStorage(): GameSnapshot | null {

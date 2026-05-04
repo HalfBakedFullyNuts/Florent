@@ -9,7 +9,20 @@ import { loadGameData } from '../lib/sim/defs/adapter.client';
 import type { LaneId, PlanetState } from '../lib/sim/engine/types';
 import gameDataRaw from '../lib/game/game_data.json';
 import { setupLogging } from '../lib/game/logging-utils';
-import { CommandHistory, loadStateFromURL, saveStateToURL, extractPlanetConfigs, getPlanetIndex, estimateEncodedSize, loadStateFromLocalStorage, replayCommands } from '../lib/game/urlState';
+import {
+  CommandHistory,
+  buildShareURL,
+  decodeGameState,
+  encodeGameState,
+  extractPlanetConfigs,
+  getEncodedStateFromURL,
+  getPlanetIndex,
+  estimateEncodedSize,
+  loadStateFromLocalStorage,
+  loadStateFromURL,
+  replayCommands,
+  saveEncodedStateToURL,
+} from '../lib/game/urlState';
 import {
   cancelGlobalResearch,
   canQueueGlobalResearch,
@@ -36,9 +49,10 @@ import { DependencyWarningModal } from '../components/DependencyWarningModal';
 import { SavesModal } from '../components/SavesModal';
 
 // Persistence
-import { encodeGameState } from '../lib/game/urlState';
 import { pushHistory, migrateLegacyLocalStorage } from '../lib/persistence/savesDb';
 import { buildSaveSummary } from '../lib/persistence/saveSummary';
+
+type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
 
 function withPlanetMetadata(snapshot: PlanetState, existing: ExtendedPlanetState): ExtendedPlanetState {
   return {
@@ -70,16 +84,28 @@ export default function Home() {
   // want to restore state on the first mount, otherwise the second run replays
   // commands on top of the already-restored state and double-counts everything.
   const bootstrappedRef = useRef(false);
+  const lastAppliedShareRef = useRef<string | null>(null);
+
+  const restoreShareSnapshot = useCallback((snapshot: LoadedGameSnapshot) => {
+    const replayedState = replayCommands(createInitialGameState(), snapshot.cmds);
+    commandHistory.loadFromSnapshot(snapshot.cmds);
+    setGameState(() => ({
+      ...replayedState,
+      planets: new Map(replayedState.planets),
+    }));
+  }, [commandHistory]);
 
   useEffect(() => {
     setIsMounted(true);
     if (bootstrappedRef.current) return;
     bootstrappedRef.current = true;
 
-    // Load state from URL or LocalStorage after hydration
+    // Load state from URL or LocalStorage after hydration. URL wins so an
+    // incoming shared build is not masked by this device's last local save.
     let urlSnapshot = loadStateFromURL();
 
     if (urlSnapshot) {
+      lastAppliedShareRef.current = getEncodedStateFromURL();
       console.log('[URL State] Loading from URL:', {
         planets: urlSnapshot.planets.length,
         commands: urlSnapshot.cmds.length,
@@ -94,25 +120,31 @@ export default function Home() {
       }
     }
 
-    if (urlSnapshot && urlSnapshot.cmds.length > 0) {
-      // Replay commands into the EXISTING gameState (mutates planet timelines
-      // in place). The memoized controller is bound to that same timeline, so
-      // it'll pick up planet queue items without needing to recreate. The
-      // returned state also carries immutable global research/add-planet changes.
-      //
-      // CRITICAL: side-effects (replayCommands, loadFromSnapshot) must run
-      // OUTSIDE the setState updater — React StrictMode invokes updaters
-      // twice in dev to detect impurity, which would queue every command
-      // twice with duplicate deterministic IDs. Updater stays pure.
-      const replayedState = replayCommands(gameState, urlSnapshot.cmds);
-      commandHistory.loadFromSnapshot(urlSnapshot.cmds);
-      setGameState(() => ({
-        ...replayedState,
-        planets: new Map(replayedState.planets),
-      }));
+    if (urlSnapshot) {
+      restoreShareSnapshot(urlSnapshot);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [commandHistory]);
+  }, [restoreShareSnapshot]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const encoded = getEncodedStateFromURL();
+      if (!encoded || encoded === lastAppliedShareRef.current) return;
+
+      const snapshot = decodeGameState(encoded);
+      if (!snapshot) {
+        setError('Shared build link could not be loaded.');
+        return;
+      }
+
+      lastAppliedShareRef.current = encoded;
+      restoreShareSnapshot(snapshot);
+      setToast('Shared build list loaded from link');
+      setTimeout(() => setToast(null), 3000);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [restoreShareSnapshot]);
 
   const [showAddPlanetModal, setShowAddPlanetModal] = useState(false);
   const [planetModalTurn, setPlanetModalTurn] = useState(1);
@@ -183,7 +215,9 @@ export default function Home() {
 
         // Only save if we have commands (don't save empty initial state)
         if (commands.length > 0) {
-          saveStateToURL(planetConfigs, commands);
+          const encoded = encodeGameState(planetConfigs, commands);
+          saveEncodedStateToURL(encoded);
+          lastAppliedShareRef.current = encoded;
 
           // Log size information
           const sizeInfo = estimateEncodedSize(planetConfigs, commands);
@@ -197,7 +231,6 @@ export default function Home() {
 
           // Push to IndexedDB ring buffer so the user can revert auto-saves.
           // pushHistory dedupes against the most-recent identical encoded payload.
-          const encoded = encodeGameState(planetConfigs, commands);
           const summary = buildSaveSummary(encoded);
           pushHistory(encoded, summary).catch((e) => console.warn('[saves] history push failed:', e));
         }
@@ -993,6 +1026,20 @@ export default function Home() {
     }
   }, [gameState, commandHistory]);
 
+  const getCurrentShareURL = useCallback(() => {
+    const planetConfigs = extractPlanetConfigs(gameState);
+    const commands = commandHistory.getCommands();
+    if (commands.length === 0) return null;
+
+    const encoded = encodeGameState(planetConfigs, commands);
+    saveEncodedStateToURL(encoded);
+    lastAppliedShareRef.current = encoded;
+    return {
+      commandCount: commands.length,
+      url: buildShareURL(encoded),
+    };
+  }, [gameState, commandHistory]);
+
   // Restore a save: push the encoded state into the URL hash and reload so the
   // existing hash-based bootstrap rebuilds command history from scratch.
   // Reload (vs trying to splice state in-place) avoids any stale closures and
@@ -1139,8 +1186,13 @@ export default function Home() {
                 <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                   <button
                     onClick={() => {
-                      const url = window.location.href;
-                      const cmds = commandHistory.getCommands().length;
+                      const share = getCurrentShareURL();
+                      if (!share) {
+                        setToast('No queued plan to share yet');
+                        setTimeout(() => setToast(null), 3000);
+                        return;
+                      }
+                      const { commandCount: cmds, url } = share;
                       navigator.clipboard.writeText(url).then(() => {
                         setToast(`Link copied — ${cmds} command${cmds === 1 ? '' : 's'}, ${url.length} chars`);
                         setTimeout(() => setToast(null), 3000);
@@ -1204,9 +1256,9 @@ export default function Home() {
           <button
             className="hover:text-pink-nebula-text transition-colors opacity-50 hover:opacity-100"
             onClick={() => {
-              const hash = window.location.hash;
-              if (hash) {
-                navigator.clipboard.writeText(window.location.href);
+              const share = getCurrentShareURL();
+              if (share) {
+                navigator.clipboard.writeText(share.url);
                 alert('Debug URL copied to clipboard!');
               } else {
                 alert('No state to copy yet.');
@@ -1216,7 +1268,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.5</div>
+          <div className="opacity-30 text-[10px]">v0.2.6</div>
         </footer>
       </div>
 

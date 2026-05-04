@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-04 — v0.2.6: PWA-safe share links.**
+Share links are now encoded at click time instead of waiting for debounced auto-save, and already-open PWA windows react to incoming `#state=...` links so another player's build list loads reliably.
+
 **2026-05-04 — v0.2.5: Global research edge-case hardening.**
 Planet-limit unlock lookup now avoids brute-force turn scans, and research drag/reorder rejects dependency-inverting moves so invalid queues cannot stall the planner.
 

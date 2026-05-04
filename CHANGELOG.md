@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.6] — 2026-05-04
+
+### Fixed
+- Share Link now encodes and persists the current plan at click time, so copied build links no longer depend on the debounced auto-save hash being up to date.
+- Already-open PWA sessions now import a new `#state=...` link on hash change, covering installed-app link opens that reuse the current window instead of remounting the app.
+- Auto-save now updates the share hash with `history.replaceState`, avoiding self-triggered hash imports and browser-history spam.
+
+### Tests
+- Added URL-state helper coverage and PWA-style share-link integration coverage.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.6`.
+
+---
+
 ## [0.2.5] — 2026-05-04
 
 ### Fixed
