@@ -6,6 +6,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.18] — 2026-05-05
+
+### Changed
+- Page sections now share the same centered 1800px content rail, with horizontal gutters applied outside the rail instead of shrinking individual cards.
+- Dashboard, timeline, queue panels, unavailable-state cards, warnings, and error strips now align with the build-list selector, share metadata strip, planet tabs, and shared-list banner.
+
+### Tests
+- Re-verified PlanetDashboard, build-list selector, Saves modal, Export modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.18`.
+
+---
+
 ## [0.2.17] — 2026-05-04
 
 ### Fixed

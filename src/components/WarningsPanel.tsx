@@ -47,7 +47,7 @@ export function WarningsPanel({ warnings }: WarningsPanelProps) {
   };
 
   return (
-    <div className="space-y-2 w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl mx-auto">
+    <div className="w-full space-y-2">
       {warnings.map((warning, index) => (
         <div
           key={index}

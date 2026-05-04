@@ -1394,15 +1394,19 @@ export default function Home() {
 
         {/* Error Display */}
         {error && (
-          <div className="mx-auto mt-4 w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl px-6 bg-red-900/20 border border-red-400 rounded p-4 text-red-400">
-            {error}
+          <div className="mt-4 px-3 md:px-6">
+            <div className="mx-auto w-full max-w-[1800px] rounded-2xl border border-red-400 bg-red-900/20 p-4 text-red-400">
+              {error}
+            </div>
           </div>
         )}
 
         {/* Warnings Panel — includes engine warnings + cascade-removal notices */}
         {allWarnings.length > 0 && (
           <div className="px-3 md:px-6 mt-4">
-            <WarningsPanel warnings={allWarnings} />
+            <div className="mx-auto w-full max-w-[1800px]">
+              <WarningsPanel warnings={allWarnings} />
+            </div>
           </div>
         )}
 
@@ -1415,78 +1419,83 @@ export default function Home() {
             stocksEstimated={currentState?.activationUsedProjectedProduction === true}
           />
         ) : (
-          <div className="w-full max-w-[1800px] mx-auto px-3 py-4 md:px-6">
-            <Card className="p-5 border-amber-500/50 bg-amber-950/20">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-amber-300">Planet not active at this turn</h2>
-                  <p className="text-sm text-pink-nebula-muted mt-1">
-                    {planetUnavailableReason || `No planet state is available for T${viewTurn}.`}
-                  </p>
+          <div className="px-3 py-4 md:px-6">
+            <div className="mx-auto w-full max-w-[1800px]">
+              <Card className="p-5 border-amber-500/50 bg-amber-950/20">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-amber-300">Planet not active at this turn</h2>
+                    <p className="text-sm text-pink-nebula-muted mt-1">
+                      {planetUnavailableReason || `No planet state is available for T${viewTurn}.`}
+                    </p>
+                  </div>
+                  {currentPlanet && (
+                    <button
+                      type="button"
+                      onClick={() => setViewTurn(currentPlanet.startTurn)}
+                      className="rounded-xl border border-pink-nebula-accent-secondary/45 bg-pink-nebula-accent-primary px-4 py-2 font-semibold text-white transition-colors hover:bg-pink-nebula-accent-secondary"
+                    >
+                      Go to T{currentPlanet.startTurn}
+                    </button>
+                  )}
                 </div>
-                {currentPlanet && (
-                  <button
-                    type="button"
-                    onClick={() => setViewTurn(currentPlanet.startTurn)}
-                    className="rounded-xl border border-pink-nebula-accent-secondary/45 bg-pink-nebula-accent-primary px-4 py-2 font-semibold text-white transition-colors hover:bg-pink-nebula-accent-secondary"
-                  >
-                    Go to T{currentPlanet.startTurn}
-                  </button>
-                )}
-              </div>
-            </Card>
+              </Card>
+            </div>
           </div>
         )}
 
         {/* Horizontal Timeline - Between dashboard and queues */}
-        <div className="w-full max-w-[1800px] mx-auto px-3 md:px-6">
-          <HorizontalTimeline
-            currentTurn={viewTurn}
-            totalTurns={timelineMaxTurn}
-            onTurnChange={setViewTurn}
-            firstEmptyTurns={firstEmptyTurns}
-            isAutoJumpEnabled={isAutoJumpEnabled}
-            onAutoJumpToggle={setIsAutoJumpEnabled}
-          />
+        <div className="px-3 md:px-6">
+          <div className="mx-auto w-full max-w-[1800px]">
+            <HorizontalTimeline
+              currentTurn={viewTurn}
+              totalTurns={timelineMaxTurn}
+              onTurnChange={setViewTurn}
+              firstEmptyTurns={firstEmptyTurns}
+              isAutoJumpEnabled={isAutoJumpEnabled}
+              onAutoJumpToggle={setIsAutoJumpEnabled}
+            />
+          </div>
         </div>
 
         {/* Main Content - Side-by-side Tabbed Displays */}
-        <main className="flex-1 max-w-[1800px] mx-auto w-full px-3 md:px-6 py-4 md:py-6">
-          {!isPlanetViewAvailable ? (
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold text-pink-nebula-text mb-3">Queue unavailable</h2>
-              <p className="text-sm text-pink-nebula-muted">
-                Move to a turn where this planet exists before adding planet-local queue items. Planet tabs,
-                turn navigation, global research, and Add Planet remain available.
-              </p>
-            </Card>
-          ) : (
-            <>
-              {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
-              <div className="md:hidden flex gap-1 mb-3 rounded-2xl border border-white/10 bg-pink-nebula-panel/70 p-1 shadow-xl shadow-black/20">
-                <button
-                  onClick={() => setMobileView('build')}
-                  className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
-                    mobileView === 'build'
-                      ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
-                      : 'text-pink-nebula-text hover:bg-white/10'
-                  }`}
-                >
-                  ➕ Build
-                </button>
-                <button
-                  onClick={() => setMobileView('queue')}
-                  className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
-                    mobileView === 'queue'
-                      ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
-                      : 'text-pink-nebula-text hover:bg-white/10'
-                  }`}
-                >
-                  📋 Queue {totalQueuedItems > 0 && <span className="ml-1 text-xs opacity-80">({totalQueuedItems})</span>}
-                </button>
-              </div>
+        <main className="flex-1 px-3 py-4 md:px-6 md:py-6">
+          <div className="mx-auto w-full max-w-[1800px]">
+            {!isPlanetViewAvailable ? (
+              <Card className="p-6">
+                <h2 className="text-2xl font-bold text-pink-nebula-text mb-3">Queue unavailable</h2>
+                <p className="text-sm text-pink-nebula-muted">
+                  Move to a turn where this planet exists before adding planet-local queue items. Planet tabs,
+                  turn navigation, global research, and Add Planet remain available.
+                </p>
+              </Card>
+            ) : (
+              <>
+                {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
+                <div className="md:hidden flex gap-1 mb-3 rounded-2xl border border-white/10 bg-pink-nebula-panel/70 p-1 shadow-xl shadow-black/20">
+                  <button
+                    onClick={() => setMobileView('build')}
+                    className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                      mobileView === 'build'
+                        ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
+                        : 'text-pink-nebula-text hover:bg-white/10'
+                    }`}
+                  >
+                    ➕ Build
+                  </button>
+                  <button
+                    onClick={() => setMobileView('queue')}
+                    className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                      mobileView === 'queue'
+                        ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
+                        : 'text-pink-nebula-text hover:bg-white/10'
+                    }`}
+                  >
+                    📋 Queue {totalQueuedItems > 0 && <span className="ml-1 text-xs opacity-80">({totalQueuedItems})</span>}
+                  </button>
+                </div>
 
-              <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+                <div className="flex flex-col md:flex-row gap-4 md:gap-6">
             {/* Left: Add to Queue (Item Selection) */}
             <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'build' ? 'block' : 'hidden md:block'}`}>
               <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text mb-4 md:mb-6">Add to Queue</h2>
@@ -1597,9 +1606,10 @@ export default function Home() {
                 maxTurn={timelineMaxTurn}
               />
             </Card>
-              </div>
-            </>
-          )}
+                </div>
+              </>
+            )}
+          </div>
         </main>
 
         {/* Footer */}
@@ -1624,7 +1634,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.17</div>
+          <div className="opacity-30 text-[10px]">v0.2.18</div>
         </footer>
       </div>
 

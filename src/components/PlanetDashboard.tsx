@@ -122,8 +122,9 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
   }, [summary.structures, defs]);
 
   return (
-    <div className="w-full max-w-[1800px] mx-auto px-3 md:px-6 my-4">
-      <Card className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 p-3 md:p-4 glow-tyr border-gray-400/30">
+    <div className="my-4 px-3 md:px-6">
+      <div className="mx-auto w-full max-w-[1800px]">
+        <Card className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 p-3 md:p-4 glow-tyr border-gray-400/30">
         {/* Resources Section - Table Layout */}
         <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Resources</h3>
@@ -379,7 +380,8 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
             </div>
           )}
         </Card>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 });

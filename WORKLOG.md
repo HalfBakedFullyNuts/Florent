@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.18: Shared content rail alignment.**
+The page now uses one consistent centered 1800px rail for its major strips and cards. Gutters live outside the rail, so the build-list selector, share metadata strip, planet tabs, shared-list banner, dashboard, timeline, and queue panels all start and end on the same desktop columns while keeping mobile padding intact.
+
 **2026-05-04 — v0.2.17: Planet tab rail alignment.**
 The Homeworld/Add Planet/Reset Queue strip now sits inside the same centered desktop content rail as the build-list selector, shared-list banner, dashboard, timeline, and queue panels. This keeps the desktop layout from feeling edge-to-edge while preserving the mobile two-column tab grid.
 
