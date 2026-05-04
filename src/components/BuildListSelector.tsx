@@ -183,8 +183,8 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
   }, [refresh, selected]);
 
   return (
-    <div className="px-3 md:px-6 py-3">
-      <div className="max-w-[1800px] mx-auto overflow-visible rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/90 via-slate-950/55 to-pink-nebula-panel/80 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl">
+    <div className={`relative px-3 md:px-6 py-3 ${isMenuOpen ? 'z-40' : 'z-20'}`}>
+      <div className="relative max-w-[1800px] mx-auto overflow-visible rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/90 via-slate-950/55 to-pink-nebula-panel/80 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="min-w-0 xl:w-72">
             <div className="flex items-center gap-2">
@@ -226,7 +226,7 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
               <div
                 role="listbox"
                 aria-label="Build lists"
-                className="absolute left-0 right-0 top-full z-40 mt-2 max-h-[420px] overflow-y-auto rounded-2xl border border-pink-nebula-accent-primary/30 bg-[#160d20]/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-2xl"
+                className="scroll-nebula absolute left-0 right-0 top-full z-[90] mt-2 max-h-[420px] overflow-y-auto rounded-2xl border border-pink-nebula-accent-primary/30 bg-[#160d20]/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-2xl"
               >
                 <BuildListGroup
                   label="Your lists"
