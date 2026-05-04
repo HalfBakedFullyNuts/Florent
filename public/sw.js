@@ -11,18 +11,39 @@
  * Bump CACHE_VERSION whenever this file changes so old SWs evict their caches.
  */
 
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const RUNTIME_CACHE = `florent-runtime-${CACHE_VERSION}`;
 const SHELL_CACHE = `florent-shell-${CACHE_VERSION}`;
 const SHELL_URLS = ['./', './index.html', './manifest.json'];
+const LOCAL_DEV_HOSTS = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
+
+function isLocalDevHost() {
+  return LOCAL_DEV_HOSTS.has(self.location.hostname);
+}
 
 self.addEventListener('install', (event) => {
+  if (isLocalDevHost()) {
+    event.waitUntil(self.skipWaiting());
+    return;
+  }
+
   event.waitUntil(
     caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_URLS)).then(() => self.skipWaiting()),
   );
 });
 
 self.addEventListener('activate', (event) => {
+  if (isLocalDevHost()) {
+    event.waitUntil(
+      caches.keys()
+        .then((keys) => Promise.all(keys.filter((k) => k.startsWith('florent-')).map((k) => caches.delete(k))))
+        .then(() => self.registration.unregister())
+        .then(() => self.clients.matchAll({ type: 'window' }))
+        .then((clients) => Promise.all(clients.map((client) => client.navigate(client.url)))),
+    );
+    return;
+  }
+
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
@@ -50,6 +71,8 @@ function isStaticAsset(url) {
 }
 
 self.addEventListener('fetch', (event) => {
+  if (isLocalDevHost()) return;
+
   const { request } = event;
   if (request.method !== 'GET') return;
 
@@ -71,18 +94,29 @@ self.addEventListener('fetch', (event) => {
 async function networkFirstHTML(request) {
   try {
     const fresh = await fetch(request);
-    const cache = await caches.open(SHELL_CACHE);
-    cache.put('./', fresh.clone()).catch(() => {});
+    if (fresh.ok) {
+      const cache = await caches.open(SHELL_CACHE);
+      cache.put('./', fresh.clone()).catch(() => {});
+      return fresh;
+    }
+    if (fresh.status === 404) {
+      const cached = await getCachedShell();
+      if (cached) return cached;
+    }
     return fresh;
   } catch {
-    const cache = await caches.open(SHELL_CACHE);
-    const cached = (await cache.match('./')) || (await cache.match('./index.html'));
+    const cached = await getCachedShell();
     if (cached) return cached;
     return new Response('Offline and no cached copy available.', {
       status: 503,
       headers: { 'Content-Type': 'text/plain' },
     });
   }
+}
+
+async function getCachedShell() {
+  const cache = await caches.open(SHELL_CACHE);
+  return (await cache.match('./')) || (await cache.match('./index.html'));
 }
 
 async function staleWhileRevalidate(request) {

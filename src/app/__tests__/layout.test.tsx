@@ -7,6 +7,8 @@ describe('service worker registration script', () => {
     expect(serviceWorkerRegistrationScript).toContain("'127.0.0.1'");
     expect(serviceWorkerRegistrationScript).toContain("'::1'");
     expect(serviceWorkerRegistrationScript).toContain("isLocalDevHost");
+    expect(serviceWorkerRegistrationScript).toContain("florent-sw-local-cleanup-reloaded");
+    expect(serviceWorkerRegistrationScript).toContain("window.location.reload()");
     expect(serviceWorkerRegistrationScript).toContain("register('./sw.js')");
   });
 });

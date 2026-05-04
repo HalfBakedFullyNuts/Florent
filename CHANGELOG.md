@@ -35,6 +35,7 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 - Share links now canonicalize to the app root URL, avoiding bad static-export routes when opened in a fresh/incognito tab.
 - Share-link copying now uses the safe clipboard fallback path in restricted or older browser contexts.
 - PWA service-worker registration now skips and cleans up local dev hosts including `localhost`, `127.0.0.1`, and IPv6 loopback.
+- PWA service worker now unregisters itself on local dev hosts and refuses to cache 404 responses as the app shell, preventing stale localhost share links from opening the not-found page.
 - Blocked front-of-queue global research now stalls research activation without freezing global RP accrual.
 - Restoring a selected save now cancels any pending autosave first, preventing the previous build from overwriting the selected restore hash before reload.
 
