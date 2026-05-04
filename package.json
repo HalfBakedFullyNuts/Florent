@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "rimraf .next && next dev",
-    "build": "npm run clean && next build",
+    "build": "node scripts/guard-no-dev-server.mjs && npm run clean && next build",
     "clean": "rimraf out .next",
     "start": "next start",
     "lint": "next lint",

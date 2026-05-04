@@ -15,6 +15,9 @@ Short rationale (1-2 sentences).
 
 ## Recent Decisions - Turn-Based Simulator Implementation
 
+2026-05-04 — Guard Next Builds While Dev Is Running
+Local production builds refuse to run while port 3000 is serving `next dev`. This prevents `npm run build` from rewriting the active localhost webpack chunk cache and causing missing-module dev-server failures.
+
 2026-05-04 — Binary Share-Link Encoding
 New share and debug URLs use a v3 binary-packed payload with a `b3.` prefix to reduce URL length. Legacy v1/v2 compressed JSON links remain decodable so existing shared links and cached saves continue to load.
 
