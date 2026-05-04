@@ -145,7 +145,7 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
             value={selectedKey}
             onChange={(e) => setSelectedKey(e.target.value)}
             onFocus={refresh}
-            disabled={loading || !hasLists}
+            disabled={!hasLists}
             className="flex-1 min-h-[42px] px-3 py-2 bg-slate-800 text-pink-nebula-text rounded border border-pink-nebula-border focus:border-pink-nebula-accent-primary outline-none text-sm disabled:opacity-50"
             aria-label="Select build list"
           >

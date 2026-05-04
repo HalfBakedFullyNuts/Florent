@@ -128,6 +128,26 @@ describe('BuildListSelector', () => {
     expect(onRestore).toHaveBeenCalledWith('shared-encoded', expect.stringMatching(/^Neighbor Rush by Lin - opened /));
   });
 
+  test('keeps the dropdown enabled while refreshing existing lists on focus', async () => {
+    let resolveRefresh: ((records: typeof sharedList[]) => void) | undefined;
+    vi.mocked(listShared)
+      .mockResolvedValueOnce([sharedList])
+      .mockReturnValueOnce(new Promise((resolve) => {
+        resolveRefresh = resolve;
+      }));
+
+    render(<BuildListSelector onRestore={vi.fn()} />);
+
+    const select = await screen.findByLabelText(/select build list/i);
+    fireEvent.focus(select);
+
+    expect(select).not.toBeDisabled();
+
+    await act(async () => {
+      resolveRefresh?.([sharedList]);
+    });
+  });
+
   test('shows recent non-shared auto-saves as your lists', async () => {
     vi.mocked(listSaves).mockResolvedValue([]);
     vi.mocked(listHistory).mockResolvedValue([sharedHistory, ownHistory]);
