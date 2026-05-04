@@ -12,6 +12,7 @@ import { setupLogging } from '../lib/game/logging-utils';
 import {
   CommandHistory,
   buildShareURL,
+  clearStateFromURL,
   decodeGameState,
   encodeGameState,
   extractPlanetConfigs,
@@ -58,6 +59,33 @@ import { buildSaveSummary } from '../lib/persistence/saveSummary';
 
 type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
 const SHARE_AUTHOR_STORAGE_KEY = 'florent_share_author';
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // Fall through to the textarea fallback below.
+  }
+
+  let textarea: HTMLTextAreaElement | null = null;
+  try {
+    textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    textarea?.remove();
+  }
+}
 
 function withPlanetMetadata(snapshot: PlanetState, existing: ExtendedPlanetState): ExtendedPlanetState {
   return {
@@ -149,27 +177,6 @@ export default function Home() {
     }
   }, [restoreShareSnapshot]);
 
-  useEffect(() => {
-    const handleHashChange = () => {
-      const encoded = getEncodedStateFromURL();
-      if (!encoded || encoded === lastAppliedShareRef.current) return;
-
-      const snapshot = decodeGameState(encoded);
-      if (!snapshot) {
-        setError('Shared build link could not be loaded.');
-        return;
-      }
-
-      lastAppliedShareRef.current = encoded;
-      restoreShareSnapshot(snapshot, encoded);
-      setToast('Shared build list loaded from link');
-      setTimeout(() => setToast(null), 3000);
-    };
-
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [restoreShareSnapshot]);
-
   const [showAddPlanetModal, setShowAddPlanetModal] = useState(false);
   const [planetModalTurn, setPlanetModalTurn] = useState(1);
   const [editingPlanetId, setEditingPlanetId] = useState<string | null>(null);
@@ -202,6 +209,48 @@ export default function Home() {
     laneId: string;
     reason: string;
   }>>([]);
+
+  const resetToCleanState = useCallback((message?: string) => {
+    commandHistory.clear();
+    lastAppliedShareRef.current = null;
+    setActiveShareMetadata(null);
+    setGameState(createInitialGameState());
+    setViewTurn(1);
+    setQueueValidation(new Map());
+    setPendingCancellation(null);
+    setCascadeWarnings([]);
+    setError(null);
+    clearStateFromURL();
+    if (message) {
+      setToast(message);
+      setTimeout(() => setToast(null), 3000);
+    }
+  }, [commandHistory]);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const encoded = getEncodedStateFromURL();
+      if (!encoded) {
+        resetToCleanState('Build list reset');
+        return;
+      }
+      if (encoded === lastAppliedShareRef.current) return;
+
+      const snapshot = decodeGameState(encoded);
+      if (!snapshot) {
+        setError('Shared build link could not be loaded.');
+        return;
+      }
+
+      lastAppliedShareRef.current = encoded;
+      restoreShareSnapshot(snapshot, encoded);
+      setToast('Shared build list loaded from link');
+      setTimeout(() => setToast(null), 3000);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [resetToCleanState, restoreShareSnapshot]);
 
   // Get current planet ID (only changes when switching planets, not on every mutation)
   const currentPlanetId = gameState.currentPlanetId;
@@ -1324,11 +1373,16 @@ export default function Home() {
         <footer className="mt-8 text-center text-xs text-pink-nebula-text-secondary pb-8 space-y-2">
           <button
             className="hover:text-pink-nebula-text transition-colors opacity-50 hover:opacity-100"
-            onClick={() => {
+            onClick={async () => {
               const share = buildCurrentShareURL(activeShareMetadata);
               if (share) {
-                navigator.clipboard.writeText(share.url);
-                alert('Debug URL copied to clipboard!');
+                const copied = await copyTextToClipboard(share.url);
+                if (copied) {
+                  setToast('Debug URL copied to clipboard');
+                  setTimeout(() => setToast(null), 3000);
+                } else {
+                  window.prompt('Copy debug URL', share.url);
+                }
               } else {
                 alert('No state to copy yet.');
               }

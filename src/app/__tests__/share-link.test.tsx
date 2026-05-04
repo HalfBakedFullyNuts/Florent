@@ -105,6 +105,22 @@ describe('share link flow', () => {
     });
   });
 
+  test('copies a debug state link with the current command history', async () => {
+    const writeText = installClipboardMock();
+    render(<Home />);
+
+    fireEvent.click(getQueueItem(/^Farm$/i));
+    fireEvent.click(screen.getByRole('button', { name: /copy debug state/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const copiedURL = writeText.mock.calls[0]?.[0] ?? '';
+    const encoded = new URL(copiedURL).hash.substring(7);
+    const snapshot = decodeGameState(encoded);
+
+    expect(copiedURL).toContain('#state=');
+    expect(snapshot?.cmds).toHaveLength(1);
+  });
+
   test('loads a shared build when the hash changes after mount', async () => {
     const commands: Parameters<typeof encodeGameState>[1] = [['q', 0, 11, 1]];
     const encoded = encodeGameState([homeworldConfig], commands, {
@@ -123,5 +139,23 @@ describe('share link flow', () => {
     expect(screen.getByText('Shared list')).toBeInTheDocument();
     expect(screen.getByText('Neighbor Tech Rush')).toBeInTheDocument();
     expect(screen.getByText('by Lin')).toBeInTheDocument();
+  });
+
+  test('clears the live build when the state hash is removed', async () => {
+    const commands: Parameters<typeof encodeGameState>[1] = [['q', 0, 11, 1]];
+    const encoded = encodeGameState([homeworldConfig], commands);
+    window.history.replaceState(null, '', `/#state=${encoded}`);
+    window.localStorage.setItem('florent_save', encoded);
+
+    render(<Home />);
+
+    await screen.findByText(/1 queued/i);
+
+    window.history.pushState(null, '', '/');
+    fireEvent(window, new Event('hashchange'));
+
+    await waitFor(() => expect(screen.queryByText(/1 queued/i)).not.toBeInTheDocument());
+    expect(window.location.hash).toBe('');
+    expect(window.localStorage.getItem('florent_save')).toBeNull();
   });
 });
