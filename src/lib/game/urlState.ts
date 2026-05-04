@@ -1,4 +1,11 @@
 /**
+ * URL State Encoding v3 - Binary-packed command history
+ *
+ * v3 changes vs v2:
+ *   - New links are encoded as `b3.<base64url bytes>` instead of compressed JSON
+ *   - Planet configs, commands, and share metadata are packed as varints/UTF-8
+ *   - v1/v2 compressed JSON links remain readable
+ *
  * URL State Encoding v2 - Compact Command History
  *
  * v2 changes vs v1:
@@ -24,6 +31,8 @@ import {
 
 const STATE_VERSION_V1 = 1;
 const STATE_VERSION_V2 = 2;
+const STATE_VERSION_V3 = 3;
+const BINARY_STATE_PREFIX = 'b3.';
 
 // ---------------------------------------------------------------------------
 // v2 item code table — APPEND ONLY, never reorder existing entries
@@ -414,21 +423,34 @@ export function encodeGameState(
   shareMetadata?: Partial<ShareMetadata> | null
 ): string {
   const share = compactShareMetadata(shareMetadata);
-  const snapshot: GameSnapshot = {
+  const snapshotV2: GameSnapshot = {
     v: STATE_VERSION_V2,
     planets: planets.map(compactPlanetConfigV2),
     cmds: commands,
   };
-  if (share) snapshot.share = share;
-  return LZString.compressToEncodedURIComponent(JSON.stringify(snapshot));
+  if (share) snapshotV2.share = share;
+
+  try {
+    return encodeBinarySnapshot({
+      ...snapshotV2,
+      v: STATE_VERSION_V3,
+    });
+  } catch (error) {
+    console.warn('[URL State] Binary encode failed, falling back to v2:', error);
+    return LZString.compressToEncodedURIComponent(JSON.stringify(snapshotV2));
+  }
 }
 
 export function decodeGameState(encoded: string): GameSnapshot | null {
+  if (encoded.startsWith(BINARY_STATE_PREFIX)) {
+    return decodeBinarySnapshot(encoded);
+  }
+
   try {
     const json = LZString.decompressFromEncodedURIComponent(encoded);
     if (!json) return null;
     const snapshot = JSON.parse(json) as GameSnapshot;
-    if (snapshot.v !== STATE_VERSION_V1 && snapshot.v !== STATE_VERSION_V2) {
+    if (!isSupportedSnapshotVersion(snapshot.v)) {
       console.warn(`[URL State] Unknown version: ${snapshot.v}`);
       return null;
     }
@@ -436,6 +458,425 @@ export function decodeGameState(encoded: string): GameSnapshot | null {
   } catch {
     return null;
   }
+}
+
+function isSupportedSnapshotVersion(version: number): boolean {
+  return version === STATE_VERSION_V1 || version === STATE_VERSION_V2 || version === STATE_VERSION_V3;
+}
+
+// ---------------------------------------------------------------------------
+// Binary v3 codec
+// ---------------------------------------------------------------------------
+
+const COMMAND_TAG: Record<string, number> = {
+  q: 0,
+  c: 1,
+  r: 2,
+  p: 3,
+  ep: 4,
+  s: 5,
+  qr: 6,
+  qw: 7,
+  xa: 8,
+  x: 9,
+};
+
+const COMMAND_BY_TAG: Record<number, V2CommandType[0]> = {
+  0: 'q',
+  1: 'c',
+  2: 'r',
+  3: 'p',
+  4: 'ep',
+  5: 's',
+  6: 'qr',
+  7: 'qw',
+  8: 'xa',
+  9: 'x',
+};
+
+const LANE_TO_BINARY: Record<string, number> = {
+  b: 0,
+  s: 1,
+  n: 2,
+  r: 3,
+  building: 0,
+  ship: 1,
+  colonist: 2,
+  research: 3,
+};
+
+const BINARY_TO_LANE: Record<number, string> = {
+  0: 'b',
+  1: 's',
+  2: 'n',
+  3: 'r',
+};
+
+const PLANET_HAS_START_TURN = 1 << 0;
+const PLANET_HAS_ABUNDANCE = 1 << 1;
+const PLANET_HAS_SPACE = 1 << 2;
+const PLANET_HAS_STARTING_POP = 1 << 3;
+const PLANET_HAS_STARTING_STRUCTURES = 1 << 4;
+
+const SHARE_HAS_NAME = 1 << 0;
+const SHARE_HAS_AUTHOR = 1 << 1;
+const SHARE_HAS_TIME = 1 << 2;
+const PLANET_FLAG_MASK = PLANET_HAS_START_TURN
+  | PLANET_HAS_ABUNDANCE
+  | PLANET_HAS_SPACE
+  | PLANET_HAS_STARTING_POP
+  | PLANET_HAS_STARTING_STRUCTURES;
+const SHARE_FLAG_MASK = SHARE_HAS_NAME | SHARE_HAS_AUTHOR | SHARE_HAS_TIME;
+const MAX_BINARY_PLANETS = 64;
+const MAX_BINARY_COMMANDS = 20000;
+const MAX_BINARY_STRING_BYTES = 2048;
+
+function encodeBinarySnapshot(snapshot: GameSnapshot): string {
+  const writer = new BinaryWriter();
+  writer.writeByte(STATE_VERSION_V3);
+  writer.writeVarint(snapshot.planets.length);
+  snapshot.planets.forEach((planet) => writeBinaryPlanetConfig(writer, planet as V2CompactPlanetConfig));
+  writer.writeVarint(snapshot.cmds.length);
+  snapshot.cmds.forEach((command) => writeBinaryCommand(writer, command));
+  writeBinaryShare(writer, snapshot.share);
+  return `${BINARY_STATE_PREFIX}${bytesToBase64Url(writer.toUint8Array())}`;
+}
+
+function decodeBinarySnapshot(encoded: string): GameSnapshot | null {
+  try {
+    const reader = new BinaryReader(base64UrlToBytes(encoded.slice(BINARY_STATE_PREFIX.length)));
+    const version = reader.readByte();
+    if (version !== STATE_VERSION_V3) {
+      console.warn(`[URL State] Unknown binary version: ${version}`);
+      return null;
+    }
+
+    const planetCount = reader.readVarint();
+    if (planetCount > MAX_BINARY_PLANETS) throw new Error(`Too many planets: ${planetCount}`);
+    const planets = Array.from({ length: planetCount }, () => readBinaryPlanetConfig(reader));
+
+    const commandCount = reader.readVarint();
+    if (commandCount > MAX_BINARY_COMMANDS) throw new Error(`Too many commands: ${commandCount}`);
+    const cmds = Array.from({ length: commandCount }, () => readBinaryCommand(reader));
+    const share = readBinaryShare(reader);
+
+    if (!reader.done()) {
+      console.warn('[URL State] Binary snapshot has trailing bytes');
+      return null;
+    }
+
+    const snapshot: GameSnapshot = {
+      v: STATE_VERSION_V3,
+      planets,
+      cmds,
+    };
+    if (share) snapshot.share = share;
+    return snapshot;
+  } catch (error) {
+    console.warn('[URL State] Binary decode failed:', error);
+    return null;
+  }
+}
+
+function writeBinaryPlanetConfig(writer: BinaryWriter, compact: V2CompactPlanetConfig): void {
+  writer.writeString(compact.n);
+  let flags = 0;
+  if (compact.st !== undefined) flags |= PLANET_HAS_START_TURN;
+  if (compact.a !== undefined) flags |= PLANET_HAS_ABUNDANCE;
+  if (compact.s !== undefined) flags |= PLANET_HAS_SPACE;
+  if (compact.p !== undefined) flags |= PLANET_HAS_STARTING_POP;
+  if (compact.b !== undefined) flags |= PLANET_HAS_STARTING_STRUCTURES;
+  writer.writeByte(flags);
+
+  if (compact.st !== undefined) writer.writeVarint(compact.st);
+  if (compact.a !== undefined) compact.a.forEach((value) => writer.writeScaledNumber(value));
+  if (compact.s !== undefined) {
+    writer.writeVarint(compact.s[0]);
+    writer.writeVarint(compact.s[1]);
+  }
+  if (compact.p !== undefined) writer.writeVarint(compact.p);
+  if (compact.b !== undefined) compact.b.forEach((value) => writer.writeVarint(value));
+}
+
+function readBinaryPlanetConfig(reader: BinaryReader): V2CompactPlanetConfig {
+  const compact: V2CompactPlanetConfig = { n: reader.readString() };
+  const flags = reader.readByte();
+  if ((flags & ~PLANET_FLAG_MASK) !== 0) throw new Error(`Unknown planet flags: ${flags}`);
+
+  if (flags & PLANET_HAS_START_TURN) compact.st = reader.readVarint();
+  if (flags & PLANET_HAS_ABUNDANCE) {
+    compact.a = [
+      reader.readScaledNumber(),
+      reader.readScaledNumber(),
+      reader.readScaledNumber(),
+      reader.readScaledNumber(),
+      reader.readScaledNumber(),
+    ];
+  }
+  if (flags & PLANET_HAS_SPACE) compact.s = [reader.readVarint(), reader.readVarint()];
+  if (flags & PLANET_HAS_STARTING_POP) compact.p = reader.readVarint();
+  if (flags & PLANET_HAS_STARTING_STRUCTURES) {
+    compact.b = [reader.readVarint(), reader.readVarint(), reader.readVarint(), reader.readVarint()];
+  }
+
+  return compact;
+}
+
+function writeBinaryCommand(writer: BinaryWriter, command: CommandType): void {
+  const type = command[0];
+  const tag = COMMAND_TAG[type];
+  if (tag === undefined) throw new Error(`Unsupported command type: ${type}`);
+  writer.writeByte(tag);
+
+  switch (type) {
+    case 'q': {
+      if (typeof command[3] === 'string') {
+        const itemCode = V2_ITEM_CODE[command[3] as string];
+        if (itemCode === undefined) throw new Error(`Unknown item id: ${command[3]}`);
+        writer.writeVarint(command[1] as number);
+        writer.writeVarint(itemCode);
+        writer.writeVarint(command[4] as number);
+      } else {
+        writer.writeVarint(command[1] as number);
+        writer.writeVarint(command[2] as number);
+        writer.writeVarint(command[3] as number);
+      }
+      break;
+    }
+    case 'c': {
+      if (typeof command[3] !== 'number') throw new Error('Legacy cancel commands cannot be binary encoded');
+      writer.writeVarint(command[1] as number);
+      writer.writeByte(laneToBinaryCode(command[2] as string));
+      writer.writeVarint(command[3] as number);
+      break;
+    }
+    case 'r': {
+      if (typeof command[3] !== 'number') throw new Error('Legacy reorder commands cannot be binary encoded');
+      writer.writeVarint(command[1] as number);
+      writer.writeByte(laneToBinaryCode(command[2] as string));
+      writer.writeVarint(command[3] as number);
+      writer.writeVarint(command[4] as number);
+      break;
+    }
+    case 'p': {
+      writeBinaryPlanetConfig(writer, command[1] as V2CompactPlanetConfig);
+      break;
+    }
+    case 'ep': {
+      writer.writeVarint(command[1] as number);
+      writeBinaryPlanetConfig(writer, command[2] as V2CompactPlanetConfig);
+      break;
+    }
+    case 's':
+    case 'x': {
+      writer.writeVarint(command[1] as number);
+      break;
+    }
+    case 'qr': {
+      const itemRef = command[1];
+      const itemCode = typeof itemRef === 'number' ? itemRef : V2_ITEM_CODE[itemRef as string];
+      if (itemCode === undefined) throw new Error(`Unknown research item id: ${itemRef}`);
+      writer.writeVarint(itemCode);
+      break;
+    }
+    case 'qw': {
+      writer.writeVarint(command[1] as number);
+      break;
+    }
+    case 'xa':
+      break;
+    default:
+      throw new Error(`Unsupported command type: ${type}`);
+  }
+}
+
+function readBinaryCommand(reader: BinaryReader): V2CommandType {
+  const tag = reader.readByte();
+  const type = COMMAND_BY_TAG[tag];
+  if (!type) throw new Error(`Unknown binary command tag: ${tag}`);
+
+  switch (type) {
+    case 'q':
+      return ['q', reader.readVarint(), reader.readVarint(), reader.readVarint()];
+    case 'c':
+      return ['c', reader.readVarint(), binaryCodeToLane(reader.readByte()), reader.readVarint()];
+    case 'r':
+      return ['r', reader.readVarint(), binaryCodeToLane(reader.readByte()), reader.readVarint(), reader.readVarint()];
+    case 'p':
+      return ['p', readBinaryPlanetConfig(reader)];
+    case 'ep':
+      return ['ep', reader.readVarint(), readBinaryPlanetConfig(reader)];
+    case 's':
+      return ['s', reader.readVarint()];
+    case 'qr':
+      return ['qr', reader.readVarint()];
+    case 'qw':
+      return ['qw', reader.readVarint()];
+    case 'xa':
+      return ['xa'];
+    case 'x':
+      return ['x', reader.readVarint()];
+    default:
+      throw new Error(`Unsupported binary command type: ${type}`);
+  }
+}
+
+function writeBinaryShare(writer: BinaryWriter, share: V2ShareMetadata | undefined): void {
+  let flags = 0;
+  if (share?.n) flags |= SHARE_HAS_NAME;
+  if (share?.a) flags |= SHARE_HAS_AUTHOR;
+  if (share?.t) flags |= SHARE_HAS_TIME;
+  writer.writeByte(flags);
+  if (share?.n) writer.writeString(share.n);
+  if (share?.a) writer.writeString(share.a);
+  if (share?.t) writer.writeString(share.t);
+}
+
+function readBinaryShare(reader: BinaryReader): V2ShareMetadata | undefined {
+  const flags = reader.readByte();
+  if (flags === 0) return undefined;
+  if ((flags & ~SHARE_FLAG_MASK) !== 0) throw new Error(`Unknown share flags: ${flags}`);
+  const share: V2ShareMetadata = {};
+  if (flags & SHARE_HAS_NAME) share.n = reader.readString();
+  if (flags & SHARE_HAS_AUTHOR) share.a = reader.readString();
+  if (flags & SHARE_HAS_TIME) share.t = reader.readString();
+  return share;
+}
+
+function laneToBinaryCode(lane: string): number {
+  const code = LANE_TO_BINARY[lane];
+  if (code === undefined) throw new Error(`Unknown lane: ${lane}`);
+  return code;
+}
+
+function binaryCodeToLane(code: number): string {
+  const lane = BINARY_TO_LANE[code];
+  if (lane === undefined) throw new Error(`Unknown lane code: ${code}`);
+  return lane;
+}
+
+class BinaryWriter {
+  private bytes: number[] = [];
+  private textEncoder = new TextEncoder();
+
+  writeByte(value: number): void {
+    if (!Number.isInteger(value) || value < 0 || value > 255) throw new Error(`Invalid byte: ${value}`);
+    this.bytes.push(value);
+  }
+
+  writeVarint(value: number): void {
+    if (!Number.isFinite(value) || value < 0) throw new Error(`Invalid varint: ${value}`);
+    let remaining = Math.floor(value);
+    do {
+      const byte = remaining % 128;
+      remaining = Math.floor(remaining / 128);
+      this.bytes.push(remaining > 0 ? byte | 0x80 : byte);
+    } while (remaining > 0);
+  }
+
+  writeScaledNumber(value: number): void {
+    const scaled = Math.round(value * 100);
+    if (Number.isFinite(value) && scaled >= 0 && Math.abs(value * 100 - scaled) < 1e-9) {
+      this.writeByte(0);
+      this.writeVarint(scaled);
+      return;
+    }
+
+    this.writeByte(1);
+    const buffer = new ArrayBuffer(8);
+    new DataView(buffer).setFloat64(0, value, true);
+    this.writeBytes(new Uint8Array(buffer));
+  }
+
+  writeString(value: string): void {
+    const encoded = this.textEncoder.encode(value);
+    this.writeVarint(encoded.length);
+    this.writeBytes(encoded);
+  }
+
+  writeBytes(bytes: Uint8Array): void {
+    bytes.forEach((byte) => this.bytes.push(byte));
+  }
+
+  toUint8Array(): Uint8Array {
+    return new Uint8Array(this.bytes);
+  }
+}
+
+class BinaryReader {
+  private offset = 0;
+  private textDecoder = new TextDecoder();
+
+  constructor(private bytes: Uint8Array) {}
+
+  readByte(): number {
+    if (this.offset >= this.bytes.length) throw new Error('Unexpected end of binary payload');
+    return this.bytes[this.offset++];
+  }
+
+  readVarint(): number {
+    let value = 0;
+    let multiplier = 1;
+
+    for (let i = 0; i < 10; i++) {
+      const byte = this.readByte();
+      value += (byte & 0x7f) * multiplier;
+      if ((byte & 0x80) === 0) return value;
+      multiplier *= 128;
+    }
+
+    throw new Error('Varint is too long');
+  }
+
+  readScaledNumber(): number {
+    const mode = this.readByte();
+    if (mode === 0) return this.readVarint() / 100;
+    if (mode !== 1) throw new Error(`Unknown number mode: ${mode}`);
+
+    const start = this.offset;
+    const end = start + 8;
+    if (end > this.bytes.length) throw new Error('Unexpected end of float64');
+    this.offset = end;
+    return new DataView(this.bytes.buffer, this.bytes.byteOffset + start, 8).getFloat64(0, true);
+  }
+
+  readString(): string {
+    const length = this.readVarint();
+    if (length > MAX_BINARY_STRING_BYTES) throw new Error(`String is too long: ${length}`);
+    const start = this.offset;
+    const end = start + length;
+    if (end > this.bytes.length) throw new Error('Unexpected end of string');
+    this.offset = end;
+    return this.textDecoder.decode(this.bytes.slice(start, end));
+  }
+
+  done(): boolean {
+    return this.offset === this.bytes.length;
+  }
+}
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.slice(i, i + chunkSize));
+  }
+  const base64 = typeof btoa === 'function'
+    ? btoa(binary)
+    : Buffer.from(bytes).toString('base64');
+  return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function base64UrlToBytes(input: string): Uint8Array {
+  const base64 = input.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(input.length / 4) * 4, '=');
+  const binary = typeof atob === 'function'
+    ? atob(base64)
+    : Buffer.from(base64, 'base64').toString('binary');
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
 }
 
 export function normaliseShareMetadata(

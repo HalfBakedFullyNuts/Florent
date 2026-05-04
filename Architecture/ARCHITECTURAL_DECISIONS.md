@@ -15,6 +15,9 @@ Short rationale (1-2 sentences).
 
 ## Recent Decisions - Turn-Based Simulator Implementation
 
+2026-05-04 — Binary Share-Link Encoding
+New share and debug URLs use a v3 binary-packed payload with a `b3.` prefix to reduce URL length. Legacy v1/v2 compressed JSON links remain decodable so existing shared links and cached saves continue to load.
+
 2026-05-04 — Shared-Link Metadata and Separate Shared Saves
 Shared build links carry optional name/author metadata inside the compact URL payload so ownership can be shown without changing command replay. Opened shared links are stored in a dedicated IndexedDB `shared` store, keeping other players' lists separate from user-managed saves.
 
