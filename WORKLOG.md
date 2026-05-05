@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.21: Read-only shared build landing.**
+Shared build links now open into a focused build-list preview instead of dropping recipients directly into the full planner. The preview shows all four lanes together, supports switching planets in multi-planet shares, and keeps the editor hidden until the recipient chooses `Edit BL`.
+
 **2026-05-05 — v0.2.20: Queue-turn export semantics merged from main.**
 The latest main export fix is integrated into this branch: text, Discord, image, and game JSON exports now use the queue/start turn players need to act on, not the later completion turn. Current-view exports also filter by queue/start turn so the export scope matches what someone can actually queue by the selected turn.
 

@@ -53,6 +53,7 @@ import { Card } from '@/components/ui/card';
 import { DependencyWarningModal } from '../components/DependencyWarningModal';
 import { SavesModal } from '../components/SavesModal';
 import { BuildListSelector } from '../components/BuildListSelector';
+import { SharedBuildListView } from '../components/SharedBuildListView';
 import { clearAutosaveTimer, consumeRestoreIntent, prepareRestoreForReload, type AutosaveTimer } from './restoreState';
 
 // Persistence
@@ -161,6 +162,7 @@ export default function Home() {
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [isMounted, setIsMounted] = useState(false);
   const [activeShareMetadata, setActiveShareMetadata] = useState<ShareMetadata | null>(null);
+  const [isSharedBuildPreviewOpen, setSharedBuildPreviewOpen] = useState(false);
   const [shareListName, setShareListName] = useState('');
   const [shareAuthor, setShareAuthor] = useState('');
   // Bootstrap-once guard: React StrictMode runs effects twice in dev; we only
@@ -221,6 +223,10 @@ export default function Home() {
     if (activeShareMetadata.author !== 'Unknown commander') {
       setShareAuthor(activeShareMetadata.author);
     }
+  }, [activeShareMetadata]);
+
+  useEffect(() => {
+    setSharedBuildPreviewOpen(Boolean(activeShareMetadata));
   }, [activeShareMetadata]);
 
   useEffect(() => {
@@ -1348,6 +1354,23 @@ export default function Home() {
           </div>
         </header>
 
+        {activeShareMetadata && isSharedBuildPreviewOpen ? (
+          <SharedBuildListView
+            name={activeShareMetadata.name}
+            author={activeShareMetadata.author}
+            planets={gameState.planets}
+            currentPlanetId={gameState.currentPlanetId}
+            currentTurn={viewTurn}
+            lanes={enrichedLanes}
+            defs={defs}
+            onPlanetSelect={handlePlanetSwitch}
+            onEdit={() => {
+              setSharedBuildPreviewOpen(false);
+              setMobileView('queue');
+            }}
+          />
+        ) : (
+          <>
         <BuildListSelector onRestore={handleRestoreSave} />
 
         <div className="px-3 pb-3 md:px-6">
@@ -1623,6 +1646,8 @@ export default function Home() {
             )}
           </div>
         </main>
+          </>
+        )}
 
         {/* Footer */}
         <footer className="mt-8 text-center text-xs text-pink-nebula-text-secondary pb-8 space-y-2">
@@ -1646,7 +1671,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.20</div>
+          <div className="opacity-30 text-[10px]">v0.2.21</div>
         </footer>
       </div>
 

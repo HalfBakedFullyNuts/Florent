@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.21] — 2026-05-05
+
+### Added
+- Shared build links now open into a read-only build-list preview that shows Structures, Ships, Colonists, and Research together before exposing the planner.
+- The shared preview includes planet switching for multi-planet shares and an explicit `Edit BL` action to load the full editable app.
+
+### Tests
+- Added shared-link coverage for the read-only preview, all-lane display, and the edit handoff back into the full planner.
+- Re-verified share-link, page, lane-display tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.21`.
+
+---
+
 ## [0.2.20] — 2026-05-05
 
 ### Fixed

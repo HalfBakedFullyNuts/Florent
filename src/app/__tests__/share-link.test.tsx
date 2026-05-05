@@ -159,6 +159,37 @@ describe('share link flow', () => {
     expect(screen.getByText('Shared list')).toBeInTheDocument();
     expect(screen.getByText('Neighbor Tech Rush')).toBeInTheDocument();
     expect(screen.getByText('by Lin')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /edit bl/i })).toBeInTheDocument();
+    expect(screen.queryByText(/^Add to Queue$/i)).not.toBeInTheDocument();
+  });
+
+  test('shared build preview shows all lanes before editing', async () => {
+    const commands: Parameters<typeof encodeGameState>[1] = [
+      ['q', 0, 11, 1],
+      ['q', 0, 12, 5],
+      ['qr', 50],
+    ];
+    const encoded = encodeGameState([homeworldConfig], commands, {
+      name: 'All Lanes Opener',
+      author: 'Lin',
+      sharedAt: '2026-05-04T12:00:00.000Z',
+    });
+    window.history.replaceState(null, '', `/#state=${encoded}`);
+
+    render(<Home />);
+
+    await screen.findByRole('button', { name: /edit bl/i });
+    expect(screen.getByText('All Lanes Opener')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /structures/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /ships/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /colonists/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /research/i })).toBeInTheDocument();
+    expect(screen.queryByText(/^Add to Queue$/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /edit bl/i }));
+
+    expect(await screen.findByText(/^Add to Queue$/i)).toBeInTheDocument();
+    expect(screen.getByText(/Planet Queue/i)).toBeInTheDocument();
   });
 
   test('clears the live build when the state hash is removed', async () => {
