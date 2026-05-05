@@ -10,6 +10,7 @@ import { abbreviateName } from './abbreviations';
 export const DISCORD_MESSAGE_LIMIT = 2000;
 
 export interface QueueItem {
+  /** Turn when the player should queue/start this item. */
   turn: number;
   lane: LaneId;
   name: string;
@@ -17,40 +18,26 @@ export interface QueueItem {
 }
 
 /**
- * Extract queue items from lane views, excluding completed items
- * Returns items sorted by completion turn
+ * Extract queue items from lane views.
+ * Returns items sorted by the turn when the player should queue/start them.
  *
  * @param laneViews - Array of lane views to extract from
- * @param maxTurn - Optional maximum turn to include (for "current view" export)
+ * @param maxTurn - Optional maximum queue/start turn to include (for "current view" export)
  */
 export function extractQueueItems(laneViews: LaneView[], maxTurn?: number): QueueItem[] {
   const items: QueueItem[] = [];
 
   laneViews.forEach(laneView => {
     laneView.entries.forEach(entry => {
-      // Use the appropriate turn value based on status
-      let turn: number;
-      if (entry.status === 'completed') {
-        // Completed items: use their actual completion turn
-        turn = entry.completionTurn ?? 0;
-      } else if (entry.status === 'active') {
-        // Active items: use eta (calculated completion time)
-        turn = entry.eta || 0;
-      } else if (entry.status === 'pending') {
-        // Pending items: prefer completionTurn, fall back to eta
-        turn = entry.completionTurn ?? entry.eta ?? 0;
-      } else {
-        // Fallback for any other status
-        turn = entry.completionTurn ?? entry.eta ?? 0;
-      }
+      const turn = getQueueActionTurn(entry);
 
-      // Skip items with turn 0 (invalid data)
+      // Skip items with no usable queue/start turn.
       if (turn === 0) {
-        console.warn(`Queue item ${entry.itemName} has no valid completion turn`);
+        console.warn(`Queue item ${entry.itemName} has no valid queue turn`);
         return;
       }
 
-      // Skip items beyond maxTurn if specified (for "current view" export)
+      // Skip queue actions beyond maxTurn if specified (for "current view" export)
       if (maxTurn !== undefined && turn > maxTurn) {
         return;
       }
@@ -64,21 +51,25 @@ export function extractQueueItems(laneViews: LaneView[], maxTurn?: number): Queu
     });
   });
 
-  // Sort by turn
+  // Sort by queue/start turn.
   return items.sort((a, b) => a.turn - b.turn);
+}
+
+function getQueueActionTurn(entry: LaneView['entries'][number]): number {
+  return entry.startTurn ?? entry.queuedTurn ?? 0;
 }
 
 /**
  * Format queue as plain text list
- * Format: "[Turn Number] - [Building]/[Ships]/[Colonists]"
+ * Format: "[Queue Turn] - [Building]/[Ships]/[Colonists]"
  *
  * Example:
- * [6] - Farm
- * [9] - 5x Fighter
- * [16] - Metal Mine
+ * [1] - Farm
+ * [6] - Metal Mine
+ * [12] - 5x Fighter
  *
  * @param laneViews - Array of lane views to format
- * @param maxTurn - Optional maximum turn to include (for "current view" export)
+ * @param maxTurn - Optional maximum queue/start turn to include (for "current view" export)
  */
 export function formatAsText(laneViews: LaneView[], maxTurn?: number): string {
   const items = extractQueueItems(laneViews, maxTurn);
@@ -108,7 +99,7 @@ export function formatAsText(laneViews: LaneView[], maxTurn?: number): string {
  * intended to be copied/pasted one message at a time.
  *
  * @param laneViews - Array of lane views to format
- * @param maxTurn - Optional maximum turn to include (for "current view" export)
+ * @param maxTurn - Optional maximum queue/start turn to include (for "current view" export)
  */
 export function formatAsDiscordMessages(laneViews: LaneView[], maxTurn?: number): string[] {
   const items = extractQueueItems(laneViews, maxTurn);
@@ -124,8 +115,8 @@ export function formatAsDiscordMessages(laneViews: LaneView[], maxTurn?: number)
 
   const header = [
     '```',
-    '| Turn | Structure       | Ship            | Colonist        | Research        |',
-    '|------|-----------------|-----------------|-----------------|-----------------|',
+    '| Queue | Structure       | Ship            | Colonist        | Research        |',
+    '|-------|-----------------|-----------------|-----------------|-----------------|',
   ].join('\n');
   const footer = '\n```';
   const rows: string[] = [];
@@ -145,7 +136,7 @@ export function formatAsDiscordMessages(laneViews: LaneView[], maxTurn?: number)
       const colonistText = colonist ? `${colonist.quantity}x ${abbreviateName(colonist.name)}` : '';
       const researchText = research ? abbreviateName(research.name) : '';
 
-      const row = `\n| ${String(turn).padEnd(4)} | ${
+      const row = `\n| ${String(turn).padEnd(5)} | ${
         fitDiscordCell(structureText)
       } | ${
         fitDiscordCell(shipText)

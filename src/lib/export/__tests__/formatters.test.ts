@@ -29,6 +29,7 @@ describe('Export Formatters (TICKET-5)', () => {
           eta: 6,
           completionTurn: 6,
           queuedTurn: 1,
+          startTurn: 1,
         },
         {
           id: '2',
@@ -40,6 +41,7 @@ describe('Export Formatters (TICKET-5)', () => {
           eta: 16,
           completionTurn: 16,
           queuedTurn: 1,
+          startTurn: 6,
         },
       ],
     },
@@ -56,6 +58,7 @@ describe('Export Formatters (TICKET-5)', () => {
           eta: 9,
           completionTurn: 9,
           queuedTurn: 1,
+          startTurn: 2,
         },
       ],
     },
@@ -72,6 +75,7 @@ describe('Export Formatters (TICKET-5)', () => {
           eta: 16,
           completionTurn: 16,
           queuedTurn: 1,
+          startTurn: 6,
         },
       ],
     },
@@ -92,6 +96,7 @@ describe('Export Formatters (TICKET-5)', () => {
           eta: 4,
           completionTurn: undefined, // Not completed yet
           queuedTurn: 1,
+          startTurn: 1,
         },
         {
           id: '2',
@@ -103,6 +108,7 @@ describe('Export Formatters (TICKET-5)', () => {
           eta: 14,
           completionTurn: 14,
           queuedTurn: 1,
+          startTurn: 7,
         },
       ],
     },
@@ -119,6 +125,7 @@ describe('Export Formatters (TICKET-5)', () => {
           eta: 3,
           completionTurn: undefined, // Not completed yet
           queuedTurn: 1,
+          startTurn: 2,
         },
       ],
     },
@@ -130,29 +137,29 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(items).toHaveLength(4);
     });
 
-    it('should sort items by turn', () => {
+    it('should sort items by queue/start turn', () => {
       const items = extractQueueItems(mockLaneViews);
-      expect(items[0].turn).toBe(6); // Farm at T6
-      expect(items[1].turn).toBe(9); // Fighter at T9
-      expect(items[2].turn).toBe(16); // Metal Mine at T16
-      expect(items[3].turn).toBe(16); // Soldier at T16
+      expect(items[0].turn).toBe(1); // Farm starts at T1, completes at T6
+      expect(items[1].turn).toBe(2); // Fighter starts at T2, completes at T9
+      expect(items[2].turn).toBe(6); // Metal Mine starts at T6, completes at T16
+      expect(items[3].turn).toBe(6); // Soldier starts at T6, completes at T16
     });
 
     it('should filter items by maxTurn (current view export)', () => {
-      const items = extractQueueItems(mockLaneViews, 9);
+      const items = extractQueueItems(mockLaneViews, 2);
       expect(items).toHaveLength(2);
-      expect(items[0].turn).toBe(6); // Farm at T6
-      expect(items[1].turn).toBe(9); // Fighter at T9
-      // Metal Mine and Soldier at T16 should be excluded
+      expect(items[0].turn).toBe(1); // Farm queue action at T1
+      expect(items[1].turn).toBe(2); // Fighter queue action at T2
+      // Metal Mine and Soldier at T6 should be excluded
     });
 
     it('should include items at exactly maxTurn', () => {
-      const items = extractQueueItems(mockLaneViews, 16);
+      const items = extractQueueItems(mockLaneViews, 6);
       expect(items).toHaveLength(4); // All items
     });
 
     it('should return empty array when maxTurn is before all items', () => {
-      const items = extractQueueItems(mockLaneViews, 5);
+      const items = extractQueueItems(mockLaneViews, 0);
       expect(items).toHaveLength(0);
     });
 
@@ -171,6 +178,7 @@ describe('Export Formatters (TICKET-5)', () => {
               eta: null,
               completionTurn: 5,
               queuedTurn: 1,
+              startTurn: 1,
             },
             {
               id: '2',
@@ -182,6 +190,7 @@ describe('Export Formatters (TICKET-5)', () => {
               eta: 15,
               completionTurn: 15,
               queuedTurn: 1,
+              startTurn: 6,
             },
           ],
         },
@@ -190,24 +199,24 @@ describe('Export Formatters (TICKET-5)', () => {
       const items = extractQueueItems(lanesWithCompleted);
       expect(items).toHaveLength(2);
       expect(items[0].name).toBe('Farm');
-      expect(items[0].turn).toBe(5);
+      expect(items[0].turn).toBe(1);
       expect(items[1].name).toBe('Metal Mine');
-      expect(items[1].turn).toBe(15);
+      expect(items[1].turn).toBe(6);
     });
 
     // TICKET-6: Tests for active items bug fix
-    it('should export active items correctly using eta', () => {
+    it('should export active items using queue/start turn instead of eta', () => {
       const items = extractQueueItems(mockLaneViewsWithActive);
       expect(items).toHaveLength(3);
       // Items should be sorted by turn
-      // Active fighter at T3 (first)
-      expect(items[0].turn).toBe(3);
-      expect(items[0].name).toBe('Fighter');
-      // Active farm at T4 (second)
-      expect(items[1].turn).toBe(4);
-      expect(items[1].name).toBe('Farm');
-      // Pending metal mine at T14 (third)
-      expect(items[2].turn).toBe(14);
+      // Active farm starts at T1 even though it completes at T4.
+      expect(items[0].turn).toBe(1);
+      expect(items[0].name).toBe('Farm');
+      // Active fighter starts at T2 even though it completes at T3.
+      expect(items[1].turn).toBe(2);
+      expect(items[1].name).toBe('Fighter');
+      // Pending metal mine starts at T7 even though it completes at T14.
+      expect(items[2].turn).toBe(7);
       expect(items[2].name).toBe('Metal Mine');
     });
 
@@ -239,7 +248,6 @@ describe('Export Formatters (TICKET-5)', () => {
               turnsRemaining: 0,
               eta: null,
               completionTurn: undefined,
-              queuedTurn: 1,
             },
             {
               id: '2',
@@ -251,6 +259,7 @@ describe('Export Formatters (TICKET-5)', () => {
               eta: 6,
               completionTurn: 6,
               queuedTurn: 1,
+              startTurn: 1,
             },
           ],
         },
@@ -262,7 +271,7 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(items[0].name).toBe('Farm');
     });
 
-    it('should handle active items with eta but no completionTurn', () => {
+    it('should handle active items with startTurn but no completionTurn', () => {
       const lanesWithActiveOnly: LaneView[] = [
         {
           laneId: 'building',
@@ -277,6 +286,7 @@ describe('Export Formatters (TICKET-5)', () => {
               eta: 6,
               completionTurn: undefined, // This was causing the bug
               queuedTurn: 1,
+              startTurn: 2,
             },
           ],
         },
@@ -284,8 +294,33 @@ describe('Export Formatters (TICKET-5)', () => {
 
       const items = extractQueueItems(lanesWithActiveOnly);
       expect(items).toHaveLength(1);
-      expect(items[0].turn).toBe(6); // Should use eta, not undefined
+      expect(items[0].turn).toBe(2); // Should use startTurn, not eta/completion
       expect(items[0].name).toBe('Farm');
+    });
+
+    it('falls back to queuedTurn when startTurn is unavailable', () => {
+      const lanesWithLegacyEntry: LaneView[] = [
+        {
+          laneId: 'building',
+          entries: [
+            {
+              id: '1',
+              itemId: 'farm',
+              itemName: 'Farm',
+              quantity: 1,
+              status: 'pending',
+              turnsRemaining: 5,
+              eta: 6,
+              completionTurn: 6,
+              queuedTurn: 3,
+            },
+          ],
+        },
+      ];
+
+      const items = extractQueueItems(lanesWithLegacyEntry);
+      expect(items).toHaveLength(1);
+      expect(items[0].turn).toBe(3);
     });
   });
 
@@ -294,19 +329,19 @@ describe('Export Formatters (TICKET-5)', () => {
       const text = formatAsText(mockLaneViews);
       const lines = text.split('\n');
 
-      expect(lines[0]).toBe('[6] - Farm');
-      expect(lines[1]).toBe('[9] - 5x Fighter');
-      expect(lines[2]).toBe('[16] - Metal'); // Abbreviated from "Metal Mine"
-      expect(lines[3]).toBe('[16] - 100x Soldier');
+      expect(lines[0]).toBe('[1] - Farm');
+      expect(lines[1]).toBe('[2] - 5x Fighter');
+      expect(lines[2]).toBe('[6] - Metal'); // Abbreviated from "Metal Mine"
+      expect(lines[3]).toBe('[6] - 100x Soldier');
     });
 
     it('should format items with maxTurn filter (current view)', () => {
-      const text = formatAsText(mockLaneViews, 9);
+      const text = formatAsText(mockLaneViews, 2);
       const lines = text.split('\n');
 
       expect(lines).toHaveLength(2);
-      expect(lines[0]).toBe('[6] - Farm');
-      expect(lines[1]).toBe('[9] - 5x Fighter');
+      expect(lines[0]).toBe('[1] - Farm');
+      expect(lines[1]).toBe('[2] - 5x Fighter');
     });
 
     it('should include research without quantity', () => {
@@ -325,14 +360,15 @@ describe('Export Formatters (TICKET-5)', () => {
               eta: 12,
               completionTurn: 12,
               queuedTurn: 1,
+              startTurn: 4,
             },
           ],
         },
       ];
 
       const text = formatAsText(lanesWithResearch);
-      expect(text).toContain('[12] - Planet Management');
-      expect(text).not.toContain('[12] - 1x Planet Management');
+      expect(text).toContain('[4] - Planet Management');
+      expect(text).not.toContain('[4] - 1x Planet Management');
     });
 
     it('should handle empty queue', () => {
@@ -356,7 +392,7 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(discord.endsWith('```')).toBe(true);
 
       // Should have table header
-      expect(discord).toContain('| Turn | Structure');
+      expect(discord).toContain('| Queue | Structure');
       expect(discord).toContain('| Ship');
       expect(discord).toContain('| Colonist');
       expect(discord).toContain('| Research');
@@ -369,11 +405,11 @@ describe('Export Formatters (TICKET-5)', () => {
     });
 
     it('should format with maxTurn filter (current view)', () => {
-      const discord = formatAsDiscord(mockLaneViews, 9);
+      const discord = formatAsDiscord(mockLaneViews, 2);
 
       expect(discord).toContain('Farm');
       expect(discord).toContain('Fighter');
-      expect(discord).not.toContain('Metal'); // "Metal Mine" is beyond T9
+      expect(discord).not.toContain('Metal'); // "Metal Mine" starts beyond T2
       expect(discord).not.toContain('Soldier');
     });
 
@@ -391,7 +427,8 @@ describe('Export Formatters (TICKET-5)', () => {
             turnsRemaining: 5,
             eta: i + 10,
             completionTurn: i + 10,
-            queuedTurn: 1,
+            queuedTurn: i + 1,
+            startTurn: i + 1,
           })),
         },
       ];
@@ -414,20 +451,20 @@ describe('Export Formatters (TICKET-5)', () => {
 
       const discord = formatAsDiscord(emptyLanes);
       expect(discord).toContain('```');
-      expect(discord).toContain('| Turn |');
+      expect(discord).toContain('| Queue |');
     });
 
     it('should group items by turn', () => {
       const discord = formatAsDiscord(mockLaneViews);
 
-      // T16 has both Metal Mine and Soldier, should be in same row
+      // T6 has both Metal Mine and Soldier, should be in same row
       const lines = discord.split('\n');
-      const t16Line = lines.find(line => line.includes('| 16'));
+      const t6Line = lines.find(line => line.includes('| 6'));
 
-      expect(t16Line).toBeDefined();
-      if (t16Line) {
-        expect(t16Line).toContain('Metal'); // "Metal Mine" → "Metal"
-        expect(t16Line).toContain('Soldier');
+      expect(t6Line).toBeDefined();
+      if (t6Line) {
+        expect(t6Line).toContain('Metal');
+        expect(t6Line).toContain('Soldier');
       }
     });
 
@@ -437,7 +474,7 @@ describe('Export Formatters (TICKET-5)', () => {
 
       // Should contain table structure
       expect(discord).toContain('```');
-      expect(discord).toContain('| Turn | Structure');
+      expect(discord).toContain('| Queue | Structure');
       expect(discord).toContain('| Ship');
       expect(discord).toContain('| Colonist');
       expect(discord).toContain('| Research');
@@ -451,7 +488,7 @@ describe('Export Formatters (TICKET-5)', () => {
       const lines = discord.split('\n');
       const dataRows = lines.filter(line =>
         line.includes('|') &&
-        !line.includes('Turn |') &&
+        !line.includes('Queue |') &&
         !line.includes('---')
       );
       expect(dataRows.length).toBeGreaterThan(0);
@@ -472,6 +509,7 @@ describe('Export Formatters (TICKET-5)', () => {
               eta: 12,
               completionTurn: 12,
               queuedTurn: 1,
+              startTurn: 4,
             },
           ],
         },

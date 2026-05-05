@@ -186,6 +186,7 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
     console.log('Turn 2 building lane:', buildingLane.entries.map(e => ({
       name: e.itemName,
       status: e.status,
+      startTurn: e.startTurn,
       eta: e.eta,
       completionTurn: e.completionTurn,
       turnsRemaining: e.turnsRemaining
@@ -203,9 +204,10 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
       expect(exported.length).toBeGreaterThan(0);
       expect(exported[0].name).toBe('Farm');
 
-      // Check that turn is set correctly (should use eta for active items)
+      // Check that turn is set correctly (should use startTurn for active items)
       expect(exported[0].turn).toBeGreaterThan(0);
-      expect(exported[0].turn).toBe(activeFarm.eta);
+      expect(exported[0].turn).toBe(activeFarm.startTurn);
+      expect(exported[0].turn).not.toBe(activeFarm.eta);
     }
   });
 
@@ -248,9 +250,9 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
   it('should match export mode behavior - current vs full', () => {
     const controller = createTestController();
 
-    // Queue items with different completion times
-    controller.queueItem(1, 'farm', 1); // Completes early
-    controller.queueItem(1, 'habitat', 1); // Completes later
+    // Queue items with different start times
+    controller.queueItem(1, 'farm', 1);
+    controller.queueItem(1, 'habitat', 1);
 
     // Get state at turn 5
     const state = controller.getStateAtTurn(5);
@@ -275,7 +277,7 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
     // Full list should have at least as many items as current view
     expect(fullListItems.length).toBeGreaterThanOrEqual(currentViewItems.length);
 
-    // Items beyond turn 5 should only be in full list
+    // Queue actions beyond turn 5 should only be in full list
     const itemsBeyondT5 = fullListItems.filter(item => item.turn > 5);
     const currentViewBeyondT5 = currentViewItems.filter(item => item.turn > 5);
 

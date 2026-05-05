@@ -89,7 +89,7 @@ export function exportGameStateDiscord(gameState: GameState): string {
     const items: any[] = [];  // Placeholder - would need proper lane view conversion
 
     if (items.length > 0) {
-      // Group by turn for table format
+      // Group by queue/start turn for table format
       const byTurn = new Map<number, QueueItem[]>();
       items.forEach((item) => {
         const turn = planet.startTurn + (item.turn - 1);
@@ -100,8 +100,8 @@ export function exportGameStateDiscord(gameState: GameState): string {
       });
 
       // Create table
-      lines.push('| Turn | Building | Ship | Colonist |');
-      lines.push('|------|----------|------|----------|');
+      lines.push('| Queue | Building | Ship | Colonist |');
+      lines.push('|-------|----------|------|----------|');
 
       const sortedTurns = Array.from(byTurn.keys()).sort((a, b) => a - b);
       sortedTurns.forEach((turn) => {

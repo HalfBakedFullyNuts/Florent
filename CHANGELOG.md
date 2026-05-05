@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.15] - 2026-05-05
+
+### Fixed
+- Build queue exports now show the queue/start turn players need to act on, instead of the completion turn.
+- Current-view exports now filter by queue/start turn, and fallback messages describe missing due queue actions rather than missing completions.
+- Discord and image export headers now label the first column as queue turn.
+
+### Tests
+- Updated formatter, integration, and export modal coverage so active, pending, completed, and delayed-start entries export their queue/start turns.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.15`.
+
+---
+
 ## [0.2.14] — 2026-05-04
 
 ### Changed

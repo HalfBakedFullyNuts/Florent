@@ -12,11 +12,12 @@ const futureBuildingLane: LaneView = {
       itemId: 'farm',
       itemName: 'Farm',
       quantity: 1,
-      status: 'pending',
-      turnsRemaining: 4,
-      eta: 5,
-      completionTurn: 5,
-      queuedTurn: 1,
+    status: 'pending',
+    turnsRemaining: 4,
+    eta: 5,
+    completionTurn: 5,
+    queuedTurn: 1,
+    startTurn: 4,
     },
   ],
 };
@@ -29,11 +30,12 @@ const futureShipLane: LaneView = {
       itemId: 'fighter',
       itemName: 'Fighter',
       quantity: 5,
-      status: 'pending',
-      turnsRemaining: 8,
-      eta: 9,
-      completionTurn: 9,
-      queuedTurn: 1,
+    status: 'pending',
+    turnsRemaining: 8,
+    eta: 9,
+    completionTurn: 9,
+    queuedTurn: 1,
+    startTurn: 7,
     },
   ],
 };
@@ -51,7 +53,7 @@ describe('ExportModal', () => {
     });
   });
 
-  test('current export falls back to the full queue when nothing completes by the current turn', async () => {
+  test('current export falls back to the full queue when no queue actions are due by the current turn', async () => {
     const writeText = vi.mocked(window.navigator.clipboard.writeText);
 
     render(
@@ -69,8 +71,8 @@ describe('ExportModal', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /export as plain text/i }));
 
-    await waitFor(() => expect(writeText).toHaveBeenCalledWith('[5] - Farm'));
-    expect(screen.getByText(/full queue was copied/i)).toBeInTheDocument();
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith('[4] - Farm'));
+    expect(screen.getByText(/copied full queue/i)).toBeInTheDocument();
   });
 
   test('image export renders a wider table canvas instead of the old compact list image', async () => {
@@ -148,6 +150,7 @@ describe('ExportModal', () => {
     expect(exportedCanvases).toHaveLength(1);
     const canvas = exportedCanvases[0];
     expect(canvas.width).toBeGreaterThan(500);
+    expect(context.fillText).toHaveBeenCalledWith('QUEUE', expect.any(Number), expect.any(Number));
     expect(context.fillText).toHaveBeenCalledWith('STRUCTURE', expect.any(Number), expect.any(Number));
     expect(context.fillText).toHaveBeenCalledWith('SHIP', expect.any(Number), expect.any(Number));
   });
