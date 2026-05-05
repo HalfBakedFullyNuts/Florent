@@ -75,7 +75,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   return (
     <div
       className={`
-        w-full text-left p-3 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : 'bg-pink-nebula-panel/50'} border border-pink-nebula-border rounded
+        w-full text-left px-3 py-2 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : 'bg-pink-nebula-panel/50'} border border-pink-nebula-border rounded
         transition-colors group
         ${statusColor}
         ${entry.invalid ? 'border-orange-500/50 bg-orange-900/10' : ''}
@@ -154,7 +154,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 e.stopPropagation();
                 onCancel();
               }}
-              className="text-red-400 bg-red-900/30 rounded px-2 py-1 hover:bg-red-500 hover:text-white transition-all cursor-pointer text-lg font-bold leading-none"
+              className="text-red-400 bg-red-900/30 rounded px-2 py-0.5 hover:bg-red-500 hover:text-white transition-all cursor-pointer text-base font-bold leading-none"
               title="Remove from queue"
             >
               ✕

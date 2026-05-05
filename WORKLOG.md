@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.27: Compact shared and queue panels.**
+Shared build-list previews now use a tighter rail, smaller card/header spacing, compact rows, and non-stretched empty lane cards. The editable Planet Queue no longer inherits the Add-to-Queue panel's tall height and its lane body switches from fixed height to content-sized max-height scrolling, so short queues take only the space they need.
+
 **2026-05-05 — v0.2.26: Live queue duration fallback.**
 The live Add-to-Queue path could show `0T` beside projected build rows because those entries had already counted their `turnsRemaining` down to zero in the planning snapshot. Queue rows now prefer the item definition or visible T-start/T-end span for build duration display and re-render when duration inputs change, so live rows match the durations shown in the catalog and shared previews.
 

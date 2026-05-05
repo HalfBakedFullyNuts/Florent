@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.27] — 2026-05-05
+
+### Changed
+- Shared build-list previews are more compact with a narrower rail, reduced header/card padding, smaller empty-lane states, and non-stretched lane cards.
+- Editable Planet Queue cards now size to their content and only scroll when needed instead of inheriting the Add-to-Queue panel height.
+- Planet Queue rows and controls use tighter spacing so short queues take less vertical room.
+
+### Tests
+- Browser-checked the editable planner queue layout after queueing several structures.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.27`.
+
+---
+
 ## [0.2.26] — 2026-05-05
 
 ### Fixed

@@ -75,7 +75,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   return (
     <div className="w-full">
       {/* Tab Headers */}
-      <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
+      <div className="mb-3 grid grid-cols-2 gap-2 lg:grid-cols-4">
         {ALL_LANES.map((laneId) => {
           const tabConfig = LANE_CONFIG[laneId];
           const isActive = activeTab === laneId;
@@ -97,8 +97,8 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
       </div>
 
       {/* Active Tab Content */}
-      <Card className="scroll-nebula h-[60vh] overflow-y-auto p-3 pr-4 md:h-[600px] md:p-4 md:pr-5">
-        <div className="mb-4 flex items-center gap-2 border-b border-white/10 pb-3">
+      <Card className="scroll-nebula max-h-[60vh] overflow-y-auto p-3 pr-4 md:max-h-[600px] md:p-4 md:pr-5">
+        <div className="mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
           <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
             {config.icon}
           </span>
@@ -112,7 +112,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
 
         <div className="space-y-1">
           {!laneView || laneView.entries.length === 0 ? (
-            <div className="text-center text-pink-nebula-muted text-base py-8">
+            <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/25 py-5 text-center text-sm text-pink-nebula-muted">
               Queue empty
             </div>
           ) : (() => {
@@ -272,7 +272,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
         </div>
 
         {/* Footer hint */}
-        <div className="mt-4 pt-2 border-t border-pink-nebula-border">
+        <div className="mt-3 pt-2 border-t border-pink-nebula-border">
           <div className="text-xs text-pink-nebula-muted text-center">
             <span className="hidden md:inline">Drag ⋮⋮ to reorder</span>
             <span className="md:hidden">Tap ▲▼ to reorder</span>

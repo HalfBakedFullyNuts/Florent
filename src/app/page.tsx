@@ -1555,7 +1555,7 @@ export default function Home() {
                   </button>
                 </div>
 
-                <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
             {/* Left: Add to Queue (Item Selection) */}
             <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'build' ? 'block' : 'hidden md:block'}`}>
               <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text mb-4 md:mb-6">Add to Queue</h2>
@@ -1696,7 +1696,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.26</div>
+          <div className="opacity-30 text-[10px]">v0.2.27</div>
         </footer>
       </div>
 
