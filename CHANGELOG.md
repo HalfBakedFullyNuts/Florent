@@ -6,6 +6,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.20] — 2026-05-05
+
+### Fixed
+- Merged main's queue/start-turn export semantics into this branch so plain text, Discord, image, and game JSON exports show the action turn players need in-game rather than the completion turn.
+- Current-view exports now filter by queue/start turn and describe fallback behavior in terms of due queue actions.
+
+### Tests
+- Re-verified export formatter, integration, Export modal, build-list selector, Saves modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.20`.
+
+---
+
 ## [0.2.19] — 2026-05-05
 
 ### Added

@@ -1646,7 +1646,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.19</div>
+          <div className="opacity-30 text-[10px]">v0.2.20</div>
         </footer>
       </div>
 

@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.20: Queue-turn export semantics merged from main.**
+The latest main export fix is integrated into this branch: text, Discord, image, and game JSON exports now use the queue/start turn players need to act on, not the later completion turn. Current-view exports also filter by queue/start turn so the export scope matches what someone can actually queue by the selected turn.
+
 **2026-05-05 — v0.2.19: Shared mobile landing and game JSON export.**
 Shared links now land mobile users on the Queue panel first, so recipients see the build list instead of the editing catalog. The export vault gained a game-facing JSON option that contains only build-list data: item ids, display names, lanes, turns, and quantities, with no Florent encoded state, save metadata, author fields, or local cache details. Plain `#state=` autosave/reload URLs without share metadata are also treated as local restores so they no longer pollute the Shared list.
 

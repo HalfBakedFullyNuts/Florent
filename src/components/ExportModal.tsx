@@ -23,17 +23,18 @@ export interface ExportModalProps {
   colonistLane: LaneView;
   researchLane: LaneView;
   currentTurn: number;
-  exportMode: 'full' | 'current'; // full = all items, current = up to current turn
+  exportMode: 'full' | 'current'; // full = all items, current = queue actions up to current turn
 }
 
 /**
  * ExportModal - Export build queue in various formats
  *
  * TICKET-5: Queue Export Functionality
- * Supports three export types:
+ * Supports four export types:
  * - Plain Text: Simple list format
  * - Discord: Formatted table with character limit check
  * - Image: PNG rendered via canvas with watermark
+ * - Game JSON: Build-only payload for game import
  */
 export function ExportModal({
   isOpen,
@@ -60,7 +61,7 @@ export function ExportModal({
   const displayedItemCount = scopedItemCount > 0 || exportMode === 'full' ? scopedItemCount : totalItemCount;
   const scopeLabel = exportMode === 'current' ? 'Current view' : 'Full queue';
   const fallbackHint = exportMode === 'current' && scopedItemCount === 0 && totalItemCount > 0
-    ? 'No completed current-turn items yet. Export falls back to the full queue.'
+    ? 'No queue actions at or before the current turn. Export falls back to the full queue.'
     : null;
 
   const showNotification = (message: string) => {
@@ -97,10 +98,10 @@ export function ExportModal({
     const success = await copyToClipboard(text);
     if (success) {
       showNotification(usedFullFallback
-        ? '✓ No items completed by this turn, so the full queue was copied.'
-        : '✓ Copied to clipboard!');
+        ? 'Copied full queue because no queue actions are due by this turn.'
+        : 'Copied to clipboard!');
     } else {
-      showNotification('✗ Failed to copy to clipboard');
+      showNotification('Failed to copy to clipboard');
     }
   };
 
@@ -121,14 +122,14 @@ export function ExportModal({
       setDiscordMessages(messages);
       setNextDiscordMessageIndex(messages.length > 1 ? 1 : 0);
       if (messages.length > 1) {
-        showNotification(`✓ Copied Discord message 1 of ${messages.length}. Paste it, then copy the next one.`);
+        showNotification(`Copied Discord message 1 of ${messages.length}. Paste it, then copy the next one.`);
       } else {
         showNotification(usedFullFallback
-          ? '✓ No items completed by this turn, so the full queue was copied.'
-          : '✓ Copied to clipboard!');
+          ? 'Copied full queue because no queue actions are due by this turn.'
+          : 'Copied to clipboard!');
       }
     } else {
-      showNotification('✗ Failed to copy to clipboard');
+      showNotification('Failed to copy to clipboard');
     }
   };
 
@@ -140,9 +141,9 @@ export function ExportModal({
     if (success) {
       const copiedNumber = nextDiscordMessageIndex + 1;
       setNextDiscordMessageIndex(nextDiscordMessageIndex + 1);
-      showNotification(`✓ Copied Discord message ${copiedNumber} of ${discordMessages.length}`);
+      showNotification(`Copied Discord message ${copiedNumber} of ${discordMessages.length}`);
     } else {
-      showNotification('✗ Failed to copy to clipboard');
+      showNotification('Failed to copy to clipboard');
     }
   };
 
@@ -155,8 +156,9 @@ export function ExportModal({
     clearDiscordCopyState();
     setImageFallback(null);
     const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
+    const jsonScope = usedFullFallback || effectiveMaxTurn === undefined ? 'full' : exportMode;
     const json = formatAsBuildDataJson(laneViews, effectiveMaxTurn, {
-      scope: usedFullFallback || effectiveMaxTurn === undefined ? 'full' : exportMode,
+      scope: jsonScope,
       currentTurn,
     });
 
@@ -165,17 +167,17 @@ export function ExportModal({
       return;
     }
 
-    const filename = `florent-build-list-${exportMode}-t${currentTurn}.json`;
+    const filename = `florent-build-list-${jsonScope}-t${currentTurn}.json`;
     const blob = new Blob([json], { type: 'application/json' });
     setJsonFallback({ blob, filename });
 
     const success = await copyToClipboard(json);
     if (success) {
       showNotification(usedFullFallback
-        ? '✓ No items completed by this turn, so the full build JSON was copied.'
-        : '✓ Game JSON copied to clipboard!');
+        ? 'Copied full build JSON because no queue actions are due by this turn.'
+        : 'Game JSON copied to clipboard!');
     } else {
-      showNotification('✗ Clipboard blocked JSON copy. Use Download JSON instead.');
+      showNotification('Clipboard blocked JSON copy. Use Download JSON instead.');
     }
   };
 
@@ -200,7 +202,7 @@ export function ExportModal({
 
       const blob = await canvasToPngBlob(canvas);
       if (!blob) {
-        showNotification('✗ Failed to generate image');
+        showNotification('Failed to generate image');
         return;
       }
 
@@ -209,14 +211,14 @@ export function ExportModal({
       setImageFallback({ blob, filename });
       if (copied) {
         showNotification(usedFullFallback
-          ? '✓ No items completed by this turn, so the full queue image was copied.'
-          : '✓ Image copied to clipboard!');
+          ? 'Copied full queue image because no queue actions are due by this turn.'
+          : 'Image copied to clipboard!');
       } else {
-        showNotification('✗ Browser blocked image clipboard. Use Download image instead.');
+        showNotification('Browser blocked image clipboard. Use Download image instead.');
       }
     } catch (error) {
       console.error('Image export error:', error);
-      showNotification('✗ Failed to export image');
+      showNotification('Failed to export image');
     }
   };
 
@@ -273,7 +275,7 @@ export function ExportModal({
             <ExportActionCard
               icon={<FileText className="h-5 w-5" aria-hidden="true" />}
               title="Export as Plain Text"
-              description="Simple turn list copied to clipboard."
+              description="Simple queue-turn list copied to clipboard."
               onClick={handleExportText}
             />
 
@@ -419,7 +421,7 @@ interface ExportImageRowLayout {
 }
 
 const EXPORT_IMAGE_COLUMNS: ExportImageColumn[] = [
-  { key: 'turn', label: 'Turn', minWidth: 72, maxWidth: 84, align: 'center' },
+  { key: 'turn', label: 'Queue', minWidth: 78, maxWidth: 92, align: 'center' },
   { key: 'building', label: 'Structure', minWidth: 190, maxWidth: 320 },
   { key: 'ship', label: 'Ship', minWidth: 150, maxWidth: 260 },
   { key: 'colonist', label: 'Colonist', minWidth: 150, maxWidth: 260 },

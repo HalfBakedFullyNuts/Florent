@@ -9,7 +9,7 @@ import { getLaneView } from '../../game/selectors';
 import { createStandardStart } from '../../sim/defs/seed';
 import { loadGameData } from '../../sim/defs/adapter.client';
 import gameDataRaw from '../../game/game_data.json';
-import { formatAsText, formatAsDiscord } from '../formatters';
+import { extractQueueItems, formatAsText, formatAsDiscord } from '../formatters';
 
 describe('Complete Build Order Export', () => {
   it('should export complete build order with all item statuses', () => {
@@ -37,6 +37,7 @@ describe('Complete Build Order Export', () => {
     console.log('Building Lane entries:', buildingLane.entries.map(e => ({
       name: e.itemName,
       status: e.status,
+      startTurn: e.startTurn,
       completionTurn: e.completionTurn,
       eta: e.eta
     })));
@@ -53,10 +54,16 @@ describe('Complete Build Order Export', () => {
     expect(plainText).toContain('Metal');          // "Metal Mine" → "Metal" (Completed at T8)
     expect(plainText).toContain('Mineral');        // "Mineral Extractor" → "Mineral" (Active at T10, completing T13)
 
-    // Verify proper formatting with turn numbers
-    expect(plainText).toContain('[4]');  // Farm completion
-    expect(plainText).toContain('[8]');  // Metal Mine completion
-    expect(plainText).toContain('[13]'); // Mineral Extractor completion (T10 + 3 remaining)
+    const exportedItems = extractQueueItems(lanes);
+    const farmEntry = buildingLane.entries.find((entry) => entry.itemName === 'Farm');
+    const farmExport = exportedItems.find((item) => item.name === 'Farm');
+    expect(farmEntry?.startTurn).toBeGreaterThan(0);
+    expect(farmExport?.turn).toBe(farmEntry?.startTurn);
+    expect(farmExport?.turn).not.toBe(farmEntry?.completionTurn);
+
+    const metalEntry = buildingLane.entries.find((entry) => entry.itemName === 'Metal Mine');
+    const metalExport = exportedItems.find((item) => item.name === 'Metal Mine');
+    expect(metalExport?.turn).toBe(metalEntry?.startTurn);
 
     // Test Discord export too
     const discord = formatAsDiscord(lanes);
@@ -82,22 +89,25 @@ describe('Complete Build Order Export', () => {
     controller.queueItem(1, 'metal_mine', 1);     // Completes at T8
     controller.queueItem(1, 'mineral_extractor', 1); // Completes at T12
 
-    // At turn 6, farm is completed, metal mine is active, mineral extractor is pending
+    // At turn 6, current view includes queue actions whose start turn is <= 6.
     const state = controller.getStateAtTurn(6);
     const buildingLane = getLaneView(state, 'building');
 
     // Export with maxTurn = 6 (current view mode)
     const plainText = formatAsText([buildingLane], 6);
+    const exportedItems = extractQueueItems([buildingLane], 6);
 
     console.log('\n=== Current View Export (up to Turn 6) ===');
     console.log(plainText);
 
-    // Should include farm (completed at T4)
-    expect(plainText).toContain('Farm');
-    expect(plainText).toContain('[4]');
+    expect(exportedItems.length).toBeGreaterThan(0);
+    exportedItems.forEach((item) => {
+      expect(item.turn).toBeLessThanOrEqual(6);
+    });
 
-    // Should NOT include items completing after turn 6
-    expect(plainText).not.toContain('[8]');  // Metal Mine
-    expect(plainText).not.toContain('[12]'); // Mineral Extractor
+    const futureEntries = buildingLane.entries.filter((entry) => (entry.startTurn ?? 0) > 6);
+    futureEntries.forEach((entry) => {
+      expect(plainText).not.toContain(entry.itemName === 'Metal Mine' ? 'Metal' : entry.itemName.split(' ')[0]);
+    });
   });
 });
