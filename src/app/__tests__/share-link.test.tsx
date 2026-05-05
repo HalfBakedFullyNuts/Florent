@@ -184,6 +184,7 @@ describe('share link flow', () => {
     expect(screen.getByRole('heading', { name: /ships/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /colonists/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /research/i })).toBeInTheDocument();
+    expect(screen.getByTestId('shared-lane-board')).toHaveClass('xl:grid-cols-4');
     expect(screen.queryByText(/^Add to Queue$/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /edit bl/i }));

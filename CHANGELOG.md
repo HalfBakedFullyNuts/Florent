@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.23] — 2026-05-05
+
+### Changed
+- Shared build links now present the read-only build list as four side-by-side lane columns on desktop, with responsive two-column and single-column fallbacks.
+- Shared preview lane rows were tightened for narrow columns so turn windows, quantities, and durations remain readable.
+
+### Tests
+- Added shared-link preview coverage for the four-column lane board layout.
+- Re-verified the shared-link preview flow and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.23`.
+
+---
+
 ## [0.2.22] — 2026-05-05
 
 ### Added

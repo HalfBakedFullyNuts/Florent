@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.23: Shared build lane board.**
+The read-only shared-build landing view now lays Structures, Ships, Colonists, and Research out as four side-by-side lane columns on desktop, while falling back to two columns on tablets and one column on phones. Lane rows were compacted so turn windows, quantities, and durations remain easy to scan in the narrower columns.
+
 **2026-05-05 — v0.2.22: Multi-planet exports and wait sharing.**
 Exports now have a Selected planet vs All planets target so text, Discord, image, and game JSON can carry a whole multi-planet plan. The game JSON format has a v2 shape with planet-local build items grouped by planet and global research emitted once. Manual waits are now exported with duration, recorded into share links, replayed on open, and reorderable like other manual plan entries; auto-waits remain generated schedule artifacts.
 

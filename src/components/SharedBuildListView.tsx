@@ -101,7 +101,11 @@ export function SharedBuildListView({
                 This shared build list has no queued items yet.
               </div>
             ) : (
-              <div className="grid gap-3 xl:grid-cols-2">
+              <div
+                aria-label="Shared build lanes"
+                data-testid="shared-lane-board"
+                className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-4"
+              >
                 {ALL_LANES.map((laneId) => (
                   <SharedLaneCard
                     key={laneId}
@@ -135,7 +139,10 @@ function SharedLaneCard({
   const entries = [...(lane?.entries ?? [])].sort(compareEntries);
 
   return (
-    <section className="min-w-0 rounded-3xl border border-white/10 bg-white/[0.045] p-3 shadow-xl shadow-black/15 md:p-4">
+    <section
+      aria-label={`${config.title} shared lane`}
+      className="flex min-w-0 flex-col rounded-3xl border border-white/10 bg-gradient-to-br from-white/[0.07] via-white/[0.04] to-slate-950/25 p-3 shadow-xl shadow-black/15 md:p-4"
+    >
       <div className="mb-3 flex items-center gap-2 border-b border-white/10 pb-3">
         <span className="grid h-9 w-9 place-items-center rounded-2xl border border-cyan-200/25 bg-cyan-300/10 text-lg shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
           {config.icon}
@@ -151,7 +158,7 @@ function SharedLaneCard({
           No {config.title.toLowerCase()} queued.
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="scroll-nebula min-h-0 space-y-2 xl:max-h-[68vh] xl:overflow-y-auto xl:pr-1">
           {entries.map((entry) => (
             <SharedLaneRow
               key={entry.id}
@@ -182,20 +189,20 @@ function SharedLaneRow({
 
   return (
     <div className={`rounded-2xl border px-3 py-3 font-mono text-sm ${rowClass(status, entry.invalid)}`}>
-      <div className="grid grid-cols-[minmax(74px,auto)_1fr_auto] items-center gap-3">
-        <div className="whitespace-nowrap text-xs font-black uppercase tracking-[0.08em] text-cyan-100/65">
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="whitespace-nowrap text-[11px] font-black uppercase tracking-[0.08em] text-cyan-100/65">
           T{start} - T{end}
         </div>
-        <div className="min-w-0">
-          <div className="truncate font-bold text-pink-nebula-text">{formatEntryName(entry)}</div>
-          {entry.invalid && entry.invalidReason && (
-            <div className="mt-1 truncate text-xs text-orange-300">{entry.invalidReason}</div>
-          )}
-        </div>
-        <div className="flex items-center gap-2 text-right">
+        <div className="flex shrink-0 items-center gap-1 text-right">
           {entry.quantity > 1 && <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-xs text-pink-nebula-text">x{entry.quantity}</span>}
-          {duration !== null && <span className="text-xs text-pink-nebula-muted">{duration}T</span>}
+          {duration !== null && <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-pink-nebula-muted">{duration}T</span>}
         </div>
+      </div>
+      <div className="min-w-0">
+        <div className="truncate font-bold text-pink-nebula-text">{formatEntryName(entry)}</div>
+        {entry.invalid && entry.invalidReason && (
+          <div className="mt-1 truncate text-xs text-orange-300">{entry.invalidReason}</div>
+        )}
       </div>
     </div>
   );
