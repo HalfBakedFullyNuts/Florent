@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.25: Browser QA duration cleanup.**
+Browser testing the shared-link landing and edit handoff exposed replayed rows showing `0T` duration even though their T-start/T-end range was correct. Queue rows now fall back to the original turn span or item definition duration, so shared previews and edited shared builds display meaningful durations after replay.
+
 **2026-05-05 — v0.2.24: Local restore stays editable.**
 Root app loads now treat `florent_save` as local autosave data even when the cached encoded payload still contains share metadata from a previous copy/open flow. The read-only shared preview remains reserved for actual `#state=` shared-link restores, preventing a user's own cached build from reopening as "Shared list".
 

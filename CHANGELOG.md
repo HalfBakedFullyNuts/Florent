@@ -6,6 +6,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.25] — 2026-05-05
+
+### Fixed
+- Shared build preview rows and edited shared queues now show the original item duration instead of `0T` when replayed entries are already simulated to completion.
+
+### Tests
+- Added shared-link preview coverage to prevent completed/replayed rows from regressing to `0T` duration.
+- Re-verified browser share-link open/edit behavior, shared-link tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.25`.
+
+---
+
 ## [0.2.24] — 2026-05-05
 
 ### Fixed

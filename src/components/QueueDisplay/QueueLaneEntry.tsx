@@ -70,6 +70,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
 
   const isAutoWait = entry.isAutoWait;
   const waitTurns = getDisplayWaitTurns(entry);
+  const durationTurns = getDisplayDurationTurns(entry, def);
 
   return (
     <div
@@ -141,7 +142,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
 
         {/* Duration */}
         <div className="text-pink-nebula-text text-right w-10">
-          {entry.isWait ? `${waitTurns}T` : entry.turnsRemaining !== undefined ? `${entry.turnsRemaining}T` : `${def?.duration || '—'}T`}
+          {durationTurns}T
         </div>
 
         {/* Remove indicator */}
@@ -205,4 +206,20 @@ function getDisplayWaitTurns(entry: LaneEntry): number | string {
   }
 
   return entry.turnsRemaining || '?';
+}
+
+function getDisplayDurationTurns(entry: LaneEntry, def?: any): number | string {
+  if (entry.isWait) return getDisplayWaitTurns(entry);
+  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
+  if (def?.durationTurns !== undefined || def?.duration !== undefined) {
+    return def?.durationTurns ?? def?.duration;
+  }
+
+  const start = entry.startTurn ?? entry.queuedTurn;
+  const end = entry.completionTurn ?? entry.eta ?? undefined;
+  if (start !== undefined && end !== undefined && end > start) {
+    return end - start;
+  }
+
+  return entry.turnsRemaining ?? '—';
 }

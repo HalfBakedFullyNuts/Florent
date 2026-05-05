@@ -184,7 +184,7 @@ function SharedLaneRow({
 }) {
   const start = entry.startTurn ?? entry.queuedTurn ?? '?';
   const end = entry.completionTurn ?? entry.eta ?? '?';
-  const duration = entry.isWait ? getWaitTurns(entry) : entry.turnsRemaining ?? def?.duration ?? null;
+  const duration = getDurationTurns(entry, def);
   const status = getDisplayStatus(entry, currentTurn);
 
   return (
@@ -241,6 +241,22 @@ function getWaitTurns(entry: LaneEntry): number | string {
   }
 
   return entry.turnsRemaining || '?';
+}
+
+function getDurationTurns(entry: LaneEntry, def?: any): number | string | null {
+  if (entry.isWait) return getWaitTurns(entry);
+  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
+  if (def?.durationTurns !== undefined || def?.duration !== undefined) {
+    return def?.durationTurns ?? def?.duration;
+  }
+
+  const start = entry.startTurn ?? entry.queuedTurn;
+  const end = entry.completionTurn ?? entry.eta ?? undefined;
+  if (start !== undefined && end !== undefined && end > start) {
+    return end - start;
+  }
+
+  return entry.turnsRemaining ?? null;
 }
 
 function rowClass(status: LaneEntry['status'], invalid?: boolean): string {

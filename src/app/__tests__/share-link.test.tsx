@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import Home from '../page';
 import {
@@ -185,6 +185,9 @@ describe('share link flow', () => {
     expect(screen.getByRole('heading', { name: /colonists/i })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /research/i })).toBeInTheDocument();
     expect(screen.getByTestId('shared-lane-board')).toHaveClass('xl:grid-cols-4');
+    const sharedLaneBoard = screen.getByTestId('shared-lane-board');
+    expect(within(sharedLaneBoard).getByText('4T')).toBeInTheDocument();
+    expect(within(sharedLaneBoard).queryByText('0T')).not.toBeInTheDocument();
     expect(screen.queryByText(/^Add to Queue$/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /edit bl/i }));
