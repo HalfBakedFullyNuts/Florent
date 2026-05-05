@@ -175,6 +175,7 @@ type V1CommandType =
 // v2 format
 type V2CommandType =
   | ['q', number, number, number]           // queue: planetIdx, itemCode, qty
+  | ['w', number, string, number]           // wait: planetIdx, laneCode, turns
   | ['c', number, string, number]           // cancel: planetIdx, laneCode, seqId
   | ['r', number, string, number, number]   // reorder: planetIdx, laneCode, seqId, newIdx
   | ['p', V2CompactPlanetConfig]            // add planet
@@ -306,6 +307,13 @@ export class CommandHistory {
     this.commands.push(['q', planetIdx, itemCode, qty]);
   }
 
+  recordQueueWait(planetIdx: number, laneId: LaneId, turns: number, entryId: string) {
+    const seqId = this.nextSeqId++;
+    this.entryIdToSeqId.set(entryId, seqId);
+    const laneCode = V2_LANE_ENC[laneId] ?? laneId;
+    this.commands.push(['w', planetIdx, laneCode, turns]);
+  }
+
   /** Record a cancel command, referenced by the item's seqId. */
   recordCancel(planetIdx: number, laneId: LaneId, entryId: string) {
     const seqId = this.entryIdToSeqId.get(entryId);
@@ -403,6 +411,10 @@ export class CommandHistory {
           qty = (cmd[3] as number) ?? 1;
         }
         this.commands.push(['q', planetIdx, itemCode, qty]);
+      } else if (cmd[0] === 'w') {
+        const seqId = this.nextSeqId++;
+        this.entryIdToSeqId.set(`__s${seqId}`, seqId);
+        this.commands.push(cmd as V2CommandType);
       } else if (cmd[0] === 'qr' || cmd[0] === 'qw') {
         const seqId = this.nextSeqId++;
         this.entryIdToSeqId.set(`__s${seqId}`, seqId);
@@ -508,6 +520,7 @@ const COMMAND_TAG: Record<string, number> = {
   qw: 7,
   xa: 8,
   x: 9,
+  w: 10,
 };
 
 const COMMAND_BY_TAG: Record<number, V2CommandType[0]> = {
@@ -521,6 +534,7 @@ const COMMAND_BY_TAG: Record<number, V2CommandType[0]> = {
   7: 'qw',
   8: 'xa',
   9: 'x',
+  10: 'w',
 };
 
 const LANE_TO_BINARY: Record<string, number> = {
@@ -672,6 +686,12 @@ function writeBinaryCommand(writer: BinaryWriter, command: CommandType): void {
       }
       break;
     }
+    case 'w': {
+      writer.writeVarint(command[1] as number);
+      writer.writeByte(laneToBinaryCode(command[2] as string));
+      writer.writeVarint(command[3] as number);
+      break;
+    }
     case 'c': {
       if (typeof command[3] !== 'number') throw new Error('Legacy cancel commands cannot be binary encoded');
       writer.writeVarint(command[1] as number);
@@ -727,6 +747,8 @@ function readBinaryCommand(reader: BinaryReader): V2CommandType {
   switch (type) {
     case 'q':
       return ['q', reader.readVarint(), reader.readVarint(), reader.readVarint()];
+    case 'w':
+      return ['w', reader.readVarint(), binaryCodeToLane(reader.readByte()), reader.readVarint()];
     case 'c':
       return ['c', reader.readVarint(), binaryCodeToLane(reader.readByte()), reader.readVarint()];
     case 'r':
@@ -1078,6 +1100,23 @@ export function replayCommands(
           break;
         }
 
+        case 'w': {
+          seqCounter++;
+          const deterministicId = `__s${seqCounter}`;
+          seqToEntryId.set(seqCounter, deterministicId);
+          const planetIdx = cmd[1] as number;
+          const laneId: LaneId = V2_LANE_DEC[cmd[2] as string] ?? (cmd[2] as LaneId);
+          const turns = cmd[3] as number;
+
+          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planet = gameState.planets.get(planetId);
+          if (planet?.timeline) {
+            const controller = new GameController(planet, planet.timeline);
+            controller.queueWaitItem(planet.startTurn, laneId, turns, false, { preserveId: deterministicId });
+          }
+          break;
+        }
+
         case 'c': {
           let planetIdx: number, laneId: LaneId, entryId: string;
           if (typeof cmd[3] === 'string') {
@@ -1126,6 +1165,7 @@ export function replayCommands(
           if (planet?.timeline) {
             const controller = new GameController(planet, planet.timeline);
             controller.reorderQueueItem(planet.startTurn, laneId, entryId, newIdx);
+            controller.repackQueue(planet.startTurn, laneId);
           }
           break;
         }

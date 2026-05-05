@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.22: Multi-planet exports and wait sharing.**
+Exports now have a Selected planet vs All planets target so text, Discord, image, and game JSON can carry a whole multi-planet plan. The game JSON format has a v2 shape with planet-local build items grouped by planet and global research emitted once. Manual waits are now exported with duration, recorded into share links, replayed on open, and reorderable like other manual plan entries; auto-waits remain generated schedule artifacts.
+
 **2026-05-05 — v0.2.21: Read-only shared build landing.**
 Shared build links now open into a focused build-list preview instead of dropping recipients directly into the full planner. The preview shows all four lanes together, supports switching planets in multi-planet shares, and keeps the editor hidden until the recipient chooses `Edit BL`.
 

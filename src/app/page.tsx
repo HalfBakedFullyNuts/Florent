@@ -55,6 +55,7 @@ import { SavesModal } from '../components/SavesModal';
 import { BuildListSelector } from '../components/BuildListSelector';
 import { SharedBuildListView } from '../components/SharedBuildListView';
 import { clearAutosaveTimer, consumeRestoreIntent, prepareRestoreForReload, type AutosaveTimer } from './restoreState';
+import type { MultiPlanetExportData } from '../lib/export/formatters';
 
 // Persistence
 import { pushHistory, migrateLegacyLocalStorage, saveSharedLink } from '../lib/persistence/savesDb';
@@ -280,6 +281,7 @@ export default function Home() {
     colonistLane: LaneView;
     researchLane: LaneView;
     currentTurn: number;
+    multiPlanetData: MultiPlanetExportData;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'building' | 'ship' | 'colonist' | 'research'>('building');
   // Mobile-only toggle between Build (Add to Queue) and Queue (Planet Queue) panels.
@@ -899,9 +901,8 @@ export default function Home() {
         return;
       }
 
-      // Record command for URL encoding (we'd need to extend URL encoder for wait items if we want it perfect, 
-      // but for MVP we just queue it locally)
-      // commandHistory.recordQueueWait(...)
+      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+      commandHistory.recordQueueWait(Math.max(0, planetIdx), laneId, waitTurns, result.itemId ?? '');
 
       // Update the planet in game state
       const updatedPlanet = controller.getStateAtTurn(viewTurn);
@@ -917,7 +918,7 @@ export default function Home() {
       console.error('Error in handleQueueWait:', e);
       setError((e as Error).message || 'Unknown error');
     }
-  }, [currentPlanet, controller, viewTurn, gameState, commandHistory, planTurn]);
+  }, [currentPlanet, currentPlanetId, controller, viewTurn, gameState, commandHistory, planTurn]);
 
   // Core execution function to instantly cancel and auto-collapse queues
   const executeCancellation = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
@@ -1158,6 +1159,8 @@ export default function Home() {
 
       // We should repack the queue following a reorder so items lock into their new places mathematically
       controller.repackQueue(planTurn, laneId);
+      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+      commandHistory.recordReorder(Math.max(0, planetIdx), laneId, entryId, newIndex);
 
       // Update the planet in game state
       const updatedPlanet = controller.getStateAtTurn(viewTurn);
@@ -1173,7 +1176,7 @@ export default function Home() {
       console.error('Error reordering item:', e);
       setError((e as Error).message || 'Unknown error');
     }
-  }, [controller, viewTurn, gameState, commandHistory, planTurn]);
+  }, [controller, viewTurn, gameState, commandHistory, planTurn, currentPlanetId]);
 
   const getMaxQuantity = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any): number => {
     if (!controller) return entry.quantity;
@@ -1255,6 +1258,31 @@ export default function Home() {
     }
   }, [gameState, commandHistory]);
 
+  const buildMultiPlanetExportData = useCallback((): MultiPlanetExportData => {
+    const planets = Array.from(gameState.planets.values()).map((planet) => {
+      const planetController = new GameController(planet, planet.timeline);
+      const endTurn = planet.startTurn + planetController.getTotalTurns() - 1;
+      const exportState = planetController.getStateAtTurn(endTurn) ?? planet;
+
+      return {
+        id: planet.id,
+        name: planet.name,
+        startTurn: planet.startTurn,
+        currentTurn: planet.currentTurn,
+        lanes: [
+          getLaneView(exportState, 'building'),
+          getLaneView(exportState, 'ship'),
+          getLaneView(exportState, 'colonist'),
+        ],
+      };
+    });
+
+    return {
+      planets,
+      researchLane: getGlobalResearchLaneView(gameState, viewTurn),
+    };
+  }, [gameState, viewTurn]);
+
   const openExportModal = useCallback((mode: 'current' | 'full') => {
     setExportSnapshot({
       buildingLane: enrichedBuildingLane || { laneId: 'building' as const, entries: [] },
@@ -1262,9 +1290,10 @@ export default function Home() {
       colonistLane: enrichedColonistLane || { laneId: 'colonist' as const, entries: [] },
       researchLane: enrichedResearchLane || { laneId: 'research' as const, entries: [] },
       currentTurn: viewTurn,
+      multiPlanetData: buildMultiPlanetExportData(),
     });
     setShowExportModal(mode);
-  }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, enrichedResearchLane, viewTurn]);
+  }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, enrichedResearchLane, viewTurn, buildMultiPlanetExportData]);
 
   // Snapshot the current encoded state for the saves modal — encapsulates the
   // same encode-once-then-summarise pattern used by the auto-save effect.
@@ -1671,7 +1700,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.21</div>
+          <div className="opacity-30 text-[10px]">v0.2.22</div>
         </footer>
       </div>
 
@@ -1689,6 +1718,7 @@ export default function Home() {
           researchLane={exportSnapshot.researchLane}
           currentTurn={exportSnapshot.currentTurn}
           exportMode={showExportModal}
+          multiPlanetData={exportSnapshot.multiPlanetData}
         />
       )}
 

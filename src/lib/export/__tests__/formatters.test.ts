@@ -10,6 +10,9 @@ import {
   formatAsDiscord,
   formatAsDiscordMessages,
   formatAsBuildDataJson,
+  formatMultiPlanetAsBuildDataJson,
+  formatMultiPlanetAsText,
+  formatMultiPlanetAsDiscordMessages,
   extractQueueItems,
   copyToClipboard,
 } from '../formatters';
@@ -550,7 +553,7 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(json).not.toContain('author');
     });
 
-    it('filters current-scope JSON by max turn and omits wait placeholders', () => {
+    it('filters current-scope JSON by max turn and includes manual waits', () => {
       const lanesWithWait: LaneView[] = [
         ...mockLaneViews,
         {
@@ -575,7 +578,119 @@ describe('Export Formatters (TICKET-5)', () => {
       const parsed = JSON.parse(formatAsBuildDataJson(lanesWithWait, 2, { scope: 'current' }));
 
       expect(parsed.scope).toBe('current');
-      expect(parsed.items.map((item: { itemId: string }) => item.itemId)).toEqual(['farm', 'fighter']);
+      expect(parsed.items.map((item: { itemId: string }) => item.itemId)).toEqual(['farm', '__wait__', 'fighter']);
+      expect(parsed.items[1]).toMatchObject({
+        itemId: '__wait__',
+        isWait: true,
+        waitTurns: 2,
+      });
+    });
+
+    it('exports multi-planet JSON with global research separated', () => {
+      const json = formatMultiPlanetAsBuildDataJson({
+        planets: [
+          {
+            id: 'planet-1',
+            name: 'Homeworld',
+            startTurn: 1,
+            currentTurn: 1,
+            lanes: [mockLaneViews[0], mockLaneViews[1], mockLaneViews[2]],
+          },
+          {
+            id: 'planet-2',
+            name: 'Mars',
+            startTurn: 24,
+            currentTurn: 24,
+            lanes: [
+              {
+                laneId: 'building',
+                entries: [
+                  {
+                    id: 'mars-farm',
+                    itemId: 'farm',
+                    itemName: 'Farm',
+                    quantity: 1,
+                    status: 'pending',
+                    turnsRemaining: 4,
+                    eta: 28,
+                    queuedTurn: 24,
+                    startTurn: 24,
+                    completionTurn: 28,
+                  },
+                ],
+              },
+              { laneId: 'ship', entries: [] },
+              { laneId: 'colonist', entries: [] },
+            ],
+          },
+        ],
+        researchLane: {
+          laneId: 'research',
+          entries: [
+            {
+              id: 'research-1',
+              itemId: 'planet_management',
+              itemName: 'Planet Management',
+              quantity: 1,
+              status: 'pending',
+              turnsRemaining: 10,
+              eta: 12,
+              queuedTurn: 1,
+              startTurn: 2,
+              completionTurn: 12,
+            },
+          ],
+        },
+      }, undefined, { scope: 'full', currentTurn: 1 });
+      const parsed = JSON.parse(json);
+
+      expect(parsed.version).toBe(2);
+      expect(parsed.planets).toHaveLength(2);
+      expect(parsed.planets[1]).toMatchObject({
+        id: 'planet-2',
+        name: 'Mars',
+        startTurn: 24,
+        items: [
+          { turn: 24, lane: 'building', itemId: 'farm', name: 'Farm', quantity: 1 },
+        ],
+      });
+      expect(parsed.research[0]).toMatchObject({
+        lane: 'research',
+        itemId: 'planet_management',
+      });
+    });
+
+    it('exports multi-planet text and Discord sections', () => {
+      const data = {
+        planets: [
+          {
+            id: 'planet-1',
+            name: 'Homeworld',
+            startTurn: 1,
+            lanes: [mockLaneViews[0], mockLaneViews[1], mockLaneViews[2]],
+          },
+          {
+            id: 'planet-2',
+            name: 'Mars',
+            startTurn: 24,
+            lanes: [
+              { laneId: 'building' as const, entries: [] },
+              { laneId: 'ship' as const, entries: [] },
+              { laneId: 'colonist' as const, entries: [] },
+            ],
+          },
+        ],
+        researchLane: mockLaneViews[3],
+      };
+
+      const text = formatMultiPlanetAsText(data);
+      const discord = formatMultiPlanetAsDiscordMessages(data).join('\n');
+
+      expect(text).toContain('--- Homeworld');
+      expect(text).toContain('--- Mars');
+      expect(text).toContain('--- Global Research ---');
+      expect(discord).toContain('Homeworld');
+      expect(discord).toContain('Global Research');
     });
   });
 

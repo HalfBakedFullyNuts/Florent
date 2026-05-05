@@ -69,6 +69,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
       entry.status === 'completed' ? 'border-l-4 border-l-green-500' : '';
 
   const isAutoWait = entry.isAutoWait;
+  const waitTurns = getDisplayWaitTurns(entry);
 
   return (
     <div
@@ -111,9 +112,9 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
         {/* Item Name */}
         <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : 'text-pink-nebula-text'}`}>
           {isAutoWait
-            ? `⏳ Auto-wait: ${entry.turnsRemaining}t (resource gap)`
+            ? `⏳ Auto-wait: ${waitTurns}t (resource gap)`
             : entry.isWait
-              ? `⏳ Manual wait: ${entry.turnsRemaining}t`
+              ? `⏳ Manual wait: ${waitTurns}t`
               : entry.itemName}
         </div>
 
@@ -140,7 +141,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
 
         {/* Duration */}
         <div className="text-pink-nebula-text text-right w-10">
-          {entry.turnsRemaining !== undefined ? `${entry.turnsRemaining}T` : `${def?.duration || '—'}T`}
+          {entry.isWait ? `${waitTurns}T` : entry.turnsRemaining !== undefined ? `${entry.turnsRemaining}T` : `${def?.duration || '—'}T`}
         </div>
 
         {/* Remove indicator */}
@@ -192,3 +193,16 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     && prevProps.maxTurn === nextProps.maxTurn
   );
 });
+
+function getDisplayWaitTurns(entry: LaneEntry): number | string {
+  if (!entry.isWait) return entry.turnsRemaining;
+  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
+
+  const start = entry.startTurn ?? entry.queuedTurn;
+  const end = entry.completionTurn ?? entry.eta ?? undefined;
+  if (start !== undefined && end !== undefined && end > start) {
+    return end - start;
+  }
+
+  return entry.turnsRemaining || '?';
+}

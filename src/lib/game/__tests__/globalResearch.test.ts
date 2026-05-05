@@ -381,6 +381,37 @@ describe('global research', () => {
     expect(replayed.globalResearch.lane.pendingQueue[1].turnsRemaining).toBe(3);
   });
 
+  test('URL replay restores planet lane waits and wait reorders', () => {
+    const gameState = createInitialGameState();
+    const commandHistory = new CommandHistory();
+    const planet = gameState.planets.get('planet-1')!;
+    const controller = new GameController(planet, planet.timeline);
+
+    const solar = controller.queueItem(1, 'solar_generator', 1);
+    expect(solar.success).toBe(true);
+    commandHistory.recordQueue(0, 'solar_generator', 1, solar.itemId!);
+
+    const wait = controller.queueWaitItem(1, 'building', 5, false);
+    expect(wait.success).toBe(true);
+    commandHistory.recordQueueWait(0, 'building', 5, wait.itemId!);
+
+    const farm = controller.queueItem(1, 'farm', 1);
+    expect(farm.success).toBe(true);
+    commandHistory.recordQueue(0, 'farm', 1, farm.itemId!);
+
+    const reorder = controller.reorderQueueItem(1, 'building', wait.itemId!, 1);
+    expect(reorder.success).toBe(true);
+    commandHistory.recordReorder(0, 'building', wait.itemId!, 1);
+
+    const replayed = replayCommands(createInitialGameState(), commandHistory.getCommands());
+    const lane = replayed.planets.get('planet-1')!.timeline!.getStateAtTurn(1)!.lanes.building;
+
+    expect(lane.active?.itemId).toBe('solar_generator');
+    expect(lane.pendingQueue.map((item) => item.itemId)).toEqual(['farm', '__wait__']);
+    expect(lane.pendingQueue[1].turnsRemaining).toBe(5);
+    expect(lane.pendingQueue[1].isWait).toBe(true);
+  });
+
   test('URL replay restores edited planet configuration', () => {
     const commandHistory = new CommandHistory();
 

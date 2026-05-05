@@ -147,8 +147,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
               const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === activeTab;
               // Allow reorder for any plan entry except auto-generated waits (they reposition on their own).
               // Past entries are still part of the plan — reordering re-runs the timeline from T1.
-              const isWaitItem = entry.isWait || entry.isAutoWait;
-              const canDrag = !disabled && !!onReorder && !isWaitItem;
+              const canDrag = !disabled && !!onReorder && !entry.isAutoWait;
               const isDropTarget = dragOverIndex === displayIndex && draggedItem && draggedItem.entryId !== entry.id;
 
               // Insert the "now" divider just before the first past entry

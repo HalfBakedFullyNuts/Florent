@@ -106,6 +106,72 @@ describe('ExportModal', () => {
     expect(screen.getByRole('button', { name: /download game json/i })).toBeInTheDocument();
   });
 
+  test('game JSON export can include all planets', async () => {
+    const writeText = vi.mocked(window.navigator.clipboard.writeText);
+
+    render(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        buildingLane={futureBuildingLane}
+        shipLane={emptyLane('ship')}
+        colonistLane={emptyLane('colonist')}
+        researchLane={emptyLane('research')}
+        currentTurn={1}
+        exportMode="full"
+        multiPlanetData={{
+          planets: [
+            {
+              id: 'planet-1',
+              name: 'Homeworld',
+              startTurn: 1,
+              lanes: [futureBuildingLane, emptyLane('ship'), emptyLane('colonist')],
+            },
+            {
+              id: 'planet-2',
+              name: 'Mars',
+              startTurn: 24,
+              lanes: [
+                {
+                  laneId: 'building',
+                  entries: [
+                    {
+                      id: 'mars-farm',
+                      itemId: 'farm',
+                      itemName: 'Farm',
+                      quantity: 1,
+                      status: 'pending',
+                      turnsRemaining: 4,
+                      eta: 28,
+                      queuedTurn: 24,
+                      startTurn: 24,
+                      completionTurn: 28,
+                    },
+                  ],
+                },
+                emptyLane('ship'),
+                emptyLane('colonist'),
+              ],
+            },
+          ],
+          researchLane: emptyLane('research'),
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /all planets/i }));
+    fireEvent.click(screen.getByRole('button', { name: /export game json/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    const payload = JSON.parse(writeText.mock.calls[0][0] as string);
+
+    expect(payload.version).toBe(2);
+    expect(payload.planets.map((planet: { name: string }) => planet.name)).toEqual(['Homeworld', 'Mars']);
+    expect(payload.planets[1].items).toEqual([
+      { turn: 24, lane: 'building', itemId: 'farm', name: 'Farm', quantity: 1 },
+    ]);
+  });
+
   test('image export renders a wider table canvas instead of the old compact list image', async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(window.navigator, 'clipboard', {

@@ -17,6 +17,7 @@ export interface QueueItem {
   name: string;
   quantity: number;
   isWait?: boolean;
+  waitTurns?: number;
 }
 
 export interface BuildDataJsonItem {
@@ -25,6 +26,8 @@ export interface BuildDataJsonItem {
   itemId: string;
   name: string;
   quantity: number;
+  isWait?: true;
+  waitTurns?: number;
 }
 
 export interface BuildDataJson {
@@ -33,6 +36,34 @@ export interface BuildDataJson {
   scope: 'current' | 'full';
   currentTurn?: number;
   items: BuildDataJsonItem[];
+}
+
+export interface MultiPlanetExportPlanet {
+  id: string;
+  name: string;
+  startTurn: number;
+  currentTurn?: number;
+  lanes: LaneView[];
+}
+
+export interface MultiPlanetExportData {
+  planets: MultiPlanetExportPlanet[];
+  researchLane?: LaneView;
+}
+
+export interface MultiPlanetBuildDataJson {
+  format: 'florent-build-list';
+  version: 2;
+  scope: 'current' | 'full';
+  currentTurn?: number;
+  planets: Array<{
+    id: string;
+    name: string;
+    startTurn: number;
+    currentTurn?: number;
+    items: BuildDataJsonItem[];
+  }>;
+  research: BuildDataJsonItem[];
 }
 
 /**
@@ -67,6 +98,7 @@ export function extractQueueItems(laneViews: LaneView[], maxTurn?: number): Queu
         name: entry.itemName,
         quantity: entry.quantity,
         isWait: entry.isWait,
+        waitTurns: entry.isWait ? getWaitTurns(entry) : undefined,
       });
     });
   });
@@ -77,6 +109,19 @@ export function extractQueueItems(laneViews: LaneView[], maxTurn?: number): Queu
 
 function getQueueActionTurn(entry: LaneView['entries'][number]): number {
   return entry.startTurn ?? entry.queuedTurn ?? 0;
+}
+
+function getWaitTurns(entry: LaneView['entries'][number]): number | undefined {
+  if (!entry.isWait) return undefined;
+  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
+
+  const start = entry.startTurn ?? entry.queuedTurn;
+  const end = entry.completionTurn ?? entry.eta ?? undefined;
+  if (start !== undefined && end !== undefined && end > start) {
+    return end - start;
+  }
+
+  return undefined;
 }
 
 /**
@@ -102,13 +147,21 @@ export function formatAsText(laneViews: LaneView[], maxTurn?: number): string {
     // Abbreviate building names to save space
     const abbreviatedName = abbreviateName(item.name);
 
-    // Structures and research are unique queue items; ships/colonists carry quantities.
-    const itemText = item.lane === 'building' || item.lane === 'research'
-      ? abbreviatedName
-      : `${item.quantity}x ${abbreviatedName}`;
+    const itemText = formatQueueItemLabel(item, abbreviatedName);
 
     return `[${item.turn}] - ${itemText}`;
   }).join('\n');
+}
+
+function formatQueueItemLabel(item: QueueItem, displayName: string = item.name): string {
+  if (item.isWait || item.itemId === '__wait__') {
+    return `Wait ${item.waitTurns ?? '?'}T`;
+  }
+
+  // Structures and research are unique queue items; ships/colonists carry quantities.
+  return item.lane === 'building' || item.lane === 'research'
+    ? displayName
+    : `${item.quantity}x ${displayName}`;
 }
 
 /**
@@ -124,14 +177,7 @@ export function formatAsBuildDataJson(
   options?: { scope?: 'current' | 'full'; currentTurn?: number },
 ): string {
   const items = extractQueueItems(laneViews, maxTurn)
-    .filter((item) => !item.isWait && item.itemId !== '__wait__')
-    .map((item): BuildDataJsonItem => ({
-      turn: item.turn,
-      lane: item.lane,
-      itemId: item.itemId,
-      name: item.name,
-      quantity: item.quantity,
-    }));
+    .map(toBuildDataJsonItem);
 
   if (items.length === 0) {
     return '';
@@ -149,6 +195,53 @@ export function formatAsBuildDataJson(
   }
 
   return JSON.stringify(payload, null, 2);
+}
+
+export function formatMultiPlanetAsBuildDataJson(
+  data: MultiPlanetExportData,
+  maxTurn?: number,
+  options?: { scope?: 'current' | 'full'; currentTurn?: number },
+): string {
+  const planets = data.planets.map((planet) => ({
+    id: planet.id,
+    name: planet.name,
+    startTurn: planet.startTurn,
+    currentTurn: planet.currentTurn,
+    items: extractQueueItems(planet.lanes, maxTurn).map(toBuildDataJsonItem),
+  }));
+  const research = data.researchLane
+    ? extractQueueItems([data.researchLane], maxTurn).map(toBuildDataJsonItem)
+    : [];
+
+  if (planets.every((planet) => planet.items.length === 0) && research.length === 0) {
+    return '';
+  }
+
+  const payload: MultiPlanetBuildDataJson = {
+    format: 'florent-build-list',
+    version: 2,
+    scope: options?.scope ?? (maxTurn === undefined ? 'full' : 'current'),
+    planets,
+    research,
+  };
+
+  if (options?.currentTurn !== undefined) {
+    payload.currentTurn = options.currentTurn;
+  }
+
+  return JSON.stringify(payload, null, 2);
+}
+
+function toBuildDataJsonItem(item: QueueItem): BuildDataJsonItem {
+  return {
+    turn: item.turn,
+    lane: item.lane,
+    itemId: item.itemId,
+    name: item.isWait || item.itemId === '__wait__' ? 'Wait' : item.name,
+    quantity: item.quantity,
+    isWait: item.isWait || item.itemId === '__wait__' ? true : undefined,
+    waitTurns: item.isWait || item.itemId === '__wait__' ? item.waitTurns : undefined,
+  };
 }
 
 /**
@@ -191,10 +284,10 @@ export function formatAsDiscordMessages(laneViews: LaneView[], maxTurn?: number)
       const research = turnItems.find(i => i.lane === 'research');
 
       // Abbreviate names to save space
-      const structureText = structure ? abbreviateName(structure.name) : '';
-      const shipText = ship ? `${ship.quantity}x ${abbreviateName(ship.name)}` : '';
-      const colonistText = colonist ? `${colonist.quantity}x ${abbreviateName(colonist.name)}` : '';
-      const researchText = research ? abbreviateName(research.name) : '';
+      const structureText = structure ? formatQueueItemLabel(structure, abbreviateName(structure.name)) : '';
+      const shipText = ship ? formatQueueItemLabel(ship, abbreviateName(ship.name)) : '';
+      const colonistText = colonist ? formatQueueItemLabel(colonist, abbreviateName(colonist.name)) : '';
+      const researchText = research ? formatQueueItemLabel(research, abbreviateName(research.name)) : '';
 
       const row = `\n| ${String(turn).padEnd(5)} | ${
         fitDiscordCell(structureText)
@@ -236,8 +329,108 @@ export function formatAsDiscord(laneViews: LaneView[], maxTurn?: number): string
   return formatAsDiscordMessages(laneViews, maxTurn).join('\n\n');
 }
 
-function fitDiscordCell(value: string): string {
-  return value.slice(0, 15).padEnd(15);
+export function formatMultiPlanetAsText(data: MultiPlanetExportData, maxTurn?: number): string {
+  const lines: string[] = ['=== Multi-Planet Build Order ==='];
+
+  data.planets.forEach((planet) => {
+    const items = extractQueueItems(planet.lanes, maxTurn);
+    lines.push('', `--- ${planet.name} (starts T${planet.startTurn}) ---`);
+    if (items.length === 0) {
+      lines.push('No planet-local items queued.');
+      return;
+    }
+
+    items.forEach((item) => {
+      lines.push(`[${item.turn}] ${laneLabel(item.lane)} - ${formatQueueItemLabel(item)}`);
+    });
+  });
+
+  const researchItems = data.researchLane ? extractQueueItems([data.researchLane], maxTurn) : [];
+  lines.push('', '--- Global Research ---');
+  if (researchItems.length === 0) {
+    lines.push('No research queued.');
+  } else {
+    researchItems.forEach((item) => {
+      lines.push(`[${item.turn}] ${formatQueueItemLabel(item)}`);
+    });
+  }
+
+  const hasAnyPlanetItems = data.planets.some((planet) => extractQueueItems(planet.lanes, maxTurn).length > 0);
+  return hasAnyPlanetItems || researchItems.length > 0 ? lines.join('\n') : '';
+}
+
+export function formatMultiPlanetAsDiscordMessages(data: MultiPlanetExportData, maxTurn?: number): string[] {
+  const lines: string[] = [
+    `Multi-Planet Build Order (${data.planets.length} planet${data.planets.length === 1 ? '' : 's'})`,
+    '',
+  ];
+
+  data.planets.forEach((planet) => {
+    const items = extractQueueItems(planet.lanes, maxTurn);
+    lines.push(`${planet.name} (starts T${planet.startTurn})`);
+    if (items.length === 0) {
+      lines.push('No planet-local items queued.', '');
+      return;
+    }
+
+    lines.push('| Queue | Lane      | Item            |');
+    lines.push('|-------|-----------|-----------------|');
+    items.forEach((item) => {
+      lines.push(`| ${String(item.turn).padEnd(5)} | ${fitDiscordCell(laneLabel(item.lane), 9)} | ${fitDiscordCell(formatQueueItemLabel(item), 15)} |`);
+    });
+    lines.push('');
+  });
+
+  const researchItems = data.researchLane ? extractQueueItems([data.researchLane], maxTurn) : [];
+  lines.push('Global Research');
+  if (researchItems.length === 0) {
+    lines.push('No research queued.');
+  } else {
+    lines.push('| Queue | Research        |');
+    lines.push('|-------|-----------------|');
+    researchItems.forEach((item) => {
+      lines.push(`| ${String(item.turn).padEnd(5)} | ${fitDiscordCell(formatQueueItemLabel(item), 15)} |`);
+    });
+  }
+
+  const hasAnyPlanetItems = data.planets.some((planet) => extractQueueItems(planet.lanes, maxTurn).length > 0);
+  return hasAnyPlanetItems || researchItems.length > 0 ? splitDiscordLines(lines) : ['```\n```'];
+}
+
+function fitDiscordCell(value: string, width = 15): string {
+  return value.slice(0, width).padEnd(width);
+}
+
+function splitDiscordLines(lines: string[]): string[] {
+  const header = '```';
+  const footer = '\n```';
+  const messages: string[] = [];
+  let message = header;
+
+  lines.forEach((line) => {
+    const nextLine = `\n${line}`;
+    if (message !== header && message.length + nextLine.length + footer.length > DISCORD_MESSAGE_LIMIT) {
+      messages.push(`${message}${footer}`);
+      message = header;
+    }
+    message += nextLine;
+  });
+
+  messages.push(`${message}${footer}`);
+  return messages;
+}
+
+function laneLabel(lane: LaneId): string {
+  switch (lane) {
+    case 'building':
+      return 'Structure';
+    case 'ship':
+      return 'Ship';
+    case 'colonist':
+      return 'Colonist';
+    case 'research':
+      return 'Research';
+  }
 }
 
 /**

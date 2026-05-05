@@ -177,7 +177,7 @@ function SharedLaneRow({
 }) {
   const start = entry.startTurn ?? entry.queuedTurn ?? '?';
   const end = entry.completionTurn ?? entry.eta ?? '?';
-  const duration = entry.turnsRemaining ?? def?.duration ?? null;
+  const duration = entry.isWait ? getWaitTurns(entry) : entry.turnsRemaining ?? def?.duration ?? null;
   const status = getDisplayStatus(entry, currentTurn);
 
   return (
@@ -218,9 +218,22 @@ function getDisplayStatus(entry: LaneEntry, currentTurn: number): LaneEntry['sta
 }
 
 function formatEntryName(entry: LaneEntry): string {
-  if (entry.isAutoWait) return `Auto-wait: ${entry.turnsRemaining ?? '?'}t`;
-  if (entry.isWait) return `Manual wait: ${entry.turnsRemaining ?? '?'}t`;
+  if (entry.isAutoWait) return `Auto-wait: ${getWaitTurns(entry)}t`;
+  if (entry.isWait) return `Manual wait: ${getWaitTurns(entry)}t`;
   return entry.itemName;
+}
+
+function getWaitTurns(entry: LaneEntry): number | string {
+  if (!entry.isWait) return entry.turnsRemaining;
+  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
+
+  const start = entry.startTurn ?? entry.queuedTurn;
+  const end = entry.completionTurn ?? entry.eta ?? undefined;
+  if (start !== undefined && end !== undefined && end > start) {
+    return end - start;
+  }
+
+  return entry.turnsRemaining || '?';
 }
 
 function rowClass(status: LaneEntry['status'], invalid?: boolean): string {

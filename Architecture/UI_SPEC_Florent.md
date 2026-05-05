@@ -168,6 +168,8 @@ Modal Surfaces
 - File and pasted-link import controls should live in one clearly labeled import pane with an explicit "Load now" action and a separate "Save as mine" action.
 - Export, planet configuration, nested import, auto-wait, and dependency-warning popups should use the same header pattern: icon badge, small uppercase context label, strong title, short explanatory text, and an icon-only close button with an `aria-label`.
 - Export modal formats should clearly separate human-share formats from game-import formats. Game JSON exports must contain only build-list data (item ids, names, lanes, turns, quantities) and must not include encoded Florent state, save metadata, author fields, or local cache ids.
+- Multi-planet export controls should make scope explicit with `Selected planet` and `All planets` targets. Global research appears once in all-planets exports; do not duplicate it under each planet.
+- Manual waits are user-authored plan data. Show/export their original duration and allow manual wait reorder; auto-waits are generated schedule artifacts and should remain non-draggable.
 - Confirmation modals should make the safe action visually distinct from the destructive or committing action. Keep/cancel-safe actions use emerald or quiet styling; destructive cascade actions use red.
 
 ### 5.3 Middle Column — "Queue"

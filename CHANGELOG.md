@@ -6,6 +6,27 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.22] — 2026-05-05
+
+### Added
+- Export Build Queue now supports `Selected planet` and `All planets` targets for plain text, Discord text, game JSON, and image exports.
+- Multi-planet game JSON uses `version: 2`, grouping planet-local build items under each planet and global research in one separate research section.
+- Manual waits are now included in text, Discord, JSON, and image exports with their wait duration.
+
+### Fixed
+- Planet-lane manual waits are now recorded in shared links and restored when the link is opened.
+- Planet-lane reorders are now recorded in shared links, including reorders involving manual waits.
+- Manual wait rows now show their original duration after completion instead of `0t`, and manual waits can be reordered like normal plan entries. Auto-waits remain synthetic and non-draggable.
+
+### Tests
+- Added coverage for multi-planet JSON/text/Discord export, multi-planet Export modal JSON, binary wait commands, planet wait replay, and wait reorder replay.
+- Re-verified export formatter, Export modal, global research/replay, URL state, lane-display tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.22`.
+
+---
+
 ## [0.2.21] — 2026-05-05
 
 ### Added
