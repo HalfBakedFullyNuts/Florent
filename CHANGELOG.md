@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.24] — 2026-05-05
+
+### Fixed
+- Opening the app from the root URL now restores local autosave data as an editable local build, even if that cached payload still contains old share metadata.
+- Shared build preview mode is now reserved for actual shared-link URL restores instead of local cache bootstraps.
+
+### Tests
+- Added coverage for local autosaves with embedded share metadata restoring into the editable planner.
+- Re-verified the shared-link preview/local restore flow and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.24`.
+
+---
+
 ## [0.2.23] — 2026-05-05
 
 ### Changed

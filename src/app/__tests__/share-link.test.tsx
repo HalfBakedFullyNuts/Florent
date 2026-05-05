@@ -193,6 +193,23 @@ describe('share link flow', () => {
     expect(screen.getByText(/Planet Queue/i)).toBeInTheDocument();
   });
 
+  test('local autosave with share metadata restores as editable local build', async () => {
+    const commands: Parameters<typeof encodeGameState>[1] = [['q', 0, 11, 1]];
+    const encoded = encodeGameState([homeworldConfig], commands, {
+      name: 'Homeworld build list',
+      author: 'Henrik',
+      sharedAt: '2026-05-04T12:00:00.000Z',
+    });
+    window.localStorage.setItem('florent_save', encoded);
+    window.history.replaceState(null, '', '/');
+
+    render(<Home />);
+
+    await screen.findByText(/1 queued/i);
+    expect(screen.getByText(/^Add to Queue$/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /edit bl/i })).not.toBeInTheDocument();
+  });
+
   test('clears the live build when the state hash is removed', async () => {
     const commands: Parameters<typeof encodeGameState>[1] = [['q', 0, 11, 1]];
     const encoded = encodeGameState([homeworldConfig], commands);

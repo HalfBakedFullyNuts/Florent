@@ -196,14 +196,10 @@ export default function Home() {
   const restoreShareSnapshot = useCallback((snapshot: LoadedGameSnapshot, encoded?: string | null, options?: RestoreOptions) => {
     const replayedState = replayCommands(createInitialGameState(), snapshot.cmds);
     commandHistory.loadFromSnapshot(snapshot.cmds);
-    if (encoded) {
-      if (options?.shared) {
-        rememberOpenedSharedLink(encoded, snapshot);
-      } else {
-        setActiveShareMetadata(null);
-      }
+    if (encoded && options?.shared) {
+      rememberOpenedSharedLink(encoded, snapshot);
     } else {
-      setActiveShareMetadata(getShareMetadataFromSnapshot(snapshot));
+      setActiveShareMetadata(null);
     }
     setGameState(() => ({
       ...replayedState,
@@ -1700,7 +1696,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.23</div>
+          <div className="opacity-30 text-[10px]">v0.2.24</div>
         </footer>
       </div>
 
