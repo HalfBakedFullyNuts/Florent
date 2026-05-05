@@ -74,6 +74,28 @@ describe('TabbedLaneDisplay', () => {
     expect(text.indexOf('Metal Mine')).toBeLessThan(text.indexOf('Farm'));
   });
 
+  it('shows projected build duration from the visible turn span when remaining turns are zero', () => {
+    renderDisplay({
+      laneId: 'building',
+      entries: [{
+        id: 'farm',
+        itemId: 'farm',
+        itemName: 'Farm',
+        status: 'completed',
+        quantity: 1,
+        turnsRemaining: 0,
+        eta: null,
+        startTurn: 1,
+        completionTurn: 4,
+      }],
+    });
+
+    expect(screen.getByText('T1')).toBeInTheDocument();
+    expect(screen.getByText('T4')).toBeInTheDocument();
+    expect(screen.getByText('4T')).toBeInTheDocument();
+    expect(screen.queryByText('0T')).not.toBeInTheDocument();
+  });
+
   it('displays completion turns beyond the simulator limit but clamps navigation', () => {
     const onTurnClick = vi.fn();
     renderDisplay({

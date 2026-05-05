@@ -6,6 +6,21 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.26] — 2026-05-05
+
+### Fixed
+- Live Planet Queue rows now show the full queued build duration instead of `0T` when projected plan entries have already simulated down to zero remaining turns.
+- Queue rows now re-render when duration-related inputs change, including item definition duration and `turnsRemaining`.
+
+### Tests
+- Added lane-display regression coverage for completed/projected entries with `Tstart-Tend` ranges.
+- Browser-tested adding structures to the build list and verified live queue rows render `4T` durations with no console errors.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.26`.
+
+---
+
 ## [0.2.25] — 2026-05-05
 
 ### Fixed

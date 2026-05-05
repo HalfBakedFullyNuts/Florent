@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.26: Live queue duration fallback.**
+The live Add-to-Queue path could show `0T` beside projected build rows because those entries had already counted their `turnsRemaining` down to zero in the planning snapshot. Queue rows now prefer the item definition or visible T-start/T-end span for build duration display and re-render when duration inputs change, so live rows match the durations shown in the catalog and shared previews.
+
 **2026-05-05 — v0.2.25: Browser QA duration cleanup.**
 Browser testing the shared-link landing and edit handoff exposed replayed rows showing `0T` duration even though their T-start/T-end range was correct. Queue rows now fall back to the original turn span or item definition duration, so shared previews and edited shared builds display meaningful durations after replay.
 

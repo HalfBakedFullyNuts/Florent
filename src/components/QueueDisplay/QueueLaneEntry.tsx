@@ -178,6 +178,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.entry.status === nextProps.entry.status &&
     prevProps.entry.quantity === nextProps.entry.quantity &&
     prevProps.entry.eta === nextProps.entry.eta &&
+    prevProps.entry.turnsRemaining === nextProps.entry.turnsRemaining &&
     prevProps.entry.invalid === nextProps.entry.invalid &&
     prevProps.entry.isAutoWait === nextProps.entry.isAutoWait &&
     prevProps.currentTurn === nextProps.currentTurn &&
@@ -190,8 +191,10 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.disabled === nextProps.disabled &&
     prevProps.isNewest === nextProps.isNewest &&
     prevProps.busyWorkers === nextProps.busyWorkers &&
-    prevProps.showQuantityInput === nextProps.showQuantityInput
-    && prevProps.maxTurn === nextProps.maxTurn
+    prevProps.showQuantityInput === nextProps.showQuantityInput &&
+    prevProps.def?.durationTurns === nextProps.def?.durationTurns &&
+    prevProps.def?.duration === nextProps.def?.duration &&
+    prevProps.maxTurn === nextProps.maxTurn
   );
 });
 
@@ -217,8 +220,8 @@ function getDisplayDurationTurns(entry: LaneEntry, def?: any): number | string {
 
   const start = entry.startTurn ?? entry.queuedTurn;
   const end = entry.completionTurn ?? entry.eta ?? undefined;
-  if (start !== undefined && end !== undefined && end > start) {
-    return end - start;
+  if (start !== undefined && end !== undefined && end >= start) {
+    return end - start + 1;
   }
 
   return entry.turnsRemaining ?? '—';

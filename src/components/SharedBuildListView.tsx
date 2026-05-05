@@ -252,8 +252,8 @@ function getDurationTurns(entry: LaneEntry, def?: any): number | string | null {
 
   const start = entry.startTurn ?? entry.queuedTurn;
   const end = entry.completionTurn ?? entry.eta ?? undefined;
-  if (start !== undefined && end !== undefined && end > start) {
-    return end - start;
+  if (start !== undefined && end !== undefined && end >= start) {
+    return end - start + 1;
   }
 
   return entry.turnsRemaining ?? null;
