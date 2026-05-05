@@ -141,24 +141,24 @@ function SharedLaneCard({
   return (
     <section
       aria-label={`${config.title} shared lane`}
-      className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] via-white/[0.04] to-slate-950/25 p-2.5 shadow-xl shadow-black/15 md:p-3"
+      className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] via-white/[0.04] to-slate-950/25 p-2 shadow-xl shadow-black/15 md:p-2.5"
     >
-      <div className="mb-2 flex items-center gap-2 border-b border-white/10 pb-2">
-        <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
+      <div className="mb-1.5 flex items-center gap-2 border-b border-white/10 pb-1.5">
+        <span className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200/25 bg-cyan-300/10 text-sm shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
           {config.icon}
         </span>
-        <div>
-          <h3 className="text-base font-black text-pink-nebula-text">{config.title}</h3>
-          <p className="text-xs text-pink-nebula-muted">{entries.length} item{entries.length === 1 ? '' : 's'}</p>
+        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+          <h3 className="truncate text-sm font-black text-pink-nebula-text md:text-base">{config.title}</h3>
+          <p className="shrink-0 text-[11px] text-pink-nebula-muted">{entries.length} item{entries.length === 1 ? '' : 's'}</p>
         </div>
       </div>
 
       {entries.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-white/10 bg-slate-950/25 px-3 py-4 text-center text-xs text-pink-nebula-muted">
+        <div className="rounded-lg border border-dashed border-white/10 bg-slate-950/25 px-3 py-2.5 text-center text-xs text-pink-nebula-muted">
           No {config.title.toLowerCase()} queued.
         </div>
       ) : (
-        <div className="scroll-nebula min-h-0 space-y-1.5 xl:max-h-[62vh] xl:overflow-y-auto xl:pr-1">
+        <div className="scroll-nebula min-h-0 space-y-1 xl:max-h-[62vh] xl:overflow-y-auto xl:pr-1">
           {entries.map((entry) => (
             <SharedLaneRow
               key={entry.id}
@@ -188,22 +188,22 @@ function SharedLaneRow({
   const status = getDisplayStatus(entry, currentTurn);
 
   return (
-    <div className={`rounded-xl border px-3 py-2 font-mono text-sm ${rowClass(status, entry.invalid)}`}>
-      <div className="mb-1.5 flex items-start justify-between gap-2">
-        <div className="whitespace-nowrap text-[11px] font-black uppercase tracking-[0.08em] text-cyan-100/65">
+    <div className={`rounded-lg border px-2.5 py-1.5 font-mono text-xs ${rowClass(status, entry.invalid)}`}>
+      <div className="grid min-w-0 grid-cols-[4.75rem_1fr_auto] items-center gap-2">
+        <div className="whitespace-nowrap text-[10px] font-black uppercase tracking-[0.08em] text-cyan-100/65">
           T{start} - T{end}
         </div>
-        <div className="flex shrink-0 items-center gap-1 text-right">
-          {entry.quantity > 1 && <span className="rounded-lg bg-white/[0.06] px-2 py-1 text-xs text-pink-nebula-text">x{entry.quantity}</span>}
-          {duration !== null && <span className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-pink-nebula-muted">{duration}T</span>}
+        <div className="min-w-0 truncate font-bold text-pink-nebula-text">{formatEntryName(entry)}</div>
+        <div className="flex shrink-0 items-center justify-end gap-1 text-right">
+          {entry.quantity > 1 && <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-pink-nebula-text">x{entry.quantity}</span>}
+          {duration !== null && <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-pink-nebula-muted">{duration}T</span>}
         </div>
       </div>
-      <div className="min-w-0">
-        <div className="truncate font-bold text-pink-nebula-text">{formatEntryName(entry)}</div>
-        {entry.invalid && entry.invalidReason && (
-          <div className="mt-1 truncate text-xs text-orange-300">{entry.invalidReason}</div>
-        )}
-      </div>
+      {entry.invalid && entry.invalidReason && (
+        <div className="mt-1 min-w-0">
+          <div className="truncate text-xs text-orange-300">{entry.invalidReason}</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.28: Shared row compression.**
+The shared build-list lane rows now collapse turn range, item name, quantity, and duration onto one compact line. Headers, row gaps, and empty-lane placeholders were tightened again so short shared lists no longer feel like tall stacked cards.
+
 **2026-05-05 — v0.2.27: Compact shared and queue panels.**
 Shared build-list previews now use a tighter rail, smaller card/header spacing, compact rows, and non-stretched empty lane cards. The editable Planet Queue no longer inherits the Add-to-Queue panel's tall height and its lane body switches from fixed height to content-sized max-height scrolling, so short queues take only the space they need.
 

@@ -6,6 +6,20 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.28] — 2026-05-05
+
+### Changed
+- Shared build-list lane rows now use a single-line compact schedule format so short shared lists take substantially less vertical space.
+- Shared lane headers, gaps, and empty states were tightened further while keeping turn windows, names, quantities, and durations visible.
+
+### Tests
+- Re-checked the shared-link preview and lane-display coverage.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.28`.
+
+---
+
 ## [0.2.27] — 2026-05-05
 
 ### Changed
