@@ -73,6 +73,37 @@ describe('ExportModal', () => {
     expect(screen.getByText(/full queue was copied/i)).toBeInTheDocument();
   });
 
+  test('game JSON export copies build data without Florent save metadata', async () => {
+    const writeText = vi.mocked(window.navigator.clipboard.writeText);
+
+    render(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        buildingLane={futureBuildingLane}
+        shipLane={futureShipLane}
+        colonistLane={emptyLane('colonist')}
+        researchLane={emptyLane('research')}
+        currentTurn={1}
+        exportMode="full"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /export game json/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    const payload = JSON.parse(writeText.mock.calls[0][0] as string);
+
+    expect(payload.format).toBe('florent-build-list');
+    expect(payload.scope).toBe('full');
+    expect(payload.items).toEqual([
+      { turn: 5, lane: 'building', itemId: 'farm', name: 'Farm', quantity: 1 },
+      { turn: 9, lane: 'ship', itemId: 'fighter', name: 'Fighter', quantity: 5 },
+    ]);
+    expect(writeText.mock.calls[0][0]).not.toContain('encoded');
+    expect(screen.getByRole('button', { name: /download game json/i })).toBeInTheDocument();
+  });
+
   test('image export renders a wider table canvas instead of the old compact list image', async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(window.navigator, 'clipboard', {

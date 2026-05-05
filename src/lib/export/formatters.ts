@@ -12,8 +12,26 @@ export const DISCORD_MESSAGE_LIMIT = 2000;
 export interface QueueItem {
   turn: number;
   lane: LaneId;
+  itemId: string;
   name: string;
   quantity: number;
+  isWait?: boolean;
+}
+
+export interface BuildDataJsonItem {
+  turn: number;
+  lane: LaneId;
+  itemId: string;
+  name: string;
+  quantity: number;
+}
+
+export interface BuildDataJson {
+  format: 'florent-build-list';
+  version: 1;
+  scope: 'current' | 'full';
+  currentTurn?: number;
+  items: BuildDataJsonItem[];
 }
 
 /**
@@ -58,8 +76,10 @@ export function extractQueueItems(laneViews: LaneView[], maxTurn?: number): Queu
       items.push({
         turn,
         lane: laneView.laneId,
+        itemId: entry.itemId,
         name: entry.itemName,
         quantity: entry.quantity,
+        isWait: entry.isWait,
       });
     });
   });
@@ -98,6 +118,46 @@ export function formatAsText(laneViews: LaneView[], maxTurn?: number): string {
 
     return `[${item.turn}] - ${itemText}`;
   }).join('\n');
+}
+
+/**
+ * Format queue as a portable build-data JSON payload for game import.
+ *
+ * This intentionally avoids Florent save/share metadata, encoded replay state,
+ * local cache ids, author names, and UI-only fields. The game-facing payload is
+ * just ordered build data with stable item ids and quantities.
+ */
+export function formatAsBuildDataJson(
+  laneViews: LaneView[],
+  maxTurn?: number,
+  options?: { scope?: 'current' | 'full'; currentTurn?: number },
+): string {
+  const items = extractQueueItems(laneViews, maxTurn)
+    .filter((item) => !item.isWait && item.itemId !== '__wait__')
+    .map((item): BuildDataJsonItem => ({
+      turn: item.turn,
+      lane: item.lane,
+      itemId: item.itemId,
+      name: item.name,
+      quantity: item.quantity,
+    }));
+
+  if (items.length === 0) {
+    return '';
+  }
+
+  const payload: BuildDataJson = {
+    format: 'florent-build-list',
+    version: 1,
+    scope: options?.scope ?? (maxTurn === undefined ? 'full' : 'current'),
+    items,
+  };
+
+  if (options?.currentTurn !== undefined) {
+    payload.currentTurn = options.currentTurn;
+  }
+
+  return JSON.stringify(payload, null, 2);
 }
 
 /**

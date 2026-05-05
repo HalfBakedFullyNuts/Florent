@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.19: Shared mobile landing and game JSON export.**
+Shared links now land mobile users on the Queue panel first, so recipients see the build list instead of the editing catalog. The export vault gained a game-facing JSON option that contains only build-list data: item ids, display names, lanes, turns, and quantities, with no Florent encoded state, save metadata, author fields, or local cache details. Plain `#state=` autosave/reload URLs without share metadata are also treated as local restores so they no longer pollute the Shared list.
+
 **2026-05-05 — v0.2.18: Shared content rail alignment.**
 The page now uses one consistent centered 1800px rail for its major strips and cards. Gutters live outside the rail, so the build-list selector, share metadata strip, planet tabs, shared-list banner, dashboard, timeline, and queue panels all start and end on the same desktop columns while keeping mobile padding intact.
 

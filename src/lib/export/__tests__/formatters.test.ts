@@ -9,6 +9,7 @@ import {
   formatAsText,
   formatAsDiscord,
   formatAsDiscordMessages,
+  formatAsBuildDataJson,
   extractQueueItems,
   copyToClipboard,
 } from '../formatters';
@@ -128,6 +129,7 @@ describe('Export Formatters (TICKET-5)', () => {
     it('should extract all non-completed items', () => {
       const items = extractQueueItems(mockLaneViews);
       expect(items).toHaveLength(4);
+      expect(items[0].itemId).toBe('farm');
     });
 
     it('should sort items by turn', () => {
@@ -482,6 +484,60 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(discord).toContain('| Research');
       expect(discord).toContain('Planet Manageme');
       expect(discord).not.toContain('1x Planet');
+    });
+  });
+
+  describe('formatAsBuildDataJson', () => {
+    it('exports item ids, lanes, turns, and quantities without save/share metadata', () => {
+      const json = formatAsBuildDataJson(mockLaneViews, undefined, {
+        scope: 'full',
+        currentTurn: 1,
+      });
+      const parsed = JSON.parse(json);
+
+      expect(parsed).toEqual({
+        format: 'florent-build-list',
+        version: 1,
+        scope: 'full',
+        currentTurn: 1,
+        items: [
+          { turn: 6, lane: 'building', itemId: 'farm', name: 'Farm', quantity: 1 },
+          { turn: 9, lane: 'ship', itemId: 'fighter', name: 'Fighter', quantity: 5 },
+          { turn: 16, lane: 'building', itemId: 'metal_mine', name: 'Metal Mine', quantity: 1 },
+          { turn: 16, lane: 'colonist', itemId: 'soldier', name: 'Soldier', quantity: 100 },
+        ],
+      });
+      expect(json).not.toContain('encoded');
+      expect(json).not.toContain('share');
+      expect(json).not.toContain('author');
+    });
+
+    it('filters current-scope JSON by max turn and omits wait placeholders', () => {
+      const lanesWithWait: LaneView[] = [
+        ...mockLaneViews,
+        {
+          laneId: 'building',
+          entries: [
+            {
+              id: 'wait-1',
+              itemId: '__wait__',
+              itemName: 'Wait',
+              quantity: 1,
+              status: 'pending',
+              turnsRemaining: 2,
+              eta: 8,
+              completionTurn: 8,
+              queuedTurn: 1,
+              isWait: true,
+            },
+          ],
+        },
+      ];
+
+      const parsed = JSON.parse(formatAsBuildDataJson(lanesWithWait, 9, { scope: 'current' }));
+
+      expect(parsed.scope).toBe('current');
+      expect(parsed.items.map((item: { itemId: string }) => item.itemId)).toEqual(['farm', 'fighter']);
     });
   });
 

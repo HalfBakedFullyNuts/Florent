@@ -166,6 +166,7 @@ Modal Surfaces
 - "Save as mine" means ownership conversion, not just a label change. Strip shared identity from both UI metadata and the encoded payload before persisting.
 - File and pasted-link import controls should live in one clearly labeled import pane with an explicit "Load now" action and a separate "Save as mine" action.
 - Export, planet configuration, nested import, auto-wait, and dependency-warning popups should use the same header pattern: icon badge, small uppercase context label, strong title, short explanatory text, and an icon-only close button with an `aria-label`.
+- Export modal formats should clearly separate human-share formats from game-import formats. Game JSON exports must contain only build-list data (item ids, names, lanes, turns, quantities) and must not include encoded Florent state, save metadata, author fields, or local cache ids.
 - Confirmation modals should make the safe action visually distinct from the destructive or committing action. Keep/cancel-safe actions use emerald or quiet styling; destructive cascade actions use red.
 
 ### 5.3 Middle Column — "Queue"

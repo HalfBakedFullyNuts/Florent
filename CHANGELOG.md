@@ -6,6 +6,24 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.19] — 2026-05-05
+
+### Added
+- Export Build Queue now includes a game-facing JSON export with raw item ids, names, lanes, turns, and quantities, plus a download fallback for file-based imports.
+
+### Fixed
+- Opening a shared build on mobile now defaults to the Queue panel so new users see the shared build list immediately.
+- Plain `#state=` autosave/reload URLs without share metadata are treated as local restores instead of being cached as shared lists with fallback author/name metadata.
+
+### Tests
+- Added JSON export formatter and modal coverage.
+- Re-verified export formatters, Export modal, build-list selector, Saves modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.19`.
+
+---
+
 ## [0.2.18] — 2026-05-05
 
 ### Changed

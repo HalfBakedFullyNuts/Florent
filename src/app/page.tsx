@@ -251,7 +251,10 @@ export default function Home() {
 
     if (urlSnapshot) {
       const restoreIntent = consumeRestoreIntent(encodedFromURL);
-      const shouldRememberSharedLink = Boolean(encodedFromURL && (!restoreIntent || restoreIntent.shared));
+      const hasShareMetadata = getShareMetadataFromSnapshot(urlSnapshot) !== null;
+      const shouldRememberSharedLink = Boolean(
+        encodedFromURL && (restoreIntent?.shared === true || (!restoreIntent && hasShareMetadata))
+      );
       restoreShareSnapshot(urlSnapshot, encodedFromURL, { shared: shouldRememberSharedLink });
     }
   }, [restoreShareSnapshot]);
@@ -276,6 +279,11 @@ export default function Home() {
   // Mobile-only toggle between Build (Add to Queue) and Queue (Planet Queue) panels.
   // Both render side-by-side on md+ screens; on mobile only the active one is shown.
   const [mobileView, setMobileView] = useState<'build' | 'queue'>('build');
+  useEffect(() => {
+    if (activeShareMetadata) {
+      setMobileView('queue');
+    }
+  }, [activeShareMetadata]);
   // Transient toast message; null when nothing to show. Auto-clears after 3s.
   const [toast, setToast] = useState<string | null>(null);
   const [pendingCancellation, setPendingCancellation] = useState<{
@@ -324,8 +332,12 @@ export default function Home() {
 
       lastAppliedShareRef.current = encoded;
       const restoreIntent = consumeRestoreIntent(encoded);
-      restoreShareSnapshot(snapshot, encoded, { shared: !restoreIntent || restoreIntent.shared });
-      setToast('Shared build list loaded from link');
+      const hasShareMetadata = getShareMetadataFromSnapshot(snapshot) !== null;
+      const restoredAsShared = restoreIntent?.shared === true || (!restoreIntent && hasShareMetadata);
+      restoreShareSnapshot(snapshot, encoded, {
+        shared: restoredAsShared,
+      });
+      setToast(restoredAsShared ? 'Shared build list loaded from link' : 'Build list loaded from link');
       setTimeout(() => setToast(null), 3000);
     };
 
@@ -1634,7 +1646,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.18</div>
+          <div className="opacity-30 text-[10px]">v0.2.19</div>
         </footer>
       </div>
 

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import {
+  Braces,
   ClipboardList,
   Download,
   FileText,
@@ -11,7 +12,7 @@ import {
 } from 'lucide-react';
 import type { LaneView } from '../lib/game/selectors';
 import type { LaneId } from '../lib/sim/engine/types';
-import { formatAsText, formatAsDiscordMessages, copyToClipboard, extractQueueItems } from '../lib/export/formatters';
+import { formatAsText, formatAsDiscordMessages, formatAsBuildDataJson, copyToClipboard, extractQueueItems } from '../lib/export/formatters';
 import type { QueueItem } from '../lib/export/formatters';
 
 export interface ExportModalProps {
@@ -48,6 +49,7 @@ export function ExportModal({
   const [discordMessages, setDiscordMessages] = useState<string[]>([]);
   const [nextDiscordMessageIndex, setNextDiscordMessageIndex] = useState(0);
   const [imageFallback, setImageFallback] = useState<{ blob: Blob; filename: string } | null>(null);
+  const [jsonFallback, setJsonFallback] = useState<{ blob: Blob; filename: string } | null>(null);
 
   const laneViews = [buildingLane, shipLane, colonistLane, researchLane];
 
@@ -83,6 +85,7 @@ export function ExportModal({
   const handleExportText = async () => {
     clearDiscordCopyState();
     setImageFallback(null);
+    setJsonFallback(null);
     const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
     const text = formatAsText(laneViews, effectiveMaxTurn);
 
@@ -103,6 +106,7 @@ export function ExportModal({
 
   const handleExportDiscord = async () => {
     setImageFallback(null);
+    setJsonFallback(null);
     const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
     const messages = formatAsDiscordMessages(laneViews, effectiveMaxTurn);
     const firstMessage = messages[0] ?? '';
@@ -147,9 +151,38 @@ export function ExportModal({
     setNextDiscordMessageIndex(0);
   };
 
+  const handleExportGameJson = async () => {
+    clearDiscordCopyState();
+    setImageFallback(null);
+    const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
+    const json = formatAsBuildDataJson(laneViews, effectiveMaxTurn, {
+      scope: usedFullFallback || effectiveMaxTurn === undefined ? 'full' : exportMode,
+      currentTurn,
+    });
+
+    if (!json) {
+      showNotification('Queue is empty - nothing to export');
+      return;
+    }
+
+    const filename = `florent-build-list-${exportMode}-t${currentTurn}.json`;
+    const blob = new Blob([json], { type: 'application/json' });
+    setJsonFallback({ blob, filename });
+
+    const success = await copyToClipboard(json);
+    if (success) {
+      showNotification(usedFullFallback
+        ? '✓ No items completed by this turn, so the full build JSON was copied.'
+        : '✓ Game JSON copied to clipboard!');
+    } else {
+      showNotification('✗ Clipboard blocked JSON copy. Use Download JSON instead.');
+    }
+  };
+
   const handleExportImage = async () => {
     clearDiscordCopyState();
     setImageFallback(null);
+    setJsonFallback(null);
     try {
       const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
       const items = extractQueueItems(laneViews, effectiveMaxTurn);
@@ -250,6 +283,24 @@ export function ExportModal({
               description="Formatted table copied in 2,000-character chunks for non-Nitro users."
               onClick={handleExportDiscord}
             />
+
+            <ExportActionCard
+              icon={<Braces className="h-5 w-5" aria-hidden="true" />}
+              title="Export game JSON"
+              description="Raw item ids, turns, lanes, and quantities only. No Florent save metadata."
+              onClick={handleExportGameJson}
+              tone="purple"
+            />
+
+            {jsonFallback && (
+              <ExportActionCard
+                icon={<Download className="h-5 w-5" aria-hidden="true" />}
+                title="Download game JSON"
+                description="Use this file if the actual game imports build-list JSON from disk."
+                onClick={() => downloadBlob(jsonFallback.blob, jsonFallback.filename)}
+                tone="amber"
+              />
+            )}
 
             {discordMessages.length > 1 && nextDiscordMessageIndex < discordMessages.length && (
               <ExportActionCard
