@@ -164,8 +164,12 @@ Modal Surfaces
 - Use intent colors consistently inside modal actions: cyan for load/open/restore, emerald for save/save-as-mine, amber for file export, red for destructive delete/remove.
 - Shared cached lists must be visually distinct from owned saves with sky/cyan borders and copy that explains they are local cache only.
 - "Save as mine" means ownership conversion, not just a label change. Strip shared identity from both UI metadata and the encoded payload before persisting.
+- Shared links should open in a read-only build-list landing view first. Show Structures, Ships, Colonists, and Research as four side-by-side lane columns on desktop, with responsive two-column and single-column fallbacks. Keep editing controls hidden and provide one explicit `Edit BL` action that reveals the full planner.
 - File and pasted-link import controls should live in one clearly labeled import pane with an explicit "Load now" action and a separate "Save as mine" action.
 - Export, planet configuration, nested import, auto-wait, and dependency-warning popups should use the same header pattern: icon badge, small uppercase context label, strong title, short explanatory text, and an icon-only close button with an `aria-label`.
+- Export modal formats should clearly separate human-share formats from game-import formats. Game JSON exports must contain only build-list data (item ids, names, lanes, turns, quantities) and must not include encoded Florent state, save metadata, author fields, or local cache ids.
+- Multi-planet export controls should make scope explicit with `Selected planet` and `All planets` targets. Global research appears once in all-planets exports; do not duplicate it under each planet.
+- Manual waits are user-authored plan data. Show/export their original duration and allow manual wait reorder; auto-waits are generated schedule artifacts and should remain non-draggable.
 - Confirmation modals should make the safe action visually distinct from the destructive or committing action. Keep/cancel-safe actions use emerald or quiet styling; destructive cascade actions use red.
 
 ### 5.3 Middle Column — "Queue"
@@ -274,6 +278,8 @@ Responsive behavior
 
 - At widths < 1100px: collapse left column to a drawer; right column becomes collapsible detail panel.
 - On mobile: stack panels vertically: Header -> Planet Summary -> Queue -> Build List.
+- Mobile control rows must use explicit grids instead of free-wrapping flex when actions have different intent. Planet tabs use a two-column grid with destructive reset spanning its own row; timeline quick jumps use separate full-width rows for Start/Mid/End and lane-empty shortcuts.
+- Mobile dashboard tables should share the page gutter (`px-3`) and use proportional columns or controlled scroll areas so right-edge data such as energy output is never clipped.
 
 ---
 

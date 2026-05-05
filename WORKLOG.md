@@ -9,6 +9,51 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.29: PR wait-duration hardening.**
+Automated PR review surfaced that manual waits could be underreported after completion, exported with only their remaining active countdown, or shortened when an active wait was reordered. Wait-duration logic is now shared across exports, live queue rows, and shared previews, active wait reorders preserve their original length, stale game JSON download fallbacks are cleared on empty exports, and shared preview mode is gated to actual shared restores rather than metadata alone.
+
+**2026-05-05 — v0.2.28: Shared row compression.**
+The shared build-list lane rows now collapse turn range, item name, quantity, and duration onto one compact line. Headers, row gaps, and empty-lane placeholders were tightened again so short shared lists no longer feel like tall stacked cards.
+
+**2026-05-05 — v0.2.27: Compact shared and queue panels.**
+Shared build-list previews now use a tighter rail, smaller card/header spacing, compact rows, and non-stretched empty lane cards. The editable Planet Queue no longer inherits the Add-to-Queue panel's tall height and its lane body switches from fixed height to content-sized max-height scrolling, so short queues take only the space they need.
+
+**2026-05-05 — v0.2.26: Live queue duration fallback.**
+The live Add-to-Queue path could show `0T` beside projected build rows because those entries had already counted their `turnsRemaining` down to zero in the planning snapshot. Queue rows now prefer the item definition or visible T-start/T-end span for build duration display and re-render when duration inputs change, so live rows match the durations shown in the catalog and shared previews.
+
+**2026-05-05 — v0.2.25: Browser QA duration cleanup.**
+Browser testing the shared-link landing and edit handoff exposed replayed rows showing `0T` duration even though their T-start/T-end range was correct. Queue rows now fall back to the original turn span or item definition duration, so shared previews and edited shared builds display meaningful durations after replay.
+
+**2026-05-05 — v0.2.24: Local restore stays editable.**
+Root app loads now treat `florent_save` as local autosave data even when the cached encoded payload still contains share metadata from a previous copy/open flow. The read-only shared preview remains reserved for actual `#state=` shared-link restores, preventing a user's own cached build from reopening as "Shared list".
+
+**2026-05-05 — v0.2.23: Shared build lane board.**
+The read-only shared-build landing view now lays Structures, Ships, Colonists, and Research out as four side-by-side lane columns on desktop, while falling back to two columns on tablets and one column on phones. Lane rows were compacted so turn windows, quantities, and durations remain easy to scan in the narrower columns.
+
+**2026-05-05 — v0.2.22: Multi-planet exports and wait sharing.**
+Exports now have a Selected planet vs All planets target so text, Discord, image, and game JSON can carry a whole multi-planet plan. The game JSON format has a v2 shape with planet-local build items grouped by planet and global research emitted once. Manual waits are now exported with duration, recorded into share links, replayed on open, and reorderable like other manual plan entries; auto-waits remain generated schedule artifacts.
+
+**2026-05-05 — v0.2.21: Read-only shared build landing.**
+Shared build links now open into a focused build-list preview instead of dropping recipients directly into the full planner. The preview shows all four lanes together, supports switching planets in multi-planet shares, and keeps the editor hidden until the recipient chooses `Edit BL`.
+
+**2026-05-05 — v0.2.20: Queue-turn export semantics merged from main.**
+The latest main export fix is integrated into this branch: text, Discord, image, and game JSON exports now use the queue/start turn players need to act on, not the later completion turn. Current-view exports also filter by queue/start turn so the export scope matches what someone can actually queue by the selected turn.
+
+**2026-05-05 — v0.2.19: Shared mobile landing and game JSON export.**
+Shared links now land mobile users on the Queue panel first, so recipients see the build list instead of the editing catalog. The export vault gained a game-facing JSON option that contains only build-list data: item ids, display names, lanes, turns, and quantities, with no Florent encoded state, save metadata, author fields, or local cache details. Plain `#state=` autosave/reload URLs without share metadata are also treated as local restores so they no longer pollute the Shared list.
+
+**2026-05-05 — v0.2.18: Shared content rail alignment.**
+The page now uses one consistent centered 1800px rail for its major strips and cards. Gutters live outside the rail, so the build-list selector, share metadata strip, planet tabs, shared-list banner, dashboard, timeline, and queue panels all start and end on the same desktop columns while keeping mobile padding intact.
+
+**2026-05-04 — v0.2.17: Planet tab rail alignment.**
+The Homeworld/Add Planet/Reset Queue strip now sits inside the same centered desktop content rail as the build-list selector, shared-list banner, dashboard, timeline, and queue panels. This keeps the desktop layout from feeling edge-to-edge while preserving the mobile two-column tab grid.
+
+**2026-05-04 — v0.2.16: Desktop dashboard table repair.**
+The mobile dashboard alignment pass now has explicit desktop breakpoints for the Buildings table. Phones keep the compact proportional columns that prevent Energy values from clipping, while desktop restores the roomier fixed-width table behavior so building names and resource columns do not get squeezed inside the four-card overview.
+
+**2026-05-04 — v0.2.15: Mobile alignment pass.**
+Mobile layout now uses explicit grids where free-wrapping flex rows had made controls drift out of alignment. Planet tabs keep Homeworld/Add Planet in a two-column rhythm and give Reset Queue its own full row, while timeline quick jumps split Start/Mid/End and lane-empty shortcuts into separate aligned rows. The planet dashboard now shares the same mobile gutters as the rest of the page, and the Buildings table uses proportional columns so energy values are not clipped on narrow screens.
+
 **2026-05-04 — v0.2.14: Unified popup visual system.**
 The remaining popup surfaces were updated to match the new save/build-list visual language. Export Build Queue now has a glass/vault shell, scope badges, icon-led export actions, and polished Discord/image fallback states. Add/Edit Planet, the nested Planet Import popup, auto-wait confirmation, and dependency warnings now use the same rounded modal shell, icon badge headers, themed scroll areas, and intent-colored actions. The UI spec was updated so future popup work follows this shared pattern instead of drifting back into one-off modal styles.
 

@@ -15,7 +15,7 @@ The live website can be found here: florent-infiniteconflict.statichost.page
 - Dependency and validation warnings for invalid or cascading queue changes.
 - Planet dashboard for stocks, production, population, space, and housing pressure.
 - Shareable URL/localStorage state encoded from command history.
-- Queue export as plain text, Discord-friendly text, or PNG image.
+- Queue export as plain text, Discord-friendly text, PNG image, or build-data JSON for game import, with selected-planet and all-planets export targets.
 - Static export support for simple hosting.
 
 ## Tech Stack

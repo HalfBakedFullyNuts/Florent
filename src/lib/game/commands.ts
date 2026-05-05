@@ -10,6 +10,7 @@ import { generateWorkItemId, refundActivationCosts } from '../sim/engine/helpers
 import { createStandardStart } from '../sim/defs/seed';
 import { Timeline } from './state';
 import { getLogger } from './logger';
+import { getPlannedWaitTurns } from './waitDuration';
 
 export interface QueueResult {
   success: boolean;
@@ -641,9 +642,49 @@ export class GameController {
       return { success: false, reason: 'NOT_FOUND' };
     }
 
-    // Don't allow reordering wait items
-    if (active.isWait) {
+    // Auto-waits are synthetic and will be regenerated during repack.
+    if (active.isAutoWait) {
       return { success: false, reason: 'CANNOT_REORDER_WAIT' };
+    }
+
+    // Manual waits have no activation costs to refund, so they can be moved
+    // just like ordinary plan entries.
+    if (active.isWait) {
+      const newQueueLength = lane.pendingQueue.length + 1;
+      if (newIndex < 0 || newIndex >= newQueueLength) {
+        return { success: false, reason: 'INVALID_INDEX' };
+      }
+      const plannedWaitTurns = getPlannedWaitTurns(active, turn) ?? active.turnsRemaining;
+
+      this.timeline.mutateAtTurn(turn, (s) => {
+        const lane = s.lanes[laneId];
+        const active = lane.active;
+        if (!active) return;
+
+        lane.active = null;
+        lane.pendingQueue.splice(newIndex, 0, {
+          ...active,
+          status: 'pending' as const,
+          queuedTurn: turn,
+          startTurn: undefined,
+          completionTurn: undefined,
+          turnsRemaining: plannedWaitTurns,
+          isWait: true,
+          isAutoWait: false,
+        });
+      });
+
+      getLogger().logQueueOperation(
+        turn,
+        'reorder',
+        laneId,
+        '__wait__',
+        'Wait',
+        undefined,
+        `Moved manual wait to index ${newIndex}`
+      );
+
+      return { success: true };
     }
 
     const def = state.defs[active.itemId];

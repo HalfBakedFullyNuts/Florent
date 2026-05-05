@@ -53,7 +53,9 @@ import { Card } from '@/components/ui/card';
 import { DependencyWarningModal } from '../components/DependencyWarningModal';
 import { SavesModal } from '../components/SavesModal';
 import { BuildListSelector } from '../components/BuildListSelector';
+import { SharedBuildListView } from '../components/SharedBuildListView';
 import { clearAutosaveTimer, consumeRestoreIntent, prepareRestoreForReload, type AutosaveTimer } from './restoreState';
+import type { MultiPlanetExportData } from '../lib/export/formatters';
 
 // Persistence
 import { pushHistory, migrateLegacyLocalStorage, saveSharedLink } from '../lib/persistence/savesDb';
@@ -161,6 +163,7 @@ export default function Home() {
   const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
   const [isMounted, setIsMounted] = useState(false);
   const [activeShareMetadata, setActiveShareMetadata] = useState<ShareMetadata | null>(null);
+  const [isSharedBuildPreviewOpen, setSharedBuildPreviewOpen] = useState(false);
   const [shareListName, setShareListName] = useState('');
   const [shareAuthor, setShareAuthor] = useState('');
   // Bootstrap-once guard: React StrictMode runs effects twice in dev; we only
@@ -178,6 +181,7 @@ export default function Home() {
       sharedAt: new Date().toISOString(),
     });
     setActiveShareMetadata(share);
+    setSharedBuildPreviewOpen(true);
     if (!share) return;
     if (typeof window.indexedDB === 'undefined') return;
 
@@ -193,14 +197,11 @@ export default function Home() {
   const restoreShareSnapshot = useCallback((snapshot: LoadedGameSnapshot, encoded?: string | null, options?: RestoreOptions) => {
     const replayedState = replayCommands(createInitialGameState(), snapshot.cmds);
     commandHistory.loadFromSnapshot(snapshot.cmds);
-    if (encoded) {
-      if (options?.shared) {
-        rememberOpenedSharedLink(encoded, snapshot);
-      } else {
-        setActiveShareMetadata(null);
-      }
+    if (encoded && options?.shared) {
+      rememberOpenedSharedLink(encoded, snapshot);
     } else {
-      setActiveShareMetadata(getShareMetadataFromSnapshot(snapshot));
+      setActiveShareMetadata(null);
+      setSharedBuildPreviewOpen(false);
     }
     setGameState(() => ({
       ...replayedState,
@@ -251,7 +252,10 @@ export default function Home() {
 
     if (urlSnapshot) {
       const restoreIntent = consumeRestoreIntent(encodedFromURL);
-      const shouldRememberSharedLink = Boolean(encodedFromURL && (!restoreIntent || restoreIntent.shared));
+      const hasShareMetadata = getShareMetadataFromSnapshot(urlSnapshot) !== null;
+      const shouldRememberSharedLink = Boolean(
+        encodedFromURL && (restoreIntent?.shared === true || (!restoreIntent && hasShareMetadata))
+      );
       restoreShareSnapshot(urlSnapshot, encodedFromURL, { shared: shouldRememberSharedLink });
     }
   }, [restoreShareSnapshot]);
@@ -271,11 +275,17 @@ export default function Home() {
     colonistLane: LaneView;
     researchLane: LaneView;
     currentTurn: number;
+    multiPlanetData: MultiPlanetExportData;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<'building' | 'ship' | 'colonist' | 'research'>('building');
   // Mobile-only toggle between Build (Add to Queue) and Queue (Planet Queue) panels.
   // Both render side-by-side on md+ screens; on mobile only the active one is shown.
   const [mobileView, setMobileView] = useState<'build' | 'queue'>('build');
+  useEffect(() => {
+    if (activeShareMetadata) {
+      setMobileView('queue');
+    }
+  }, [activeShareMetadata]);
   // Transient toast message; null when nothing to show. Auto-clears after 3s.
   const [toast, setToast] = useState<string | null>(null);
   const [pendingCancellation, setPendingCancellation] = useState<{
@@ -294,6 +304,7 @@ export default function Home() {
     commandHistory.clear();
     lastAppliedShareRef.current = null;
     setActiveShareMetadata(null);
+    setSharedBuildPreviewOpen(false);
     setGameState(createInitialGameState());
     setViewTurn(1);
     setQueueValidation(new Map());
@@ -324,8 +335,12 @@ export default function Home() {
 
       lastAppliedShareRef.current = encoded;
       const restoreIntent = consumeRestoreIntent(encoded);
-      restoreShareSnapshot(snapshot, encoded, { shared: !restoreIntent || restoreIntent.shared });
-      setToast('Shared build list loaded from link');
+      const hasShareMetadata = getShareMetadataFromSnapshot(snapshot) !== null;
+      const restoredAsShared = restoreIntent?.shared === true || (!restoreIntent && hasShareMetadata);
+      restoreShareSnapshot(snapshot, encoded, {
+        shared: restoredAsShared,
+      });
+      setToast(restoredAsShared ? 'Shared build list loaded from link' : 'Build list loaded from link');
       setTimeout(() => setToast(null), 3000);
     };
 
@@ -881,9 +896,8 @@ export default function Home() {
         return;
       }
 
-      // Record command for URL encoding (we'd need to extend URL encoder for wait items if we want it perfect, 
-      // but for MVP we just queue it locally)
-      // commandHistory.recordQueueWait(...)
+      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+      commandHistory.recordQueueWait(Math.max(0, planetIdx), laneId, waitTurns, result.itemId ?? '');
 
       // Update the planet in game state
       const updatedPlanet = controller.getStateAtTurn(viewTurn);
@@ -899,7 +913,7 @@ export default function Home() {
       console.error('Error in handleQueueWait:', e);
       setError((e as Error).message || 'Unknown error');
     }
-  }, [currentPlanet, controller, viewTurn, gameState, commandHistory, planTurn]);
+  }, [currentPlanet, currentPlanetId, controller, viewTurn, gameState, commandHistory, planTurn]);
 
   // Core execution function to instantly cancel and auto-collapse queues
   const executeCancellation = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
@@ -1140,6 +1154,8 @@ export default function Home() {
 
       // We should repack the queue following a reorder so items lock into their new places mathematically
       controller.repackQueue(planTurn, laneId);
+      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+      commandHistory.recordReorder(Math.max(0, planetIdx), laneId, entryId, newIndex);
 
       // Update the planet in game state
       const updatedPlanet = controller.getStateAtTurn(viewTurn);
@@ -1155,7 +1171,7 @@ export default function Home() {
       console.error('Error reordering item:', e);
       setError((e as Error).message || 'Unknown error');
     }
-  }, [controller, viewTurn, gameState, commandHistory, planTurn]);
+  }, [controller, viewTurn, gameState, commandHistory, planTurn, currentPlanetId]);
 
   const getMaxQuantity = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any): number => {
     if (!controller) return entry.quantity;
@@ -1237,6 +1253,31 @@ export default function Home() {
     }
   }, [gameState, commandHistory]);
 
+  const buildMultiPlanetExportData = useCallback((): MultiPlanetExportData => {
+    const planets = Array.from(gameState.planets.values()).map((planet) => {
+      const planetController = new GameController(planet, planet.timeline);
+      const endTurn = planet.startTurn + planetController.getTotalTurns() - 1;
+      const exportState = planetController.getStateAtTurn(endTurn) ?? planet;
+
+      return {
+        id: planet.id,
+        name: planet.name,
+        startTurn: planet.startTurn,
+        currentTurn: planet.currentTurn,
+        lanes: [
+          getLaneView(exportState, 'building'),
+          getLaneView(exportState, 'ship'),
+          getLaneView(exportState, 'colonist'),
+        ],
+      };
+    });
+
+    return {
+      planets,
+      researchLane: getGlobalResearchLaneView(gameState, viewTurn),
+    };
+  }, [gameState, viewTurn]);
+
   const openExportModal = useCallback((mode: 'current' | 'full') => {
     setExportSnapshot({
       buildingLane: enrichedBuildingLane || { laneId: 'building' as const, entries: [] },
@@ -1244,9 +1285,10 @@ export default function Home() {
       colonistLane: enrichedColonistLane || { laneId: 'colonist' as const, entries: [] },
       researchLane: enrichedResearchLane || { laneId: 'research' as const, entries: [] },
       currentTurn: viewTurn,
+      multiPlanetData: buildMultiPlanetExportData(),
     });
     setShowExportModal(mode);
-  }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, enrichedResearchLane, viewTurn]);
+  }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, enrichedResearchLane, viewTurn, buildMultiPlanetExportData]);
 
   // Snapshot the current encoded state for the saves modal — encapsulates the
   // same encode-once-then-summarise pattern used by the auto-save effect.
@@ -1336,6 +1378,23 @@ export default function Home() {
           </div>
         </header>
 
+        {activeShareMetadata && isSharedBuildPreviewOpen ? (
+          <SharedBuildListView
+            name={activeShareMetadata.name}
+            author={activeShareMetadata.author}
+            planets={gameState.planets}
+            currentPlanetId={gameState.currentPlanetId}
+            currentTurn={viewTurn}
+            lanes={enrichedLanes}
+            defs={defs}
+            onPlanetSelect={handlePlanetSwitch}
+            onEdit={() => {
+              setSharedBuildPreviewOpen(false);
+              setMobileView('queue');
+            }}
+          />
+        ) : (
+          <>
         <BuildListSelector onRestore={handleRestoreSave} />
 
         <div className="px-3 pb-3 md:px-6">
@@ -1368,15 +1427,17 @@ export default function Home() {
 
         {/* Planet Tabs - Multi-planet navigation */}
         <div className="px-3 pb-2 md:px-6">
-          <PlanetTabs
-            planets={gameState.planets}
-            currentPlanetId={gameState.currentPlanetId}
-            onPlanetSwitch={handlePlanetSwitch}
-            onAddPlanet={handleAddPlanet}
-            onEditPlanet={handleEditPlanet}
-            maxPlanets={effectivePlanetLimit}
-            onResetQueue={handleResetQueue}
-          />
+          <div className="mx-auto max-w-[1800px]">
+            <PlanetTabs
+              planets={gameState.planets}
+              currentPlanetId={gameState.currentPlanetId}
+              onPlanetSwitch={handlePlanetSwitch}
+              onAddPlanet={handleAddPlanet}
+              onEditPlanet={handleEditPlanet}
+              maxPlanets={effectivePlanetLimit}
+              onResetQueue={handleResetQueue}
+            />
+          </div>
         </div>
 
         {activeShareMetadata && (
@@ -1392,15 +1453,19 @@ export default function Home() {
 
         {/* Error Display */}
         {error && (
-          <div className="mx-auto mt-4 w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl px-6 bg-red-900/20 border border-red-400 rounded p-4 text-red-400">
-            {error}
+          <div className="mt-4 px-3 md:px-6">
+            <div className="mx-auto w-full max-w-[1800px] rounded-2xl border border-red-400 bg-red-900/20 p-4 text-red-400">
+              {error}
+            </div>
           </div>
         )}
 
         {/* Warnings Panel — includes engine warnings + cascade-removal notices */}
         {allWarnings.length > 0 && (
           <div className="px-3 md:px-6 mt-4">
-            <WarningsPanel warnings={allWarnings} />
+            <div className="mx-auto w-full max-w-[1800px]">
+              <WarningsPanel warnings={allWarnings} />
+            </div>
           </div>
         )}
 
@@ -1413,78 +1478,83 @@ export default function Home() {
             stocksEstimated={currentState?.activationUsedProjectedProduction === true}
           />
         ) : (
-          <div className="w-full max-w-[1800px] mx-auto px-3 py-4 md:px-6">
-            <Card className="p-5 border-amber-500/50 bg-amber-950/20">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-lg font-bold text-amber-300">Planet not active at this turn</h2>
-                  <p className="text-sm text-pink-nebula-muted mt-1">
-                    {planetUnavailableReason || `No planet state is available for T${viewTurn}.`}
-                  </p>
+          <div className="px-3 py-4 md:px-6">
+            <div className="mx-auto w-full max-w-[1800px]">
+              <Card className="p-5 border-amber-500/50 bg-amber-950/20">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-amber-300">Planet not active at this turn</h2>
+                    <p className="text-sm text-pink-nebula-muted mt-1">
+                      {planetUnavailableReason || `No planet state is available for T${viewTurn}.`}
+                    </p>
+                  </div>
+                  {currentPlanet && (
+                    <button
+                      type="button"
+                      onClick={() => setViewTurn(currentPlanet.startTurn)}
+                      className="rounded-xl border border-pink-nebula-accent-secondary/45 bg-pink-nebula-accent-primary px-4 py-2 font-semibold text-white transition-colors hover:bg-pink-nebula-accent-secondary"
+                    >
+                      Go to T{currentPlanet.startTurn}
+                    </button>
+                  )}
                 </div>
-                {currentPlanet && (
-                  <button
-                    type="button"
-                    onClick={() => setViewTurn(currentPlanet.startTurn)}
-                    className="rounded-xl border border-pink-nebula-accent-secondary/45 bg-pink-nebula-accent-primary px-4 py-2 font-semibold text-white transition-colors hover:bg-pink-nebula-accent-secondary"
-                  >
-                    Go to T{currentPlanet.startTurn}
-                  </button>
-                )}
-              </div>
-            </Card>
+              </Card>
+            </div>
           </div>
         )}
 
         {/* Horizontal Timeline - Between dashboard and queues */}
-        <div className="w-full max-w-[1800px] mx-auto px-3 md:px-6">
-          <HorizontalTimeline
-            currentTurn={viewTurn}
-            totalTurns={timelineMaxTurn}
-            onTurnChange={setViewTurn}
-            firstEmptyTurns={firstEmptyTurns}
-            isAutoJumpEnabled={isAutoJumpEnabled}
-            onAutoJumpToggle={setIsAutoJumpEnabled}
-          />
+        <div className="px-3 md:px-6">
+          <div className="mx-auto w-full max-w-[1800px]">
+            <HorizontalTimeline
+              currentTurn={viewTurn}
+              totalTurns={timelineMaxTurn}
+              onTurnChange={setViewTurn}
+              firstEmptyTurns={firstEmptyTurns}
+              isAutoJumpEnabled={isAutoJumpEnabled}
+              onAutoJumpToggle={setIsAutoJumpEnabled}
+            />
+          </div>
         </div>
 
         {/* Main Content - Side-by-side Tabbed Displays */}
-        <main className="flex-1 max-w-[1800px] mx-auto w-full px-3 md:px-6 py-4 md:py-6">
-          {!isPlanetViewAvailable ? (
-            <Card className="p-6">
-              <h2 className="text-2xl font-bold text-pink-nebula-text mb-3">Queue unavailable</h2>
-              <p className="text-sm text-pink-nebula-muted">
-                Move to a turn where this planet exists before adding planet-local queue items. Planet tabs,
-                turn navigation, global research, and Add Planet remain available.
-              </p>
-            </Card>
-          ) : (
-            <>
-              {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
-              <div className="md:hidden flex gap-1 mb-3 rounded-2xl border border-white/10 bg-pink-nebula-panel/70 p-1 shadow-xl shadow-black/20">
-                <button
-                  onClick={() => setMobileView('build')}
-                  className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
-                    mobileView === 'build'
-                      ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
-                      : 'text-pink-nebula-text hover:bg-white/10'
-                  }`}
-                >
-                  ➕ Build
-                </button>
-                <button
-                  onClick={() => setMobileView('queue')}
-                  className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
-                    mobileView === 'queue'
-                      ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
-                      : 'text-pink-nebula-text hover:bg-white/10'
-                  }`}
-                >
-                  📋 Queue {totalQueuedItems > 0 && <span className="ml-1 text-xs opacity-80">({totalQueuedItems})</span>}
-                </button>
-              </div>
+        <main className="flex-1 px-3 py-4 md:px-6 md:py-6">
+          <div className="mx-auto w-full max-w-[1800px]">
+            {!isPlanetViewAvailable ? (
+              <Card className="p-6">
+                <h2 className="text-2xl font-bold text-pink-nebula-text mb-3">Queue unavailable</h2>
+                <p className="text-sm text-pink-nebula-muted">
+                  Move to a turn where this planet exists before adding planet-local queue items. Planet tabs,
+                  turn navigation, global research, and Add Planet remain available.
+                </p>
+              </Card>
+            ) : (
+              <>
+                {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
+                <div className="md:hidden flex gap-1 mb-3 rounded-2xl border border-white/10 bg-pink-nebula-panel/70 p-1 shadow-xl shadow-black/20">
+                  <button
+                    onClick={() => setMobileView('build')}
+                    className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                      mobileView === 'build'
+                        ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
+                        : 'text-pink-nebula-text hover:bg-white/10'
+                    }`}
+                  >
+                    ➕ Build
+                  </button>
+                  <button
+                    onClick={() => setMobileView('queue')}
+                    className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                      mobileView === 'queue'
+                        ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
+                        : 'text-pink-nebula-text hover:bg-white/10'
+                    }`}
+                  >
+                    📋 Queue {totalQueuedItems > 0 && <span className="ml-1 text-xs opacity-80">({totalQueuedItems})</span>}
+                  </button>
+                </div>
 
-              <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
             {/* Left: Add to Queue (Item Selection) */}
             <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'build' ? 'block' : 'hidden md:block'}`}>
               <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text mb-4 md:mb-6">Add to Queue</h2>
@@ -1595,10 +1665,13 @@ export default function Home() {
                 maxTurn={timelineMaxTurn}
               />
             </Card>
-              </div>
-            </>
-          )}
+                </div>
+              </>
+            )}
+          </div>
         </main>
+          </>
+        )}
 
         {/* Footer */}
         <footer className="mt-8 text-center text-xs text-pink-nebula-text-secondary pb-8 space-y-2">
@@ -1622,7 +1695,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.15</div>
+          <div className="opacity-30 text-[10px]">v0.2.29</div>
         </footer>
       </div>
 
@@ -1640,6 +1713,7 @@ export default function Home() {
           researchLane={exportSnapshot.researchLane}
           currentTurn={exportSnapshot.currentTurn}
           exportMode={showExportModal}
+          multiPlanetData={exportSnapshot.multiPlanetData}
         />
       )}
 

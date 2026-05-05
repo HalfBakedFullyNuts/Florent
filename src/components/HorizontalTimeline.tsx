@@ -66,7 +66,7 @@ export function HorizontalTimeline({
     <div className="w-full rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/75 via-slate-950/45 to-pink-nebula-panel/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl md:p-4">
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
         {/* Current Turn Input with Step Buttons */}
-        <div className="flex items-center gap-2">
+        <div className="grid w-full grid-cols-[auto_auto_minmax(4rem,5rem)_auto_1fr] items-center gap-2 md:flex md:w-auto">
           <span className="text-pink-nebula-muted text-xs font-semibold">TURN</span>
           <button
             onClick={() => handleButtonClick(Math.max(1, localTurn - 1))}
@@ -83,7 +83,7 @@ export function HorizontalTimeline({
             min={1}
             max={totalTurns}
             aria-label="Turn"
-            className="w-16 rounded-xl border border-pink-nebula-border/80 bg-slate-950/60 px-2 py-1 text-center font-bold text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25"
+            className="w-full rounded-xl border border-pink-nebula-border/80 bg-slate-950/60 px-2 py-1 text-center font-bold text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25 md:w-16"
           />
           <button
             onClick={() => handleButtonClick(Math.min(totalTurns, localTurn + 1))}
@@ -97,7 +97,7 @@ export function HorizontalTimeline({
         </div>
 
         {/* Auto-jump checkbox — moved to its own wrap-friendly group */}
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 md:w-auto">
           <input
             type="checkbox"
             id="autoJump"
@@ -199,22 +199,22 @@ export function HorizontalTimeline({
         </div>
 
         {/* Quick Jump Buttons */}
-        <div className="flex flex-wrap gap-1">
+        <div className="grid w-full grid-cols-3 gap-2 md:flex md:w-auto md:flex-wrap md:gap-1">
           <button
             onClick={() => handleButtonClick(1)}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10"
+            className="min-h-[44px] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10 md:min-h-0"
           >
             Start
           </button>
           <button
             onClick={() => handleButtonClick(Math.round(totalTurns / 2))}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10"
+            className="min-h-[44px] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10 md:min-h-0"
           >
             Mid
           </button>
           <button
             onClick={() => handleButtonClick(totalTurns)}
-            className="rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10"
+            className="min-h-[44px] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10 md:min-h-0"
           >
             End
           </button>
@@ -222,12 +222,12 @@ export function HorizontalTimeline({
 
         {/* First Empty Turn Buttons */}
         {firstEmptyTurns && (
-          <div className="flex flex-wrap gap-1 md:ml-2 md:pl-2 md:border-l md:border-pink-nebula-border">
+          <div className="grid w-full grid-cols-3 gap-2 md:ml-2 md:flex md:w-auto md:flex-wrap md:gap-1 md:border-l md:border-pink-nebula-border md:pl-2">
             {firstEmptyTurns.building !== null && (
               <button
                 onClick={() => handleButtonClick(firstEmptyTurns.building!)}
                 title={`First turn where building lane is empty (T${firstEmptyTurns.building})`}
-                className={`text-xs py-1 px-2 border rounded transition-colors flex items-center gap-1 ${
+                className={`flex min-h-[44px] items-center justify-center gap-1 rounded-xl border px-2 py-1 text-xs font-semibold transition-colors md:min-h-0 ${
                   localTurn === firstEmptyTurns.building
                     ? 'bg-amber-600/30 border-amber-500 text-amber-300'
                     : 'bg-pink-nebula-bg hover:bg-amber-600/20 border-pink-nebula-border hover:border-amber-500'
@@ -241,7 +241,7 @@ export function HorizontalTimeline({
               <button
                 onClick={() => handleButtonClick(firstEmptyTurns.ship!)}
                 title={`First turn where ship lane is empty (T${firstEmptyTurns.ship})`}
-                className={`text-xs py-1 px-2 border rounded transition-colors flex items-center gap-1 ${
+                className={`flex min-h-[44px] items-center justify-center gap-1 rounded-xl border px-2 py-1 text-xs font-semibold transition-colors md:min-h-0 ${
                   localTurn === firstEmptyTurns.ship
                     ? 'bg-blue-600/30 border-blue-500 text-blue-300'
                     : 'bg-pink-nebula-bg hover:bg-blue-600/20 border-pink-nebula-border hover:border-blue-500'
@@ -255,7 +255,7 @@ export function HorizontalTimeline({
               <button
                 onClick={() => handleButtonClick(firstEmptyTurns.colonist!)}
                 title={`First turn where colonist lane is empty (T${firstEmptyTurns.colonist})`}
-                className={`text-xs py-1 px-2 border rounded transition-colors flex items-center gap-1 ${
+                className={`flex min-h-[44px] items-center justify-center gap-1 rounded-xl border px-2 py-1 text-xs font-semibold transition-colors md:min-h-0 ${
                   localTurn === firstEmptyTurns.colonist
                     ? 'bg-green-600/30 border-green-500 text-green-300'
                     : 'bg-pink-nebula-bg hover:bg-green-600/20 border-pink-nebula-border hover:border-green-500'

@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import {
+  Braces,
   ClipboardList,
   Download,
   FileText,
@@ -11,8 +12,17 @@ import {
 } from 'lucide-react';
 import type { LaneView } from '../lib/game/selectors';
 import type { LaneId } from '../lib/sim/engine/types';
-import { formatAsText, formatAsDiscordMessages, copyToClipboard, extractQueueItems } from '../lib/export/formatters';
-import type { QueueItem } from '../lib/export/formatters';
+import {
+  formatAsText,
+  formatAsDiscordMessages,
+  formatAsBuildDataJson,
+  formatMultiPlanetAsText,
+  formatMultiPlanetAsDiscordMessages,
+  formatMultiPlanetAsBuildDataJson,
+  copyToClipboard,
+  extractQueueItems,
+} from '../lib/export/formatters';
+import type { MultiPlanetExportData, QueueItem } from '../lib/export/formatters';
 
 export interface ExportModalProps {
   isOpen: boolean;
@@ -23,16 +33,18 @@ export interface ExportModalProps {
   researchLane: LaneView;
   currentTurn: number;
   exportMode: 'full' | 'current'; // full = all items, current = queue actions up to current turn
+  multiPlanetData?: MultiPlanetExportData;
 }
 
 /**
  * ExportModal - Export build queue in various formats
  *
  * TICKET-5: Queue Export Functionality
- * Supports three export types:
+ * Supports four export types:
  * - Plain Text: Simple list format
  * - Discord: Formatted table with character limit check
  * - Image: PNG rendered via canvas with watermark
+ * - Game JSON: Build-only payload for game import
  */
 export function ExportModal({
   isOpen,
@@ -43,20 +55,26 @@ export function ExportModal({
   researchLane,
   currentTurn,
   exportMode,
+  multiPlanetData,
 }: ExportModalProps) {
   const [notification, setNotification] = useState<string | null>(null);
   const [discordMessages, setDiscordMessages] = useState<string[]>([]);
   const [nextDiscordMessageIndex, setNextDiscordMessageIndex] = useState(0);
   const [imageFallback, setImageFallback] = useState<{ blob: Blob; filename: string } | null>(null);
+  const [jsonFallback, setJsonFallback] = useState<{ blob: Blob; filename: string } | null>(null);
+  const [exportTarget, setExportTarget] = useState<'selected' | 'all'>('selected');
 
   const laneViews = [buildingLane, shipLane, colonistLane, researchLane];
+  const hasMultiPlanetTarget = Boolean(multiPlanetData && multiPlanetData.planets.length > 1);
+  const activeTarget = hasMultiPlanetTarget ? exportTarget : 'selected';
 
   // Determine maxTurn based on export mode
   const maxTurn = exportMode === 'current' ? currentTurn : undefined;
-  const scopedItemCount = extractQueueItems(laneViews, maxTurn).length;
-  const totalItemCount = extractQueueItems(laneViews).length;
+  const scopedItemCount = countExportItems(activeTarget, laneViews, multiPlanetData, maxTurn);
+  const totalItemCount = countExportItems(activeTarget, laneViews, multiPlanetData);
   const displayedItemCount = scopedItemCount > 0 || exportMode === 'full' ? scopedItemCount : totalItemCount;
   const scopeLabel = exportMode === 'current' ? 'Current view' : 'Full queue';
+  const targetLabel = activeTarget === 'all' ? 'All planets' : 'Selected planet';
   const fallbackHint = exportMode === 'current' && scopedItemCount === 0 && totalItemCount > 0
     ? 'No queue actions at or before the current turn. Export falls back to the full queue.'
     : null;
@@ -67,13 +85,13 @@ export function ExportModal({
   };
 
   const resolveExportScope = () => {
-    const scopedItems = extractQueueItems(laneViews, maxTurn);
-    if (scopedItems.length > 0 || maxTurn === undefined) {
+    const scopedItems = countExportItems(activeTarget, laneViews, multiPlanetData, maxTurn);
+    if (scopedItems > 0 || maxTurn === undefined) {
       return { effectiveMaxTurn: maxTurn, usedFullFallback: false };
     }
 
-    const fullItems = extractQueueItems(laneViews);
-    if (fullItems.length > 0) {
+    const fullItems = countExportItems(activeTarget, laneViews, multiPlanetData);
+    if (fullItems > 0) {
       return { effectiveMaxTurn: undefined, usedFullFallback: true };
     }
 
@@ -83,8 +101,11 @@ export function ExportModal({
   const handleExportText = async () => {
     clearDiscordCopyState();
     setImageFallback(null);
+    setJsonFallback(null);
     const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
-    const text = formatAsText(laneViews, effectiveMaxTurn);
+    const text = activeTarget === 'all' && multiPlanetData
+      ? formatMultiPlanetAsText(multiPlanetData, effectiveMaxTurn)
+      : formatAsText(laneViews, effectiveMaxTurn);
 
     if (!text) {
       showNotification('Queue is empty - nothing to export');
@@ -103,11 +124,14 @@ export function ExportModal({
 
   const handleExportDiscord = async () => {
     setImageFallback(null);
+    setJsonFallback(null);
     const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
-    const messages = formatAsDiscordMessages(laneViews, effectiveMaxTurn);
+    const messages = activeTarget === 'all' && multiPlanetData
+      ? formatMultiPlanetAsDiscordMessages(multiPlanetData, effectiveMaxTurn)
+      : formatAsDiscordMessages(laneViews, effectiveMaxTurn);
     const firstMessage = messages[0] ?? '';
 
-    if (extractQueueItems(laneViews, effectiveMaxTurn).length === 0) {
+    if (countExportItems(activeTarget, laneViews, multiPlanetData, effectiveMaxTurn) === 0) {
       showNotification('Queue is empty - nothing to export');
       return;
     }
@@ -147,23 +171,67 @@ export function ExportModal({
     setNextDiscordMessageIndex(0);
   };
 
+  const handleExportGameJson = async () => {
+    clearDiscordCopyState();
+    setImageFallback(null);
+    setJsonFallback(null);
+    const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
+    const jsonScope = usedFullFallback || effectiveMaxTurn === undefined ? 'full' : exportMode;
+    const json = activeTarget === 'all' && multiPlanetData
+      ? formatMultiPlanetAsBuildDataJson(multiPlanetData, effectiveMaxTurn, {
+          scope: jsonScope,
+          currentTurn,
+        })
+      : formatAsBuildDataJson(laneViews, effectiveMaxTurn, {
+          scope: jsonScope,
+          currentTurn,
+        });
+
+    if (!json) {
+      showNotification('Queue is empty - nothing to export');
+      return;
+    }
+
+    const filename = `florent-build-list-${activeTarget}-${jsonScope}-t${currentTurn}.json`;
+    const blob = new Blob([json], { type: 'application/json' });
+    setJsonFallback({ blob, filename });
+
+    const success = await copyToClipboard(json);
+    if (success) {
+      showNotification(usedFullFallback
+        ? 'Copied full build JSON because no queue actions are due by this turn.'
+        : 'Game JSON copied to clipboard!');
+    } else {
+      showNotification('Clipboard blocked JSON copy. Use Download JSON instead.');
+    }
+  };
+
   const handleExportImage = async () => {
     clearDiscordCopyState();
     setImageFallback(null);
+    setJsonFallback(null);
     try {
       const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
-      const items = extractQueueItems(laneViews, effectiveMaxTurn);
+      const items = activeTarget === 'all' && multiPlanetData
+        ? extractMultiPlanetItems(multiPlanetData, effectiveMaxTurn)
+        : extractQueueItems(laneViews, effectiveMaxTurn);
 
       if (items.length === 0) {
         showNotification('Queue is empty - nothing to export');
         return;
       }
 
-      const canvas = createBuildOrderImageCanvas(items, {
-        currentTurn,
-        exportMode,
-        usedFullFallback,
-      });
+      const canvas = activeTarget === 'all' && multiPlanetData
+        ? createMultiPlanetBuildOrderImageCanvas(multiPlanetData, effectiveMaxTurn, {
+            currentTurn,
+            exportMode,
+            usedFullFallback,
+          })
+        : createBuildOrderImageCanvas(items, {
+            currentTurn,
+            exportMode,
+            usedFullFallback,
+          });
 
       const blob = await canvasToPngBlob(canvas);
       if (!blob) {
@@ -171,7 +239,7 @@ export function ExportModal({
         return;
       }
 
-      const filename = `build-order-turn-${currentTurn}.png`;
+      const filename = `build-order-${activeTarget}-turn-${currentTurn}.png`;
       const copied = await copyImageToClipboard(blob, canvas.toDataURL('image/png'));
       setImageFallback({ blob, filename });
       if (copied) {
@@ -212,6 +280,9 @@ export function ExportModal({
                 {scopeLabel}
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
+                {targetLabel}
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
                 Current turn {currentTurn}
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
@@ -236,6 +307,27 @@ export function ExportModal({
             </div>
           )}
 
+          {hasMultiPlanetTarget && (
+            <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-1">
+              <div className="grid grid-cols-2 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setExportTarget('selected')}
+                  className={exportTargetButtonClass(activeTarget === 'selected')}
+                >
+                  Selected planet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExportTarget('all')}
+                  className={exportTargetButtonClass(activeTarget === 'all')}
+                >
+                  All planets
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="grid gap-3">
             <ExportActionCard
               icon={<FileText className="h-5 w-5" aria-hidden="true" />}
@@ -250,6 +342,24 @@ export function ExportModal({
               description="Formatted table copied in 2,000-character chunks for non-Nitro users."
               onClick={handleExportDiscord}
             />
+
+            <ExportActionCard
+              icon={<Braces className="h-5 w-5" aria-hidden="true" />}
+              title="Export game JSON"
+              description="Raw item ids, turns, lanes, and quantities only. No Florent save metadata."
+              onClick={handleExportGameJson}
+              tone="purple"
+            />
+
+            {jsonFallback && (
+              <ExportActionCard
+                icon={<Download className="h-5 w-5" aria-hidden="true" />}
+                title="Download game JSON"
+                description="Use this file if the actual game imports build-list JSON from disk."
+                onClick={() => downloadBlob(jsonFallback.blob, jsonFallback.filename)}
+                tone="amber"
+              />
+            )}
 
             {discordMessages.length > 1 && nextDiscordMessageIndex < discordMessages.length && (
               <ExportActionCard
@@ -338,6 +448,32 @@ function ExportActionCard({
       </span>
     </button>
   );
+}
+
+function exportTargetButtonClass(active: boolean): string {
+  const base = 'min-h-[40px] rounded-xl px-3 py-2 text-sm font-black transition-all focus:outline-none focus:ring-2 focus:ring-cyan-300/25';
+  if (active) {
+    return `${base} border border-cyan-200/45 bg-cyan-300/18 text-cyan-50 shadow-lg shadow-cyan-500/10`;
+  }
+  return `${base} text-pink-nebula-muted hover:bg-white/[0.06] hover:text-pink-nebula-text`;
+}
+
+function countExportItems(
+  target: 'selected' | 'all',
+  laneViews: LaneView[],
+  multiPlanetData?: MultiPlanetExportData,
+  maxTurn?: number,
+): number {
+  if (target === 'all' && multiPlanetData) {
+    return extractMultiPlanetItems(multiPlanetData, maxTurn).length;
+  }
+  return extractQueueItems(laneViews, maxTurn).length;
+}
+
+function extractMultiPlanetItems(data: MultiPlanetExportData, maxTurn?: number): QueueItem[] {
+  const planetItems = data.planets.flatMap((planet) => extractQueueItems(planet.lanes, maxTurn));
+  const researchItems = data.researchLane ? extractQueueItems([data.researchLane], maxTurn) : [];
+  return [...planetItems, ...researchItems].sort((a, b) => a.turn - b.turn);
 }
 
 type ExportImageColumnKey = 'turn' | LaneId;
@@ -445,6 +581,112 @@ export function createBuildOrderImageCanvas(items: QueueItem[], options: ExportI
   return canvas;
 }
 
+export function createMultiPlanetBuildOrderImageCanvas(
+  data: MultiPlanetExportData,
+  maxTurn: number | undefined,
+  options: ExportImageOptions,
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  if (!ctx) {
+    throw new Error('Canvas rendering is not available');
+  }
+
+  const sections = [
+    ...data.planets.map((planet) => ({
+      title: `${planet.name} (starts T${planet.startTurn})`,
+      items: extractQueueItems(planet.lanes, maxTurn),
+    })),
+    {
+      title: 'Global Research',
+      items: data.researchLane ? extractQueueItems([data.researchLane], maxTurn) : [],
+    },
+  ].filter((section) => section.items.length > 0);
+
+  if (sections.length === 0) {
+    return createBuildOrderImageCanvas([], options);
+  }
+
+  const outerPadding = 32;
+  const tableCellPaddingX = 14;
+  const tableCellPaddingY = 12;
+  const tableHeaderHeight = 40;
+  const bodyLineHeight = 19;
+  const sectionTitleHeight = 34;
+  const sectionGap = 24;
+  const footerHeight = 42;
+  const tableY = 104;
+
+  ctx.font = EXPORT_IMAGE_BODY_FONT;
+  const allRows = sections.flatMap((section) => buildExportImageRows(section.items));
+  const columnWidths = EXPORT_IMAGE_COLUMNS.map((column) => measureExportImageColumn(
+    ctx,
+    column,
+    allRows,
+    tableCellPaddingX,
+  ));
+  const tableWidth = columnWidths.reduce((total, width) => total + width, 0);
+  const canvasWidth = tableWidth + outerPadding * 2;
+
+  const sectionLayouts = sections.map((section) => {
+    const rows = buildExportImageRows(section.items);
+    const rowLayouts = rows.map((row) => layoutExportImageRow(
+      ctx,
+      row,
+      columnWidths,
+      tableCellPaddingX,
+      tableCellPaddingY,
+      bodyLineHeight,
+    ));
+    const tableHeight = tableHeaderHeight + rowLayouts.reduce((total, row) => total + row.height, 0);
+    return { ...section, rowLayouts, tableHeight };
+  });
+
+  const contentHeight = sectionLayouts.reduce((total, section, index) => (
+    total + sectionTitleHeight + section.tableHeight + (index < sectionLayouts.length - 1 ? sectionGap : 0)
+  ), 0);
+  const canvasHeight = tableY + contentHeight + footerHeight;
+  const pixelRatio = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+
+  canvas.width = Math.ceil(canvasWidth * pixelRatio);
+  canvas.height = Math.ceil(canvasHeight * pixelRatio);
+  canvas.style.width = `${canvasWidth}px`;
+  canvas.style.height = `${canvasHeight}px`;
+
+  ctx.scale(pixelRatio, pixelRatio);
+  ctx.textBaseline = 'top';
+
+  renderExportImageBackground(ctx, canvasWidth, canvasHeight);
+  renderExportImageHeader(ctx, options, extractMultiPlanetItems(data, maxTurn).length, outerPadding, 'Multi-Planet Build Order');
+
+  let y = tableY;
+  sectionLayouts.forEach((section, index) => {
+    ctx.fillStyle = '#f0e7ff';
+    ctx.font = EXPORT_IMAGE_HEADER_FONT;
+    ctx.textAlign = 'left';
+    ctx.fillText(section.title, outerPadding, y);
+    y += sectionTitleHeight;
+
+    renderExportImageTable(ctx, section.rowLayouts, columnWidths, {
+      x: outerPadding,
+      y,
+      width: tableWidth,
+      height: section.tableHeight,
+      headerHeight: tableHeaderHeight,
+      cellPaddingX: tableCellPaddingX,
+      cellPaddingY: tableCellPaddingY,
+      bodyLineHeight,
+    });
+
+    y += section.tableHeight + (index < sectionLayouts.length - 1 ? sectionGap : 0);
+  });
+
+  renderExportImageFooter(ctx, canvasWidth, canvasHeight, outerPadding);
+
+  return canvas;
+}
+
 function buildExportImageRows(items: QueueItem[]): ExportImageRow[] {
   const rowByTurn = new Map<number, ExportImageRow>();
 
@@ -475,6 +717,10 @@ function appendExportImageCell(current: string, value: string): string {
 }
 
 function formatExportImageItem(item: QueueItem): string {
+  if (item.isWait || item.itemId === '__wait__') {
+    return `Wait ${item.waitTurns ?? '?'}T`;
+  }
+
   if (item.lane === 'building' || item.lane === 'research') {
     return item.name;
   }
@@ -611,6 +857,7 @@ function renderExportImageHeader(
   options: ExportImageOptions,
   itemCount: number,
   outerPadding: number,
+  title = 'Build Order',
 ): void {
   const scope = options.usedFullFallback
     ? 'Full queue fallback'
@@ -622,7 +869,7 @@ function renderExportImageHeader(
   ctx.fillStyle = '#f0e7ff';
   ctx.font = EXPORT_IMAGE_TITLE_FONT;
   ctx.textAlign = 'left';
-  ctx.fillText('Build Order', outerPadding, 30);
+  ctx.fillText(title, outerPadding, 30);
 
   ctx.fillStyle = '#b7c7da';
   ctx.font = EXPORT_IMAGE_META_FONT;

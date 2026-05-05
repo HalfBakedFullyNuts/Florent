@@ -42,7 +42,7 @@ export function PlanetTabs({
 
   return (
     <div
-      className="flex flex-wrap items-center gap-2 rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/80 via-slate-950/45 to-pink-nebula-panel/70 p-2 shadow-xl shadow-black/20 backdrop-blur-xl"
+      className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/80 via-slate-950/45 to-pink-nebula-panel/70 p-2 shadow-xl shadow-black/20 backdrop-blur-xl sm:flex sm:flex-wrap sm:items-center"
       suppressHydrationWarning
     >
       {planetArray.map((planet, index) => {
@@ -62,7 +62,7 @@ export function PlanetTabs({
             suppressHydrationWarning
             title={isActive && planet.id !== 'planet-1' ? 'Edit planet' : 'Switch planet'}
             className={`
-              px-4 py-2 rounded-xl font-semibold transition-all duration-200
+              min-h-[48px] justify-center rounded-xl px-3 py-2 font-semibold transition-all duration-200 sm:min-h-0 sm:px-4
               flex items-center gap-2 cursor-pointer
               ${isActive
                 ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow-lg shadow-pink-nebula-accent-primary/25 scale-[1.03]'
@@ -88,7 +88,7 @@ export function PlanetTabs({
           }
         }}
         className="
-          px-4 py-2 rounded-xl font-semibold transition-all duration-200
+          min-h-[48px] justify-center rounded-xl px-3 py-2 font-semibold transition-all duration-200 sm:min-h-0 sm:px-4
           border border-dashed border-pink-nebula-accent-primary/45 bg-pink-nebula-accent-primary/10
           text-pink-nebula-text hover:border-pink-nebula-accent-secondary hover:bg-pink-nebula-accent-primary/20
           flex items-center gap-2 cursor-pointer
@@ -111,7 +111,7 @@ export function PlanetTabs({
             }
           }}
           className="
-            ml-auto px-3 py-2 rounded-xl font-semibold transition-all duration-200
+            col-span-2 min-h-[44px] justify-center rounded-xl px-3 py-2 font-semibold transition-all duration-200 sm:col-span-1 sm:ml-auto sm:min-h-0
             bg-red-950/35 text-red-200 hover:bg-red-700/70 hover:text-white
             border border-red-400/25 hover:border-red-300/60
             flex items-center gap-2 cursor-pointer text-sm

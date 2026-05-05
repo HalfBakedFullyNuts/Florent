@@ -122,8 +122,9 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
   }, [summary.structures, defs]);
 
   return (
-    <div className="w-full max-w-[1800px] mx-auto px-6 my-4">
-      <Card className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 p-4 glow-tyr border-gray-400/30">
+    <div className="my-4 px-3 md:px-6">
+      <div className="mx-auto w-full max-w-[1800px]">
+        <Card className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 p-3 md:p-4 glow-tyr border-gray-400/30">
         {/* Resources Section - Table Layout */}
         <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Resources</h3>
@@ -294,17 +295,17 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
         <Card className="p-3">
           <h3 className="text-sm font-semibold text-pink-nebula-muted mb-3">Buildings</h3>
           {structuresList.length > 0 ? (
-            <div className="max-h-[224px] overflow-y-auto"> {/* Header + 7 rows */}
-              <table className="w-full text-xs font-mono">
+            <div className="scroll-nebula max-h-[224px] overflow-y-auto overflow-x-hidden md:overflow-x-visible"> {/* Header + 7 rows */}
+              <table className="w-full table-fixed text-[11px] font-mono sm:text-xs md:table-auto">
                 <thead>
                   <tr className="text-[10px] text-pink-nebula-muted border-b border-pink-nebula-border sticky top-0 bg-pink-nebula-panel">
-                    <th className="pb-1 pr-2 text-right w-8">Sp</th>
-                    <th className="pb-1 pr-2 text-left w-32">Building</th>
-                    <th className="pb-1 pr-2 text-right w-10">Qty</th>
-                    <th className="pb-1 pr-1 text-right w-12 text-gray-300">M</th>
-                    <th className="pb-1 pr-1 text-right w-12 text-red-500">Mn</th>
-                    <th className="pb-1 pr-1 text-right w-12 text-green-500">F</th>
-                    <th className="pb-1 text-right w-14 text-blue-400">E</th>
+                    <th className="w-[8%] pb-1 pr-1 text-right md:w-8 md:pr-2">Sp</th>
+                    <th className="w-[30%] pb-1 pr-1 text-left md:w-32 md:pr-2">Building</th>
+                    <th className="w-[11%] pb-1 pr-1 text-right md:w-10 md:pr-2">Qty</th>
+                    <th className="w-[12%] pb-1 pr-1 text-right text-gray-300 md:w-12 md:pr-2">M</th>
+                    <th className="w-[13%] pb-1 pr-1 text-right text-red-500 md:w-12 md:pr-2">Mn</th>
+                    <th className="w-[12%] pb-1 pr-1 text-right text-green-500 md:w-12 md:pr-2">F</th>
+                    <th className="w-[14%] pb-1 pr-1 text-right text-blue-400 md:w-14 md:pr-0">E</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -340,31 +341,31 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
                     return (
                       <tr key={structure.id} className="border-b border-pink-nebula-border/50 last:border-0">
                         {/* Space Used */}
-                        <td className={`py-1.5 pr-2 text-right w-8 ${spaceColor} font-semibold`}>
+                        <td className={`py-1.5 pr-1 text-right ${spaceColor} font-semibold md:w-8 md:pr-2`}>
                           {spaceDisplay}
                         </td>
                         {/* Building Name */}
-                        <td className="py-1.5 pr-2 text-pink-nebula-text font-semibold w-32">
+                        <td className="break-words py-1.5 pr-1 text-pink-nebula-text font-semibold leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
                           {structure.name}
                         </td>
                         {/* Count */}
-                        <td className="py-1.5 pr-2 text-right text-pink-nebula-text w-10">
+                        <td className="whitespace-nowrap py-1.5 pr-1 text-right text-pink-nebula-text md:w-10 md:pr-2">
                           ×{structure.count}
                         </td>
                         {/* Metal - gray-300 */}
-                        <td className="py-1.5 pr-1 text-right w-12 text-gray-300">
+                        <td className="whitespace-nowrap py-1.5 pr-1 text-right text-gray-300 md:w-12 md:pr-2">
                           {structure.metalNet !== 0 ? (structure.metalNet > 0 ? '+' : '') + structure.metalNet : ''}
                         </td>
                         {/* Mineral - red-500 */}
-                        <td className="py-1.5 pr-1 text-right w-12 text-red-500">
+                        <td className="whitespace-nowrap py-1.5 pr-1 text-right text-red-500 md:w-12 md:pr-2">
                           {structure.mineralNet !== 0 ? (structure.mineralNet > 0 ? '+' : '') + structure.mineralNet : ''}
                         </td>
                         {/* Food - green-500 */}
-                        <td className="py-1.5 pr-1 text-right w-12 text-green-500">
+                        <td className="whitespace-nowrap py-1.5 pr-1 text-right text-green-500 md:w-12 md:pr-2">
                           {structure.foodNet !== 0 ? (structure.foodNet > 0 ? '+' : '') + structure.foodNet : ''}
                         </td>
                         {/* Energy - blue-400 */}
-                        <td className="py-1.5 text-right w-14 text-blue-400">
+                        <td className="whitespace-nowrap py-1.5 pr-1 text-right text-blue-400 md:w-14 md:pr-0">
                           {energyDisplay}
                         </td>
                       </tr>
@@ -379,7 +380,8 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
             </div>
           )}
         </Card>
-      </Card>
+        </Card>
+      </div>
     </div>
   );
 });

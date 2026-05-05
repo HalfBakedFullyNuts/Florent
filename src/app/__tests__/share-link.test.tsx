@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import Home from '../page';
 import {
@@ -159,6 +159,58 @@ describe('share link flow', () => {
     expect(screen.getByText('Shared list')).toBeInTheDocument();
     expect(screen.getByText('Neighbor Tech Rush')).toBeInTheDocument();
     expect(screen.getByText('by Lin')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /edit bl/i })).toBeInTheDocument();
+    expect(screen.queryByText(/^Add to Queue$/i)).not.toBeInTheDocument();
+  });
+
+  test('shared build preview shows all lanes before editing', async () => {
+    const commands: Parameters<typeof encodeGameState>[1] = [
+      ['q', 0, 11, 1],
+      ['q', 0, 12, 5],
+      ['qr', 50],
+    ];
+    const encoded = encodeGameState([homeworldConfig], commands, {
+      name: 'All Lanes Opener',
+      author: 'Lin',
+      sharedAt: '2026-05-04T12:00:00.000Z',
+    });
+    window.history.replaceState(null, '', `/#state=${encoded}`);
+
+    render(<Home />);
+
+    await screen.findByRole('button', { name: /edit bl/i });
+    expect(screen.getByText('All Lanes Opener')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /structures/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /ships/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /colonists/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /research/i })).toBeInTheDocument();
+    expect(screen.getByTestId('shared-lane-board')).toHaveClass('xl:grid-cols-4');
+    const sharedLaneBoard = screen.getByTestId('shared-lane-board');
+    expect(within(sharedLaneBoard).getByText('4T')).toBeInTheDocument();
+    expect(within(sharedLaneBoard).queryByText('0T')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Add to Queue$/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /edit bl/i }));
+
+    expect(await screen.findByText(/^Add to Queue$/i)).toBeInTheDocument();
+    expect(screen.getByText(/Planet Queue/i)).toBeInTheDocument();
+  });
+
+  test('local autosave with share metadata restores as editable local build', async () => {
+    const commands: Parameters<typeof encodeGameState>[1] = [['q', 0, 11, 1]];
+    const encoded = encodeGameState([homeworldConfig], commands, {
+      name: 'Homeworld build list',
+      author: 'Henrik',
+      sharedAt: '2026-05-04T12:00:00.000Z',
+    });
+    window.localStorage.setItem('florent_save', encoded);
+    window.history.replaceState(null, '', '/');
+
+    render(<Home />);
+
+    await screen.findByText(/1 queued/i);
+    expect(screen.getByText(/^Add to Queue$/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /edit bl/i })).not.toBeInTheDocument();
   });
 
   test('clears the live build when the state hash is removed', async () => {

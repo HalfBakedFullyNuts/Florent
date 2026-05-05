@@ -255,5 +255,26 @@ describe('Queue Reordering (TICKET-3)', () => {
       const state = controller.getStateAtTurn(1);
       expect(state?.lanes.building.active?.itemId).toBe('farm');
     });
+
+    it('should preserve the original duration when reordering an active manual wait', () => {
+      const wait = controller.queueWaitItem(1, 'building', 5, false);
+      expect(wait.success).toBe(true);
+
+      const midWait = controller.getStateAtTurn(3);
+      expect(midWait?.lanes.building.active?.id).toBe(wait.itemId);
+      expect(midWait?.lanes.building.active?.turnsRemaining).toBeLessThan(5);
+
+      const result = controller.reorderQueueItem(3, 'building', wait.itemId!, 0);
+      expect(result.success).toBe(true);
+
+      const reordered = controller.getStateAtTurn(3);
+      expect(reordered?.lanes.building.active).toBeNull();
+      expect(reordered?.lanes.building.pendingQueue[0]).toMatchObject({
+        id: wait.itemId,
+        itemId: '__wait__',
+        isWait: true,
+        turnsRemaining: 5,
+      });
+    });
   });
 });

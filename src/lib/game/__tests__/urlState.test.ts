@@ -98,6 +98,7 @@ describe('URL state helpers', () => {
     const commands: Parameters<typeof encodeGameState>[1] = [
       ['q', 0, 11, 1],
       ['q', 0, 30, 1],
+      ['w', 0, 'b', 4],
       ['q', 0, 33, 1],
       ['qr', 50],
       ['qw', 12],
@@ -150,6 +151,7 @@ describe('URL state helpers', () => {
       ['p', { n: 'Frontier', st: 17, a: [1.25, 0.9, 1.1, 1.4, 1], s: [75, 55], p: 24000, b: [2, 1, 1, 3] }],
       ['ep', 1, { n: 'Frontier Prime', st: 18, a: [1.3, 0.95, 1.1, 1.4, 1], s: [80, 60], p: 25000, b: [3, 1, 1, 3] }],
       ['q', 1, 11, 2],
+      ['w', 1, 'b', 6],
       ['qr', 50],
       ['qw', 5],
       ['s', 1],

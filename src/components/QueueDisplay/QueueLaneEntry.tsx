@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
+import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
 
 export interface QueueLaneEntryProps {
   entry: LaneEntry;
@@ -69,11 +70,13 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
       entry.status === 'completed' ? 'border-l-4 border-l-green-500' : '';
 
   const isAutoWait = entry.isAutoWait;
+  const waitTurns = getDisplayWaitTurns(entry, currentTurn);
+  const durationTurns = getDisplayDurationTurns(entry, def, currentTurn);
 
   return (
     <div
       className={`
-        w-full text-left p-3 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : 'bg-pink-nebula-panel/50'} border border-pink-nebula-border rounded
+        w-full text-left px-3 py-2 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : 'bg-pink-nebula-panel/50'} border border-pink-nebula-border rounded
         transition-colors group
         ${statusColor}
         ${entry.invalid ? 'border-orange-500/50 bg-orange-900/10' : ''}
@@ -111,9 +114,9 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
         {/* Item Name */}
         <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : 'text-pink-nebula-text'}`}>
           {isAutoWait
-            ? `⏳ Auto-wait: ${entry.turnsRemaining}t (resource gap)`
+            ? `⏳ Auto-wait: ${waitTurns}t (resource gap)`
             : entry.isWait
-              ? `⏳ Manual wait: ${entry.turnsRemaining}t`
+              ? `⏳ Manual wait: ${waitTurns}t`
               : entry.itemName}
         </div>
 
@@ -140,7 +143,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
 
         {/* Duration */}
         <div className="text-pink-nebula-text text-right w-10">
-          {entry.turnsRemaining !== undefined ? `${entry.turnsRemaining}T` : `${def?.duration || '—'}T`}
+          {durationTurns}T
         </div>
 
         {/* Remove indicator */}
@@ -152,7 +155,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 e.stopPropagation();
                 onCancel();
               }}
-              className="text-red-400 bg-red-900/30 rounded px-2 py-1 hover:bg-red-500 hover:text-white transition-all cursor-pointer text-lg font-bold leading-none"
+              className="text-red-400 bg-red-900/30 rounded px-2 py-0.5 hover:bg-red-500 hover:text-white transition-all cursor-pointer text-base font-bold leading-none"
               title="Remove from queue"
             >
               ✕
@@ -176,6 +179,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.entry.status === nextProps.entry.status &&
     prevProps.entry.quantity === nextProps.entry.quantity &&
     prevProps.entry.eta === nextProps.entry.eta &&
+    prevProps.entry.turnsRemaining === nextProps.entry.turnsRemaining &&
     prevProps.entry.invalid === nextProps.entry.invalid &&
     prevProps.entry.isAutoWait === nextProps.entry.isAutoWait &&
     prevProps.currentTurn === nextProps.currentTurn &&
@@ -188,7 +192,30 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.disabled === nextProps.disabled &&
     prevProps.isNewest === nextProps.isNewest &&
     prevProps.busyWorkers === nextProps.busyWorkers &&
-    prevProps.showQuantityInput === nextProps.showQuantityInput
-    && prevProps.maxTurn === nextProps.maxTurn
+    prevProps.showQuantityInput === nextProps.showQuantityInput &&
+    prevProps.def?.durationTurns === nextProps.def?.durationTurns &&
+    prevProps.def?.duration === nextProps.def?.duration &&
+    prevProps.maxTurn === nextProps.maxTurn
   );
 });
+
+function getDisplayWaitTurns(entry: LaneEntry, currentTurn?: number): number | string {
+  if (!entry.isWait) return entry.turnsRemaining;
+  return formatPlannedWaitTurns(entry, currentTurn);
+}
+
+function getDisplayDurationTurns(entry: LaneEntry, def?: any, currentTurn?: number): number | string {
+  if (entry.isWait) return getDisplayWaitTurns(entry, currentTurn);
+  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
+  if (def?.durationTurns !== undefined || def?.duration !== undefined) {
+    return def?.durationTurns ?? def?.duration;
+  }
+
+  const start = entry.startTurn ?? entry.queuedTurn;
+  const end = entry.completionTurn ?? entry.eta ?? undefined;
+  if (start !== undefined && end !== undefined && end >= start) {
+    return end - start + 1;
+  }
+
+  return entry.turnsRemaining ?? '—';
+}

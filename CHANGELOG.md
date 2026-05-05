@@ -6,15 +6,232 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
-## [0.2.15] - 2026-05-05
+## [0.2.29] — 2026-05-05
 
 ### Fixed
-- Build queue exports now show the queue/start turn players need to act on, instead of the completion turn.
-- Current-view exports now filter by queue/start turn, and fallback messages describe missing due queue actions rather than missing completions.
-- Discord and image export headers now label the first column as queue turn.
+- Manual wait durations now stay consistent across game JSON export, editable queue rows, and shared build previews, including active waits and completed one-turn waits.
+- Reordering an active manual wait now preserves the original planned wait length instead of shrinking it to the remaining countdown.
+- Game JSON export now clears stale download fallback buttons when the current queue has no exportable data.
+- Shared build preview mode now opens from actual shared restores only, avoiding metadata-only local sessions reopening as a read-only shared list.
 
 ### Tests
-- Updated formatter, integration, and export modal coverage so active, pending, completed, and delayed-start entries export their queue/start turns.
+- Added regression coverage for active/completed wait JSON duration export, active wait reordering, stale JSON fallback clearing, and the existing local autosave/share-metadata restore path.
+- Re-ran lint and the full Vitest suite.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.29`.
+
+---
+
+## [0.2.28] — 2026-05-05
+
+### Changed
+- Shared build-list lane rows now use a single-line compact schedule format so short shared lists take substantially less vertical space.
+- Shared lane headers, gaps, and empty states were tightened further while keeping turn windows, names, quantities, and durations visible.
+
+### Tests
+- Re-checked the shared-link preview and lane-display coverage.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.28`.
+
+---
+
+## [0.2.27] — 2026-05-05
+
+### Changed
+- Shared build-list previews are more compact with a narrower rail, reduced header/card padding, smaller empty-lane states, and non-stretched lane cards.
+- Editable Planet Queue cards now size to their content and only scroll when needed instead of inheriting the Add-to-Queue panel height.
+- Planet Queue rows and controls use tighter spacing so short queues take less vertical room.
+
+### Tests
+- Browser-checked the editable planner queue layout after queueing several structures.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.27`.
+
+---
+
+## [0.2.26] — 2026-05-05
+
+### Fixed
+- Live Planet Queue rows now show the full queued build duration instead of `0T` when projected plan entries have already simulated down to zero remaining turns.
+- Queue rows now re-render when duration-related inputs change, including item definition duration and `turnsRemaining`.
+
+### Tests
+- Added lane-display regression coverage for completed/projected entries with `Tstart-Tend` ranges.
+- Browser-tested adding structures to the build list and verified live queue rows render `4T` durations with no console errors.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.26`.
+
+---
+
+## [0.2.25] — 2026-05-05
+
+### Fixed
+- Shared build preview rows and edited shared queues now show the original item duration instead of `0T` when replayed entries are already simulated to completion.
+
+### Tests
+- Added shared-link preview coverage to prevent completed/replayed rows from regressing to `0T` duration.
+- Re-verified browser share-link open/edit behavior, shared-link tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.25`.
+
+---
+
+## [0.2.24] — 2026-05-05
+
+### Fixed
+- Opening the app from the root URL now restores local autosave data as an editable local build, even if that cached payload still contains old share metadata.
+- Shared build preview mode is now reserved for actual shared-link URL restores instead of local cache bootstraps.
+
+### Tests
+- Added coverage for local autosaves with embedded share metadata restoring into the editable planner.
+- Re-verified the shared-link preview/local restore flow and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.24`.
+
+---
+
+## [0.2.23] — 2026-05-05
+
+### Changed
+- Shared build links now present the read-only build list as four side-by-side lane columns on desktop, with responsive two-column and single-column fallbacks.
+- Shared preview lane rows were tightened for narrow columns so turn windows, quantities, and durations remain readable.
+
+### Tests
+- Added shared-link preview coverage for the four-column lane board layout.
+- Re-verified the shared-link preview flow and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.23`.
+
+---
+
+## [0.2.22] — 2026-05-05
+
+### Added
+- Export Build Queue now supports `Selected planet` and `All planets` targets for plain text, Discord text, game JSON, and image exports.
+- Multi-planet game JSON uses `version: 2`, grouping planet-local build items under each planet and global research in one separate research section.
+- Manual waits are now included in text, Discord, JSON, and image exports with their wait duration.
+
+### Fixed
+- Planet-lane manual waits are now recorded in shared links and restored when the link is opened.
+- Planet-lane reorders are now recorded in shared links, including reorders involving manual waits.
+- Manual wait rows now show their original duration after completion instead of `0t`, and manual waits can be reordered like normal plan entries. Auto-waits remain synthetic and non-draggable.
+
+### Tests
+- Added coverage for multi-planet JSON/text/Discord export, multi-planet Export modal JSON, binary wait commands, planet wait replay, and wait reorder replay.
+- Re-verified export formatter, Export modal, global research/replay, URL state, lane-display tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.22`.
+
+---
+
+## [0.2.21] — 2026-05-05
+
+### Added
+- Shared build links now open into a read-only build-list preview that shows Structures, Ships, Colonists, and Research together before exposing the planner.
+- The shared preview includes planet switching for multi-planet shares and an explicit `Edit BL` action to load the full editable app.
+
+### Tests
+- Added shared-link coverage for the read-only preview, all-lane display, and the edit handoff back into the full planner.
+- Re-verified share-link, page, lane-display tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.21`.
+
+---
+
+## [0.2.20] — 2026-05-05
+
+### Fixed
+- Merged main's queue/start-turn export semantics into this branch so plain text, Discord, image, and game JSON exports show the action turn players need in-game rather than the completion turn.
+- Current-view exports now filter by queue/start turn and describe fallback behavior in terms of due queue actions.
+
+### Tests
+- Re-verified export formatter, integration, Export modal, build-list selector, Saves modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.20`.
+
+---
+
+## [0.2.19] — 2026-05-05
+
+### Added
+- Export Build Queue now includes a game-facing JSON export with raw item ids, names, lanes, turns, and quantities, plus a download fallback for file-based imports.
+
+### Fixed
+- Opening a shared build on mobile now defaults to the Queue panel so new users see the shared build list immediately.
+- Plain `#state=` autosave/reload URLs without share metadata are treated as local restores instead of being cached as shared lists with fallback author/name metadata.
+
+### Tests
+- Added JSON export formatter and modal coverage.
+- Re-verified export formatters, Export modal, build-list selector, Saves modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.19`.
+
+---
+
+## [0.2.18] — 2026-05-05
+
+### Changed
+- Page sections now share the same centered 1800px content rail, with horizontal gutters applied outside the rail instead of shrinking individual cards.
+- Dashboard, timeline, queue panels, unavailable-state cards, warnings, and error strips now align with the build-list selector, share metadata strip, planet tabs, and shared-list banner.
+
+### Tests
+- Re-verified PlanetDashboard, build-list selector, Saves modal, Export modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.18`.
+
+---
+
+## [0.2.17] — 2026-05-04
+
+### Fixed
+- Desktop planet tab bars now align to the same centered 1800px content rail as the build selector, shared-list banner, dashboard, timeline, and queue panels.
+
+### Tests
+- Re-verified PlanetDashboard, build-list selector, Saves modal, Export modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.17`.
+
+---
+
+## [0.2.16] — 2026-05-04
+
+### Fixed
+- Desktop dashboard Buildings tables now restore roomier fixed column sizing at medium-and-up breakpoints while keeping the compact proportional mobile layout.
+- Long building names no longer inherit the mobile wrapping pressure on desktop, keeping the four-card dashboard readable again.
+
+### Tests
+- Re-verified PlanetDashboard, build-list selector, Saves modal, Export modal, restore handoff tests, and lint.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.16`.
+
+---
+
+## [0.2.15] — 2026-05-04
+
+### Fixed
+- Mobile planet tabs now align in a predictable two-column grid, with Reset Queue spanning its own row instead of floating to the right after wrapping.
+- Mobile timeline quick-jump controls now split into clean full-width rows for Start/Mid/End and lane-empty shortcuts.
+- Mobile dashboard gutters now match the rest of the page, and the Buildings table uses proportional columns so the right-edge Energy values are not clipped.
+
+### Changed
+- UI guidelines now call out explicit mobile grids for mixed-intent controls and proportional mobile dashboard tables.
+
+### Tests
+- Re-verified PlanetDashboard, build-list selector, Saves modal, Export modal, restore handoff tests, and lint.
 
 ### Bumped
 - `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.15`.
