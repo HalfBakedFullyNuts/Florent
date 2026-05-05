@@ -106,6 +106,47 @@ describe('ExportModal', () => {
     expect(screen.getByRole('button', { name: /download game json/i })).toBeInTheDocument();
   });
 
+  test('empty game JSON export clears a stale download fallback', async () => {
+    const writeText = vi.mocked(window.navigator.clipboard.writeText);
+    const { rerender } = render(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        buildingLane={futureBuildingLane}
+        shipLane={emptyLane('ship')}
+        colonistLane={emptyLane('colonist')}
+        researchLane={emptyLane('research')}
+        currentTurn={1}
+        exportMode="full"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /export game json/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalled());
+    expect(screen.getByRole('button', { name: /download game json/i })).toBeInTheDocument();
+
+    rerender(
+      <ExportModal
+        isOpen
+        onClose={vi.fn()}
+        buildingLane={emptyLane('building')}
+        shipLane={emptyLane('ship')}
+        colonistLane={emptyLane('colonist')}
+        researchLane={emptyLane('research')}
+        currentTurn={1}
+        exportMode="full"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /export game json/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('button', { name: /download game json/i })).not.toBeInTheDocument();
+    });
+    expect(screen.getByText(/queue is empty/i)).toBeInTheDocument();
+  });
+
   test('game JSON export can include all planets', async () => {
     const writeText = vi.mocked(window.navigator.clipboard.writeText);
 

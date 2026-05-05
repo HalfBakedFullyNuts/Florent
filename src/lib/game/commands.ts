@@ -10,6 +10,7 @@ import { generateWorkItemId, refundActivationCosts } from '../sim/engine/helpers
 import { createStandardStart } from '../sim/defs/seed';
 import { Timeline } from './state';
 import { getLogger } from './logger';
+import { getPlannedWaitTurns } from './waitDuration';
 
 export interface QueueResult {
   success: boolean;
@@ -653,6 +654,7 @@ export class GameController {
       if (newIndex < 0 || newIndex >= newQueueLength) {
         return { success: false, reason: 'INVALID_INDEX' };
       }
+      const plannedWaitTurns = getPlannedWaitTurns(active, turn) ?? active.turnsRemaining;
 
       this.timeline.mutateAtTurn(turn, (s) => {
         const lane = s.lanes[laneId];
@@ -664,6 +666,9 @@ export class GameController {
           ...active,
           status: 'pending' as const,
           queuedTurn: turn,
+          startTurn: undefined,
+          completionTurn: undefined,
+          turnsRemaining: plannedWaitTurns,
           isWait: true,
           isAutoWait: false,
         });

@@ -5,6 +5,7 @@ import type { ExtendedPlanetState } from '../lib/game/gameState';
 import type { LaneEntry, LaneView } from '../lib/game/selectors';
 import type { LaneId } from '../lib/sim/engine/types';
 import { ALL_LANES, LANE_CONFIG } from '../lib/constants/lanes';
+import { formatPlannedWaitTurns } from '../lib/game/waitDuration';
 
 interface SharedBuildListViewProps {
   name: string;
@@ -184,7 +185,7 @@ function SharedLaneRow({
 }) {
   const start = entry.startTurn ?? entry.queuedTurn ?? '?';
   const end = entry.completionTurn ?? entry.eta ?? '?';
-  const duration = getDurationTurns(entry, def);
+  const duration = getDurationTurns(entry, def, currentTurn);
   const status = getDisplayStatus(entry, currentTurn);
 
   return (
@@ -193,7 +194,7 @@ function SharedLaneRow({
         <div className="whitespace-nowrap text-[10px] font-black uppercase tracking-[0.08em] text-cyan-100/65">
           T{start} - T{end}
         </div>
-        <div className="min-w-0 truncate font-bold text-pink-nebula-text">{formatEntryName(entry)}</div>
+        <div className="min-w-0 truncate font-bold text-pink-nebula-text">{formatEntryName(entry, currentTurn)}</div>
         <div className="flex shrink-0 items-center justify-end gap-1 text-right">
           {entry.quantity > 1 && <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-pink-nebula-text">x{entry.quantity}</span>}
           {duration !== null && <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-pink-nebula-muted">{duration}T</span>}
@@ -224,27 +225,19 @@ function getDisplayStatus(entry: LaneEntry, currentTurn: number): LaneEntry['sta
   return entry.status;
 }
 
-function formatEntryName(entry: LaneEntry): string {
-  if (entry.isAutoWait) return `Auto-wait: ${getWaitTurns(entry)}t`;
-  if (entry.isWait) return `Manual wait: ${getWaitTurns(entry)}t`;
+function formatEntryName(entry: LaneEntry, currentTurn: number): string {
+  if (entry.isAutoWait) return `Auto-wait: ${getWaitTurns(entry, currentTurn)}t`;
+  if (entry.isWait) return `Manual wait: ${getWaitTurns(entry, currentTurn)}t`;
   return entry.itemName;
 }
 
-function getWaitTurns(entry: LaneEntry): number | string {
+function getWaitTurns(entry: LaneEntry, currentTurn: number): number | string {
   if (!entry.isWait) return entry.turnsRemaining;
-  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
-
-  const start = entry.startTurn ?? entry.queuedTurn;
-  const end = entry.completionTurn ?? entry.eta ?? undefined;
-  if (start !== undefined && end !== undefined && end > start) {
-    return end - start;
-  }
-
-  return entry.turnsRemaining || '?';
+  return formatPlannedWaitTurns(entry, currentTurn);
 }
 
-function getDurationTurns(entry: LaneEntry, def?: any): number | string | null {
-  if (entry.isWait) return getWaitTurns(entry);
+function getDurationTurns(entry: LaneEntry, def?: any, currentTurn?: number): number | string | null {
+  if (entry.isWait) return getWaitTurns(entry, currentTurn ?? entry.startTurn ?? 0);
   if (entry.turnsRemaining > 0) return entry.turnsRemaining;
   if (def?.durationTurns !== undefined || def?.duration !== undefined) {
     return def?.durationTurns ?? def?.duration;

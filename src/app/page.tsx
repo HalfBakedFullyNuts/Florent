@@ -181,6 +181,7 @@ export default function Home() {
       sharedAt: new Date().toISOString(),
     });
     setActiveShareMetadata(share);
+    setSharedBuildPreviewOpen(true);
     if (!share) return;
     if (typeof window.indexedDB === 'undefined') return;
 
@@ -200,6 +201,7 @@ export default function Home() {
       rememberOpenedSharedLink(encoded, snapshot);
     } else {
       setActiveShareMetadata(null);
+      setSharedBuildPreviewOpen(false);
     }
     setGameState(() => ({
       ...replayedState,
@@ -220,10 +222,6 @@ export default function Home() {
     if (activeShareMetadata.author !== 'Unknown commander') {
       setShareAuthor(activeShareMetadata.author);
     }
-  }, [activeShareMetadata]);
-
-  useEffect(() => {
-    setSharedBuildPreviewOpen(Boolean(activeShareMetadata));
   }, [activeShareMetadata]);
 
   useEffect(() => {
@@ -306,6 +304,7 @@ export default function Home() {
     commandHistory.clear();
     lastAppliedShareRef.current = null;
     setActiveShareMetadata(null);
+    setSharedBuildPreviewOpen(false);
     setGameState(createInitialGameState());
     setViewTurn(1);
     setQueueValidation(new Map());
@@ -1696,7 +1695,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.28</div>
+          <div className="opacity-30 text-[10px]">v0.2.29</div>
         </footer>
       </div>
 

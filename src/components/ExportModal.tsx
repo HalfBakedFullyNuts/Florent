@@ -174,6 +174,7 @@ export function ExportModal({
   const handleExportGameJson = async () => {
     clearDiscordCopyState();
     setImageFallback(null);
+    setJsonFallback(null);
     const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
     const jsonScope = usedFullFallback || effectiveMaxTurn === undefined ? 'full' : exportMode;
     const json = activeTarget === 'all' && multiPlanetData

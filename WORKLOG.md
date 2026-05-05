@@ -9,6 +9,9 @@ For architectural rationale, see [`Architecture/ARCHITECTURAL_DECISIONS.md`](Arc
 
 ## May 2026 — Global research and colony-start controls
 
+**2026-05-05 — v0.2.29: PR wait-duration hardening.**
+Automated PR review surfaced that manual waits could be underreported after completion, exported with only their remaining active countdown, or shortened when an active wait was reordered. Wait-duration logic is now shared across exports, live queue rows, and shared previews, active wait reorders preserve their original length, stale game JSON download fallbacks are cleared on empty exports, and shared preview mode is gated to actual shared restores rather than metadata alone.
+
 **2026-05-05 — v0.2.28: Shared row compression.**
 The shared build-list lane rows now collapse turn range, item name, quantity, and duration onto one compact line. Headers, row gaps, and empty-lane placeholders were tightened again so short shared lists no longer feel like tall stacked cards.
 

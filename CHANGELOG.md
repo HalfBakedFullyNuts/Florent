@@ -6,6 +6,23 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.29] — 2026-05-05
+
+### Fixed
+- Manual wait durations now stay consistent across game JSON export, editable queue rows, and shared build previews, including active waits and completed one-turn waits.
+- Reordering an active manual wait now preserves the original planned wait length instead of shrinking it to the remaining countdown.
+- Game JSON export now clears stale download fallback buttons when the current queue has no exportable data.
+- Shared build preview mode now opens from actual shared restores only, avoiding metadata-only local sessions reopening as a read-only shared list.
+
+### Tests
+- Added regression coverage for active/completed wait JSON duration export, active wait reordering, stale JSON fallback clearing, and the existing local autosave/share-metadata restore path.
+- Re-ran lint and the full Vitest suite.
+
+### Bumped
+- `package.json`, `package-lock.json`, and `src/app/page.tsx` footer to `0.2.29`.
+
+---
+
 ## [0.2.28] — 2026-05-05
 
 ### Changed

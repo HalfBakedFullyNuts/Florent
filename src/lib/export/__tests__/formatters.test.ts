@@ -586,6 +586,67 @@ describe('Export Formatters (TICKET-5)', () => {
       });
     });
 
+    it('exports original wait durations for active and completed waits', () => {
+      const lanesWithWaits: LaneView[] = [
+        {
+          laneId: 'building',
+          entries: [
+            {
+              id: 'active-wait',
+              itemId: '__wait__',
+              itemName: 'Wait',
+              quantity: 1,
+              status: 'active',
+              turnsRemaining: 2,
+              queuedTurn: 4,
+              startTurn: 4,
+              eta: 9,
+              isWait: true,
+            },
+            {
+              id: 'single-turn-wait',
+              itemId: '__wait__',
+              itemName: 'Wait',
+              quantity: 1,
+              status: 'completed',
+              turnsRemaining: 0,
+              queuedTurn: 12,
+              startTurn: 12,
+              completionTurn: 12,
+              eta: null,
+              isWait: true,
+            },
+          ],
+        },
+      ];
+
+      const parsed = JSON.parse(formatAsBuildDataJson(lanesWithWaits, undefined, {
+        scope: 'full',
+        currentTurn: 7,
+      }));
+
+      expect(parsed.items).toEqual([
+        {
+          turn: 4,
+          lane: 'building',
+          itemId: '__wait__',
+          name: 'Wait',
+          quantity: 1,
+          isWait: true,
+          waitTurns: 5,
+        },
+        {
+          turn: 12,
+          lane: 'building',
+          itemId: '__wait__',
+          name: 'Wait',
+          quantity: 1,
+          isWait: true,
+          waitTurns: 1,
+        },
+      ]);
+    });
+
     it('exports multi-planet JSON with global research separated', () => {
       const json = formatMultiPlanetAsBuildDataJson({
         planets: [

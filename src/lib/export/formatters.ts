@@ -5,6 +5,7 @@
 
 import type { LaneView } from '../game/selectors';
 import type { LaneId } from '../sim/engine/types';
+import { getPlannedWaitTurns } from '../game/waitDuration';
 import { abbreviateName } from './abbreviations';
 
 export const DISCORD_MESSAGE_LIMIT = 2000;
@@ -73,7 +74,11 @@ export interface MultiPlanetBuildDataJson {
  * @param laneViews - Array of lane views to extract from
  * @param maxTurn - Optional maximum queue/start turn to include (for "current view" export)
  */
-export function extractQueueItems(laneViews: LaneView[], maxTurn?: number): QueueItem[] {
+export function extractQueueItems(
+  laneViews: LaneView[],
+  maxTurn?: number,
+  options?: { currentTurn?: number },
+): QueueItem[] {
   const items: QueueItem[] = [];
 
   laneViews.forEach(laneView => {
@@ -98,7 +103,7 @@ export function extractQueueItems(laneViews: LaneView[], maxTurn?: number): Queu
         name: entry.itemName,
         quantity: entry.quantity,
         isWait: entry.isWait,
-        waitTurns: entry.isWait ? getWaitTurns(entry) : undefined,
+        waitTurns: entry.isWait ? getPlannedWaitTurns(entry, options?.currentTurn) : undefined,
       });
     });
   });
@@ -109,19 +114,6 @@ export function extractQueueItems(laneViews: LaneView[], maxTurn?: number): Queu
 
 function getQueueActionTurn(entry: LaneView['entries'][number]): number {
   return entry.startTurn ?? entry.queuedTurn ?? 0;
-}
-
-function getWaitTurns(entry: LaneView['entries'][number]): number | undefined {
-  if (!entry.isWait) return undefined;
-  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
-
-  const start = entry.startTurn ?? entry.queuedTurn;
-  const end = entry.completionTurn ?? entry.eta ?? undefined;
-  if (start !== undefined && end !== undefined && end > start) {
-    return end - start;
-  }
-
-  return undefined;
 }
 
 /**
@@ -176,7 +168,7 @@ export function formatAsBuildDataJson(
   maxTurn?: number,
   options?: { scope?: 'current' | 'full'; currentTurn?: number },
 ): string {
-  const items = extractQueueItems(laneViews, maxTurn)
+  const items = extractQueueItems(laneViews, maxTurn, { currentTurn: options?.currentTurn })
     .map(toBuildDataJsonItem);
 
   if (items.length === 0) {
@@ -207,10 +199,10 @@ export function formatMultiPlanetAsBuildDataJson(
     name: planet.name,
     startTurn: planet.startTurn,
     currentTurn: planet.currentTurn,
-    items: extractQueueItems(planet.lanes, maxTurn).map(toBuildDataJsonItem),
+    items: extractQueueItems(planet.lanes, maxTurn, { currentTurn: planet.currentTurn ?? options?.currentTurn }).map(toBuildDataJsonItem),
   }));
   const research = data.researchLane
-    ? extractQueueItems([data.researchLane], maxTurn).map(toBuildDataJsonItem)
+    ? extractQueueItems([data.researchLane], maxTurn, { currentTurn: options?.currentTurn }).map(toBuildDataJsonItem)
     : [];
 
   if (planets.every((planet) => planet.items.length === 0) && research.length === 0) {

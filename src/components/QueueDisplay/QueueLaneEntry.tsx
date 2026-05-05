@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
+import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
 
 export interface QueueLaneEntryProps {
   entry: LaneEntry;
@@ -69,8 +70,8 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
       entry.status === 'completed' ? 'border-l-4 border-l-green-500' : '';
 
   const isAutoWait = entry.isAutoWait;
-  const waitTurns = getDisplayWaitTurns(entry);
-  const durationTurns = getDisplayDurationTurns(entry, def);
+  const waitTurns = getDisplayWaitTurns(entry, currentTurn);
+  const durationTurns = getDisplayDurationTurns(entry, def, currentTurn);
 
   return (
     <div
@@ -198,21 +199,13 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   );
 });
 
-function getDisplayWaitTurns(entry: LaneEntry): number | string {
+function getDisplayWaitTurns(entry: LaneEntry, currentTurn?: number): number | string {
   if (!entry.isWait) return entry.turnsRemaining;
-  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
-
-  const start = entry.startTurn ?? entry.queuedTurn;
-  const end = entry.completionTurn ?? entry.eta ?? undefined;
-  if (start !== undefined && end !== undefined && end > start) {
-    return end - start;
-  }
-
-  return entry.turnsRemaining || '?';
+  return formatPlannedWaitTurns(entry, currentTurn);
 }
 
-function getDisplayDurationTurns(entry: LaneEntry, def?: any): number | string {
-  if (entry.isWait) return getDisplayWaitTurns(entry);
+function getDisplayDurationTurns(entry: LaneEntry, def?: any, currentTurn?: number): number | string {
+  if (entry.isWait) return getDisplayWaitTurns(entry, currentTurn);
   if (entry.turnsRemaining > 0) return entry.turnsRemaining;
   if (def?.durationTurns !== undefined || def?.duration !== undefined) {
     return def?.durationTurns ?? def?.duration;
