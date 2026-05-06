@@ -83,6 +83,14 @@ function getQueueItem(label: RegExp): HTMLElement {
   return item;
 }
 
+function decodeShareURL(url: string) {
+  const hash = new URL(url).hash;
+  const encoded = hash.startsWith("#q=")
+    ? `q4.${hash.slice(3)}`
+    : hash.substring(7);
+  return decodeGameState(encoded);
+}
+
 describe("share link flow", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -107,10 +115,10 @@ describe("share link flow", () => {
 
     await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
     const copiedURL = writeText.mock.calls[0]?.[0] ?? "";
-    const encoded = new URL(copiedURL).hash.substring(7);
-    const snapshot = decodeGameState(encoded);
+    const snapshot = decodeShareURL(copiedURL);
 
-    expect(copiedURL).toContain("#state=");
+    expect(copiedURL).toContain("#q=");
+    expect(copiedURL).not.toContain("#state=b3");
     expect(snapshot?.cmds).toHaveLength(1);
     expect(
       snapshot ? getShareMetadataFromSnapshot(snapshot) : null,
@@ -159,6 +167,29 @@ describe("share link flow", () => {
 
     expect(copiedURL).toContain("#state=");
     expect(snapshot?.cmds).toHaveLength(1);
+  });
+
+  test("copies a compact link after loading an old encoded link", async () => {
+    const writeText = installClipboardMock();
+    const commands: Parameters<typeof encodeGameState>[1] = [["q", 0, 11, 1]];
+    const encoded = encodeGameState([homeworldConfig], commands, {
+      name: "Old Link",
+      author: "Lin",
+      sharedAt: "2026-05-04T12:00:00.000Z",
+    });
+    window.history.replaceState(null, "", `/#state=${encoded}`);
+
+    render(<Home />);
+
+    await screen.findByText(/1 queued/i);
+    fireEvent.click(screen.getByRole("button", { name: /edit bl/i }));
+    fireEvent.click(screen.getByRole("button", { name: /share link/i }));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+    const copiedURL = writeText.mock.calls[0]?.[0] ?? "";
+    expect(copiedURL).toContain("#q=");
+    expect(copiedURL).not.toContain("#state=b3");
+    expect(decodeShareURL(copiedURL)?.cmds).toEqual(commands);
   });
 
   test("loads a shared build when the hash changes after mount", async () => {

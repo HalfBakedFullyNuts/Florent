@@ -30,7 +30,8 @@ import {
   updatePlanetConfig,
 } from './gameState';
 import { GameController } from './commands';
-import { cancelGlobalResearch, queueGlobalResearch, queueGlobalResearchWait, reorderGlobalResearch } from './globalResearch';
+import { cancelGlobalResearch, getGlobalResearchPlanView, queueGlobalResearch, queueGlobalResearchWait, reorderGlobalResearch } from './globalResearch';
+import { getLaneView } from './selectors';
 import { LaneId } from '../sim/engine/types';
 import {
   DEFAULT_ADDED_PLANET_STARTING,
@@ -40,7 +41,9 @@ import {
 const STATE_VERSION_V1 = 1;
 const STATE_VERSION_V2 = 2;
 const STATE_VERSION_V3 = 3;
+const STATE_VERSION_V4 = 4;
 const BINARY_STATE_PREFIX = 'b3.';
+const COMPACT_SHARE_PREFIX = 'q4.';
 
 // ---------------------------------------------------------------------------
 // v2 item code table — APPEND ONLY, never reorder existing entries
@@ -204,6 +207,7 @@ interface GameSnapshot {
 }
 
 const STATE_HASH_PREFIX = 'state=';
+const COMPACT_SHARE_HASH_PREFIX = 'q=';
 
 interface V2ShareMetadata {
   n?: string;
@@ -411,11 +415,7 @@ export class CommandHistory {
           qty = (cmd[3] as number) ?? 1;
         }
         this.commands.push(['q', planetIdx, itemCode, qty]);
-      } else if (cmd[0] === 'w') {
-        const seqId = this.nextSeqId++;
-        this.entryIdToSeqId.set(`__s${seqId}`, seqId);
-        this.commands.push(cmd as V2CommandType);
-      } else if (cmd[0] === 'qr' || cmd[0] === 'qw') {
+      } else if (cmd[0] === 'w' || cmd[0] === 'qr' || cmd[0] === 'qw') {
         const seqId = this.nextSeqId++;
         this.entryIdToSeqId.set(`__s${seqId}`, seqId);
         this.commands.push(cmd as V2CommandType);
@@ -462,6 +462,10 @@ export function encodeGameState(
 }
 
 export function decodeGameState(encoded: string): GameSnapshot | null {
+  if (encoded.startsWith(COMPACT_SHARE_PREFIX)) {
+    return decodeCompactShareSnapshot(encoded);
+  }
+
   if (encoded.startsWith(BINARY_STATE_PREFIX)) {
     return decodeBinarySnapshot(encoded);
   }
@@ -502,7 +506,7 @@ export function stripShareMetadataFromEncodedState(encoded: string): string {
 }
 
 function isSupportedSnapshotVersion(version: number): boolean {
-  return version === STATE_VERSION_V1 || version === STATE_VERSION_V2 || version === STATE_VERSION_V3;
+  return version === STATE_VERSION_V1 || version === STATE_VERSION_V2 || version === STATE_VERSION_V3 || version === STATE_VERSION_V4;
 }
 
 // ---------------------------------------------------------------------------
@@ -573,6 +577,28 @@ const SHARE_FLAG_MASK = SHARE_HAS_NAME | SHARE_HAS_AUTHOR | SHARE_HAS_TIME;
 const MAX_BINARY_PLANETS = 64;
 const MAX_BINARY_COMMANDS = 20000;
 const MAX_BINARY_STRING_BYTES = 2048;
+const MAX_COMPACT_LANE_ENTRIES = 20000;
+const MAX_COMPACT_QUANTITY = 1_000_000_000;
+const MAX_COMPACT_WAIT_TURNS = 1_000_000;
+const COMPACT_ENTRY_IS_WAIT = 1 << 0;
+const COMPACT_ENTRY_HAS_QTY = 1 << 1;
+
+interface CompactPlanEntry {
+  itemCode?: number;
+  quantity?: number;
+  waitTurns?: number;
+}
+
+type CompactLanePlan = CompactPlanEntry[];
+
+interface CompactSharePlan {
+  planets: V2CompactPlanetConfig[];
+  research: CompactLanePlan;
+  planetLanes: Array<Record<'building' | 'ship' | 'colonist', CompactLanePlan>>;
+  share?: V2ShareMetadata;
+}
+
+const COMPACT_PLAN_LANES: Array<'building' | 'ship' | 'colonist'> = ['building', 'ship', 'colonist'];
 
 function encodeBinarySnapshot(snapshot: GameSnapshot): string {
   const writer = new BinaryWriter();
@@ -618,6 +644,207 @@ function decodeBinarySnapshot(encoded: string): GameSnapshot | null {
   } catch (error) {
     console.warn('[URL State] Binary decode failed:', error);
     return null;
+  }
+}
+
+export function encodeCompactShareState(
+  gameState: GameState,
+  shareMetadata?: Partial<ShareMetadata> | null
+): string {
+  const plan = extractCompactSharePlan(gameState, shareMetadata);
+  return encodeCompactSharePlan(plan);
+}
+
+function extractCompactSharePlan(
+  gameState: GameState,
+  shareMetadata?: Partial<ShareMetadata> | null
+): CompactSharePlan {
+  const planets = extractPlanetConfigs(gameState).map(compactPlanetConfigV2);
+  const researchPlan = getGlobalResearchPlanView(gameState).snapshot.lane;
+  const research = extractCompactEntries([
+    ...researchPlan.completionHistory,
+    ...(researchPlan.active ? [researchPlan.active] : []),
+    ...researchPlan.pendingQueue,
+  ]);
+
+  const planetLanes = Array.from(gameState.planets.values()).map((planet) => {
+    const finalTurn = planet.startTurn + (planet.timeline?.getTotalTurns() ?? 200) - 1;
+    const finalState = planet.timeline?.getStateAtTurn(finalTurn) ?? planet;
+    return {
+      building: extractCompactEntries(getLaneView(finalState, 'building').entries),
+      ship: extractCompactEntries(getLaneView(finalState, 'ship').entries),
+      colonist: extractCompactEntries(getLaneView(finalState, 'colonist').entries),
+    };
+  });
+
+  const share = compactShareMetadata(shareMetadata);
+  return share ? { planets, research, planetLanes, share } : { planets, research, planetLanes };
+}
+
+function extractCompactEntries(items: Array<{ itemId: string; quantity: number; turnsRemaining: number; startTurn?: number; completionTurn?: number; isWait?: boolean; isAutoWait?: boolean }>): CompactLanePlan {
+  const entries: CompactLanePlan = [];
+  for (const item of items) {
+    if (item.isAutoWait) continue;
+    if (item.isWait || item.itemId === '__wait__') {
+      const completedDuration = item.startTurn !== undefined && item.completionTurn !== undefined
+        ? item.completionTurn - item.startTurn
+        : 0;
+      const waitTurns = Math.max(item.turnsRemaining || 0, completedDuration);
+      if (waitTurns > 0) entries.push({ waitTurns });
+      continue;
+    }
+    const itemCode = V2_ITEM_CODE[item.itemId];
+    if (itemCode === undefined) continue;
+    entries.push({ itemCode, quantity: item.quantity });
+  }
+  return entries;
+}
+
+function encodeCompactSharePlan(plan: CompactSharePlan): string {
+  const writer = new BinaryWriter();
+  writer.writeByte(STATE_VERSION_V4);
+  writer.writeVarint(plan.planets.length);
+  plan.planets.forEach((planet) => writeBinaryPlanetConfig(writer, planet));
+  writeCompactLanePlan(writer, plan.research);
+  writer.writeVarint(plan.planetLanes.length);
+  plan.planetLanes.forEach((planet) => {
+    COMPACT_PLAN_LANES.forEach((laneId) => writeCompactLanePlan(writer, planet[laneId]));
+  });
+  writeBinaryShare(writer, plan.share);
+  return `${COMPACT_SHARE_PREFIX}${bytesToBase64Url(writer.toUint8Array())}`;
+}
+
+function decodeCompactShareSnapshot(encoded: string): GameSnapshot | null {
+  try {
+    const reader = new BinaryReader(base64UrlToBytes(encoded.slice(COMPACT_SHARE_PREFIX.length)));
+    const version = reader.readByte();
+    if (version !== STATE_VERSION_V4) {
+      console.warn(`[URL State] Unknown compact share version: ${version}`);
+      return null;
+    }
+
+    const planetCount = reader.readVarint();
+    if (planetCount < 1 || planetCount > MAX_BINARY_PLANETS) throw new Error(`Invalid planet count: ${planetCount}`);
+    const planets = Array.from({ length: planetCount }, () => readBinaryPlanetConfig(reader));
+    const research = readCompactLanePlan(reader);
+    const lanePlanetCount = reader.readVarint();
+    if (lanePlanetCount !== planetCount) throw new Error(`Lane planet count mismatch: ${lanePlanetCount}`);
+
+    const planetLanes = Array.from({ length: lanePlanetCount }, () => {
+      return {
+        building: readCompactLanePlan(reader),
+        ship: readCompactLanePlan(reader),
+        colonist: readCompactLanePlan(reader),
+      };
+    });
+    const share = readBinaryShare(reader);
+
+    if (!reader.done()) {
+      console.warn('[URL State] Compact share has trailing bytes');
+      return null;
+    }
+
+    const cmds = compactPlanToCommands(planets, research, planetLanes);
+    const snapshot: GameSnapshot = {
+      v: STATE_VERSION_V4,
+      planets,
+      cmds,
+    };
+    if (share) snapshot.share = share;
+    return snapshot;
+  } catch (error) {
+    console.warn('[URL State] Compact share decode failed:', error);
+    return null;
+  }
+}
+
+function writeCompactLanePlan(writer: BinaryWriter, entries: CompactLanePlan): void {
+  if (entries.length > MAX_COMPACT_LANE_ENTRIES) throw new Error(`Too many compact lane entries: ${entries.length}`);
+  writer.writeVarint(entries.length);
+  for (const entry of entries) {
+    if (entry.waitTurns !== undefined) {
+      if (entry.waitTurns <= 0 || entry.waitTurns > MAX_COMPACT_WAIT_TURNS) throw new Error(`Invalid wait turns: ${entry.waitTurns}`);
+      writer.writeByte(COMPACT_ENTRY_IS_WAIT);
+      writer.writeVarint(entry.waitTurns);
+      continue;
+    }
+
+    const itemCode = entry.itemCode;
+    if (itemCode === undefined || !V2_ITEM_IDS[itemCode]) throw new Error(`Invalid compact item code: ${itemCode}`);
+    const quantity = entry.quantity ?? 1;
+    if (quantity <= 0 || quantity > MAX_COMPACT_QUANTITY) throw new Error(`Invalid quantity: ${quantity}`);
+    const flags = quantity === 1 ? 0 : COMPACT_ENTRY_HAS_QTY;
+    writer.writeByte(flags);
+    writer.writeVarint(itemCode);
+    if (quantity !== 1) writer.writeVarint(quantity);
+  }
+}
+
+function readCompactLanePlan(reader: BinaryReader): CompactLanePlan {
+  const count = reader.readVarint();
+  if (count > MAX_COMPACT_LANE_ENTRIES) throw new Error(`Too many compact lane entries: ${count}`);
+  const entries: CompactLanePlan = [];
+  for (let i = 0; i < count; i++) {
+    const flags = reader.readByte();
+    const knownFlags = COMPACT_ENTRY_IS_WAIT | COMPACT_ENTRY_HAS_QTY;
+    if ((flags & ~knownFlags) !== 0) throw new Error(`Unknown compact entry flags: ${flags}`);
+    if ((flags & COMPACT_ENTRY_IS_WAIT) !== 0) {
+      if ((flags & COMPACT_ENTRY_HAS_QTY) !== 0) throw new Error(`Invalid wait flags: ${flags}`);
+      const waitTurns = reader.readVarint();
+      if (waitTurns <= 0 || waitTurns > MAX_COMPACT_WAIT_TURNS) throw new Error(`Invalid wait turns: ${waitTurns}`);
+      entries.push({ waitTurns });
+      continue;
+    }
+
+    const itemCode = reader.readVarint();
+    if (!V2_ITEM_IDS[itemCode]) throw new Error(`Unknown compact item code: ${itemCode}`);
+    const quantity = (flags & COMPACT_ENTRY_HAS_QTY) !== 0 ? reader.readVarint() : 1;
+    if (quantity <= 0 || quantity > MAX_COMPACT_QUANTITY) throw new Error(`Invalid quantity: ${quantity}`);
+    entries.push({ itemCode, quantity });
+  }
+  return entries;
+}
+
+function compactPlanToCommands(
+  planets: V2CompactPlanetConfig[],
+  research: CompactLanePlan,
+  planetLanes: Array<Record<'building' | 'ship' | 'colonist', CompactLanePlan>>
+): V2CommandType[] {
+  const cmds: V2CommandType[] = [];
+  appendCompactResearchCommands(cmds, research);
+  for (let i = 1; i < planets.length; i++) {
+    cmds.push(['p', planets[i]]);
+  }
+
+  planetLanes.forEach((lanes, planetIdx) => {
+    COMPACT_PLAN_LANES.forEach((laneId) => appendCompactLaneCommands(cmds, planetIdx, laneId, lanes[laneId]));
+  });
+  return cmds;
+}
+
+function appendCompactResearchCommands(cmds: V2CommandType[], entries: CompactLanePlan): void {
+  for (const entry of entries) {
+    if (entry.waitTurns !== undefined) {
+      cmds.push(['qw', entry.waitTurns]);
+    } else if (entry.itemCode !== undefined) {
+      cmds.push(['qr', entry.itemCode]);
+    }
+  }
+}
+
+function appendCompactLaneCommands(
+  cmds: V2CommandType[],
+  planetIdx: number,
+  laneId: 'building' | 'ship' | 'colonist',
+  entries: CompactLanePlan
+): void {
+  const laneCode = V2_LANE_ENC[laneId];
+  for (const entry of entries) {
+    if (entry.waitTurns !== undefined) {
+      cmds.push(['w', planetIdx, laneCode, entry.waitTurns]);
+    } else if (entry.itemCode !== undefined) {
+      cmds.push(['q', planetIdx, entry.itemCode, entry.quantity ?? 1]);
+    }
   }
 }
 
@@ -993,6 +1220,16 @@ export function buildShareURL(encoded: string): string {
   return url.toString();
 }
 
+export function buildCompactShareURL(encoded: string): string {
+  const compactPayload = encoded.startsWith(COMPACT_SHARE_PREFIX)
+    ? encoded.slice(COMPACT_SHARE_PREFIX.length)
+    : encoded;
+  if (typeof window === 'undefined') return `#${COMPACT_SHARE_HASH_PREFIX}${compactPayload}`;
+  const url = new URL('/', window.location.origin);
+  url.hash = `${COMPACT_SHARE_HASH_PREFIX}${compactPayload}`;
+  return url.toString();
+}
+
 export function saveEncodedStateToURL(encoded: string): void {
   if (typeof window === 'undefined') return;
   const url = buildShareURL(encoded);
@@ -1009,8 +1246,14 @@ export function saveEncodedStateToURL(encoded: string): void {
 export function getEncodedStateFromURL(): string | null {
   if (typeof window === 'undefined') return null;
   const hash = window.location.hash;
-  if (!hash || !hash.startsWith(`#${STATE_HASH_PREFIX}`)) return null;
-  return hash.substring(STATE_HASH_PREFIX.length + 1);
+  if (!hash) return null;
+  if (hash.startsWith(`#${COMPACT_SHARE_HASH_PREFIX}`)) {
+    return `${COMPACT_SHARE_PREFIX}${hash.substring(COMPACT_SHARE_HASH_PREFIX.length + 1)}`;
+  }
+  if (hash.startsWith(`#${STATE_HASH_PREFIX}`)) {
+    return hash.substring(STATE_HASH_PREFIX.length + 1);
+  }
+  return null;
 }
 
 export function loadStateFromURL(): GameSnapshot | null {
@@ -1105,14 +1348,15 @@ export function replayCommands(
           const deterministicId = `__s${seqCounter}`;
           seqToEntryId.set(seqCounter, deterministicId);
           const planetIdx = cmd[1] as number;
-          const laneId: LaneId = V2_LANE_DEC[cmd[2] as string] ?? (cmd[2] as LaneId);
+          const laneId = V2_LANE_DEC[cmd[2] as string] ?? (cmd[2] as LaneId);
           const turns = cmd[3] as number;
-
           const planetId = Array.from(gameState.planets.keys())[planetIdx];
           const planet = gameState.planets.get(planetId);
-          if (planet?.timeline) {
+          if (planet?.timeline && laneId !== 'research') {
             const controller = new GameController(planet, planet.timeline);
-            controller.queueWaitItem(planet.startTurn, laneId, turns, false, { preserveId: deterministicId });
+            controller.queueWaitItem(planet.startTurn, laneId, turns, false, {
+              preserveId: deterministicId,
+            });
           }
           break;
         }

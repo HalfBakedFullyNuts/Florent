@@ -96,7 +96,8 @@ export function parseSaveFile(jsonText: string): ParsedSaveFile {
  * Parse any portable save/share text the user is likely to paste:
  * - Florent JSON save files
  * - Full share URLs containing #state=...
- * - Raw #state=... / state=... fragments
+ * - Compact share URLs containing #q=...
+ * - Raw #state=... / state=... / #q=... / q=... fragments
  * - Raw encoded payloads
  */
 export function parsePortableSaveText(input: string): ParsedSaveFile {
@@ -134,6 +135,13 @@ export function parsePortableSaveText(input: string): ParsedSaveFile {
 
 function extractEncodedPayload(text: string): string | null {
   const statePrefix = 'state=';
+  const compactPrefix = 'q=';
+  const compactPayloadPrefix = 'q4.';
+  const hashCompactIndex = text.indexOf(`#${compactPrefix}`);
+  if (hashCompactIndex >= 0) {
+    return `${compactPayloadPrefix}${text.slice(hashCompactIndex + compactPrefix.length + 1).trim()}`;
+  }
+
   const hashStateIndex = text.indexOf(`#${statePrefix}`);
   if (hashStateIndex >= 0) {
     return text.slice(hashStateIndex + statePrefix.length + 1).trim();
@@ -142,12 +150,14 @@ function extractEncodedPayload(text: string): string | null {
   try {
     const url = new URL(text);
     const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
+    if (hash.startsWith(compactPrefix)) return `${compactPayloadPrefix}${hash.slice(compactPrefix.length)}`;
     if (hash.startsWith(statePrefix)) return hash.slice(statePrefix.length);
   } catch {
     // Not a full URL; try fragment/raw forms below.
   }
 
   const withoutHash = text.startsWith('#') ? text.slice(1) : text;
+  if (withoutHash.startsWith(compactPrefix)) return `${compactPayloadPrefix}${withoutHash.slice(compactPrefix.length)}`;
   if (withoutHash.startsWith(statePrefix)) return withoutHash.slice(statePrefix.length);
 
   return decodeGameState(text) ? text : null;
