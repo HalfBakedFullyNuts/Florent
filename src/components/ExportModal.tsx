@@ -504,7 +504,7 @@ interface ExportImageRowLayout {
 }
 
 const EXPORT_IMAGE_COLUMNS: ExportImageColumn[] = [
-  { key: 'turn', label: 'Queue', minWidth: 78, maxWidth: 92, align: 'center' },
+  { key: 'turn', label: 'Start', minWidth: 78, maxWidth: 92, align: 'center' },
   { key: 'building', label: 'Structure', minWidth: 190, maxWidth: 320 },
   { key: 'ship', label: 'Ship', minWidth: 150, maxWidth: 260 },
   { key: 'colonist', label: 'Colonist', minWidth: 150, maxWidth: 260 },

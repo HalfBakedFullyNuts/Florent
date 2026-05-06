@@ -1,11 +1,11 @@
 "use client";
 
-import React from 'react';
-import type { ExtendedPlanetState } from '../lib/game/gameState';
-import type { LaneEntry, LaneView } from '../lib/game/selectors';
-import type { LaneId } from '../lib/sim/engine/types';
-import { ALL_LANES, LANE_CONFIG } from '../lib/constants/lanes';
-import { formatPlannedWaitTurns } from '../lib/game/waitDuration';
+import React from "react";
+import type { ExtendedPlanetState } from "../lib/game/gameState";
+import type { LaneEntry, LaneView } from "../lib/game/selectors";
+import type { LaneId } from "../lib/sim/engine/types";
+import { ALL_LANES, LANE_CONFIG } from "../lib/constants/lanes";
+import { formatPlannedWaitTurns } from "../lib/game/waitDuration";
 
 interface SharedBuildListViewProps {
   name: string;
@@ -16,6 +16,7 @@ interface SharedBuildListViewProps {
   lanes: Record<LaneId, LaneView | null>;
   defs: Record<string, any>;
   onPlanetSelect: (planetId: string) => void;
+  onExit: () => void;
   onEdit: () => void;
 }
 
@@ -28,11 +29,15 @@ export function SharedBuildListView({
   lanes,
   defs,
   onPlanetSelect,
+  onExit,
   onEdit,
 }: SharedBuildListViewProps) {
   const planetList = Array.from(planets.values());
   const currentPlanet = planets.get(currentPlanetId) ?? planetList[0] ?? null;
-  const totalItems = ALL_LANES.reduce((sum, laneId) => sum + (lanes[laneId]?.entries.length ?? 0), 0);
+  const totalItems = ALL_LANES.reduce(
+    (sum, laneId) => sum + (lanes[laneId]?.entries.length ?? 0),
+    0,
+  );
 
   return (
     <main className="flex-1 px-3 py-3 md:px-6 md:py-5">
@@ -41,12 +46,18 @@ export function SharedBuildListView({
           <div className="border-b border-white/10 bg-cyan-300/[0.04] px-4 py-3 md:px-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
-                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200/70">Shared list</div>
-                <h2 className="mt-1 truncate text-2xl font-black text-pink-nebula-text md:text-3xl">{name}</h2>
+                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200/70">
+                  Shared list
+                </div>
+                <h2 className="mt-1 truncate text-2xl font-black text-pink-nebula-text md:text-3xl">
+                  {name}
+                </h2>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-cyan-100/70 md:text-sm">
                   <span>by {author}</span>
                   <span className="hidden h-1 w-1 rounded-full bg-cyan-200/40 sm:inline-block" />
-                  <span>{totalItems} queued item{totalItems === 1 ? '' : 's'}</span>
+                  <span>
+                    {totalItems} queued item{totalItems === 1 ? "" : "s"}
+                  </span>
                   {currentPlanet && (
                     <>
                       <span className="hidden h-1 w-1 rounded-full bg-cyan-200/40 sm:inline-block" />
@@ -55,24 +66,57 @@ export function SharedBuildListView({
                   )}
                 </div>
               </div>
-              <button
-                type="button"
-                onClick={onEdit}
-                className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-gradient-to-r from-emerald-500/95 to-teal-400/90 px-4 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-none transition hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
-              >
-                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M12 20h9" />
-                  <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-                </svg>
-                Edit BL
-              </button>
+              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onExit}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] px-4 text-sm font-black text-cyan-50 shadow-lg shadow-black/15 outline-none transition hover:border-cyan-200/35 hover:bg-white/[0.1] focus:ring-2 focus:ring-cyan-200/30"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M15 18l-6-6 6-6" />
+                    <path d="M21 12H9" />
+                  </svg>
+                  Exit
+                </button>
+                <button
+                  type="button"
+                  onClick={onEdit}
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-gradient-to-r from-emerald-500/95 to-teal-400/90 px-4 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-none transition hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M12 20h9" />
+                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
+                  </svg>
+                  Edit BL
+                </button>
+              </div>
             </div>
           </div>
 
           <div className="space-y-3 p-3 md:p-4">
             {planetList.length > 1 && (
               <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-2">
-                <div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">Planets in this share</div>
+                <div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
+                  Planets in this share
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {planetList.map((planet, index) => {
                     const active = planet.id === currentPlanetId;
@@ -83,13 +127,17 @@ export function SharedBuildListView({
                         onClick={() => onPlanetSelect(planet.id)}
                         className={`rounded-2xl border px-4 py-2 text-left text-sm font-bold transition ${
                           active
-                            ? 'border-cyan-200/60 bg-cyan-300/18 text-cyan-50 shadow-lg shadow-cyan-500/10'
-                            : 'border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-cyan-200/35 hover:text-pink-nebula-text'
+                            ? "border-cyan-200/60 bg-cyan-300/18 text-cyan-50 shadow-lg shadow-cyan-500/10"
+                            : "border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-cyan-200/35 hover:text-pink-nebula-text"
                         }`}
                       >
-                        <span className="mr-2 text-[10px] uppercase tracking-[0.18em] opacity-65">P{index + 1}</span>
+                        <span className="mr-2 text-[10px] uppercase tracking-[0.18em] opacity-65">
+                          P{index + 1}
+                        </span>
                         {planet.name}
-                        <span className="ml-2 text-xs opacity-60">T{planet.startTurn}</span>
+                        <span className="ml-2 text-xs opacity-60">
+                          T{planet.startTurn}
+                        </span>
                       </button>
                     );
                   })}
@@ -145,12 +193,19 @@ function SharedLaneCard({
       className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] via-white/[0.04] to-slate-950/25 p-2 shadow-xl shadow-black/15 md:p-2.5"
     >
       <div className="mb-1.5 flex items-center gap-2 border-b border-white/10 pb-1.5">
-        <span className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200/25 bg-cyan-300/10 text-sm shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
+        <span
+          className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200/25 bg-cyan-300/10 text-sm shadow-[0_0_18px_rgba(34,211,238,0.12)]"
+          aria-hidden="true"
+        >
           {config.icon}
         </span>
         <div className="flex min-w-0 flex-1 items-baseline gap-2">
-          <h3 className="truncate text-sm font-black text-pink-nebula-text md:text-base">{config.title}</h3>
-          <p className="shrink-0 text-[11px] text-pink-nebula-muted">{entries.length} item{entries.length === 1 ? '' : 's'}</p>
+          <h3 className="truncate text-sm font-black text-pink-nebula-text md:text-base">
+            {config.title}
+          </h3>
+          <p className="shrink-0 text-[11px] text-pink-nebula-muted">
+            {entries.length} item{entries.length === 1 ? "" : "s"}
+          </p>
         </div>
       </div>
 
@@ -183,26 +238,40 @@ function SharedLaneRow({
   def?: any;
   currentTurn: number;
 }) {
-  const start = entry.startTurn ?? entry.queuedTurn ?? '?';
-  const end = entry.completionTurn ?? entry.eta ?? '?';
+  const start = entry.startTurn ?? entry.queuedTurn ?? "?";
+  const end = entry.completionTurn ?? entry.eta ?? "?";
   const duration = getDurationTurns(entry, def, currentTurn);
   const status = getDisplayStatus(entry, currentTurn);
 
   return (
-    <div className={`rounded-lg border px-2.5 py-1.5 font-mono text-xs ${rowClass(status, entry.invalid)}`}>
+    <div
+      className={`rounded-lg border px-2.5 py-1.5 font-mono text-xs ${rowClass(status, entry.invalid)}`}
+    >
       <div className="grid min-w-0 grid-cols-[4.75rem_1fr_auto] items-center gap-2">
         <div className="whitespace-nowrap text-[10px] font-black uppercase tracking-[0.08em] text-cyan-100/65">
           T{start} - T{end}
         </div>
-        <div className="min-w-0 truncate font-bold text-pink-nebula-text">{formatEntryName(entry, currentTurn)}</div>
+        <div className="min-w-0 truncate font-bold text-pink-nebula-text">
+          {formatEntryName(entry, currentTurn)}
+        </div>
         <div className="flex shrink-0 items-center justify-end gap-1 text-right">
-          {entry.quantity > 1 && <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-pink-nebula-text">x{entry.quantity}</span>}
-          {duration !== null && <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-pink-nebula-muted">{duration}T</span>}
+          {entry.quantity > 1 && (
+            <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-pink-nebula-text">
+              x{entry.quantity}
+            </span>
+          )}
+          {duration !== null && (
+            <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-pink-nebula-muted">
+              {duration}T
+            </span>
+          )}
         </div>
       </div>
       {entry.invalid && entry.invalidReason && (
         <div className="mt-1 min-w-0">
-          <div className="truncate text-xs text-orange-300">{entry.invalidReason}</div>
+          <div className="truncate text-xs text-orange-300">
+            {entry.invalidReason}
+          </div>
         </div>
       )}
     </div>
@@ -214,19 +283,29 @@ function compareEntries(a: LaneEntry, b: LaneEntry): number {
 }
 
 function getEntryTurn(entry: LaneEntry): number {
-  return entry.startTurn ?? entry.queuedTurn ?? entry.completionTurn ?? entry.eta ?? 0;
+  return (
+    entry.startTurn ??
+    entry.queuedTurn ??
+    entry.completionTurn ??
+    entry.eta ??
+    0
+  );
 }
 
-function getDisplayStatus(entry: LaneEntry, currentTurn: number): LaneEntry['status'] {
+function getDisplayStatus(
+  entry: LaneEntry,
+  currentTurn: number,
+): LaneEntry["status"] {
   const start = entry.startTurn ?? entry.queuedTurn ?? 0;
   const finish = entry.completionTurn ?? entry.eta ?? 999;
-  if (finish <= currentTurn) return 'completed';
-  if (start <= currentTurn && currentTurn < finish) return 'active';
+  if (finish <= currentTurn) return "completed";
+  if (start <= currentTurn && currentTurn < finish) return "active";
   return entry.status;
 }
 
 function formatEntryName(entry: LaneEntry, currentTurn: number): string {
-  if (entry.isAutoWait) return `Auto-wait: ${getWaitTurns(entry, currentTurn)}t`;
+  if (entry.isAutoWait)
+    return `Auto-wait: ${getWaitTurns(entry, currentTurn)}t`;
   if (entry.isWait) return `Manual wait: ${getWaitTurns(entry, currentTurn)}t`;
   return entry.itemName;
 }
@@ -236,8 +315,13 @@ function getWaitTurns(entry: LaneEntry, currentTurn: number): number | string {
   return formatPlannedWaitTurns(entry, currentTurn);
 }
 
-function getDurationTurns(entry: LaneEntry, def?: any, currentTurn?: number): number | string | null {
-  if (entry.isWait) return getWaitTurns(entry, currentTurn ?? entry.startTurn ?? 0);
+function getDurationTurns(
+  entry: LaneEntry,
+  def?: any,
+  currentTurn?: number,
+): number | string | null {
+  if (entry.isWait)
+    return getWaitTurns(entry, currentTurn ?? entry.startTurn ?? 0);
   if (entry.turnsRemaining > 0) return entry.turnsRemaining;
   if (def?.durationTurns !== undefined || def?.duration !== undefined) {
     return def?.durationTurns ?? def?.duration;
@@ -252,9 +336,10 @@ function getDurationTurns(entry: LaneEntry, def?: any, currentTurn?: number): nu
   return entry.turnsRemaining ?? null;
 }
 
-function rowClass(status: LaneEntry['status'], invalid?: boolean): string {
-  if (invalid) return 'border-orange-300/35 bg-orange-500/10';
-  if (status === 'completed') return 'border-emerald-300/20 bg-emerald-500/[0.08]';
-  if (status === 'active') return 'border-yellow-200/35 bg-yellow-400/[0.10]';
-  return 'border-blue-200/15 bg-slate-950/28';
+function rowClass(status: LaneEntry["status"], invalid?: boolean): string {
+  if (invalid) return "border-orange-300/35 bg-orange-500/10";
+  if (status === "completed")
+    return "border-emerald-300/20 bg-emerald-500/[0.08]";
+  if (status === "active") return "border-yellow-200/35 bg-yellow-400/[0.10]";
+  return "border-blue-200/15 bg-slate-950/28";
 }

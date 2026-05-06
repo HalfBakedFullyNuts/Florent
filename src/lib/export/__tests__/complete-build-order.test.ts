@@ -73,6 +73,9 @@ describe('Complete Build Order Export', () => {
     expect(discord).toContain('Farm');
     expect(discord).toContain('Metal'); // Abbreviated from "Metal Mine"
     expect(discord).toContain('Mineral'); // Abbreviated from "Mineral Extractor"
+    expect(discord).toContain('| Start | Structure');
+    expect(discord).toContain('| 1     | Farm');
+    expect(discord).not.toContain('| 4     | Farm');
 
     // The export should have all 3 items
     const lines = plainText.split('\n');

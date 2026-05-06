@@ -397,7 +397,7 @@ describe('Export Formatters (TICKET-5)', () => {
       expect(discord.endsWith('```')).toBe(true);
 
       // Should have table header
-      expect(discord).toContain('| Queue | Structure');
+      expect(discord).toContain('| Start | Structure');
       expect(discord).toContain('| Ship');
       expect(discord).toContain('| Colonist');
       expect(discord).toContain('| Research');
@@ -456,7 +456,7 @@ describe('Export Formatters (TICKET-5)', () => {
 
       const discord = formatAsDiscord(emptyLanes);
       expect(discord).toContain('```');
-      expect(discord).toContain('| Queue |');
+      expect(discord).toContain('| Start |');
     });
 
     it('should group items by turn', () => {
@@ -479,7 +479,7 @@ describe('Export Formatters (TICKET-5)', () => {
 
       // Should contain table structure
       expect(discord).toContain('```');
-      expect(discord).toContain('| Queue | Structure');
+      expect(discord).toContain('| Start | Structure');
       expect(discord).toContain('| Ship');
       expect(discord).toContain('| Colonist');
       expect(discord).toContain('| Research');
@@ -493,7 +493,7 @@ describe('Export Formatters (TICKET-5)', () => {
       const lines = discord.split('\n');
       const dataRows = lines.filter(line =>
         line.includes('|') &&
-        !line.includes('Queue |') &&
+        !line.includes('Start |') &&
         !line.includes('---')
       );
       expect(dataRows.length).toBeGreaterThan(0);

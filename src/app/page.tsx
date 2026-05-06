@@ -1,14 +1,44 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { GameController } from '../lib/game/commands';
-import { createInitialGameState, addPlanet, updatePlanetConfig, resetToHomeworld, switchPlanet, getLocalResearchGateForItem, refreshLocalResearchGates, type GameState, type ExtendedPlanetState } from '../lib/game/gameState';
-import { getPlanetSummary, getLaneView, getWarnings, canQueueItem as validateQueueItem, getTurnsUntilHousingCap, getFirstEmptyTurns, getFirstFreeTurnForLane, type LaneView } from '../lib/game/selectors';
-import { validateAllQueueItems, type QueueValidationResult, getValidationMessage, getDependentQueueItems } from '../lib/game/validation';
-import { loadGameData } from '../lib/sim/defs/adapter.client';
-import type { LaneId, PlanetState } from '../lib/sim/engine/types';
-import gameDataRaw from '../lib/game/game_data.json';
-import { setupLogging } from '../lib/game/logging-utils';
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useRef,
+} from "react";
+import { GameController } from "../lib/game/commands";
+import {
+  createInitialGameState,
+  addPlanet,
+  updatePlanetConfig,
+  resetToHomeworld,
+  switchPlanet,
+  getLocalResearchGateForItem,
+  refreshLocalResearchGates,
+  type GameState,
+  type ExtendedPlanetState,
+} from "../lib/game/gameState";
+import {
+  getPlanetSummary,
+  getLaneView,
+  getWarnings,
+  canQueueItem as validateQueueItem,
+  getTurnsUntilHousingCap,
+  getFirstEmptyTurns,
+  getFirstFreeTurnForLane,
+  type LaneView,
+} from "../lib/game/selectors";
+import {
+  validateAllQueueItems,
+  type QueueValidationResult,
+  getValidationMessage,
+  getDependentQueueItems,
+} from "../lib/game/validation";
+import { loadGameData } from "../lib/sim/defs/adapter.client";
+import type { LaneId, PlanetState } from "../lib/sim/engine/types";
+import gameDataRaw from "../lib/game/game_data.json";
+import { setupLogging } from "../lib/game/logging-utils";
 import {
   CommandHistory,
   buildShareURL,
@@ -26,7 +56,7 @@ import {
   replayCommands,
   saveEncodedStateToURL,
   type ShareMetadata,
-} from '../lib/game/urlState';
+} from "../lib/game/urlState";
 import {
   cancelGlobalResearch,
   canQueueGlobalResearch,
@@ -38,32 +68,44 @@ import {
   queueGlobalResearch,
   queueGlobalResearchWait,
   reorderGlobalResearch,
-} from '../lib/game/globalResearch';
+} from "../lib/game/globalResearch";
 
 // UI Components
-import { HorizontalTimeline } from '../components/HorizontalTimeline';
-import { PlanetDashboard } from '../components/PlanetDashboard';
-import { TabbedLaneDisplay } from '../components/QueueDisplay/TabbedLaneDisplay';
-import { TabbedItemGrid } from '../components/LaneBoard/TabbedItemGrid';
-import { WarningsPanel } from '../components/WarningsPanel';
-import { ExportModal } from '../components/ExportModal';
-import { PlanetTabs } from '../components/PlanetTabs';
-import { AddPlanetModal, type PlanetConfig } from '../components/AddPlanetModal';
-import { Card } from '@/components/ui/card';
-import { DependencyWarningModal } from '../components/DependencyWarningModal';
-import { SavesModal } from '../components/SavesModal';
-import { BuildListSelector } from '../components/BuildListSelector';
-import { SharedBuildListView } from '../components/SharedBuildListView';
-import { clearAutosaveTimer, consumeRestoreIntent, prepareRestoreForReload, type AutosaveTimer } from './restoreState';
-import type { MultiPlanetExportData } from '../lib/export/formatters';
+import { HorizontalTimeline } from "../components/HorizontalTimeline";
+import { PlanetDashboard } from "../components/PlanetDashboard";
+import { TabbedLaneDisplay } from "../components/QueueDisplay/TabbedLaneDisplay";
+import { TabbedItemGrid } from "../components/LaneBoard/TabbedItemGrid";
+import { WarningsPanel } from "../components/WarningsPanel";
+import { ExportModal } from "../components/ExportModal";
+import { PlanetTabs } from "../components/PlanetTabs";
+import {
+  AddPlanetModal,
+  type PlanetConfig,
+} from "../components/AddPlanetModal";
+import { Card } from "@/components/ui/card";
+import { DependencyWarningModal } from "../components/DependencyWarningModal";
+import { SavesModal } from "../components/SavesModal";
+import { BuildListSelector } from "../components/BuildListSelector";
+import { SharedBuildListView } from "../components/SharedBuildListView";
+import {
+  clearAutosaveTimer,
+  consumeRestoreIntent,
+  prepareRestoreForReload,
+  type AutosaveTimer,
+} from "./restoreState";
+import type { MultiPlanetExportData } from "../lib/export/formatters";
 
 // Persistence
-import { pushHistory, migrateLegacyLocalStorage, saveSharedLink } from '../lib/persistence/savesDb';
-import { buildSaveSummary } from '../lib/persistence/saveSummary';
+import {
+  pushHistory,
+  migrateLegacyLocalStorage,
+  saveSharedLink,
+} from "../lib/persistence/savesDb";
+import { buildSaveSummary } from "../lib/persistence/saveSummary";
 
 type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
 type RestoreOptions = { shared?: boolean };
-const SHARE_AUTHOR_STORAGE_KEY = 'florent_share_author';
+const SHARE_AUTHOR_STORAGE_KEY = "florent_share_author";
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
@@ -77,14 +119,14 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
 
   let textarea: HTMLTextAreaElement | null = null;
   try {
-    textarea = document.createElement('textarea');
+    textarea = document.createElement("textarea");
     textarea.value = text;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'fixed';
-    textarea.style.left = '-9999px';
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
     document.body.appendChild(textarea);
     textarea.select();
-    return document.execCommand('copy');
+    return document.execCommand("copy");
   } catch {
     return false;
   } finally {
@@ -92,7 +134,10 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
   }
 }
 
-function withPlanetMetadata(snapshot: PlanetState, existing: ExtendedPlanetState): ExtendedPlanetState {
+function withPlanetMetadata(
+  snapshot: PlanetState,
+  existing: ExtendedPlanetState,
+): ExtendedPlanetState {
   return {
     ...snapshot,
     id: existing.id,
@@ -103,21 +148,39 @@ function withPlanetMetadata(snapshot: PlanetState, existing: ExtendedPlanetState
   } as ExtendedPlanetState;
 }
 
-type ActionGlyphName = 'link' | 'saves' | 'export' | 'full-list';
+type ActionGlyphName = "link" | "saves" | "export" | "full-list";
 
 function ActionGlyph({ name }: { name: ActionGlyphName }) {
-  if (name === 'link') {
+  if (name === "link") {
     return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
         <path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
         <path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1" />
       </svg>
     );
   }
 
-  if (name === 'saves') {
+  if (name === "saves") {
     return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
         <path d="M5 3h11l3 3v15H5z" />
         <path d="M8 3v6h8V3" />
         <path d="M8 17h8" />
@@ -125,9 +188,18 @@ function ActionGlyph({ name }: { name: ActionGlyphName }) {
     );
   }
 
-  if (name === 'export') {
+  if (name === "export") {
     return (
-      <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <svg
+        viewBox="0 0 24 24"
+        className="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
         <path d="M12 3v12" />
         <path d="m7 8 5-5 5 5" />
         <path d="M5 15v4h14v-4" />
@@ -136,7 +208,16 @@ function ActionGlyph({ name }: { name: ActionGlyphName }) {
   }
 
   return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M8 6h12" />
       <path d="M8 12h12" />
       <path d="M8 18h12" />
@@ -160,12 +241,15 @@ export default function Home() {
   }, []);
 
   const [commandHistory] = useState(() => new CommandHistory());
-  const [gameState, setGameState] = useState<GameState>(() => createInitialGameState());
+  const [gameState, setGameState] = useState<GameState>(() =>
+    createInitialGameState(),
+  );
   const [isMounted, setIsMounted] = useState(false);
-  const [activeShareMetadata, setActiveShareMetadata] = useState<ShareMetadata | null>(null);
+  const [activeShareMetadata, setActiveShareMetadata] =
+    useState<ShareMetadata | null>(null);
   const [isSharedBuildPreviewOpen, setSharedBuildPreviewOpen] = useState(false);
-  const [shareListName, setShareListName] = useState('');
-  const [shareAuthor, setShareAuthor] = useState('');
+  const [shareListName, setShareListName] = useState("");
+  const [shareAuthor, setShareAuthor] = useState("");
   // Bootstrap-once guard: React StrictMode runs effects twice in dev; we only
   // want to restore state on the first mount, otherwise the second run replays
   // commands on top of the already-restored state and double-counts everything.
@@ -174,52 +258,71 @@ export default function Home() {
   const autosaveTimerRef = useRef<AutosaveTimer | null>(null);
   const restoreInProgressRef = useRef(false);
 
-  const rememberOpenedSharedLink = useCallback((encoded: string, snapshot: LoadedGameSnapshot) => {
-    const share = getShareMetadataFromSnapshot(snapshot) ?? normaliseShareMetadata({
-      name: 'Shared build list',
-      author: 'Unknown commander',
-      sharedAt: new Date().toISOString(),
-    });
-    setActiveShareMetadata(share);
-    setSharedBuildPreviewOpen(true);
-    if (!share) return;
-    if (typeof window.indexedDB === 'undefined') return;
+  const rememberOpenedSharedLink = useCallback(
+    (encoded: string, snapshot: LoadedGameSnapshot) => {
+      const share =
+        getShareMetadataFromSnapshot(snapshot) ??
+        normaliseShareMetadata({
+          name: "Shared build list",
+          author: "Unknown commander",
+          sharedAt: new Date().toISOString(),
+        });
+      setActiveShareMetadata(share);
+      setSharedBuildPreviewOpen(true);
+      if (!share) return;
+      if (typeof window.indexedDB === "undefined") return;
 
-    const summary = buildSaveSummary(encoded);
-    saveSharedLink({
-      encoded,
-      name: share.name,
-      author: share.author,
-      summary,
-    }).catch((e) => console.warn('[saves] shared link save failed:', e));
-  }, []);
+      const summary = buildSaveSummary(encoded);
+      saveSharedLink({
+        encoded,
+        name: share.name,
+        author: share.author,
+        summary,
+      }).catch((e) => console.warn("[saves] shared link save failed:", e));
+    },
+    [],
+  );
 
-  const restoreShareSnapshot = useCallback((snapshot: LoadedGameSnapshot, encoded?: string | null, options?: RestoreOptions) => {
-    const replayedState = replayCommands(createInitialGameState(), snapshot.cmds);
-    commandHistory.loadFromSnapshot(snapshot.cmds);
-    if (encoded && options?.shared) {
-      rememberOpenedSharedLink(encoded, snapshot);
-    } else {
-      setActiveShareMetadata(null);
-      setSharedBuildPreviewOpen(false);
-    }
-    setGameState(() => ({
-      ...replayedState,
-      planets: new Map(replayedState.planets),
-    }));
-  }, [commandHistory, rememberOpenedSharedLink]);
+  const restoreShareSnapshot = useCallback(
+    (
+      snapshot: LoadedGameSnapshot,
+      encoded?: string | null,
+      options?: RestoreOptions,
+    ) => {
+      const replayedState = replayCommands(
+        createInitialGameState(),
+        snapshot.cmds,
+      );
+      commandHistory.loadFromSnapshot(snapshot.cmds);
+      if (encoded && options?.shared) {
+        rememberOpenedSharedLink(encoded, snapshot);
+      } else {
+        setActiveShareMetadata(null);
+        setSharedBuildPreviewOpen(false);
+      }
+      setGameState(() => ({
+        ...replayedState,
+        planets: new Map(replayedState.planets),
+      }));
+    },
+    [commandHistory, rememberOpenedSharedLink],
+  );
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     try {
-      setShareAuthor(window.localStorage.getItem(SHARE_AUTHOR_STORAGE_KEY) ?? '');
-    } catch { /* ignore */ }
+      setShareAuthor(
+        window.localStorage.getItem(SHARE_AUTHOR_STORAGE_KEY) ?? "",
+      );
+    } catch {
+      /* ignore */
+    }
   }, []);
 
   useEffect(() => {
     if (!activeShareMetadata) return;
     setShareListName(activeShareMetadata.name);
-    if (activeShareMetadata.author !== 'Unknown commander') {
+    if (activeShareMetadata.author !== "Unknown commander") {
       setShareAuthor(activeShareMetadata.author);
     }
   }, [activeShareMetadata]);
@@ -236,14 +339,14 @@ export default function Home() {
 
     if (urlSnapshot) {
       lastAppliedShareRef.current = encodedFromURL;
-      console.log('[URL State] Loading from URL:', {
+      console.log("[URL State] Loading from URL:", {
         planets: urlSnapshot.planets.length,
         commands: urlSnapshot.cmds.length,
       });
     } else {
       urlSnapshot = loadStateFromLocalStorage();
       if (urlSnapshot) {
-        console.log('[URL State] Loading from LocalStorage:', {
+        console.log("[URL State] Loading from LocalStorage:", {
           planets: urlSnapshot.planets.length,
           commands: urlSnapshot.cmds.length,
         });
@@ -252,11 +355,16 @@ export default function Home() {
 
     if (urlSnapshot) {
       const restoreIntent = consumeRestoreIntent(encodedFromURL);
-      const hasShareMetadata = getShareMetadataFromSnapshot(urlSnapshot) !== null;
+      const hasShareMetadata =
+        getShareMetadataFromSnapshot(urlSnapshot) !== null;
       const shouldRememberSharedLink = Boolean(
-        encodedFromURL && (restoreIntent?.shared === true || (!restoreIntent && hasShareMetadata))
+        encodedFromURL &&
+        (restoreIntent?.shared === true ||
+          (!restoreIntent && hasShareMetadata)),
       );
-      restoreShareSnapshot(urlSnapshot, encodedFromURL, { shared: shouldRememberSharedLink });
+      restoreShareSnapshot(urlSnapshot, encodedFromURL, {
+        shared: shouldRememberSharedLink,
+      });
     }
   }, [restoreShareSnapshot]);
 
@@ -266,8 +374,12 @@ export default function Home() {
   const [viewTurn, setViewTurn] = useState(1);
   const [isAutoJumpEnabled, setIsAutoJumpEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [queueValidation, setQueueValidation] = useState<Map<string, QueueValidationResult>>(new Map());
-  const [showExportModal, setShowExportModal] = useState<'current' | 'full' | null>(null);
+  const [queueValidation, setQueueValidation] = useState<
+    Map<string, QueueValidationResult>
+  >(new Map());
+  const [showExportModal, setShowExportModal] = useState<
+    "current" | "full" | null
+  >(null);
   const [showSavesModal, setShowSavesModal] = useState(false);
   const [exportSnapshot, setExportSnapshot] = useState<{
     buildingLane: LaneView;
@@ -277,75 +389,87 @@ export default function Home() {
     currentTurn: number;
     multiPlanetData: MultiPlanetExportData;
   } | null>(null);
-  const [activeTab, setActiveTab] = useState<'building' | 'ship' | 'colonist' | 'research'>('building');
+  const [activeTab, setActiveTab] = useState<
+    "building" | "ship" | "colonist" | "research"
+  >("building");
   // Mobile-only toggle between Build (Add to Queue) and Queue (Planet Queue) panels.
   // Both render side-by-side on md+ screens; on mobile only the active one is shown.
-  const [mobileView, setMobileView] = useState<'build' | 'queue'>('build');
+  const [mobileView, setMobileView] = useState<"build" | "queue">("build");
   useEffect(() => {
     if (activeShareMetadata) {
-      setMobileView('queue');
+      setMobileView("queue");
     }
   }, [activeShareMetadata]);
   // Transient toast message; null when nothing to show. Auto-clears after 3s.
   const [toast, setToast] = useState<string | null>(null);
   const [pendingCancellation, setPendingCancellation] = useState<{
-    laneId: 'building' | 'ship' | 'colonist' | 'research';
+    laneId: "building" | "ship" | "colonist" | "research";
     entry: any;
     brokenDependencies: any[];
   } | null>(null);
   // Items auto-removed due to cascade dependency failure after a cancel
-  const [cascadeWarnings, setCascadeWarnings] = useState<Array<{
-    entryId: string;
-    laneId: string;
-    reason: string;
-  }>>([]);
+  const [cascadeWarnings, setCascadeWarnings] = useState<
+    Array<{
+      entryId: string;
+      laneId: string;
+      reason: string;
+    }>
+  >([]);
 
-  const resetToCleanState = useCallback((message?: string) => {
-    commandHistory.clear();
-    lastAppliedShareRef.current = null;
-    setActiveShareMetadata(null);
-    setSharedBuildPreviewOpen(false);
-    setGameState(createInitialGameState());
-    setViewTurn(1);
-    setQueueValidation(new Map());
-    setPendingCancellation(null);
-    setCascadeWarnings([]);
-    setError(null);
-    clearStateFromURL();
-    if (message) {
-      setToast(message);
-      setTimeout(() => setToast(null), 3000);
-    }
-  }, [commandHistory]);
+  const resetToCleanState = useCallback(
+    (message?: string) => {
+      commandHistory.clear();
+      lastAppliedShareRef.current = null;
+      setActiveShareMetadata(null);
+      setSharedBuildPreviewOpen(false);
+      setGameState(createInitialGameState());
+      setViewTurn(1);
+      setQueueValidation(new Map());
+      setPendingCancellation(null);
+      setCascadeWarnings([]);
+      setError(null);
+      clearStateFromURL();
+      if (message) {
+        setToast(message);
+        setTimeout(() => setToast(null), 3000);
+      }
+    },
+    [commandHistory],
+  );
 
   useEffect(() => {
     const handleHashChange = () => {
       const encoded = getEncodedStateFromURL();
       if (!encoded) {
-        resetToCleanState('Build list reset');
+        resetToCleanState("Build list reset");
         return;
       }
       if (encoded === lastAppliedShareRef.current) return;
 
       const snapshot = decodeGameState(encoded);
       if (!snapshot) {
-        setError('Shared build link could not be loaded.');
+        setError("Shared build link could not be loaded.");
         return;
       }
 
       lastAppliedShareRef.current = encoded;
       const restoreIntent = consumeRestoreIntent(encoded);
       const hasShareMetadata = getShareMetadataFromSnapshot(snapshot) !== null;
-      const restoredAsShared = restoreIntent?.shared === true || (!restoreIntent && hasShareMetadata);
+      const restoredAsShared =
+        restoreIntent?.shared === true || (!restoreIntent && hasShareMetadata);
       restoreShareSnapshot(snapshot, encoded, {
         shared: restoredAsShared,
       });
-      setToast(restoredAsShared ? 'Shared build list loaded from link' : 'Build list loaded from link');
+      setToast(
+        restoredAsShared
+          ? "Shared build list loaded from link"
+          : "Build list loaded from link",
+      );
       setTimeout(() => setToast(null), 3000);
     };
 
-    window.addEventListener('hashchange', handleHashChange);
-    return () => window.removeEventListener('hashchange', handleHashChange);
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
   }, [resetToCleanState, restoreShareSnapshot]);
 
   // Get current planet ID (only changes when switching planets, not on every mutation)
@@ -372,7 +496,9 @@ export default function Home() {
 
   // One-time migration of any pre-IndexedDB localStorage save into the history store.
   useEffect(() => {
-    migrateLegacyLocalStorage(buildSaveSummary).catch((e) => console.warn('[saves] migration failed:', e));
+    migrateLegacyLocalStorage(buildSaveSummary).catch((e) =>
+      console.warn("[saves] migration failed:", e),
+    );
   }, []);
 
   // Auto-save to URL + IndexedDB history on state changes (debounced).
@@ -390,13 +516,17 @@ export default function Home() {
 
         // Only save if we have commands (don't save empty initial state)
         if (commands.length > 0) {
-          const encoded = encodeGameState(planetConfigs, commands, activeShareMetadata);
+          const encoded = encodeGameState(
+            planetConfigs,
+            commands,
+            activeShareMetadata,
+          );
           saveEncodedStateToURL(encoded);
           lastAppliedShareRef.current = encoded;
 
           // Log size information
           const sizeInfo = estimateEncodedSize(planetConfigs, commands);
-          console.log('[URL State] Saved:', {
+          console.log("[URL State] Saved:", {
             planets: planetConfigs.length,
             commands: commands.length,
             urlLength: window.location.href.length,
@@ -407,10 +537,12 @@ export default function Home() {
           // Push to IndexedDB ring buffer so the user can revert auto-saves.
           // pushHistory dedupes against the most-recent identical encoded payload.
           const summary = buildSaveSummary(encoded);
-          pushHistory(encoded, summary).catch((e) => console.warn('[saves] history push failed:', e));
+          pushHistory(encoded, summary).catch((e) =>
+            console.warn("[saves] history push failed:", e),
+          );
         }
       } catch (error) {
-        console.error('[URL State] Failed to save:', error);
+        console.error("[URL State] Failed to save:", error);
       }
     }, 1000); // Debounce: wait 1 second after last change
 
@@ -423,8 +555,8 @@ export default function Home() {
   const currentState = useMemo(() => {
     if (!controller) return undefined;
     return controller.getStateAtTurn(viewTurn);
-  // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, viewTurn, gameState]);
   const totalTurns = controller?.getTotalTurns() || 200;
   const planetTimelineEndTurn = currentPlanet
@@ -440,7 +572,7 @@ export default function Home() {
     return getPlanetLimitAtTurn(gameState, currentPlanet.startTurn);
   }, [gameState, currentPlanet]);
   const planetUnavailableReason = useMemo(() => {
-    if (!currentPlanet) return 'No planet selected.';
+    if (!currentPlanet) return "No planet selected.";
     if (currentPlanetNumber > 4 && currentPlanetNumber > planetLimitAtStart) {
       return `${currentPlanet.name} is blocked by planet-limit research at T${currentPlanet.startTurn}.`;
     }
@@ -451,39 +583,50 @@ export default function Home() {
       return `${currentPlanet.name} has no simulated state at T${viewTurn}.`;
     }
     return null;
-  }, [currentPlanet, currentPlanetNumber, planetLimitAtStart, viewTurn, currentState]);
+  }, [
+    currentPlanet,
+    currentPlanetNumber,
+    planetLimitAtStart,
+    viewTurn,
+    currentState,
+  ]);
   const isPlanetViewAvailable = planetUnavailableReason === null;
 
   const defs = currentState?.defs || loadGameData(gameDataRaw as any);
   const globalResearch = useMemo(
     () => getGlobalResearchAtTurn(gameState, viewTurn),
-    [gameState, viewTurn]
+    [gameState, viewTurn],
   );
   const researchCompletionTurns = useMemo(
     () => getResearchCompletionTurns(gameState),
-    [gameState]
+    [gameState],
   );
   const effectivePlanetLimit = useMemo(
     () => globalResearch.planetLimit,
-    [globalResearch.planetLimit]
+    [globalResearch.planetLimit],
   );
 
   // Helper: Enrich lane entries with validation state
-  const enrichEntriesWithValidation = useCallback((entries: any[]) => {
-    return entries.map(entry => {
-      const validation = queueValidation.get(entry.id);
-      if (!validation) {
-        return entry; // No validation data, return as-is
-      }
+  const enrichEntriesWithValidation = useCallback(
+    (entries: any[]) => {
+      return entries.map((entry) => {
+        const validation = queueValidation.get(entry.id);
+        if (!validation) {
+          return entry; // No validation data, return as-is
+        }
 
-      return {
-        ...entry,
-        invalid: !validation.valid,
-        invalidReason: validation.reason ? getValidationMessage(validation) : undefined,
-        missingPrereqs: validation.missingPrereqs
-      };
-    });
-  }, [queueValidation]);
+        return {
+          ...entry,
+          invalid: !validation.valid,
+          invalidReason: validation.reason
+            ? getValidationMessage(validation)
+            : undefined,
+          missingPrereqs: validation.missingPrereqs,
+        };
+      });
+    },
+    [queueValidation],
+  );
 
   // Use selectors for UI data - re-compute when state changes
   // These hooks must be called unconditionally (Rules of Hooks)
@@ -510,50 +653,65 @@ export default function Home() {
   const fullPlanState = useMemo(() => {
     if (!controller) return undefined;
     return controller.getStateAtTurn(planetTimelineEndTurn);
-  // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, planetTimelineEndTurn, gameState]);
 
   // Helper to adjust the status of the global queue items relative to the current viewTurn
-  const getAdjustedLaneView = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research') => {
-    if (!fullPlanState) return null;
-    const view = getLaneView(fullPlanState, laneId);
+  const getAdjustedLaneView = useCallback(
+    (laneId: "building" | "ship" | "colonist" | "research") => {
+      if (!fullPlanState) return null;
+      const view = getLaneView(fullPlanState, laneId);
 
-    view.entries = view.entries.map(entry => {
-      let status = entry.status;
-      const start = entry.startTurn ?? entry.queuedTurn ?? 0;
-      const finish = entry.completionTurn ?? entry.eta ?? 999;
+      view.entries = view.entries.map((entry) => {
+        let status = entry.status;
+        const start = entry.startTurn ?? entry.queuedTurn ?? 0;
+        const finish = entry.completionTurn ?? entry.eta ?? 999;
 
-      if (finish <= viewTurn) {
-        status = 'completed';
-      } else if (start <= viewTurn && viewTurn < finish) {
-        status = 'active';
-      } else {
-        status = 'pending';
-      }
-      return { ...entry, status };
-    });
+        if (finish <= viewTurn) {
+          status = "completed";
+        } else if (start <= viewTurn && viewTurn < finish) {
+          status = "active";
+        } else {
+          status = "pending";
+        }
+        return { ...entry, status };
+      });
 
-    return view;
-  }, [fullPlanState, viewTurn]);
-
-  const buildingLane = useMemo(() => getAdjustedLaneView('building'), [getAdjustedLaneView]);
-  const shipLane = useMemo(() => getAdjustedLaneView('ship'), [getAdjustedLaneView]);
-  const colonistLane = useMemo(() => getAdjustedLaneView('colonist'), [getAdjustedLaneView]);
-  const globalResearchLane = useMemo(
-    () => getGlobalResearchLaneView(gameState, viewTurn),
-    [gameState, viewTurn]
+      return view;
+    },
+    [fullPlanState, viewTurn],
   );
 
-  const warnings = useMemo(() => currentState ? getWarnings(currentState) : [], [currentState]);
+  const buildingLane = useMemo(
+    () => getAdjustedLaneView("building"),
+    [getAdjustedLaneView],
+  );
+  const shipLane = useMemo(
+    () => getAdjustedLaneView("ship"),
+    [getAdjustedLaneView],
+  );
+  const colonistLane = useMemo(
+    () => getAdjustedLaneView("colonist"),
+    [getAdjustedLaneView],
+  );
+  const globalResearchLane = useMemo(
+    () => getGlobalResearchLaneView(gameState, viewTurn),
+    [gameState, viewTurn],
+  );
+
+  const warnings = useMemo(
+    () => (currentState ? getWarnings(currentState) : []),
+    [currentState],
+  );
 
   // Merge engine warnings with cascade-removal warnings into a single list for the panel.
   // Cascade warnings are reset on next cancellation, so they auto-clear on next user action.
   const allWarnings = useMemo(() => {
-    const cascadeItems = cascadeWarnings.map(w => ({
-      type: 'QUEUE_CASCADE_REMOVAL' as const,
+    const cascadeItems = cascadeWarnings.map((w) => ({
+      type: "QUEUE_CASCADE_REMOVAL" as const,
       message: `Auto-removed: ${w.reason}`,
-      severity: 'warning' as const,
+      severity: "warning" as const,
     }));
     return [...warnings, ...cascadeItems];
   }, [warnings, cascadeWarnings]);
@@ -565,25 +723,59 @@ export default function Home() {
     if (!controller) return { building: null, ship: null, colonist: null };
     const getState = (turn: number) => controller.getStateAtTurn(turn);
     return getFirstEmptyTurns(getState, planTurn, planetTimelineEndTurn);
-  // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, planetTimelineEndTurn, gameState, planTurn]);
 
   // Enrich all lanes with validation state in a single useMemo
-  const enrichedLanes = useMemo(() => ({
-    building: buildingLane ? { ...buildingLane, entries: enrichEntriesWithValidation(buildingLane.entries) } : null,
-    ship: shipLane ? { ...shipLane, entries: enrichEntriesWithValidation(shipLane.entries) } : null,
-    colonist: colonistLane ? { ...colonistLane, entries: enrichEntriesWithValidation(colonistLane.entries) } : null,
-    research: globalResearchLane ? { ...globalResearchLane, entries: enrichEntriesWithValidation(globalResearchLane.entries) } : null,
-  }), [buildingLane, shipLane, colonistLane, globalResearchLane, enrichEntriesWithValidation]);
+  const enrichedLanes = useMemo(
+    () => ({
+      building: buildingLane
+        ? {
+            ...buildingLane,
+            entries: enrichEntriesWithValidation(buildingLane.entries),
+          }
+        : null,
+      ship: shipLane
+        ? {
+            ...shipLane,
+            entries: enrichEntriesWithValidation(shipLane.entries),
+          }
+        : null,
+      colonist: colonistLane
+        ? {
+            ...colonistLane,
+            entries: enrichEntriesWithValidation(colonistLane.entries),
+          }
+        : null,
+      research: globalResearchLane
+        ? {
+            ...globalResearchLane,
+            entries: enrichEntriesWithValidation(globalResearchLane.entries),
+          }
+        : null,
+    }),
+    [
+      buildingLane,
+      shipLane,
+      colonistLane,
+      globalResearchLane,
+      enrichEntriesWithValidation,
+    ],
+  );
 
   // Destructure for backward compatibility
-  const { building: enrichedBuildingLane, ship: enrichedShipLane, colonist: enrichedColonistLane, research: enrichedResearchLane } = enrichedLanes;
+  const {
+    building: enrichedBuildingLane,
+    ship: enrichedShipLane,
+    colonist: enrichedColonistLane,
+    research: enrichedResearchLane,
+  } = enrichedLanes;
 
   // Live count of non-completed queue items across all lanes (used in header badge)
   const totalQueuedItems = useMemo(() => {
     const countNonCompleted = (lane: typeof enrichedBuildingLane) =>
-      lane ? lane.entries.filter(e => e.status !== 'completed').length : 0;
+      lane ? lane.entries.filter((e) => e.status !== "completed").length : 0;
     return (
       countNonCompleted(enrichedLanes.building) +
       countNonCompleted(enrichedLanes.ship) +
@@ -604,102 +796,162 @@ export default function Home() {
   // canQueueItem callback - must be before early return
   // Uses smart first-free-turn validation: evaluates the item against the state
   // at the turn when it would actually activate, not hardcoded T1.
-  const canQueueItem = useCallback((itemId: string, quantity: number) => {
-    if (!itemId) {
-      return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'No item selected' };
-    }
+  const canQueueItem = useCallback(
+    (itemId: string, quantity: number) => {
+      if (!itemId) {
+        return {
+          allowed: false,
+          canQueueEventually: false,
+          waitTurnsNeeded: 0,
+          blockers: [],
+          reason: "No item selected",
+        };
+      }
 
-    const def = defs[itemId];
-    if (!def) {
-      return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'Unknown item' };
-    }
+      const def = defs[itemId];
+      if (!def) {
+        return {
+          allowed: false,
+          canQueueEventually: false,
+          waitTurnsNeeded: 0,
+          blockers: [],
+          reason: "Unknown item",
+        };
+      }
 
-    if (!controller) {
-      return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'No controller available' };
-    }
+      if (!controller) {
+        return {
+          allowed: false,
+          canQueueEventually: false,
+          waitTurnsNeeded: 0,
+          blockers: [],
+          reason: "No controller available",
+        };
+      }
 
-    if (def.lane === 'research') {
-      const check = canQueueGlobalResearch(gameState, itemId);
-      return {
-        allowed: check.allowed,
-        canQueueEventually: check.allowed,
-        waitTurnsNeeded: 0,
-        blockers: check.allowed ? [] : [{ type: 'PREREQUISITE', message: check.reason || 'Cannot queue research' }],
-        reason: check.reason === 'REQ_MISSING' ? 'REQ_MISSING' : check.reason,
+      if (def.lane === "research") {
+        const check = canQueueGlobalResearch(gameState, itemId);
+        return {
+          allowed: check.allowed,
+          canQueueEventually: check.allowed,
+          waitTurnsNeeded: 0,
+          blockers: check.allowed
+            ? []
+            : [
+                {
+                  type: "PREREQUISITE",
+                  message: check.reason || "Cannot queue research",
+                },
+              ],
+          reason: check.reason === "REQ_MISSING" ? "REQ_MISSING" : check.reason,
+        };
+      }
+
+      if (!isPlanetViewAvailable) {
+        return {
+          allowed: false,
+          canQueueEventually: false,
+          waitTurnsNeeded: 0,
+          blockers: [],
+          reason:
+            planetUnavailableReason || "Planet is not active at this turn",
+        };
+      }
+
+      // Get the T1 state (where the full plan lives) to calculate first-free turn
+      const t1State = controller.getStateAtTurn(planTurn);
+      if (!t1State) {
+        return {
+          allowed: false,
+          canQueueEventually: false,
+          waitTurnsNeeded: 0,
+          blockers: [],
+          reason: "Invalid turn",
+        };
+      }
+
+      // Find the first turn when this lane will be free to activate the item
+      const firstFreeTurn = getFirstFreeTurnForLane(t1State, def.lane);
+
+      // Validate against the state at that future turn (or T1 if lane is empty)
+      const validationTurn = Math.max(1, firstFreeTurn);
+      const baseValidationState =
+        controller.getStateAtTurn(validationTurn) ?? t1State;
+      const researchGate = getLocalResearchGateForItem(
+        gameState,
+        itemId,
+        validationTurn,
+        defs,
+        researchCompletionTurns,
+      );
+      if (researchGate.blockedResearch.length > 0) {
+        return {
+          allowed: false,
+          canQueueEventually: false,
+          waitTurnsNeeded: 0,
+          blockers: [],
+          reason: "REQ_MISSING",
+        };
+      }
+
+      const researchReadyTurn = researchGate.minStartTurn;
+      const validationState = {
+        ...baseValidationState,
+        completedResearch: Array.from(
+          new Set([
+            ...(baseValidationState.completedResearch || []),
+            ...researchGate.completedResearch,
+            ...researchGate.scheduledResearch,
+          ]),
+        ),
       };
-    }
 
-    if (!isPlanetViewAvailable) {
-      return {
-        allowed: false,
-        canQueueEventually: false,
-        waitTurnsNeeded: 0,
-        blockers: [],
-        reason: planetUnavailableReason || 'Planet is not active at this turn',
-      };
-    }
-
-    // Get the T1 state (where the full plan lives) to calculate first-free turn
-    const t1State = controller.getStateAtTurn(planTurn);
-    if (!t1State) {
-      return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'Invalid turn' };
-    }
-
-    // Find the first turn when this lane will be free to activate the item
-    const firstFreeTurn = getFirstFreeTurnForLane(t1State, def.lane);
-
-    // Validate against the state at that future turn (or T1 if lane is empty)
-    const validationTurn = Math.max(1, firstFreeTurn);
-    const baseValidationState = controller.getStateAtTurn(validationTurn) ?? t1State;
-    const researchGate = getLocalResearchGateForItem(gameState, itemId, validationTurn, defs, researchCompletionTurns);
-    if (researchGate.blockedResearch.length > 0) {
-      return {
-        allowed: false,
-        canQueueEventually: false,
-        waitTurnsNeeded: 0,
-        blockers: [],
-        reason: 'REQ_MISSING',
-      };
-    }
-
-    const researchReadyTurn = researchGate.minStartTurn;
-    const validationState = {
-      ...baseValidationState,
-      completedResearch: Array.from(new Set([
-        ...(baseValidationState.completedResearch || []),
-        ...researchGate.completedResearch,
-        ...researchGate.scheduledResearch,
-      ])),
-    };
-
-    const result = validateQueueItem(validationState, itemId, quantity);
-    if (researchReadyTurn !== undefined && researchReadyTurn > validationTurn && result.canQueueEventually !== false) {
-      const turnsUntilReady = researchReadyTurn - validationTurn;
-      return {
-        ...result,
-        allowed: false,
-        canQueueEventually: true,
-        waitTurnsNeeded: Math.max(result.waitTurnsNeeded ?? 0, turnsUntilReady),
-        blockers: [
-          ...(result.blockers || []),
-          {
-            type: 'PREREQUISITE',
+      const result = validateQueueItem(validationState, itemId, quantity);
+      if (
+        researchReadyTurn !== undefined &&
+        researchReadyTurn > validationTurn &&
+        result.canQueueEventually !== false
+      ) {
+        const turnsUntilReady = researchReadyTurn - validationTurn;
+        return {
+          ...result,
+          allowed: false,
+          canQueueEventually: true,
+          waitTurnsNeeded: Math.max(
+            result.waitTurnsNeeded ?? 0,
             turnsUntilReady,
-            message: `Waiting for scheduled research (${turnsUntilReady} turns)`,
-          },
-        ],
-      };
-    }
+          ),
+          blockers: [
+            ...(result.blockers || []),
+            {
+              type: "PREREQUISITE",
+              turnsUntilReady,
+              message: `Waiting for scheduled research (${turnsUntilReady} turns)`,
+            },
+          ],
+        };
+      }
 
-    return result;
-  }, [defs, controller, gameState, researchCompletionTurns, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
+      return result;
+    },
+    [
+      defs,
+      controller,
+      gameState,
+      researchCompletionTurns,
+      planTurn,
+      isPlanetViewAvailable,
+      planetUnavailableReason,
+    ],
+  );
 
   const editingPlanetConfig = useMemo<PlanetConfig | undefined>(() => {
     if (!editingPlanetId) return undefined;
     const planet = gameState.planets.get(editingPlanetId);
     if (!planet) return undefined;
 
-    const initialState = planet.timeline?.getStateAtTurn(planet.startTurn) ?? planet;
+    const initialState =
+      planet.timeline?.getStateAtTurn(planet.startTurn) ?? planet;
     return {
       name: planet.name,
       startTurn: planet.startTurn,
@@ -712,7 +964,8 @@ export default function Home() {
         workersTotal: initialState.population.workersTotal,
         structures: {
           metal_mine: initialState.completedCounts.metal_mine ?? 0,
-          mineral_extractor: initialState.completedCounts.mineral_extractor ?? 0,
+          mineral_extractor:
+            initialState.completedCounts.mineral_extractor ?? 0,
           farm: initialState.completedCounts.farm ?? 0,
           solar_generator: initialState.completedCounts.solar_generator ?? 0,
         },
@@ -721,18 +974,21 @@ export default function Home() {
   }, [editingPlanetId, gameState.planets]);
 
   // Planet management handlers
-  const handlePlanetSwitch = useCallback((planetId: string) => {
-    if (!planetId || !gameState.planets.has(planetId)) {
-      setError(`Planet ${planetId || 'unknown'} does not exist`);
-      return;
-    }
-    // Sync viewTurn BEFORE switching to avoid render timing issues
-    const planet = gameState.planets.get(planetId);
-    if (planet) {
-      setViewTurn(planet.currentTurn);
-    }
-    setGameState(prev => switchPlanet(prev, planetId));
-  }, [gameState]);
+  const handlePlanetSwitch = useCallback(
+    (planetId: string) => {
+      if (!planetId || !gameState.planets.has(planetId)) {
+        setError(`Planet ${planetId || "unknown"} does not exist`);
+        return;
+      }
+      // Sync viewTurn BEFORE switching to avoid render timing issues
+      const planet = gameState.planets.get(planetId);
+      if (planet) {
+        setViewTurn(planet.currentTurn);
+      }
+      setGameState((prev) => switchPlanet(prev, planetId));
+    },
+    [gameState],
+  );
 
   const handleAddPlanet = useCallback(() => {
     setError(null);
@@ -743,9 +999,15 @@ export default function Home() {
       setShowAddPlanetModal(true);
       return;
     }
-    const earliestTurn = getEarliestPlanetStartTurn(gameState, nextPlanetNumber, viewTurn);
+    const earliestTurn = getEarliestPlanetStartTurn(
+      gameState,
+      nextPlanetNumber,
+      viewTurn,
+    );
     if (earliestTurn === null) {
-      setError(`Planet limit ${nextPlanetNumber} is not unlocked or scheduled in the research queue.`);
+      setError(
+        `Planet limit ${nextPlanetNumber} is not unlocked or scheduled in the research queue.`,
+      );
       return;
     }
     setEditingPlanetId(null);
@@ -753,302 +1015,440 @@ export default function Home() {
     setShowAddPlanetModal(true);
   }, [gameState, viewTurn]);
 
-  const handleEditPlanet = useCallback((planetId: string) => {
-    if (planetId === 'planet-1') return;
-    const planet = gameState.planets.get(planetId);
-    if (!planet) return;
-    setError(null);
-    setEditingPlanetId(planetId);
-    setPlanetModalTurn(planet.startTurn);
-    setShowAddPlanetModal(true);
-  }, [gameState.planets]);
+  const handleEditPlanet = useCallback(
+    (planetId: string) => {
+      if (planetId === "planet-1") return;
+      const planet = gameState.planets.get(planetId);
+      if (!planet) return;
+      setError(null);
+      setEditingPlanetId(planetId);
+      setPlanetModalTurn(planet.startTurn);
+      setShowAddPlanetModal(true);
+    },
+    [gameState.planets],
+  );
 
-  const handleCreatePlanet = useCallback((config: PlanetConfig) => {
-    try {
-      if (editingPlanetId) {
-        const updated = updatePlanetConfig(gameState, editingPlanetId, config);
-        const planetIdx = getPlanetIndex(gameState, editingPlanetId);
-        commandHistory.recordEditPlanet(planetIdx, config);
-        setViewTurn(config.startTurn);
-        setGameState(updated);
+  const handleCreatePlanet = useCallback(
+    (config: PlanetConfig) => {
+      try {
+        if (editingPlanetId) {
+          const updated = updatePlanetConfig(
+            gameState,
+            editingPlanetId,
+            config,
+          );
+          const planetIdx = getPlanetIndex(gameState, editingPlanetId);
+          commandHistory.recordEditPlanet(planetIdx, config);
+          setViewTurn(config.startTurn);
+          setGameState(updated);
+          setEditingPlanetId(null);
+          return true;
+        }
+        const nextPlanetNumber = gameState.planets.size + 1;
+        let adjustedConfig = config;
+        if (nextPlanetNumber > 4) {
+          const earliestTurn = getEarliestPlanetStartTurn(
+            gameState,
+            nextPlanetNumber,
+            config.startTurn,
+          );
+          adjustedConfig =
+            earliestTurn !== null && config.startTurn < earliestTurn
+              ? { ...config, startTurn: earliestTurn }
+              : config;
+        }
+        const newGameState = addPlanet(gameState, adjustedConfig);
+        const newPlanetId = `planet-${newGameState.nextPlanetId - 1}`;
+        commandHistory.recordAddPlanet(adjustedConfig);
+        // Sync viewTurn to new planet's start turn BEFORE switching
+        // This prevents render timing issues with controller.getStateAtTurn()
+        setViewTurn(adjustedConfig.startTurn);
+        setGameState(switchPlanet(newGameState, newPlanetId));
         setEditingPlanetId(null);
         return true;
+      } catch (e) {
+        setError((e as Error).message || "Failed to create planet");
+        return false;
       }
-      const nextPlanetNumber = gameState.planets.size + 1;
-      let adjustedConfig = config;
-      if (nextPlanetNumber > 4) {
-        const earliestTurn = getEarliestPlanetStartTurn(gameState, nextPlanetNumber, config.startTurn);
-        adjustedConfig = earliestTurn !== null && config.startTurn < earliestTurn
-          ? { ...config, startTurn: earliestTurn }
-          : config;
-      }
-      const newGameState = addPlanet(gameState, adjustedConfig);
-      const newPlanetId = `planet-${newGameState.nextPlanetId - 1}`;
-      commandHistory.recordAddPlanet(adjustedConfig);
-      // Sync viewTurn to new planet's start turn BEFORE switching
-      // This prevents render timing issues with controller.getStateAtTurn()
-      setViewTurn(adjustedConfig.startTurn);
-      setGameState(switchPlanet(newGameState, newPlanetId));
-      setEditingPlanetId(null);
-      return true;
-    } catch (e) {
-      setError((e as Error).message || 'Failed to create planet');
-      return false;
-    }
-  }, [gameState, editingPlanetId, commandHistory]);
+    },
+    [gameState, editingPlanetId, commandHistory],
+  );
 
   // Command handlers
-  const handleQueueItem = useCallback((itemId: string, quantity: number) => {
-    setError(null);
-    if (!currentPlanet || !controller) {
-      setError('No planet selected');
-      return;
-    }
-
-    try {
-      const def = defs[itemId];
-      if (def?.lane === 'research') {
-        const nextState = queueGlobalResearch(gameState, itemId);
-        const queuedEntry = nextState.globalResearch.lane.pendingQueue[nextState.globalResearch.lane.pendingQueue.length - 1];
-        if (queuedEntry) commandHistory.recordQueueResearch(itemId, queuedEntry.id);
-        setGameState(refreshLocalResearchGates(nextState));
+  const handleQueueItem = useCallback(
+    (itemId: string, quantity: number) => {
+      setError(null);
+      if (!currentPlanet || !controller) {
+        setError("No planet selected");
         return;
       }
 
-      if (!isPlanetViewAvailable) {
-        setError(planetUnavailableReason || 'Planet is not active at this turn');
-        return;
-      }
+      try {
+        const def = defs[itemId];
+        if (def?.lane === "research") {
+          const nextState = queueGlobalResearch(gameState, itemId);
+          const queuedEntry =
+            nextState.globalResearch.lane.pendingQueue[
+              nextState.globalResearch.lane.pendingQueue.length - 1
+            ];
+          if (queuedEntry)
+            commandHistory.recordQueueResearch(itemId, queuedEntry.id);
+          setGameState(refreshLocalResearchGates(nextState));
+          return;
+        }
 
-      const researchGate = getLocalResearchGateForItem(gameState, itemId, planTurn, defs, researchCompletionTurns);
-      const missingUnscheduled = researchGate.blockedResearch[0];
-      if (missingUnscheduled) {
-        setError(`Missing research prerequisite: ${defs[missingUnscheduled]?.name || missingUnscheduled}`);
-        return;
-      }
+        if (!isPlanetViewAvailable) {
+          setError(
+            planetUnavailableReason || "Planet is not active at this turn",
+          );
+          return;
+        }
 
-      const result = controller.queueItem(planTurn, itemId, quantity, {
-        completedResearch: researchGate.completedResearch,
-        scheduledResearch: researchGate.scheduledResearch,
-        blockedResearch: researchGate.blockedResearch,
-        minStartTurn: researchGate.minStartTurn,
-      });
-      if (!result.success) {
-        setError(result.reason || 'Cannot queue item');
-        return;
-      }
+        const researchGate = getLocalResearchGateForItem(
+          gameState,
+          itemId,
+          planTurn,
+          defs,
+          researchCompletionTurns,
+        );
+        const missingUnscheduled = researchGate.blockedResearch[0];
+        if (missingUnscheduled) {
+          setError(
+            `Missing research prerequisite: ${defs[missingUnscheduled]?.name || missingUnscheduled}`,
+          );
+          return;
+        }
 
-      // Record command for URL encoding (pass entryId so cancel commands can reference it)
-      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
-      commandHistory.recordQueue(planetIdx, itemId, quantity, result.itemId ?? '');
-
-      // Update the planet in game state
-      const updatedPlanet = controller.getStateAtTurn(viewTurn);
-      if (updatedPlanet) {
-        setGameState(prev => {
-          const newPlanets = new Map(prev.planets);
-          const existing = newPlanets.get(gameState.currentPlanetId);
-          if (existing) newPlanets.set(gameState.currentPlanetId, withPlanetMetadata(updatedPlanet, existing));
-          return { ...prev, planets: newPlanets };
+        const result = controller.queueItem(planTurn, itemId, quantity, {
+          completedResearch: researchGate.completedResearch,
+          scheduledResearch: researchGate.scheduledResearch,
+          blockedResearch: researchGate.blockedResearch,
+          minStartTurn: researchGate.minStartTurn,
         });
-      }
+        if (!result.success) {
+          setError(result.reason || "Cannot queue item");
+          return;
+        }
 
-      // AUTO-ADVANCE: Move to the completion turn of the item we just added
-      // Shows the turn immediately following the new structure's completion
-      if (isAutoJumpEnabled && def && result.itemId) {
-        const displayState = controller.getStateAtTurn(planetTimelineEndTurn);
-        if (displayState) {
-          const laneView = getLaneView(displayState, def.lane);
-          const newlyAdded = laneView.entries.find(e => e.id === result.itemId);
-          if (newlyAdded) {
-            const endTurn = newlyAdded.completionTurn ?? newlyAdded.eta ?? viewTurn;
-            setViewTurn(Math.min(endTurn + 1, planetTimelineEndTurn));
+        // Record command for URL encoding (pass entryId so cancel commands can reference it)
+        const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+        commandHistory.recordQueue(
+          planetIdx,
+          itemId,
+          quantity,
+          result.itemId ?? "",
+        );
+
+        // Update the planet in game state
+        const updatedPlanet = controller.getStateAtTurn(viewTurn);
+        if (updatedPlanet) {
+          setGameState((prev) => {
+            const newPlanets = new Map(prev.planets);
+            const existing = newPlanets.get(gameState.currentPlanetId);
+            if (existing)
+              newPlanets.set(
+                gameState.currentPlanetId,
+                withPlanetMetadata(updatedPlanet, existing),
+              );
+            return { ...prev, planets: newPlanets };
+          });
+        }
+
+        // AUTO-ADVANCE: Move to the completion turn of the item we just added
+        // Shows the turn immediately following the new structure's completion
+        if (isAutoJumpEnabled && def && result.itemId) {
+          const displayState = controller.getStateAtTurn(planetTimelineEndTurn);
+          if (displayState) {
+            const laneView = getLaneView(displayState, def.lane);
+            const newlyAdded = laneView.entries.find(
+              (e) => e.id === result.itemId,
+            );
+            if (newlyAdded) {
+              const endTurn =
+                newlyAdded.completionTurn ?? newlyAdded.eta ?? viewTurn;
+              setViewTurn(Math.min(endTurn + 1, planetTimelineEndTurn));
+            }
           }
         }
+      } catch (e) {
+        console.error("Error in handleQueueItem:", e);
+        setError((e as Error).message || "Unknown error");
       }
-    } catch (e) {
-      console.error('Error in handleQueueItem:', e);
-      setError((e as Error).message || 'Unknown error');
-    }
-  }, [currentPlanet, currentPlanetId, controller, defs, viewTurn, gameState, commandHistory, isAutoJumpEnabled, researchCompletionTurns, planetTimelineEndTurn, planTurn, isPlanetViewAvailable, planetUnavailableReason]);
+    },
+    [
+      currentPlanet,
+      currentPlanetId,
+      controller,
+      defs,
+      viewTurn,
+      gameState,
+      commandHistory,
+      isAutoJumpEnabled,
+      researchCompletionTurns,
+      planetTimelineEndTurn,
+      planTurn,
+      isPlanetViewAvailable,
+      planetUnavailableReason,
+    ],
+  );
 
-  const handleQueueWait = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', waitTurns: number) => {
-    setError(null);
-    if (!currentPlanet || !controller) {
-      setError('No planet selected');
-      return;
-    }
-
-    try {
-      if (laneId === 'research') {
-        setGameState(prev => {
-          const nextState = queueGlobalResearchWait(prev, waitTurns);
-          const queuedEntry = nextState.globalResearch.lane.pendingQueue[nextState.globalResearch.lane.pendingQueue.length - 1];
-          if (queuedEntry) commandHistory.recordQueueResearchWait(waitTurns, queuedEntry.id);
-          return refreshLocalResearchGates(nextState);
-        });
+  const handleQueueWait = useCallback(
+    (
+      laneId: "building" | "ship" | "colonist" | "research",
+      waitTurns: number,
+    ) => {
+      setError(null);
+      if (!currentPlanet || !controller) {
+        setError("No planet selected");
         return;
       }
 
-      const result = controller.queueWaitItem(planTurn, laneId, waitTurns, false);
-      if (!result.success) {
-        setError(result.reason || 'Cannot queue wait item');
-        return;
-      }
+      try {
+        if (laneId === "research") {
+          setGameState((prev) => {
+            const nextState = queueGlobalResearchWait(prev, waitTurns);
+            const queuedEntry =
+              nextState.globalResearch.lane.pendingQueue[
+                nextState.globalResearch.lane.pendingQueue.length - 1
+              ];
+            if (queuedEntry)
+              commandHistory.recordQueueResearchWait(waitTurns, queuedEntry.id);
+            return refreshLocalResearchGates(nextState);
+          });
+          return;
+        }
 
-      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
-      commandHistory.recordQueueWait(Math.max(0, planetIdx), laneId, waitTurns, result.itemId ?? '');
+        const result = controller.queueWaitItem(
+          planTurn,
+          laneId,
+          waitTurns,
+          false,
+        );
+        if (!result.success) {
+          setError(result.reason || "Cannot queue wait item");
+          return;
+        }
 
-      // Update the planet in game state
-      const updatedPlanet = controller.getStateAtTurn(viewTurn);
-      if (updatedPlanet) {
-        setGameState(prev => {
-          const newPlanets = new Map(prev.planets);
-          const existing = newPlanets.get(gameState.currentPlanetId);
-          if (existing) newPlanets.set(gameState.currentPlanetId, withPlanetMetadata(updatedPlanet, existing));
-          return { ...prev, planets: newPlanets };
-        });
+        const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+        commandHistory.recordQueueWait(
+          Math.max(0, planetIdx),
+          laneId,
+          waitTurns,
+          result.itemId ?? "",
+        );
+
+        // Update the planet in game state
+        const updatedPlanet = controller.getStateAtTurn(viewTurn);
+        if (updatedPlanet) {
+          setGameState((prev) => {
+            const newPlanets = new Map(prev.planets);
+            const existing = newPlanets.get(gameState.currentPlanetId);
+            if (existing)
+              newPlanets.set(
+                gameState.currentPlanetId,
+                withPlanetMetadata(updatedPlanet, existing),
+              );
+            return { ...prev, planets: newPlanets };
+          });
+        }
+      } catch (e) {
+        console.error("Error in handleQueueWait:", e);
+        setError((e as Error).message || "Unknown error");
       }
-    } catch (e) {
-      console.error('Error in handleQueueWait:', e);
-      setError((e as Error).message || 'Unknown error');
-    }
-  }, [currentPlanet, currentPlanetId, controller, viewTurn, gameState, commandHistory, planTurn]);
+    },
+    [
+      currentPlanet,
+      currentPlanetId,
+      controller,
+      viewTurn,
+      gameState,
+      commandHistory,
+      planTurn,
+    ],
+  );
 
   // Core execution function to instantly cancel and auto-collapse queues
-  const executeCancellation = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
-    if (laneId === 'research') {
-      commandHistory.recordCancel(0, laneId, entry.id);
-      setGameState(prev => refreshLocalResearchGates(cancelGlobalResearch(prev, entry.id)));
-      return;
-    }
-
-    // Check if it's the last item before we cancel it
-    let wasLastItem = false;
-    const maxTurn = planetTimelineEndTurn;
-    const preCancelState = controller!.getStateAtTurn(maxTurn);
-    if (preCancelState) {
-      const laneView = getLaneView(preCancelState, laneId);
-      if (laneView.entries.length > 0 && laneView.entries[laneView.entries.length - 1].id === entry.id) {
-        wasLastItem = true;
+  const executeCancellation = useCallback(
+    (laneId: "building" | "ship" | "colonist" | "research", entry: any) => {
+      if (laneId === "research") {
+        commandHistory.recordCancel(0, laneId, entry.id);
+        setGameState((prev) =>
+          refreshLocalResearchGates(cancelGlobalResearch(prev, entry.id)),
+        );
+        return;
       }
-    }
 
-    // Cancel the item from the plan (T1 state) — works regardless of timeline position
-    const result = controller!.cancelPlannedItem(laneId, entry.id);
-
-    if (!result.success) {
-      if (result.reason === 'NOT_FOUND') {
-        setError('Item cannot be canceled (may be completed or non-existent)');
-      } else {
-        setError(result.reason || 'Cannot cancel item');
+      // Check if it's the last item before we cancel it
+      let wasLastItem = false;
+      const maxTurn = planetTimelineEndTurn;
+      const preCancelState = controller!.getStateAtTurn(maxTurn);
+      if (preCancelState) {
+        const laneView = getLaneView(preCancelState, laneId);
+        if (
+          laneView.entries.length > 0 &&
+          laneView.entries[laneView.entries.length - 1].id === entry.id
+        ) {
+          wasLastItem = true;
+        }
       }
-      return;
-    }
 
-    // Record cancel in command history so URL sharing replays it correctly
-    const planetIdx = Array.from(gameState.planets.keys()).indexOf(gameState.currentPlanetId);
-    commandHistory.recordCancel(Math.max(0, planetIdx), laneId, entry.id);
+      // Cancel the item from the plan (T1 state) — works regardless of timeline position
+      const result = controller!.cancelPlannedItem(laneId, entry.id);
 
-    // Repack ALL lanes (not just the cancelled lane) so cross-lane dependencies
-    // (e.g. a colonist waiting on a building prerequisite) are updated too.
-    controller!.repackAllLanes(planTurn);
+      if (!result.success) {
+        if (result.reason === "NOT_FOUND") {
+          setError(
+            "Item cannot be canceled (may be completed or non-existent)",
+          );
+        } else {
+          setError(result.reason || "Cannot cancel item");
+        }
+        return;
+      }
 
-    // BFS cascade: remove items whose prerequisites include the cancelled item's def ID
-    // (and transitively, items that depended on those).
-    // This is purely based on the prerequisites graph — NO timing re-checks,
-    // which previously caused unrelated items to be incorrectly swept away.
-    const newCascadeWarnings: Array<{ entryId: string; laneId: string; reason: string }> = [];
-    const cancelledDefIds = new Set<string>([entry.itemId]);
-    const allLaneIds: Array<'building' | 'ship' | 'colonist' | 'research'> = ['building', 'ship', 'colonist', 'research'];
+      // Record cancel in command history so URL sharing replays it correctly
+      const planetIdx = Array.from(gameState.planets.keys()).indexOf(
+        gameState.currentPlanetId,
+      );
+      commandHistory.recordCancel(Math.max(0, planetIdx), laneId, entry.id);
 
-    let moreFound = true;
-    while (moreFound) {
-      moreFound = false;
-      const scanState = controller!.getStateAtTurn(planTurn);
-      if (!scanState) break;
+      // Repack ALL lanes (not just the cancelled lane) so cross-lane dependencies
+      // (e.g. a colonist waiting on a building prerequisite) are updated too.
+      controller!.repackAllLanes(planTurn);
 
-      for (const scanLaneId of allLaneIds) {
-        const entries = getLaneView(scanState, scanLaneId).entries;
-        for (const qEntry of entries) {
-          // Skip wait items and entries already scheduled for removal
-          if (qEntry.isWait || qEntry.isAutoWait) continue;
-          const qDef = scanState.defs[qEntry.itemId];
-          if (!qDef) continue;
+      // BFS cascade: remove items whose prerequisites include the cancelled item's def ID
+      // (and transitively, items that depended on those).
+      // This is purely based on the prerequisites graph — NO timing re-checks,
+      // which previously caused unrelated items to be incorrectly swept away.
+      const newCascadeWarnings: Array<{
+        entryId: string;
+        laneId: string;
+        reason: string;
+      }> = [];
+      const cancelledDefIds = new Set<string>([entry.itemId]);
+      const allLaneIds: Array<"building" | "ship" | "colonist" | "research"> = [
+        "building",
+        "ship",
+        "colonist",
+        "research",
+      ];
 
-          // Only cascade if a prerequisite of this entry was directly cancelled
-          const hasCancelledPrereq = qDef.prerequisites?.some(p => cancelledDefIds.has(p));
-          if (hasCancelledPrereq) {
-            // This entry is now broken — cascade it too
-            cancelledDefIds.add(qEntry.itemId);
-            newCascadeWarnings.push({
-              entryId: qEntry.id,
-              laneId: scanLaneId,
-              reason: `${qDef.name || qEntry.itemId} — prerequisite removed`,
-            });
-            controller!.cancelPlannedItem(scanLaneId, qEntry.id);
-            moreFound = true; // Another pass needed for transitive dependents
+      let moreFound = true;
+      while (moreFound) {
+        moreFound = false;
+        const scanState = controller!.getStateAtTurn(planTurn);
+        if (!scanState) break;
+
+        for (const scanLaneId of allLaneIds) {
+          const entries = getLaneView(scanState, scanLaneId).entries;
+          for (const qEntry of entries) {
+            // Skip wait items and entries already scheduled for removal
+            if (qEntry.isWait || qEntry.isAutoWait) continue;
+            const qDef = scanState.defs[qEntry.itemId];
+            if (!qDef) continue;
+
+            // Only cascade if a prerequisite of this entry was directly cancelled
+            const hasCancelledPrereq = qDef.prerequisites?.some((p) =>
+              cancelledDefIds.has(p),
+            );
+            if (hasCancelledPrereq) {
+              // This entry is now broken — cascade it too
+              cancelledDefIds.add(qEntry.itemId);
+              newCascadeWarnings.push({
+                entryId: qEntry.id,
+                laneId: scanLaneId,
+                reason: `${qDef.name || qEntry.itemId} — prerequisite removed`,
+              });
+              controller!.cancelPlannedItem(scanLaneId, qEntry.id);
+              moreFound = true; // Another pass needed for transitive dependents
+            }
           }
         }
       }
-    }
 
-    // Repack once after all cascade removals to close the resulting gaps
-    if (newCascadeWarnings.length > 0) {
-      controller!.repackAllLanes(planTurn);
-    }
+      // Repack once after all cascade removals to close the resulting gaps
+      if (newCascadeWarnings.length > 0) {
+        controller!.repackAllLanes(planTurn);
+      }
 
-    setCascadeWarnings(newCascadeWarnings);
+      setCascadeWarnings(newCascadeWarnings);
 
-    let newViewTurn = viewTurn;
-    if (isAutoJumpEnabled && wasLastItem) {
-      const postCancelState = controller!.getStateAtTurn(maxTurn);
-      if (postCancelState) {
-        const laneView = getLaneView(postCancelState, laneId);
-        if (laneView.entries.length > 0) {
-          const lastItem = laneView.entries[laneView.entries.length - 1];
-          const endTurn = lastItem.completionTurn ?? lastItem.eta ?? 1;
-          newViewTurn = Math.min(endTurn + 1, maxTurn);
-        } else {
-          newViewTurn = currentPlanet?.startTurn ?? 1;
+      let newViewTurn = viewTurn;
+      if (isAutoJumpEnabled && wasLastItem) {
+        const postCancelState = controller!.getStateAtTurn(maxTurn);
+        if (postCancelState) {
+          const laneView = getLaneView(postCancelState, laneId);
+          if (laneView.entries.length > 0) {
+            const lastItem = laneView.entries[laneView.entries.length - 1];
+            const endTurn = lastItem.completionTurn ?? lastItem.eta ?? 1;
+            newViewTurn = Math.min(endTurn + 1, maxTurn);
+          } else {
+            newViewTurn = currentPlanet?.startTurn ?? 1;
+          }
         }
       }
-    }
 
-    // Update the planet in game state
-    const updatedPlanet = controller!.getStateAtTurn(newViewTurn);
-    if (updatedPlanet) {
-      setGameState(prev => {
-        const newPlanets = new Map(prev.planets);
-        const existing = newPlanets.get(gameState.currentPlanetId);
-        if (existing) newPlanets.set(gameState.currentPlanetId, withPlanetMetadata(updatedPlanet, existing));
-        return { ...prev, planets: newPlanets };
-      });
-      // Validate all remaining queue items after removal and cascade
-      const getLaneEntries = (state: any, lId: 'building' | 'ship' | 'colonist' | 'research') => {
-        return getLaneView(state, lId).entries;
-      };
+      // Update the planet in game state
+      const updatedPlanet = controller!.getStateAtTurn(newViewTurn);
+      if (updatedPlanet) {
+        setGameState((prev) => {
+          const newPlanets = new Map(prev.planets);
+          const existing = newPlanets.get(gameState.currentPlanetId);
+          if (existing)
+            newPlanets.set(
+              gameState.currentPlanetId,
+              withPlanetMetadata(updatedPlanet, existing),
+            );
+          return { ...prev, planets: newPlanets };
+        });
+        // Validate all remaining queue items after removal and cascade
+        const getLaneEntries = (
+          state: any,
+          lId: "building" | "ship" | "colonist" | "research",
+        ) => {
+          return getLaneView(state, lId).entries;
+        };
 
-      const validationResults = validateAllQueueItems(updatedPlanet, getLaneEntries);
+        const validationResults = validateAllQueueItems(
+          updatedPlanet,
+          getLaneEntries,
+        );
 
-      // Convert validation results to Map for efficient lookup
-      const validationMap = new Map<string, QueueValidationResult>();
-      for (const res of validationResults) {
-        validationMap.set(res.entryId, res);
+        // Convert validation results to Map for efficient lookup
+        const validationMap = new Map<string, QueueValidationResult>();
+        for (const res of validationResults) {
+          validationMap.set(res.entryId, res);
+        }
+
+        setQueueValidation(validationMap);
       }
-
-      setQueueValidation(validationMap);
-    }
-  }, [controller, viewTurn, gameState, setGameState, commandHistory, planTurn, planetTimelineEndTurn, currentPlanet?.startTurn, isAutoJumpEnabled]);
+    },
+    [
+      controller,
+      viewTurn,
+      gameState,
+      setGameState,
+      commandHistory,
+      planTurn,
+      planetTimelineEndTurn,
+      currentPlanet?.startTurn,
+      isAutoJumpEnabled,
+    ],
+  );
 
   const confirmPendingCancellation = useCallback(() => {
     if (!pendingCancellation || !controller) return;
 
     // Cancel all broken dependencies (most recent future ones first is safest to avoid weird chronological cascading bugs, though GameController handles it robustly)
-    const sortedBroken = [...pendingCancellation.brokenDependencies].sort((a, b) => (b.queuedTurn || 0) - (a.queuedTurn || 0));
+    const sortedBroken = [...pendingCancellation.brokenDependencies].sort(
+      (a, b) => (b.queuedTurn || 0) - (a.queuedTurn || 0),
+    );
 
     for (const dep of sortedBroken) {
-      controller.cancelPlannedItem(dep.laneId as 'building' | 'ship' | 'colonist' | 'research', dep.id);
+      controller.cancelPlannedItem(
+        dep.laneId as "building" | "ship" | "colonist" | "research",
+        dep.id,
+      );
     }
 
     // Finally cancel the root element the user actually clicked
@@ -1058,153 +1458,213 @@ export default function Home() {
     setPendingCancellation(null);
   }, [pendingCancellation, controller, executeCancellation]);
 
-  const handleCancelItem = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any) => {
-    setError(null);
-    if (laneId === 'research') {
-      executeCancellation(laneId, entry);
-      return;
-    }
-    if (!controller) {
-      setError('No planet selected');
-      return;
-    }
+  const handleCancelItem = useCallback(
+    (laneId: "building" | "ship" | "colonist" | "research", entry: any) => {
+      setError(null);
+      if (laneId === "research") {
+        executeCancellation(laneId, entry);
+        return;
+      }
+      if (!controller) {
+        setError("No planet selected");
+        return;
+      }
 
-    try {
-      // 1. Dependency Analysis for prerequisites
-      // Need to validate the full timeline to catch future breakages
-      const state = controller.getStateAtTurn(planetTimelineEndTurn);
-      if (state) {
-        const getLaneEntries = (s: any, lId: 'building' | 'ship' | 'colonist' | 'research') => getLaneView(s, lId).entries;
-        const brokenDependencies = getDependentQueueItems(state, entry, laneId, getLaneEntries);
-
-        // If there are broken things down the line, halt and show warning modal
-        if (brokenDependencies.length > 0) {
-          setPendingCancellation({
-            laneId,
+      try {
+        // 1. Dependency Analysis for prerequisites
+        // Need to validate the full timeline to catch future breakages
+        const state = controller.getStateAtTurn(planetTimelineEndTurn);
+        if (state) {
+          const getLaneEntries = (
+            s: any,
+            lId: "building" | "ship" | "colonist" | "research",
+          ) => getLaneView(s, lId).entries;
+          const brokenDependencies = getDependentQueueItems(
+            state,
             entry,
-            brokenDependencies
+            laneId,
+            getLaneEntries,
+          );
+
+          // If there are broken things down the line, halt and show warning modal
+          if (brokenDependencies.length > 0) {
+            setPendingCancellation({
+              laneId,
+              entry,
+              brokenDependencies,
+            });
+            return; // Abort standard cancellation
+          }
+        }
+
+        // 2. Standard Cancellation Execution
+        executeCancellation(laneId, entry);
+      } catch (e) {
+        setError((e as Error).message || "Unknown error");
+      }
+    },
+    [controller, executeCancellation, planetTimelineEndTurn],
+  );
+
+  const handleQuantityChange = useCallback(
+    (
+      laneId: "building" | "ship" | "colonist" | "research",
+      entry: any,
+      newQuantity: number,
+    ) => {
+      setError(null);
+      if (!controller) {
+        setError("No planet selected");
+        return;
+      }
+
+      try {
+        // Update quantity preserving position
+        const updateResult = controller.updateItemQuantity(
+          planTurn,
+          laneId,
+          entry.id,
+          newQuantity,
+        );
+
+        if (!updateResult.success) {
+          setError(`Failed to update quantity: ${updateResult.reason}`);
+          return;
+        }
+
+        // Update the planet in game state
+        const updatedPlanet = controller.getStateAtTurn(viewTurn);
+        if (updatedPlanet) {
+          setGameState((prev) => {
+            const newPlanets = new Map(prev.planets);
+            const existing = newPlanets.get(gameState.currentPlanetId);
+            if (existing)
+              newPlanets.set(
+                gameState.currentPlanetId,
+                withPlanetMetadata(updatedPlanet, existing),
+              );
+            return { ...prev, planets: newPlanets };
           });
-          return; // Abort standard cancellation
+        }
+      } catch (e) {
+        setError((e as Error).message || "Unknown error");
+      }
+    },
+    [controller, viewTurn, gameState, planTurn],
+  );
+
+  const handleReorder = useCallback(
+    (
+      laneId: "building" | "ship" | "colonist" | "research",
+      entryId: string,
+      newIndex: number,
+    ) => {
+      setError(null);
+      if (laneId === "research") {
+        const nextState = reorderGlobalResearch(gameState, entryId, newIndex);
+        if (nextState === gameState) {
+          setError("Cannot move research before its prerequisites.");
+          return;
+        }
+        commandHistory.recordReorder(0, laneId, entryId, newIndex);
+        setGameState(refreshLocalResearchGates(nextState));
+        return;
+      }
+      if (!controller) {
+        setError("No planet selected");
+        return;
+      }
+
+      try {
+        const result = controller.reorderQueueItem(
+          planTurn,
+          laneId,
+          entryId,
+          newIndex,
+        );
+
+        if (!result.success) {
+          setError(`Cannot reorder: ${result.reason || "unknown error"}`);
+          return;
+        }
+
+        // We should repack the queue following a reorder so items lock into their new places mathematically
+        controller.repackQueue(planTurn, laneId);
+        const planetIdx = getPlanetIndex(gameState, currentPlanetId);
+        commandHistory.recordReorder(
+          Math.max(0, planetIdx),
+          laneId,
+          entryId,
+          newIndex,
+        );
+
+        // Update the planet in game state
+        const updatedPlanet = controller.getStateAtTurn(viewTurn);
+        if (updatedPlanet) {
+          setGameState((prev) => {
+            const newPlanets = new Map(prev.planets);
+            const existing = newPlanets.get(gameState.currentPlanetId);
+            if (existing)
+              newPlanets.set(
+                gameState.currentPlanetId,
+                withPlanetMetadata(updatedPlanet, existing),
+              );
+            return { ...prev, planets: newPlanets };
+          });
+        }
+      } catch (e) {
+        console.error("Error reordering item:", e);
+        setError((e as Error).message || "Unknown error");
+      }
+    },
+    [
+      controller,
+      viewTurn,
+      gameState,
+      commandHistory,
+      planTurn,
+      currentPlanetId,
+    ],
+  );
+
+  const getMaxQuantity = useCallback(
+    (
+      laneId: "building" | "ship" | "colonist" | "research",
+      entry: any,
+    ): number => {
+      if (!controller) return entry.quantity;
+      const state = controller.getStateAtTurn(planetTimelineEndTurn);
+      if (!state) return entry.quantity;
+
+      const def = state.defs[entry.itemId];
+      if (!def) return entry.quantity;
+
+      // Binary search for maximum quantity
+      let low = 1;
+      let high = 10000;
+      let maxValid = entry.quantity;
+
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const validation = canQueueItem(entry.itemId, mid);
+
+        if (validation.allowed) {
+          maxValid = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
         }
       }
 
-      // 2. Standard Cancellation Execution
-      executeCancellation(laneId, entry);
-
-    } catch (e) {
-      setError((e as Error).message || 'Unknown error');
-    }
-  }, [controller, executeCancellation, planetTimelineEndTurn]);
-
-  const handleQuantityChange = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any, newQuantity: number) => {
-    setError(null);
-    if (!controller) {
-      setError('No planet selected');
-      return;
-    }
-
-    try {
-      // Update quantity preserving position
-      const updateResult = controller.updateItemQuantity(planTurn, laneId, entry.id, newQuantity);
-
-      if (!updateResult.success) {
-        setError(`Failed to update quantity: ${updateResult.reason}`);
-        return;
-      }
-
-      // Update the planet in game state
-      const updatedPlanet = controller.getStateAtTurn(viewTurn);
-      if (updatedPlanet) {
-        setGameState(prev => {
-          const newPlanets = new Map(prev.planets);
-          const existing = newPlanets.get(gameState.currentPlanetId);
-          if (existing) newPlanets.set(gameState.currentPlanetId, withPlanetMetadata(updatedPlanet, existing));
-          return { ...prev, planets: newPlanets };
-        });
-      }
-    } catch (e) {
-      setError((e as Error).message || 'Unknown error');
-    }
-  }, [controller, viewTurn, gameState, planTurn]);
-
-  const handleReorder = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entryId: string, newIndex: number) => {
-    setError(null);
-    if (laneId === 'research') {
-      const nextState = reorderGlobalResearch(gameState, entryId, newIndex);
-      if (nextState === gameState) {
-        setError('Cannot move research before its prerequisites.');
-        return;
-      }
-      commandHistory.recordReorder(0, laneId, entryId, newIndex);
-      setGameState(refreshLocalResearchGates(nextState));
-      return;
-    }
-    if (!controller) {
-      setError('No planet selected');
-      return;
-    }
-
-    try {
-      const result = controller.reorderQueueItem(planTurn, laneId, entryId, newIndex);
-
-      if (!result.success) {
-        setError(`Cannot reorder: ${result.reason || 'unknown error'}`);
-        return;
-      }
-
-      // We should repack the queue following a reorder so items lock into their new places mathematically
-      controller.repackQueue(planTurn, laneId);
-      const planetIdx = getPlanetIndex(gameState, currentPlanetId);
-      commandHistory.recordReorder(Math.max(0, planetIdx), laneId, entryId, newIndex);
-
-      // Update the planet in game state
-      const updatedPlanet = controller.getStateAtTurn(viewTurn);
-      if (updatedPlanet) {
-        setGameState(prev => {
-          const newPlanets = new Map(prev.planets);
-          const existing = newPlanets.get(gameState.currentPlanetId);
-          if (existing) newPlanets.set(gameState.currentPlanetId, withPlanetMetadata(updatedPlanet, existing));
-          return { ...prev, planets: newPlanets };
-        });
-      }
-    } catch (e) {
-      console.error('Error reordering item:', e);
-      setError((e as Error).message || 'Unknown error');
-    }
-  }, [controller, viewTurn, gameState, commandHistory, planTurn, currentPlanetId]);
-
-  const getMaxQuantity = useCallback((laneId: 'building' | 'ship' | 'colonist' | 'research', entry: any): number => {
-    if (!controller) return entry.quantity;
-    const state = controller.getStateAtTurn(planetTimelineEndTurn);
-    if (!state) return entry.quantity;
-
-    const def = state.defs[entry.itemId];
-    if (!def) return entry.quantity;
-
-    // Binary search for maximum quantity
-    let low = 1;
-    let high = 10000;
-    let maxValid = entry.quantity;
-
-    while (low <= high) {
-      const mid = Math.floor((low + high) / 2);
-      const validation = canQueueItem(entry.itemId, mid);
-
-      if (validation.allowed) {
-        maxValid = mid;
-        low = mid + 1;
-      } else {
-        high = mid - 1;
-      }
-    }
-
-    return maxValid;
-  }, [controller, canQueueItem, planetTimelineEndTurn]);
+      return maxValid;
+    },
+    [controller, canQueueItem, planetTimelineEndTurn],
+  );
 
   const handleAdvanceTurn = useCallback(() => {
     setError(null);
     if (!controller || !currentPlanet) {
-      setError('No planet selected');
+      setError("No planet selected");
       return;
     }
 
@@ -1217,7 +1677,7 @@ export default function Home() {
       // Update the planet in game state with new turn
       const updatedPlanet = controller.getStateAtTurn(newTurn);
       if (updatedPlanet) {
-        setGameState(prev => {
+        setGameState((prev) => {
           const newPlanets = new Map(prev.planets);
           const planetToUpdate = newPlanets.get(gameState.currentPlanetId);
           if (planetToUpdate) {
@@ -1229,7 +1689,7 @@ export default function Home() {
         });
       }
     } catch (e) {
-      setError((e as Error).message || 'Unknown error');
+      setError((e as Error).message || "Unknown error");
     }
   }, [controller, currentPlanet, gameState]);
 
@@ -1249,7 +1709,7 @@ export default function Home() {
       commandHistory.recordResetAllPlanets();
       setGameState(resetState);
     } catch (e) {
-      setError((e as Error).message || 'Unknown error');
+      setError((e as Error).message || "Unknown error");
     }
   }, [gameState, commandHistory]);
 
@@ -1265,9 +1725,9 @@ export default function Home() {
         startTurn: planet.startTurn,
         currentTurn: planet.currentTurn,
         lanes: [
-          getLaneView(exportState, 'building'),
-          getLaneView(exportState, 'ship'),
-          getLaneView(exportState, 'colonist'),
+          getLaneView(exportState, "building"),
+          getLaneView(exportState, "ship"),
+          getLaneView(exportState, "colonist"),
         ],
       };
     });
@@ -1278,17 +1738,36 @@ export default function Home() {
     };
   }, [gameState, viewTurn]);
 
-  const openExportModal = useCallback((mode: 'current' | 'full') => {
-    setExportSnapshot({
-      buildingLane: enrichedBuildingLane || { laneId: 'building' as const, entries: [] },
-      shipLane: enrichedShipLane || { laneId: 'ship' as const, entries: [] },
-      colonistLane: enrichedColonistLane || { laneId: 'colonist' as const, entries: [] },
-      researchLane: enrichedResearchLane || { laneId: 'research' as const, entries: [] },
-      currentTurn: viewTurn,
-      multiPlanetData: buildMultiPlanetExportData(),
-    });
-    setShowExportModal(mode);
-  }, [enrichedBuildingLane, enrichedShipLane, enrichedColonistLane, enrichedResearchLane, viewTurn, buildMultiPlanetExportData]);
+  const openExportModal = useCallback(
+    (mode: "current" | "full") => {
+      setExportSnapshot({
+        buildingLane: enrichedBuildingLane || {
+          laneId: "building" as const,
+          entries: [],
+        },
+        shipLane: enrichedShipLane || { laneId: "ship" as const, entries: [] },
+        colonistLane: enrichedColonistLane || {
+          laneId: "colonist" as const,
+          entries: [],
+        },
+        researchLane: enrichedResearchLane || {
+          laneId: "research" as const,
+          entries: [],
+        },
+        currentTurn: viewTurn,
+        multiPlanetData: buildMultiPlanetExportData(),
+      });
+      setShowExportModal(mode);
+    },
+    [
+      enrichedBuildingLane,
+      enrichedShipLane,
+      enrichedColonistLane,
+      enrichedResearchLane,
+      viewTurn,
+      buildMultiPlanetExportData,
+    ],
+  );
 
   // Snapshot the current encoded state for the saves modal — encapsulates the
   // same encode-once-then-summarise pattern used by the auto-save effect.
@@ -1297,7 +1776,11 @@ export default function Home() {
       const planetConfigs = extractPlanetConfigs(gameState);
       const commands = commandHistory.getCommands();
       if (commands.length === 0) return null;
-      const encoded = encodeGameState(planetConfigs, commands, activeShareMetadata);
+      const encoded = encodeGameState(
+        planetConfigs,
+        commands,
+        activeShareMetadata,
+      );
       const summary = buildSaveSummary(encoded);
       return { encoded, summary };
     } catch {
@@ -1305,22 +1788,31 @@ export default function Home() {
     }
   }, [gameState, commandHistory, activeShareMetadata]);
 
-  const buildCurrentShareURL = useCallback((metadata?: ShareMetadata | null) => {
-    const planetConfigs = extractPlanetConfigs(gameState);
-    const commands = commandHistory.getCommands();
-    if (commands.length === 0) return null;
+  const buildCurrentShareURL = useCallback(
+    (metadata?: ShareMetadata | null) => {
+      const planetConfigs = extractPlanetConfigs(gameState);
+      const commands = commandHistory.getCommands();
+      if (commands.length === 0) return null;
 
-    const encoded = encodeGameState(planetConfigs, commands, metadata ?? activeShareMetadata);
-    saveEncodedStateToURL(encoded);
-    lastAppliedShareRef.current = encoded;
-    return {
-      commandCount: commands.length,
-      url: buildShareURL(encoded),
-    };
-  }, [gameState, commandHistory, activeShareMetadata]);
+      const encoded = encodeGameState(
+        planetConfigs,
+        commands,
+        metadata ?? activeShareMetadata,
+      );
+      saveEncodedStateToURL(encoded);
+      lastAppliedShareRef.current = encoded;
+      return {
+        commandCount: commands.length,
+        url: buildShareURL(encoded),
+      };
+    },
+    [gameState, commandHistory, activeShareMetadata],
+  );
 
   const getShareMetadataForCurrentBuild = useCallback(() => {
-    const fallbackName = activeShareMetadata?.name || `${currentPlanet?.name ?? 'Homeworld'} build list`;
+    const fallbackName =
+      activeShareMetadata?.name ||
+      `${currentPlanet?.name ?? "Homeworld"} build list`;
     return normaliseShareMetadata({
       name: shareListName.trim() || fallbackName,
       author: shareAuthor.trim() || undefined,
@@ -1332,24 +1824,27 @@ export default function Home() {
   // existing hash-based bootstrap rebuilds command history from scratch.
   // Reload (vs trying to splice state in-place) avoids any stale closures and
   // keeps the restore path identical to the share-link flow.
-  const handleRestoreSave = useCallback((encoded: string, label: string, options?: RestoreOptions) => {
-    if (typeof window === 'undefined') return;
-    try {
-      prepareRestoreForReload({
-        encoded,
-        shared: options?.shared === true,
-        autosaveTimerRef,
-        restoreInProgressRef,
-        lastAppliedShareRef,
-      });
-      setToast(`Loading "${label}"…`);
-      // Reload so loadStateFromURL runs cleanly on next mount.
-      setTimeout(() => window.location.reload(), 200);
-    } catch (e) {
-      restoreInProgressRef.current = false;
-      setError(`Failed to restore: ${(e as Error).message}`);
-    }
-  }, []);
+  const handleRestoreSave = useCallback(
+    (encoded: string, label: string, options?: RestoreOptions) => {
+      if (typeof window === "undefined") return;
+      try {
+        prepareRestoreForReload({
+          encoded,
+          shared: options?.shared === true,
+          autosaveTimerRef,
+          restoreInProgressRef,
+          lastAppliedShareRef,
+        });
+        setToast(`Loading "${label}"…`);
+        // Reload so loadStateFromURL runs cleanly on next mount.
+        setTimeout(() => window.location.reload(), 200);
+      } catch (e) {
+        restoreInProgressRef.current = false;
+        setError(`Failed to restore: ${(e as Error).message}`);
+      }
+    },
+    [],
+  );
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">
@@ -1357,9 +1852,9 @@ export default function Home() {
       <div
         className="fixed inset-0 z-0 bg-cover bg-no-repeat pointer-events-none"
         style={{
-          backgroundImage: 'url(/BG_Nebula.png)',
-          backgroundPosition: '33% center',
-          opacity: 0.2
+          backgroundImage: "url(/BG_Nebula.png)",
+          backgroundPosition: "33% center",
+          opacity: 0.2,
         }}
       />
 
@@ -1369,8 +1864,12 @@ export default function Home() {
         <header className="border-b border-white/10 bg-gradient-to-r from-pink-nebula-panel/95 via-[#190f22]/95 to-pink-nebula-panel/85 px-3 py-3 shadow-2xl shadow-black/20 md:px-6 md:py-4">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-3">
             <div>
-              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-pink-nebula-accent-secondary/80">Command planner</div>
-              <h1 className="text-lg font-black tracking-wide text-pink-nebula-text md:text-2xl">Infinite Conflict Simulator</h1>
+              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-pink-nebula-accent-secondary/80">
+                Command planner
+              </div>
+              <h1 className="text-lg font-black tracking-wide text-pink-nebula-text md:text-2xl">
+                Infinite Conflict Simulator
+              </h1>
             </div>
             <div className="hidden rounded-full border border-pink-nebula-accent-primary/25 bg-pink-nebula-accent-primary/10 px-3 py-1 text-xs font-semibold text-pink-100 sm:block">
               Local-first build planning
@@ -1388,288 +1887,368 @@ export default function Home() {
             lanes={enrichedLanes}
             defs={defs}
             onPlanetSelect={handlePlanetSwitch}
+            onExit={() => {
+              resetToCleanState("Shared build list closed");
+              setMobileView("queue");
+            }}
             onEdit={() => {
               setSharedBuildPreviewOpen(false);
-              setMobileView('queue');
+              setMobileView("queue");
             }}
           />
         ) : (
           <>
-        <BuildListSelector onRestore={handleRestoreSave} />
+            <BuildListSelector onRestore={handleRestoreSave} />
 
-        <div className="px-3 pb-3 md:px-6">
-          <div className="mx-auto grid max-w-[1800px] gap-2 rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-3 shadow-lg shadow-black/15 backdrop-blur-xl md:grid-cols-[minmax(220px,1fr)_minmax(180px,280px)_auto] md:items-end">
-            <label className="block">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">Shared list name</span>
-              <input
-                type="text"
-                value={shareListName}
-                onChange={(e) => setShareListName(e.target.value)}
-                placeholder={`${currentPlanet?.name ?? 'Homeworld'} build list`}
-                className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">Author</span>
-              <input
-                type="text"
-                value={shareAuthor}
-                onChange={(e) => setShareAuthor(e.target.value)}
-                placeholder="Optional commander name"
-                className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
-              />
-            </label>
-            <p className="text-xs leading-relaxed text-cyan-100/60 md:max-w-xs">
-              Used when copying a share link. No popups; edit it here whenever the plan gets a proper name.
-            </p>
-          </div>
-        </div>
-
-        {/* Planet Tabs - Multi-planet navigation */}
-        <div className="px-3 pb-2 md:px-6">
-          <div className="mx-auto max-w-[1800px]">
-            <PlanetTabs
-              planets={gameState.planets}
-              currentPlanetId={gameState.currentPlanetId}
-              onPlanetSwitch={handlePlanetSwitch}
-              onAddPlanet={handleAddPlanet}
-              onEditPlanet={handleEditPlanet}
-              maxPlanets={effectivePlanetLimit}
-              onResetQueue={handleResetQueue}
-            />
-          </div>
-        </div>
-
-        {activeShareMetadata && (
-          <div className="px-3 md:px-6">
-            <div className="max-w-[1800px] mx-auto rounded-2xl border border-blue-300/25 bg-blue-950/35 px-4 py-3 text-sm text-blue-100 shadow-xl shadow-blue-950/20 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-              <span className="font-semibold uppercase tracking-wide text-blue-200">Shared list</span>
-              <span className="font-bold text-pink-nebula-text">{activeShareMetadata.name}</span>
-              <span className="text-blue-200/80">by {activeShareMetadata.author}</span>
-              <span className="text-blue-200/60 sm:ml-auto">Opened from a shared link; save as mine from Saves → Shared.</span>
-            </div>
-          </div>
-        )}
-
-        {/* Error Display */}
-        {error && (
-          <div className="mt-4 px-3 md:px-6">
-            <div className="mx-auto w-full max-w-[1800px] rounded-2xl border border-red-400 bg-red-900/20 p-4 text-red-400">
-              {error}
-            </div>
-          </div>
-        )}
-
-        {/* Warnings Panel — includes engine warnings + cascade-removal notices */}
-        {allWarnings.length > 0 && (
-          <div className="px-3 md:px-6 mt-4">
-            <div className="mx-auto w-full max-w-[1800px]">
-              <WarningsPanel warnings={allWarnings} />
-            </div>
-          </div>
-        )}
-
-        {/* Planet Dashboard - Horizontal Overview */}
-        {summary ? (
-          <PlanetDashboard
-            summary={summary}
-            defs={defs}
-            turnsToHousingCap={currentState ? getTurnsUntilHousingCap(currentState, viewTurn) : null}
-            stocksEstimated={currentState?.activationUsedProjectedProduction === true}
-          />
-        ) : (
-          <div className="px-3 py-4 md:px-6">
-            <div className="mx-auto w-full max-w-[1800px]">
-              <Card className="p-5 border-amber-500/50 bg-amber-950/20">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <h2 className="text-lg font-bold text-amber-300">Planet not active at this turn</h2>
-                    <p className="text-sm text-pink-nebula-muted mt-1">
-                      {planetUnavailableReason || `No planet state is available for T${viewTurn}.`}
-                    </p>
-                  </div>
-                  {currentPlanet && (
-                    <button
-                      type="button"
-                      onClick={() => setViewTurn(currentPlanet.startTurn)}
-                      className="rounded-xl border border-pink-nebula-accent-secondary/45 bg-pink-nebula-accent-primary px-4 py-2 font-semibold text-white transition-colors hover:bg-pink-nebula-accent-secondary"
-                    >
-                      Go to T{currentPlanet.startTurn}
-                    </button>
-                  )}
-                </div>
-              </Card>
-            </div>
-          </div>
-        )}
-
-        {/* Horizontal Timeline - Between dashboard and queues */}
-        <div className="px-3 md:px-6">
-          <div className="mx-auto w-full max-w-[1800px]">
-            <HorizontalTimeline
-              currentTurn={viewTurn}
-              totalTurns={timelineMaxTurn}
-              onTurnChange={setViewTurn}
-              firstEmptyTurns={firstEmptyTurns}
-              isAutoJumpEnabled={isAutoJumpEnabled}
-              onAutoJumpToggle={setIsAutoJumpEnabled}
-            />
-          </div>
-        </div>
-
-        {/* Main Content - Side-by-side Tabbed Displays */}
-        <main className="flex-1 px-3 py-4 md:px-6 md:py-6">
-          <div className="mx-auto w-full max-w-[1800px]">
-            {!isPlanetViewAvailable ? (
-              <Card className="p-6">
-                <h2 className="text-2xl font-bold text-pink-nebula-text mb-3">Queue unavailable</h2>
-                <p className="text-sm text-pink-nebula-muted">
-                  Move to a turn where this planet exists before adding planet-local queue items. Planet tabs,
-                  turn navigation, global research, and Add Planet remain available.
+            <div className="px-3 pb-3 md:px-6">
+              <div className="mx-auto grid max-w-[1800px] gap-2 rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-3 shadow-lg shadow-black/15 backdrop-blur-xl md:grid-cols-[minmax(220px,1fr)_minmax(180px,280px)_auto] md:items-end">
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
+                    Shared list name
+                  </span>
+                  <input
+                    type="text"
+                    value={shareListName}
+                    onChange={(e) => setShareListName(e.target.value)}
+                    placeholder={`${currentPlanet?.name ?? "Homeworld"} build list`}
+                    className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
+                    Author
+                  </span>
+                  <input
+                    type="text"
+                    value={shareAuthor}
+                    onChange={(e) => setShareAuthor(e.target.value)}
+                    placeholder="Optional commander name"
+                    className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                  />
+                </label>
+                <p className="text-xs leading-relaxed text-cyan-100/60 md:max-w-xs">
+                  Used when copying a share link. No popups; edit it here
+                  whenever the plan gets a proper name.
                 </p>
-              </Card>
-            ) : (
-              <>
-                {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
-                <div className="md:hidden flex gap-1 mb-3 rounded-2xl border border-white/10 bg-pink-nebula-panel/70 p-1 shadow-xl shadow-black/20">
-                  <button
-                    onClick={() => setMobileView('build')}
-                    className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
-                      mobileView === 'build'
-                        ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
-                        : 'text-pink-nebula-text hover:bg-white/10'
-                    }`}
-                  >
-                    ➕ Build
-                  </button>
-                  <button
-                    onClick={() => setMobileView('queue')}
-                    className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
-                      mobileView === 'queue'
-                        ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow'
-                        : 'text-pink-nebula-text hover:bg-white/10'
-                    }`}
-                  >
-                    📋 Queue {totalQueuedItems > 0 && <span className="ml-1 text-xs opacity-80">({totalQueuedItems})</span>}
-                  </button>
-                </div>
+              </div>
+            </div>
 
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
-            {/* Left: Add to Queue (Item Selection) */}
-            <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'build' ? 'block' : 'hidden md:block'}`}>
-              <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text mb-4 md:mb-6">Add to Queue</h2>
-              <TabbedItemGrid
-                availableItems={availableItems}
-                onQueueItem={handleQueueItem}
-                onQueueWait={handleQueueWait}
-                canQueueItem={canQueueItem}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-              />
-            </Card>
+            {/* Planet Tabs - Multi-planet navigation */}
+            <div className="px-3 pb-2 md:px-6">
+              <div className="mx-auto max-w-[1800px]">
+                <PlanetTabs
+                  planets={gameState.planets}
+                  currentPlanetId={gameState.currentPlanetId}
+                  onPlanetSwitch={handlePlanetSwitch}
+                  onAddPlanet={handleAddPlanet}
+                  onEditPlanet={handleEditPlanet}
+                  maxPlanets={effectivePlanetLimit}
+                  onResetQueue={handleResetQueue}
+                />
+              </div>
+            </div>
 
-            {/* Right: Planet Queue (Lane Display) */}
-            <Card className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === 'queue' ? 'block' : 'hidden md:block'}`} data-export-target="planet-queue">
-              <div className="mb-4 space-y-3 md:mb-6">
-                <div className="flex min-h-[34px] flex-wrap items-center gap-2 md:gap-4">
-                  <h2 className="shrink-0 text-xl md:text-2xl font-bold text-pink-nebula-text">Planet Queue</h2>
-                  <div className="flex min-h-[28px] items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-pink-nebula-muted md:text-sm">
-                    <span className="font-mono text-pink-nebula-text">{totalQueuedItems} queued</span>
-                    <span className="text-pink-nebula-muted/45">|</span>
-                    <span className="font-mono text-pink-nebula-text">{isMounted ? window.location.href.length : 0}</span>
-                    <span className="hidden sm:inline">chars</span>
-                  </div>
-                </div>
-                <div className="grid min-h-[46px] w-full grid-cols-2 gap-2 xl:grid-cols-4">
-                  <button
-                    onClick={async () => {
-                      const metadata = getShareMetadataForCurrentBuild();
-                      if (!metadata) return;
-
-                      const share = buildCurrentShareURL(metadata);
-                      if (!share) {
-                        setToast('No queued plan to share yet');
-                        setTimeout(() => setToast(null), 3000);
-                        return;
-                      }
-                      const { commandCount: cmds, url } = share;
-                      const copied = await copyTextToClipboard(url);
-                      if (copied) {
-                        try {
-                          if (shareAuthor.trim()) {
-                            window.localStorage.setItem(SHARE_AUTHOR_STORAGE_KEY, shareAuthor.trim());
-                          }
-                        } catch { /* ignore */ }
-                        setToast(`Link copied — "${metadata.name}" by ${metadata.author}, ${cmds} command${cmds === 1 ? '' : 's'}`);
-                        setTimeout(() => setToast(null), 3000);
-                      } else {
-                        setToast('Could not copy — clipboard unavailable');
-                        setTimeout(() => setToast(null), 3000);
-                      }
-                    }}
-                    className="group inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-gradient-to-r from-emerald-500/95 to-teal-400/90 px-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-none transition duration-200 hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
-                    title="Copy a share link that opens this build list"
-                  >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-950/10 bg-slate-950/[0.12] text-slate-950" aria-hidden="true">
-                      <ActionGlyph name="link" />
-                    </span>
-                    <span className="truncate">Copy Share Link</span>
-                  </button>
-                  <button
-                    onClick={() => setShowSavesModal(true)}
-                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-sky-300/35 bg-sky-500/[0.14] px-3 text-sm font-bold text-sky-100 outline-none transition-colors duration-200 hover:border-sky-200/60 hover:bg-sky-500/[0.24] focus:ring-2 focus:ring-sky-300/35"
-                    title="Save, load, and import plans (stored on this device)"
-                  >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-sky-100/15 bg-sky-200/10 text-sky-100" aria-hidden="true">
-                      <ActionGlyph name="saves" />
-                    </span>
-                    <span className="truncate">Open Saves</span>
-                  </button>
-                  <button
-                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-amber-300/35 bg-amber-500/[0.14] px-3 text-sm font-bold text-amber-100 outline-none transition-colors duration-200 hover:border-amber-200/60 hover:bg-amber-500/[0.24] focus:ring-2 focus:ring-amber-300/35"
-                    onClick={() => openExportModal('current')}
-                    title="Export only the currently visible build order"
-                  >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-amber-100/15 bg-amber-200/10 text-amber-100" aria-hidden="true">
-                      <ActionGlyph name="export" />
-                    </span>
-                    <span className="truncate">Export Current</span>
-                  </button>
-                  <button
-                    onClick={() => openExportModal('full')}
-                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-violet-300/35 bg-violet-500/[0.16] px-3 text-sm font-bold text-violet-100 outline-none transition-colors duration-200 hover:border-violet-200/60 hover:bg-violet-500/[0.26] focus:ring-2 focus:ring-violet-300/35"
-                    title="Export the full build list across all future turns"
-                  >
-                    <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-violet-100/15 bg-violet-200/10 text-violet-100" aria-hidden="true">
-                      <ActionGlyph name="full-list" />
-                    </span>
-                    <span className="truncate">Export Full List</span>
-                  </button>
+            {activeShareMetadata && (
+              <div className="px-3 md:px-6">
+                <div className="max-w-[1800px] mx-auto rounded-2xl border border-blue-300/25 bg-blue-950/35 px-4 py-3 text-sm text-blue-100 shadow-xl shadow-blue-950/20 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                  <span className="font-semibold uppercase tracking-wide text-blue-200">
+                    Shared list
+                  </span>
+                  <span className="font-bold text-pink-nebula-text">
+                    {activeShareMetadata.name}
+                  </span>
+                  <span className="text-blue-200/80">
+                    by {activeShareMetadata.author}
+                  </span>
+                  <span className="text-blue-200/60 sm:ml-auto">
+                    Opened from a shared link; save as mine from Saves → Shared.
+                  </span>
                 </div>
               </div>
-              <TabbedLaneDisplay
-                buildingLane={enrichedBuildingLane}
-                shipLane={enrichedShipLane}
-                colonistLane={enrichedColonistLane}
-                researchLane={enrichedResearchLane}
-                currentTurn={viewTurn}
-                onCancel={(laneId, entry) => handleCancelItem(laneId, entry)}
-                onQuantityChange={(laneId, entry, newQty) => handleQuantityChange(laneId, entry, newQty)}
-                getMaxQuantity={(laneId, entry) => getMaxQuantity(laneId, entry)}
-                onReorder={(laneId, entryId, newIndex) => handleReorder(laneId, entryId, newIndex)}
-                disabled={false}
-                defs={defs}
-                activeTab={activeTab}
-                onTabChange={setActiveTab}
-                onTurnClick={setViewTurn}
-                maxTurn={timelineMaxTurn}
-              />
-            </Card>
-                </div>
-              </>
             )}
-          </div>
-        </main>
+
+            {/* Error Display */}
+            {error && (
+              <div className="mt-4 px-3 md:px-6">
+                <div className="mx-auto w-full max-w-[1800px] rounded-2xl border border-red-400 bg-red-900/20 p-4 text-red-400">
+                  {error}
+                </div>
+              </div>
+            )}
+
+            {/* Warnings Panel — includes engine warnings + cascade-removal notices */}
+            {allWarnings.length > 0 && (
+              <div className="px-3 md:px-6 mt-4">
+                <div className="mx-auto w-full max-w-[1800px]">
+                  <WarningsPanel warnings={allWarnings} />
+                </div>
+              </div>
+            )}
+
+            {/* Planet Dashboard - Horizontal Overview */}
+            {summary ? (
+              <PlanetDashboard
+                summary={summary}
+                defs={defs}
+                turnsToHousingCap={
+                  currentState
+                    ? getTurnsUntilHousingCap(currentState, viewTurn)
+                    : null
+                }
+                stocksEstimated={
+                  currentState?.activationUsedProjectedProduction === true
+                }
+              />
+            ) : (
+              <div className="px-3 py-4 md:px-6">
+                <div className="mx-auto w-full max-w-[1800px]">
+                  <Card className="p-5 border-amber-500/50 bg-amber-950/20">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="opacity-30 text-[10px]">v0.2.30</div>
+                      <div>
+                        <h2 className="text-lg font-bold text-amber-300">
+                          Planet not active at this turn
+                        </h2>
+                        <p className="text-sm text-pink-nebula-muted mt-1">
+                          {planetUnavailableReason ||
+                            `No planet state is available for T${viewTurn}.`}
+                        </p>
+                      </div>
+                      {currentPlanet && (
+                        <button
+                          type="button"
+                          onClick={() => setViewTurn(currentPlanet.startTurn)}
+                          className="rounded-xl border border-pink-nebula-accent-secondary/45 bg-pink-nebula-accent-primary px-4 py-2 font-semibold text-white transition-colors hover:bg-pink-nebula-accent-secondary"
+                        >
+                          Go to T{currentPlanet.startTurn}
+                        </button>
+                      )}
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            )}
+
+            {/* Horizontal Timeline - Between dashboard and queues */}
+            <div className="px-3 md:px-6">
+              <div className="mx-auto w-full max-w-[1800px]">
+                <HorizontalTimeline
+                  currentTurn={viewTurn}
+                  totalTurns={timelineMaxTurn}
+                  onTurnChange={setViewTurn}
+                  firstEmptyTurns={firstEmptyTurns}
+                  isAutoJumpEnabled={isAutoJumpEnabled}
+                  onAutoJumpToggle={setIsAutoJumpEnabled}
+                />
+              </div>
+            </div>
+
+            {/* Main Content - Side-by-side Tabbed Displays */}
+            <main className="flex-1 px-3 py-4 md:px-6 md:py-6">
+              <div className="mx-auto w-full max-w-[1800px]">
+                {!isPlanetViewAvailable ? (
+                  <Card className="p-6">
+                    <h2 className="text-2xl font-bold text-pink-nebula-text mb-3">
+                      Queue unavailable
+                    </h2>
+                    <p className="text-sm text-pink-nebula-muted">
+                      Move to a turn where this planet exists before adding
+                      planet-local queue items. Planet tabs, turn navigation,
+                      global research, and Add Planet remain available.
+                    </p>
+                  </Card>
+                ) : (
+                  <>
+                    {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
+                    <div className="md:hidden flex gap-1 mb-3 rounded-2xl border border-white/10 bg-pink-nebula-panel/70 p-1 shadow-xl shadow-black/20">
+                      <button
+                        onClick={() => setMobileView("build")}
+                        className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                          mobileView === "build"
+                            ? "bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow"
+                            : "text-pink-nebula-text hover:bg-white/10"
+                        }`}
+                      >
+                        ➕ Build
+                      </button>
+                      <button
+                        onClick={() => setMobileView("queue")}
+                        className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
+                          mobileView === "queue"
+                            ? "bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow"
+                            : "text-pink-nebula-text hover:bg-white/10"
+                        }`}
+                      >
+                        📋 Queue{" "}
+                        {totalQueuedItems > 0 && (
+                          <span className="ml-1 text-xs opacity-80">
+                            ({totalQueuedItems})
+                          </span>
+                        )}
+                      </button>
+                    </div>
+
+                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+                      {/* Left: Add to Queue (Item Selection) */}
+                      <Card
+                        className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === "build" ? "block" : "hidden md:block"}`}
+                      >
+                        <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text mb-4 md:mb-6">
+                          Add to Queue
+                        </h2>
+                        <TabbedItemGrid
+                          availableItems={availableItems}
+                          onQueueItem={handleQueueItem}
+                          onQueueWait={handleQueueWait}
+                          canQueueItem={canQueueItem}
+                          activeTab={activeTab}
+                          onTabChange={setActiveTab}
+                        />
+                      </Card>
+
+                      {/* Right: Planet Queue (Lane Display) */}
+                      <Card
+                        className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === "queue" ? "block" : "hidden md:block"}`}
+                        data-export-target="planet-queue"
+                      >
+                        <div className="mb-4 space-y-3 md:mb-6">
+                          <div className="flex min-h-[34px] flex-wrap items-center gap-2 md:gap-4">
+                            <h2 className="shrink-0 text-xl md:text-2xl font-bold text-pink-nebula-text">
+                              Planet Queue
+                            </h2>
+                            <div className="flex min-h-[28px] items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-pink-nebula-muted md:text-sm">
+                              <span className="font-mono text-pink-nebula-text">
+                                {totalQueuedItems} queued
+                              </span>
+                              <span className="text-pink-nebula-muted/45">
+                                |
+                              </span>
+                              <span className="font-mono text-pink-nebula-text">
+                                {isMounted ? window.location.href.length : 0}
+                              </span>
+                              <span className="hidden sm:inline">chars</span>
+                            </div>
+                          </div>
+                          <div className="grid min-h-[46px] w-full grid-cols-2 gap-2 xl:grid-cols-4">
+                            <button
+                              onClick={async () => {
+                                const metadata =
+                                  getShareMetadataForCurrentBuild();
+                                if (!metadata) return;
+
+                                const share = buildCurrentShareURL(metadata);
+                                if (!share) {
+                                  setToast("No queued plan to share yet");
+                                  setTimeout(() => setToast(null), 3000);
+                                  return;
+                                }
+                                const { commandCount: cmds, url } = share;
+                                const copied = await copyTextToClipboard(url);
+                                if (copied) {
+                                  try {
+                                    if (shareAuthor.trim()) {
+                                      window.localStorage.setItem(
+                                        SHARE_AUTHOR_STORAGE_KEY,
+                                        shareAuthor.trim(),
+                                      );
+                                    }
+                                  } catch {
+                                    /* ignore */
+                                  }
+                                  setToast(
+                                    `Link copied — "${metadata.name}" by ${metadata.author}, ${cmds} command${cmds === 1 ? "" : "s"}`,
+                                  );
+                                  setTimeout(() => setToast(null), 3000);
+                                } else {
+                                  setToast(
+                                    "Could not copy — clipboard unavailable",
+                                  );
+                                  setTimeout(() => setToast(null), 3000);
+                                }
+                              }}
+                              className="group inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-gradient-to-r from-emerald-500/95 to-teal-400/90 px-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-none transition duration-200 hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
+                              title="Copy a share link that opens this build list"
+                            >
+                              <span
+                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-950/10 bg-slate-950/[0.12] text-slate-950"
+                                aria-hidden="true"
+                              >
+                                <ActionGlyph name="link" />
+                              </span>
+                              <span className="truncate">Copy Share Link</span>
+                            </button>
+                            <button
+                              onClick={() => setShowSavesModal(true)}
+                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-sky-300/35 bg-sky-500/[0.14] px-3 text-sm font-bold text-sky-100 outline-none transition-colors duration-200 hover:border-sky-200/60 hover:bg-sky-500/[0.24] focus:ring-2 focus:ring-sky-300/35"
+                              title="Save, load, and import plans (stored on this device)"
+                            >
+                              <span
+                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-sky-100/15 bg-sky-200/10 text-sky-100"
+                                aria-hidden="true"
+                              >
+                                <ActionGlyph name="saves" />
+                              </span>
+                              <span className="truncate">Open Saves</span>
+                            </button>
+                            <button
+                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-amber-300/35 bg-amber-500/[0.14] px-3 text-sm font-bold text-amber-100 outline-none transition-colors duration-200 hover:border-amber-200/60 hover:bg-amber-500/[0.24] focus:ring-2 focus:ring-amber-300/35"
+                              onClick={() => openExportModal("current")}
+                              title="Export only the currently visible build order"
+                            >
+                              <span
+                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-amber-100/15 bg-amber-200/10 text-amber-100"
+                                aria-hidden="true"
+                              >
+                                <ActionGlyph name="export" />
+                              </span>
+                              <span className="truncate">Export Current</span>
+                            </button>
+                            <button
+                              onClick={() => openExportModal("full")}
+                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-violet-300/35 bg-violet-500/[0.16] px-3 text-sm font-bold text-violet-100 outline-none transition-colors duration-200 hover:border-violet-200/60 hover:bg-violet-500/[0.26] focus:ring-2 focus:ring-violet-300/35"
+                              title="Export the full build list across all future turns"
+                            >
+                              <span
+                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-violet-100/15 bg-violet-200/10 text-violet-100"
+                                aria-hidden="true"
+                              >
+                                <ActionGlyph name="full-list" />
+                              </span>
+                              <span className="truncate">Export Full List</span>
+                            </button>
+                          </div>
+                        </div>
+                        <TabbedLaneDisplay
+                          buildingLane={enrichedBuildingLane}
+                          shipLane={enrichedShipLane}
+                          colonistLane={enrichedColonistLane}
+                          researchLane={enrichedResearchLane}
+                          currentTurn={viewTurn}
+                          onCancel={(laneId, entry) =>
+                            handleCancelItem(laneId, entry)
+                          }
+                          onQuantityChange={(laneId, entry, newQty) =>
+                            handleQuantityChange(laneId, entry, newQty)
+                          }
+                          getMaxQuantity={(laneId, entry) =>
+                            getMaxQuantity(laneId, entry)
+                          }
+                          onReorder={(laneId, entryId, newIndex) =>
+                            handleReorder(laneId, entryId, newIndex)
+                          }
+                          disabled={false}
+                          defs={defs}
+                          activeTab={activeTab}
+                          onTabChange={setActiveTab}
+                          onTurnClick={setViewTurn}
+                          maxTurn={timelineMaxTurn}
+                        />
+                      </Card>
+                    </div>
+                  </>
+                )}
+              </div>
+            </main>
           </>
         )}
 
@@ -1682,13 +2261,13 @@ export default function Home() {
               if (share) {
                 const copied = await copyTextToClipboard(share.url);
                 if (copied) {
-                  setToast('Debug URL copied to clipboard');
+                  setToast("Debug URL copied to clipboard");
                   setTimeout(() => setToast(null), 3000);
                 } else {
-                  window.prompt('Copy debug URL', share.url);
+                  window.prompt("Copy debug URL", share.url);
                 }
               } else {
-                alert('No state to copy yet.');
+                alert("No state to copy yet.");
               }
             }}
             title="Copy URL with full command history to clipboard for bug reporting"
@@ -1726,7 +2305,7 @@ export default function Home() {
         }}
         onAddPlanet={handleCreatePlanet}
         currentTurn={planetModalTurn}
-        mode={editingPlanetId ? 'edit' : 'add'}
+        mode={editingPlanetId ? "edit" : "add"}
         initialConfig={editingPlanetConfig}
       />
 
