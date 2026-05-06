@@ -288,7 +288,7 @@ describe('ExportModal', () => {
     expect(exportedCanvases).toHaveLength(1);
     const canvas = exportedCanvases[0];
     expect(canvas.width).toBeGreaterThan(500);
-    expect(context.fillText).toHaveBeenCalledWith('QUEUE', expect.any(Number), expect.any(Number));
+    expect(context.fillText).toHaveBeenCalledWith('START', expect.any(Number), expect.any(Number));
     expect(context.fillText).toHaveBeenCalledWith('STRUCTURE', expect.any(Number), expect.any(Number));
     expect(context.fillText).toHaveBeenCalledWith('SHIP', expect.any(Number), expect.any(Number));
   });

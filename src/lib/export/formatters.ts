@@ -260,7 +260,7 @@ export function formatAsDiscordMessages(laneViews: LaneView[], maxTurn?: number)
 
   const header = [
     '```',
-    '| Queue | Structure       | Ship            | Colonist        | Research        |',
+    '| Start | Structure       | Ship            | Colonist        | Research        |',
     '|-------|-----------------|-----------------|-----------------|-----------------|',
   ].join('\n');
   const footer = '\n```';
@@ -365,7 +365,7 @@ export function formatMultiPlanetAsDiscordMessages(data: MultiPlanetExportData, 
       return;
     }
 
-    lines.push('| Queue | Lane      | Item            |');
+    lines.push('| Start | Lane      | Item            |');
     lines.push('|-------|-----------|-----------------|');
     items.forEach((item) => {
       lines.push(`| ${String(item.turn).padEnd(5)} | ${fitDiscordCell(laneLabel(item.lane), 9)} | ${fitDiscordCell(formatQueueItemLabel(item), 15)} |`);
@@ -378,7 +378,7 @@ export function formatMultiPlanetAsDiscordMessages(data: MultiPlanetExportData, 
   if (researchItems.length === 0) {
     lines.push('No research queued.');
   } else {
-    lines.push('| Queue | Research        |');
+    lines.push('| Start | Research        |');
     lines.push('|-------|-----------------|');
     researchItems.forEach((item) => {
       lines.push(`| ${String(item.turn).padEnd(5)} | ${fitDiscordCell(formatQueueItemLabel(item), 15)} |`);

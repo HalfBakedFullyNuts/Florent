@@ -100,7 +100,7 @@ export function exportGameStateDiscord(gameState: GameState): string {
       });
 
       // Create table
-      lines.push('| Queue | Building | Ship | Colonist |');
+      lines.push('| Start | Building | Ship | Colonist |');
       lines.push('|-------|----------|------|----------|');
 
       const sortedTurns = Array.from(byTurn.keys()).sort((a, b) => a - b);
