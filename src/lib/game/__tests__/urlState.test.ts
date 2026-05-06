@@ -1,16 +1,19 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import LZString from 'lz-string';
 import {
+  buildCompactShareURL,
   buildShareURL,
   decodeGameState,
+  encodeCompactShareState,
   encodeGameState,
   getEncodedStateFromURL,
   getShareMetadataFromSnapshot,
   loadStateFromURL,
   saveEncodedStateToURL,
   clearStateFromURL,
+  replayCommands,
 } from '../urlState';
-import type { PlanetConfig } from '../gameState';
+import { createInitialGameState, type PlanetConfig } from '../gameState';
 
 const homeworldConfig: PlanetConfig = {
   name: 'Homeworld',
@@ -120,6 +123,45 @@ describe('URL state helpers', () => {
     expect(encoded.startsWith('b3.')).toBe(true);
     expect(encoded.length).toBeLessThan(legacyEncoded.length);
     expect(decodeGameState(encoded)?.cmds).toEqual(commands);
+  });
+
+  test('encodes compact q4 share links from the canonical plan', () => {
+    const commands: Parameters<typeof encodeGameState>[1] = [
+      ['q', 0, 11, 1],
+      ['w', 0, 'b', 3],
+      ['q', 0, 30, 2],
+      ['qr', 50],
+      ['qw', 5],
+    ];
+    const gameState = replayCommands(createInitialGameState(), commands);
+    const encoded = encodeCompactShareState(gameState, {
+      name: 'Compact Rush',
+      author: 'Ada',
+      sharedAt: '2026-05-04T13:00:00.000Z',
+    });
+    const url = buildCompactShareURL(encoded);
+    const snapshot = decodeGameState(encoded);
+    const canonicalCommands: Parameters<typeof encodeGameState>[1] = [
+      ['qr', 50],
+      ['qw', 5],
+      ['q', 0, 11, 1],
+      ['w', 0, 'b', 3],
+      ['q', 0, 30, 2],
+    ];
+
+    expect(encoded.startsWith('q4.')).toBe(true);
+    expect(url).toBe(`${window.location.origin}/#q=${encoded.slice(3)}`);
+    expect(snapshot?.v).toBe(4);
+    expect(snapshot?.cmds).toEqual(canonicalCommands);
+    expect(snapshot ? getShareMetadataFromSnapshot(snapshot) : null).toMatchObject({
+      name: 'Compact Rush',
+      author: 'Ada',
+    });
+  });
+
+  test('compact q4 rejects malformed payloads cleanly', () => {
+    expect(decodeGameState('q4.not-valid')).toBeNull();
+    expect(decodeGameState('q4.')).toBeNull();
   });
 
   test('round-trips binary custom planets, research, resets, and share metadata', () => {

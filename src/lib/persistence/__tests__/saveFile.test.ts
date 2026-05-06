@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { serialiseSaveFile, parseSaveFile, parsePortableSaveText, buildDefaultFilename } from '../saveFile';
-import { encodeGameState } from '../../game/urlState';
+import { buildCompactShareURL, encodeCompactShareState, encodeGameState, replayCommands } from '../../game/urlState';
+import { createInitialGameState } from '../../game/gameState';
 import { buildSaveSummary } from '../saveSummary';
 
 const validEncoded = encodeGameState(
@@ -11,6 +12,10 @@ const sharedEncoded = encodeGameState(
   [{ name: 'Homeworld', startTurn: 1, abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 }, space: { groundCap: 60, orbitalCap: 40 } }],
   [['q', 0, 11, 1]],
   { name: 'Shared Opener', author: 'Ada', sharedAt: '2026-05-04T12:00:00.000Z' },
+);
+const compactSharedEncoded = encodeCompactShareState(
+  replayCommands(createInitialGameState(), [['q', 0, 11, 1]]),
+  { name: 'Compact Shared', author: 'Ada', sharedAt: '2026-05-04T12:00:00.000Z' },
 );
 
 describe('saveFile', () => {
@@ -72,6 +77,22 @@ describe('saveFile', () => {
 
     expect(parsed.ok).toBe(true);
     expect(parsed.file?.encoded).toBe(validEncoded);
+  });
+
+  it('imports a pasted compact shared URL', () => {
+    const parsed = parsePortableSaveText(buildCompactShareURL(compactSharedEncoded));
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.file?.encoded).toBe(compactSharedEncoded);
+    expect(parsed.file?.name).toBe('Compact Shared');
+    expect(parsed.file?.metadata.shareAuthor).toBe('Ada');
+  });
+
+  it('imports a raw compact share fragment', () => {
+    const parsed = parsePortableSaveText(`#q=${compactSharedEncoded.slice(3)}`);
+
+    expect(parsed.ok).toBe(true);
+    expect(parsed.file?.encoded).toBe(compactSharedEncoded);
   });
 
   it('rejects files that are not Florent saves', () => {

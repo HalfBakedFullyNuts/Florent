@@ -11,9 +11,11 @@ import gameDataRaw from '../lib/game/game_data.json';
 import { setupLogging } from '../lib/game/logging-utils';
 import {
   CommandHistory,
+  buildCompactShareURL,
   buildShareURL,
   clearStateFromURL,
   decodeGameState,
+  encodeCompactShareState,
   encodeGameState,
   extractPlanetConfigs,
   getEncodedStateFromURL,
@@ -1306,6 +1308,24 @@ export default function Home() {
   }, [gameState, commandHistory, activeShareMetadata]);
 
   const buildCurrentShareURL = useCallback((metadata?: ShareMetadata | null) => {
+    const commands = commandHistory.getCommands();
+    if (commands.length === 0) return null;
+
+    const encoded = encodeCompactShareState(gameState, metadata ?? activeShareMetadata);
+    lastAppliedShareRef.current = encoded;
+    const url = buildCompactShareURL(encoded);
+    if (typeof window !== 'undefined') {
+      try {
+        window.history.replaceState(window.history.state, '', url);
+      } catch { /* keep sharing functional even if history replacement fails */ }
+    }
+    return {
+      commandCount: commands.length,
+      url,
+    };
+  }, [gameState, commandHistory, activeShareMetadata]);
+
+  const buildCurrentDebugURL = useCallback((metadata?: ShareMetadata | null) => {
     const planetConfigs = extractPlanetConfigs(gameState);
     const commands = commandHistory.getCommands();
     if (commands.length === 0) return null;
@@ -1678,7 +1698,7 @@ export default function Home() {
           <button
             className="hover:text-pink-nebula-text transition-colors opacity-50 hover:opacity-100"
             onClick={async () => {
-              const share = buildCurrentShareURL(activeShareMetadata);
+              const share = buildCurrentDebugURL(activeShareMetadata);
               if (share) {
                 const copied = await copyTextToClipboard(share.url);
                 if (copied) {
