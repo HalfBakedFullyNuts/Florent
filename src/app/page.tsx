@@ -109,6 +109,7 @@ type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
 type RestoreOptions = { shared?: boolean };
 const SHARE_AUTHOR_STORAGE_KEY = "florent_share_author";
 const INFINITE_CONFLICT_URL = "https://www.infiniteconflict.com/";
+const EXTENDED_VIEW_TURNS = 300;
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
@@ -376,6 +377,10 @@ export default function Home() {
   const [editingPlanetId, setEditingPlanetId] = useState<string | null>(null);
   const [viewTurn, setViewTurn] = useState(1);
   const [isAutoJumpEnabled, setIsAutoJumpEnabled] = useState(true);
+  const [waitCodeStage, setWaitCodeStage] = useState<0 | 1 | 2>(0);
+  const [showWaitCodeModal, setShowWaitCodeModal] = useState(false);
+  const [extendedViewUnlocked, setExtendedViewUnlocked] = useState(false);
+  const [waitCodeCounts, setWaitCodeCounts] = useState({ awoo: 0, aroo: 0 });
   const [error, setError] = useState<string | null>(null);
   const [queueValidation, setQueueValidation] = useState<
     Map<string, QueueValidationResult>
@@ -427,6 +432,10 @@ export default function Home() {
       setSharedBuildPreviewOpen(false);
       setGameState(createInitialGameState());
       setViewTurn(1);
+      setWaitCodeStage(0);
+      setShowWaitCodeModal(false);
+      setExtendedViewUnlocked(false);
+      setWaitCodeCounts({ awoo: 0, aroo: 0 });
       setQueueValidation(new Map());
       setPendingCancellation(null);
       setCascadeWarnings([]);
@@ -561,11 +570,40 @@ export default function Home() {
     // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, viewTurn, gameState]);
+
+  useEffect(() => {
+    if (waitCodeStage === 2 && viewTurn === 123 && !extendedViewUnlocked) {
+      setShowWaitCodeModal(true);
+    }
+  }, [waitCodeStage, viewTurn, extendedViewUnlocked]);
+
+  useEffect(() => {
+    if (!extendedViewUnlocked) return;
+    setGameState((prev) => {
+      let changed = false;
+      for (const planet of prev.planets.values()) {
+        if (
+          planet.timeline &&
+          planet.timeline.getTotalTurns() < EXTENDED_VIEW_TURNS
+        ) {
+          planet.timeline.extendToTotalTurns(EXTENDED_VIEW_TURNS);
+          changed = true;
+        }
+      }
+      if (!changed) return prev;
+      return { ...prev, planets: new Map(prev.planets) };
+    });
+  }, [extendedViewUnlocked, gameState.planets]);
+
   const totalTurns = controller?.getTotalTurns() || 200;
   const planetTimelineEndTurn = currentPlanet
     ? currentPlanet.startTurn + totalTurns - 1
     : totalTurns;
-  const timelineMaxTurn = Math.max(200, planetTimelineEndTurn, viewTurn);
+  const timelineMaxTurn = Math.max(
+    extendedViewUnlocked ? EXTENDED_VIEW_TURNS : 200,
+    planetTimelineEndTurn,
+    viewTurn,
+  );
   const currentPlanetNumber = useMemo(() => {
     if (!currentPlanet) return 0;
     return Array.from(gameState.planets.keys()).indexOf(currentPlanet.id) + 1;
@@ -1195,6 +1233,14 @@ export default function Home() {
     ],
   );
 
+  const recordWaitCodeAttempt = useCallback((waitTurns: number) => {
+    setWaitCodeStage((stage) => {
+      if (waitTurns === 99) return 1;
+      if (waitTurns === 67 && stage === 1) return 2;
+      return 0;
+    });
+  }, []);
+
   const handleQueueWait = useCallback(
     (
       laneId: "building" | "ship" | "colonist" | "research",
@@ -1218,6 +1264,7 @@ export default function Home() {
               commandHistory.recordQueueResearchWait(waitTurns, queuedEntry.id);
             return refreshLocalResearchGates(nextState);
           });
+          recordWaitCodeAttempt(waitTurns);
           return;
         }
 
@@ -1239,6 +1286,7 @@ export default function Home() {
           waitTurns,
           result.itemId ?? "",
         );
+        recordWaitCodeAttempt(waitTurns);
 
         // Update the planet in game state
         const updatedPlanet = controller.getStateAtTurn(viewTurn);
@@ -1267,8 +1315,17 @@ export default function Home() {
       gameState,
       commandHistory,
       planTurn,
+      recordWaitCodeAttempt,
     ],
   );
+
+  const handleWaitCodeChoice = useCallback((choice: "awoo" | "aroo") => {
+    setWaitCodeCounts((counts) => ({
+      ...counts,
+      [choice]: counts[choice] + 1,
+    }));
+    setExtendedViewUnlocked(true);
+  }, []);
 
   // Core execution function to instantly cancel and auto-collapse queues
   const executeCancellation = useCallback(
@@ -1888,8 +1945,8 @@ export default function Home() {
       {/* Main Content Container */}
       <div className="flex flex-col flex-1 relative z-10">
         {/* Header */}
-        <header className="border-b border-white/10 bg-gradient-to-r from-pink-nebula-panel/95 via-[#190f22]/95 to-pink-nebula-panel/85 px-3 py-3 shadow-2xl shadow-black/20 md:px-6 md:py-4">
-          <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-3">
+        <header className="border-b border-white/10 bg-gradient-to-r from-pink-nebula-panel/95 via-[#190f22]/95 to-pink-nebula-panel/85 px-3 py-2 shadow-2xl shadow-black/20 md:px-6 md:py-3">
+          <div className="mx-auto flex max-w-[1800px] items-center gap-3">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-pink-nebula-accent-secondary/80">
                 Command planner
@@ -1904,9 +1961,6 @@ export default function Home() {
                   Infinite Conflict Simulator
                 </a>
               </h1>
-            </div>
-            <div className="hidden rounded-full border border-pink-nebula-accent-primary/25 bg-pink-nebula-accent-primary/10 px-3 py-1 text-xs font-semibold text-pink-100 sm:block">
-              Local-first build planning
             </div>
           </div>
         </header>
@@ -1933,38 +1987,37 @@ export default function Home() {
           />
         ) : (
           <>
-            <BuildListSelector onRestore={handleRestoreSave} />
-
-            <div className="px-3 pb-3 md:px-6">
-              <div className="mx-auto grid max-w-[1800px] gap-2 rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-3 shadow-lg shadow-black/15 backdrop-blur-xl md:grid-cols-[minmax(220px,1fr)_minmax(180px,280px)_auto] md:items-end">
-                <label className="block">
-                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
-                    Shared list name
-                  </span>
-                  <input
-                    type="text"
-                    value={shareListName}
-                    onChange={(e) => setShareListName(e.target.value)}
-                    placeholder="Build list"
-                    className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
-                  />
-                </label>
-                <label className="block">
-                  <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
-                    Author
-                  </span>
-                  <input
-                    type="text"
-                    value={shareAuthor}
-                    onChange={(e) => setShareAuthor(e.target.value)}
-                    placeholder="Optional commander name"
-                    className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
-                  />
-                </label>
-                <p className="text-xs leading-relaxed text-cyan-100/60 md:max-w-xs">
-                  Used when copying a share link. No popups; edit it here
-                  whenever the plan gets a proper name.
-                </p>
+            <div className="px-3 py-2 md:px-6">
+              <div className="grid gap-3 lg:grid-cols-[2fr_1fr] items-stretch">
+                <BuildListSelector onRestore={handleRestoreSave} />
+                <div className="rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-3 shadow-lg shadow-black/15 backdrop-blur-xl">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
+                        List name
+                      </span>
+                      <input
+                        type="text"
+                        value={shareListName}
+                        onChange={(e) => setShareListName(e.target.value)}
+                        placeholder="Build list"
+                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                      />
+                    </label>
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
+                        Author
+                      </span>
+                      <input
+                        type="text"
+                        value={shareAuthor}
+                        onChange={(e) => setShareAuthor(e.target.value)}
+                        placeholder="Commander"
+                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                      />
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -2039,7 +2092,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.30</div>
+                      <div className="opacity-30 text-[10px]">v0.2.32</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2309,7 +2362,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.29</div>
+          <div className="opacity-30 text-[10px]">v0.2.32</div>
         </footer>
       </div>
 
@@ -2353,6 +2406,74 @@ export default function Home() {
       />
 
       {/* Transient toast — shown after copy-link, etc. */}
+      {showWaitCodeModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="wait-code-title"
+        >
+          <div className="wait-code-shell relative w-full max-w-md overflow-hidden rounded-3xl border border-cyan-200/30 bg-gradient-to-br from-slate-950 via-[#231538] to-[#091827] p-6 text-center shadow-2xl shadow-cyan-500/20">
+            <div className="wait-code-spark wait-code-spark-a" />
+            <div className="wait-code-spark wait-code-spark-b" />
+            <div className="wait-code-spark wait-code-spark-c" />
+
+            <div className="relative z-10">
+              <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl border border-cyan-200/30 bg-cyan-300/10 text-3xl shadow-lg shadow-cyan-400/20">
+                123
+              </div>
+              <h2
+                id="wait-code-title"
+                className="mb-2 text-2xl font-black text-pink-nebula-text"
+              >
+                Signal found
+              </h2>
+              <p className="mx-auto mb-5 max-w-xs text-sm text-pink-nebula-muted">
+                Pick a response. The extended planning range is available after
+                either signal is sent.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleWaitCodeChoice("awoo")}
+                  className="wait-code-button rounded-2xl border border-fuchsia-200/35 bg-fuchsia-400/15 px-4 py-4 text-lg font-black text-fuchsia-50 transition hover:bg-fuchsia-400/25 focus:outline-none focus:ring-2 focus:ring-fuchsia-200/50"
+                >
+                  <span>awoo!</span>
+                  <span className="mt-2 block font-mono text-sm text-fuchsia-100/75">
+                    {waitCodeCounts.awoo}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleWaitCodeChoice("aroo")}
+                  className="wait-code-button rounded-2xl border border-cyan-200/35 bg-cyan-400/15 px-4 py-4 text-lg font-black text-cyan-50 transition hover:bg-cyan-400/25 focus:outline-none focus:ring-2 focus:ring-cyan-200/50"
+                >
+                  <span>aroo!</span>
+                  <span className="mt-2 block font-mono text-sm text-cyan-100/75">
+                    {waitCodeCounts.aroo}
+                  </span>
+                </button>
+              </div>
+
+              {extendedViewUnlocked && (
+                <div className="mt-5 rounded-2xl border border-emerald-200/35 bg-emerald-400/10 px-4 py-3 text-sm font-bold text-emerald-100">
+                  Planning range extended to T{EXTENDED_VIEW_TURNS}.
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setShowWaitCodeModal(false)}
+                className="mt-4 text-xs font-semibold text-pink-nebula-muted underline decoration-white/20 underline-offset-4 transition hover:text-pink-nebula-text"
+              >
+                Continue planning
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {toast && (
         <div
           role="status"
