@@ -46,6 +46,20 @@ export interface SharedBuildListSummary {
   description: string;
 }
 
+type ManagedMetaName =
+  | "description"
+  | "og:title"
+  | "og:description"
+  | "twitter:title"
+  | "twitter:description";
+
+interface ManagedMeta {
+  key: ManagedMetaName;
+  element: HTMLMetaElement;
+  previousContent: string | null;
+  created: boolean;
+}
+
 export function SharedBuildListView({
   name,
   author,
@@ -70,7 +84,7 @@ export function SharedBuildListView({
   );
   const originalPageMetadata = React.useRef<{
     title: string;
-    description: string | null;
+    metas: ManagedMeta[];
   } | null>(null);
 
   React.useEffect(() => {
@@ -78,16 +92,27 @@ export function SharedBuildListView({
       return;
     }
 
-    const meta = ensureMetaDescription();
     if (!originalPageMetadata.current) {
       originalPageMetadata.current = {
         title: document.title,
-        description: meta.getAttribute("content"),
+        metas: [
+          prepareManagedMeta("description"),
+          prepareManagedMeta("og:title"),
+          prepareManagedMeta("og:description"),
+          prepareManagedMeta("twitter:title"),
+          prepareManagedMeta("twitter:description"),
+        ],
       };
     }
 
-    document.title = `${name || "Shared build list"} | Infinite Conflict`;
-    meta.setAttribute("content", summary.description);
+    const pageTitle = `${name || "Shared build list"} | Infinite Conflict`;
+    document.title = pageTitle;
+    for (const meta of originalPageMetadata.current.metas) {
+      meta.element.setAttribute(
+        "content",
+        meta.key.endsWith("title") ? pageTitle : summary.description,
+      );
+    }
   }, [name, summary.description]);
 
   React.useEffect(() => {
@@ -96,12 +121,15 @@ export function SharedBuildListView({
         return;
       }
 
-      const meta = ensureMetaDescription();
       document.title = originalPageMetadata.current.title;
-      if (originalPageMetadata.current.description === null) {
-        meta.remove();
-      } else {
-        meta.setAttribute("content", originalPageMetadata.current.description);
+      for (const meta of originalPageMetadata.current.metas) {
+        if (meta.created) {
+          meta.element.remove();
+        } else if (meta.previousContent === null) {
+          meta.element.removeAttribute("content");
+        } else {
+          meta.element.setAttribute("content", meta.previousContent);
+        }
       }
     };
   }, []);
@@ -403,14 +431,34 @@ function formatSignedCount(value: number): string {
   return `${rounded >= 0 ? "+" : ""}${formatCount(rounded)}/t`;
 }
 
-function ensureMetaDescription(): HTMLMetaElement {
-  const existing = document.querySelector('meta[name="description"]');
-  if (existing instanceof HTMLMetaElement) return existing;
+function prepareManagedMeta(key: ManagedMetaName): ManagedMeta {
+  const selector = getMetaSelector(key);
+  const existing = document.querySelector(selector);
+  if (existing instanceof HTMLMetaElement) {
+    return {
+      key,
+      element: existing,
+      previousContent: existing.getAttribute("content"),
+      created: false,
+    };
+  }
 
   const meta = document.createElement("meta");
-  meta.setAttribute("name", "description");
+  const attribute = key.startsWith("og:") ? "property" : "name";
+  meta.setAttribute(attribute, key);
   document.head.appendChild(meta);
-  return meta;
+  return {
+    key,
+    element: meta,
+    previousContent: null,
+    created: true,
+  };
+}
+
+function getMetaSelector(key: ManagedMetaName): string {
+  return key.startsWith("og:")
+    ? `meta[property="${key}"]`
+    : `meta[name="${key}"]`;
 }
 
 function SharedLaneCard({

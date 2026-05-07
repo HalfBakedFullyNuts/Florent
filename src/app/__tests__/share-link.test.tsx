@@ -259,6 +259,24 @@ describe("share link flow", () => {
     expect(
       within(summary).queryByText("First outpost ship"),
     ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.title).toBe("All Lanes Opener | Infinite Conflict");
+      expect(
+        document
+          .querySelector('meta[name="description"]')
+          ?.getAttribute("content"),
+      ).toContain("Build list: All Lanes Opener");
+      expect(
+        document
+          .querySelector('meta[property="og:description"]')
+          ?.getAttribute("content"),
+      ).toContain("Home output T200");
+      expect(
+        document
+          .querySelector('meta[name="twitter:description"]')
+          ?.getAttribute("content"),
+      ).toContain("Home pop T200");
+    });
     const sharedLaneBoard = screen.getByTestId("shared-lane-board");
     expect(within(sharedLaneBoard).getByText("4T")).toBeInTheDocument();
     expect(within(sharedLaneBoard).queryByText("0T")).not.toBeInTheDocument();

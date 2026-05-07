@@ -681,15 +681,12 @@ function extractCompactSharePlan(
   return share ? { planets, research, planetLanes, share } : { planets, research, planetLanes };
 }
 
-function extractCompactEntries(items: Array<{ itemId: string; quantity: number; turnsRemaining: number; startTurn?: number; completionTurn?: number; isWait?: boolean; isAutoWait?: boolean }>): CompactLanePlan {
+function extractCompactEntries(items: Array<{ itemId: string; quantity: number; turnsRemaining: number; status?: string; queuedTurn?: number; startTurn?: number; completionTurn?: number; eta?: number | null; isWait?: boolean; isAutoWait?: boolean }>): CompactLanePlan {
   const entries: CompactLanePlan = [];
   for (const item of items) {
     if (item.isAutoWait) continue;
     if (item.isWait || item.itemId === '__wait__') {
-      const completedDuration = item.startTurn !== undefined && item.completionTurn !== undefined
-        ? item.completionTurn - item.startTurn
-        : 0;
-      const waitTurns = Math.max(item.turnsRemaining || 0, completedDuration);
+      const waitTurns = getCompactWaitTurns(item);
       if (waitTurns > 0) entries.push({ waitTurns });
       continue;
     }
@@ -698,6 +695,30 @@ function extractCompactEntries(items: Array<{ itemId: string; quantity: number; 
     entries.push({ itemCode, quantity: item.quantity });
   }
   return entries;
+}
+
+function getCompactWaitTurns(item: { turnsRemaining: number; status?: string; queuedTurn?: number; startTurn?: number; completionTurn?: number; eta?: number | null }): number {
+  const start = item.startTurn ?? item.queuedTurn;
+  const end = item.completionTurn ?? item.eta ?? undefined;
+
+  // Engine-completed waits finish on the first turn after the wait elapsed
+  // (a queued 3T wait from T1 completes at T4), so compact URLs use an
+  // exclusive end here to preserve the player's original command.
+  if (item.status === 'completed' && start !== undefined && end !== undefined && end >= start) {
+    return Math.max(1, end - start);
+  }
+
+  // Pending projected rows use inclusive display windows.
+  if (item.status === 'pending' && start !== undefined && end !== undefined && end >= start) {
+    return end - start + 1;
+  }
+
+  // Active rows expose ETA as the first turn after completion.
+  if (item.status === 'active' && start !== undefined && end !== undefined && end > start) {
+    return end - start;
+  }
+
+  return item.turnsRemaining || 0;
 }
 
 function encodeCompactSharePlan(plan: CompactSharePlan): string {
@@ -1245,6 +1266,17 @@ export function saveEncodedStateToURL(encoded: string): void {
 
 export function getEncodedStateFromURL(): string | null {
   if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const compactQuery = params.get('q');
+  if (compactQuery) {
+    return compactQuery.startsWith(COMPACT_SHARE_PREFIX)
+      ? compactQuery
+      : `${COMPACT_SHARE_PREFIX}${compactQuery}`;
+  }
+  const stateQuery = params.get('state');
+  if (stateQuery) {
+    return stateQuery;
+  }
   const hash = window.location.hash;
   if (!hash) return null;
   if (hash.startsWith(`#${COMPACT_SHARE_HASH_PREFIX}`)) {

@@ -14,6 +14,7 @@ import {
   replayCommands,
 } from '../urlState';
 import { createInitialGameState, type PlanetConfig } from '../gameState';
+import { getLaneView } from '../selectors';
 
 const homeworldConfig: PlanetConfig = {
   name: 'Homeworld',
@@ -156,6 +157,46 @@ describe('URL state helpers', () => {
     expect(snapshot ? getShareMetadataFromSnapshot(snapshot) : null).toMatchObject({
       name: 'Compact Rush',
       author: 'Ada',
+    });
+  });
+
+  test('loads compact q4 share payloads from query params for localhost summary testing', () => {
+    const commands: Parameters<typeof encodeGameState>[1] = [['q', 0, 11, 1]];
+    const gameState = replayCommands(createInitialGameState(), commands);
+    const encoded = encodeCompactShareState(gameState, {
+      name: 'Query Share',
+      author: 'Ada',
+      sharedAt: '2026-05-04T13:00:00.000Z',
+    });
+
+    window.history.replaceState(null, '', `/?q=${encoded.slice(3)}`);
+
+    expect(getEncodedStateFromURL()).toBe(encoded);
+    expect(loadStateFromURL()?.cmds).toEqual(commands);
+  });
+
+  test('compact q4 preserves player-added one-turn waits as lane entries', () => {
+    const commands: Parameters<typeof encodeGameState>[1] = [
+      ['w', 0, 'b', 1],
+      ['q', 0, 11, 1],
+    ];
+    const gameState = replayCommands(createInitialGameState(), commands);
+    const encoded = encodeCompactShareState(gameState, {
+      name: 'Wait Share',
+      author: 'Ada',
+      sharedAt: '2026-05-04T13:00:00.000Z',
+    });
+    const snapshot = decodeGameState(encoded);
+    const restored = replayCommands(createInitialGameState(), snapshot?.cmds ?? []);
+    const restoredHome = Array.from(restored.planets.values())[0];
+    const finalState = restoredHome.timeline?.getStateAtTurn(200) ?? restoredHome;
+    const buildingEntries = getLaneView(finalState, 'building').entries;
+
+    expect(snapshot?.cmds).toEqual(commands);
+    expect(buildingEntries.map((entry) => entry.itemId)).toEqual(['__wait__', 'farm']);
+    expect(buildingEntries[0]).toMatchObject({
+      itemId: '__wait__',
+      isWait: true,
     });
   });
 

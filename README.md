@@ -109,7 +109,7 @@ See `DOCKER.md` for the full container workflow. Note that the main Next.js conf
 - `DOCKER.md` - Docker setup and commands
 - `LOGGING_GUIDE.md` - Runtime logging/debugging helpers
 - `docs/EXPORT_TROUBLESHOOTING.md` - Export issue guide
-- `docs/RESEARCH_IMPLEMENTATION.md` - Research implementation notes
+- `docs/SHARE_METADATA_FUTURE.md` - Shared build-list summary metadata notes
 - `Architecture/ARCHITECTURAL_DECISIONS.md` - Architecture rationale
 - `Architecture/CoreLogicPseudocode.md` - Engine pseudocode
 - `CLAUDE.md` - Guidance for AI coding assistants
