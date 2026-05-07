@@ -108,6 +108,7 @@ import { buildSaveSummary } from "../lib/persistence/saveSummary";
 type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
 type RestoreOptions = { shared?: boolean };
 const SHARE_AUTHOR_STORAGE_KEY = "florent_share_author";
+const INFINITE_CONFLICT_URL = "https://www.infiniteconflict.com/";
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
@@ -1838,15 +1839,13 @@ export default function Home() {
   );
 
   const getShareMetadataForCurrentBuild = useCallback(() => {
-    const fallbackName =
-      activeShareMetadata?.name ||
-      `${currentPlanet?.name ?? "Homeworld"} build list`;
+    const fallbackName = activeShareMetadata?.name || "Build list";
     return normaliseShareMetadata({
       name: shareListName.trim() || fallbackName,
       author: shareAuthor.trim() || undefined,
       sharedAt: new Date().toISOString(),
     });
-  }, [activeShareMetadata, currentPlanet?.name, shareAuthor, shareListName]);
+  }, [activeShareMetadata, shareAuthor, shareListName]);
 
   // Restore a save: push the encoded state into the URL hash and reload so the
   // existing hash-based bootstrap rebuilds command history from scratch.
@@ -1896,7 +1895,14 @@ export default function Home() {
                 Command planner
               </div>
               <h1 className="text-lg font-black tracking-wide text-pink-nebula-text md:text-2xl">
-                Infinite Conflict Simulator
+                <a
+                  href={INFINITE_CONFLICT_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="transition hover:text-cyan-100"
+                >
+                  Infinite Conflict Simulator
+                </a>
               </h1>
             </div>
             <div className="hidden rounded-full border border-pink-nebula-accent-primary/25 bg-pink-nebula-accent-primary/10 px-3 py-1 text-xs font-semibold text-pink-100 sm:block">
@@ -1913,6 +1919,7 @@ export default function Home() {
             currentPlanetId={gameState.currentPlanetId}
             currentTurn={viewTurn}
             lanes={enrichedLanes}
+            multiPlanetData={buildMultiPlanetExportData()}
             defs={defs}
             onPlanetSelect={handlePlanetSwitch}
             onExit={() => {
@@ -1938,7 +1945,7 @@ export default function Home() {
                     type="text"
                     value={shareListName}
                     onChange={(e) => setShareListName(e.target.value)}
-                    placeholder={`${currentPlanet?.name ?? "Homeworld"} build list`}
+                    placeholder="Build list"
                     className="h-10 w-full rounded-xl border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
                   />
                 </label>

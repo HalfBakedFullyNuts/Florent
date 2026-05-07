@@ -208,7 +208,9 @@ describe("share link flow", () => {
 
     await screen.findByText(/1 queued/i);
     expect(screen.getByText("Shared list")).toBeInTheDocument();
-    expect(screen.getByText("Neighbor Tech Rush")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Neighbor Tech Rush" }),
+    ).toBeInTheDocument();
     expect(screen.getByText("by Lin")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /edit bl/i }),
@@ -233,7 +235,9 @@ describe("share link flow", () => {
 
     await screen.findByRole("button", { name: /edit bl/i });
     expect(screen.getByRole("button", { name: /^exit$/i })).toBeInTheDocument();
-    expect(screen.getByText("All Lanes Opener")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "All Lanes Opener" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /structures/i }),
     ).toBeInTheDocument();
@@ -247,6 +251,14 @@ describe("share link flow", () => {
     expect(screen.getByTestId("shared-lane-board")).toHaveClass(
       "xl:grid-cols-4",
     );
+    const summary = screen.getByLabelText(/build list summary/i);
+    expect(within(summary).getByText("Build list")).toBeInTheDocument();
+    expect(within(summary).getByText("All Lanes Opener")).toBeInTheDocument();
+    expect(within(summary).getByText("Home output T200")).toBeInTheDocument();
+    expect(within(summary).getByText("Home pop T200")).toBeInTheDocument();
+    expect(
+      within(summary).queryByText("First outpost ship"),
+    ).not.toBeInTheDocument();
     const sharedLaneBoard = screen.getByTestId("shared-lane-board");
     expect(within(sharedLaneBoard).getByText("4T")).toBeInTheDocument();
     expect(within(sharedLaneBoard).queryByText("0T")).not.toBeInTheDocument();

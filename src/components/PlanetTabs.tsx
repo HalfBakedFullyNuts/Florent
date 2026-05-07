@@ -27,11 +27,6 @@ export function PlanetTabs({
 }: PlanetTabsProps) {
   const planetArray = Array.from(planets.values());
 
-  const getPlanetIcon = (index: number) => {
-    const icons = ['Earth', 'Mars', 'Moon', 'Planet'];
-    return icons[index % icons.length];
-  };
-
   const handlePlanetClick = (planet: ExtendedPlanetState) => {
     if (planet.id === currentPlanetId && planet.id !== 'planet-1' && onEditPlanet) {
       onEditPlanet(planet.id);
@@ -47,11 +42,13 @@ export function PlanetTabs({
     >
       {planetArray.map((planet, index) => {
         const isActive = planet.id === currentPlanetId;
+        const planetLabel = `P${index + 1}`;
         return (
           <div
             role="button"
             tabIndex={0}
             key={planet.id}
+            aria-label={isActive && planet.id !== 'planet-1' ? `Edit ${planetLabel}` : `Switch to ${planetLabel}`}
             onClick={() => handlePlanetClick(planet)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
@@ -60,7 +57,7 @@ export function PlanetTabs({
               }
             }}
             suppressHydrationWarning
-            title={isActive && planet.id !== 'planet-1' ? 'Edit planet' : 'Switch planet'}
+            title={isActive && planet.id !== 'planet-1' ? `Edit ${planetLabel}` : `Switch to ${planetLabel}`}
             className={`
               min-h-[48px] justify-center rounded-xl px-3 py-2 font-semibold transition-all duration-200 sm:min-h-0 sm:px-4
               flex items-center gap-2 cursor-pointer
@@ -70,8 +67,7 @@ export function PlanetTabs({
               }
             `}
           >
-            <span className="text-xs uppercase tracking-wide opacity-70">{getPlanetIcon(index)}</span>
-            <span className="text-sm">{planet.name}</span>
+            <span className="text-sm font-black uppercase tracking-wide">{planetLabel}</span>
             <span className="text-xs opacity-70" suppressHydrationWarning>T{planet.currentTurn}</span>
           </div>
         );

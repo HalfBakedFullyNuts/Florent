@@ -2,10 +2,18 @@
 
 import React from "react";
 import type { ExtendedPlanetState } from "../lib/game/gameState";
-import type { LaneEntry, LaneView } from "../lib/game/selectors";
+import {
+  getPlanetSummary,
+  type LaneEntry,
+  type LaneView,
+} from "../lib/game/selectors";
 import type { LaneId } from "../lib/sim/engine/types";
 import { ALL_LANES, LANE_CONFIG } from "../lib/constants/lanes";
 import { formatPlannedWaitTurns } from "../lib/game/waitDuration";
+import type { MultiPlanetExportData } from "../lib/export/formatters";
+
+const SUMMARY_TURN = 200;
+const OFFICIAL_GAME_URL = "https://www.infiniteconflict.com/";
 
 interface SharedBuildListViewProps {
   name: string;
@@ -14,10 +22,28 @@ interface SharedBuildListViewProps {
   currentPlanetId: string;
   currentTurn: number;
   lanes: Record<LaneId, LaneView | null>;
+  multiPlanetData?: MultiPlanetExportData;
   defs: Record<string, any>;
   onPlanetSelect: (planetId: string) => void;
   onExit: () => void;
   onEdit: () => void;
+}
+
+interface SummaryInput {
+  name: string;
+  planets: Map<string, ExtendedPlanetState>;
+  lanes: Record<LaneId, LaneView | null>;
+  multiPlanetData?: MultiPlanetExportData;
+}
+
+interface SummaryFact {
+  label: string;
+  value: string;
+}
+
+export interface SharedBuildListSummary {
+  facts: SummaryFact[];
+  description: string;
 }
 
 export function SharedBuildListView({
@@ -27,17 +53,58 @@ export function SharedBuildListView({
   currentPlanetId,
   currentTurn,
   lanes,
+  multiPlanetData,
   defs,
   onPlanetSelect,
   onExit,
   onEdit,
 }: SharedBuildListViewProps) {
   const planetList = Array.from(planets.values());
-  const currentPlanet = planets.get(currentPlanetId) ?? planetList[0] ?? null;
   const totalItems = ALL_LANES.reduce(
     (sum, laneId) => sum + (lanes[laneId]?.entries.length ?? 0),
     0,
   );
+  const summary = React.useMemo(
+    () => buildSharedBuildListSummary({ name, planets, lanes, multiPlanetData }),
+    [name, planets, lanes, multiPlanetData],
+  );
+  const originalPageMetadata = React.useRef<{
+    title: string;
+    description: string | null;
+  } | null>(null);
+
+  React.useEffect(() => {
+    if (typeof document === "undefined" || summary.description.length === 0) {
+      return;
+    }
+
+    const meta = ensureMetaDescription();
+    if (!originalPageMetadata.current) {
+      originalPageMetadata.current = {
+        title: document.title,
+        description: meta.getAttribute("content"),
+      };
+    }
+
+    document.title = `${name || "Shared build list"} | Infinite Conflict`;
+    meta.setAttribute("content", summary.description);
+  }, [name, summary.description]);
+
+  React.useEffect(() => {
+    return () => {
+      if (typeof document === "undefined" || !originalPageMetadata.current) {
+        return;
+      }
+
+      const meta = ensureMetaDescription();
+      document.title = originalPageMetadata.current.title;
+      if (originalPageMetadata.current.description === null) {
+        meta.remove();
+      } else {
+        meta.setAttribute("content", originalPageMetadata.current.description);
+      }
+    };
+  }, []);
 
   return (
     <main className="flex-1 px-3 py-3 md:px-6 md:py-5">
@@ -58,12 +125,15 @@ export function SharedBuildListView({
                   <span>
                     {totalItems} queued item{totalItems === 1 ? "" : "s"}
                   </span>
-                  {currentPlanet && (
-                    <>
-                      <span className="hidden h-1 w-1 rounded-full bg-cyan-200/40 sm:inline-block" />
-                      <span>{currentPlanet.name}</span>
-                    </>
-                  )}
+                  <span className="hidden h-1 w-1 rounded-full bg-cyan-200/40 sm:inline-block" />
+                  <a
+                    href={OFFICIAL_GAME_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-bold text-cyan-100 underline decoration-cyan-200/35 underline-offset-4 transition hover:text-white hover:decoration-cyan-100"
+                  >
+                    Infinite Conflict
+                  </a>
                 </div>
               </div>
               <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
@@ -112,6 +182,32 @@ export function SharedBuildListView({
           </div>
 
           <div className="space-y-3 p-3 md:p-4">
+            {summary.facts.length > 0 && (
+              <div
+                aria-label="Build list summary"
+                className="rounded-2xl border border-cyan-200/15 bg-slate-950/28 p-3"
+              >
+                <div className="mb-2 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
+                  Build list summary
+                </div>
+                <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                  {summary.facts.map((fact) => (
+                    <div
+                      key={fact.label}
+                      className="min-w-0 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2"
+                    >
+                      <dt className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/55">
+                        {fact.label}
+                      </dt>
+                      <dd className="mt-1 text-sm font-black text-pink-nebula-text">
+                        {fact.value}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+            )}
+
             {planetList.length > 1 && (
               <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-2">
                 <div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
@@ -134,7 +230,6 @@ export function SharedBuildListView({
                         <span className="mr-2 text-[10px] uppercase tracking-[0.18em] opacity-65">
                           P{index + 1}
                         </span>
-                        {planet.name}
                         <span className="ml-2 text-xs opacity-60">
                           T{planet.startTurn}
                         </span>
@@ -171,6 +266,151 @@ export function SharedBuildListView({
       </div>
     </main>
   );
+}
+
+export function buildSharedBuildListSummary({
+  name,
+  planets,
+  lanes,
+  multiPlanetData,
+}: SummaryInput): SharedBuildListSummary {
+  const facts: SummaryFact[] = [];
+  const trimmedName = name.trim();
+  if (trimmedName.length > 0) {
+    facts.push({ label: "Build list", value: trimmedName });
+  }
+
+  const laneEntries = collectSummaryEntries(lanes, multiPlanetData);
+  const firstOutpost = findEarliestCompletion(laneEntries, "outpost_ship");
+  const firstInvasion = findEarliestCompletion(laneEntries, "invasion_ship");
+  const firstSoldiers = findEarliestCompletion(laneEntries, "soldier");
+  const outpostsBeforeTurnLimit = countQuantityStartingBefore(
+    laneEntries,
+    "outpost_ship",
+    SUMMARY_TURN,
+  );
+
+  if (firstOutpost !== null) {
+    facts.push({ label: "First outpost ship", value: `T${firstOutpost}` });
+  }
+  if (firstInvasion !== null) {
+    facts.push({ label: "First invasion ship", value: `T${firstInvasion}` });
+  }
+  if (firstSoldiers !== null) {
+    facts.push({ label: "First soldiers", value: `T${firstSoldiers}` });
+  }
+  if (outpostsBeforeTurnLimit > 0) {
+    facts.push({
+      label: `Outposts started before T${SUMMARY_TURN}`,
+      value: formatCount(outpostsBeforeTurnLimit),
+    });
+  }
+
+  const homeSummary = getHomeSummaryAtTurn(planets, SUMMARY_TURN);
+  if (homeSummary) {
+    facts.push({
+      label: `Home output T${SUMMARY_TURN}`,
+      value: [
+        `M ${formatSignedCount(homeSummary.outputsPerTurn.metal)}`,
+        `Min ${formatSignedCount(homeSummary.outputsPerTurn.mineral)}`,
+        `F ${formatSignedCount(homeSummary.outputsPerTurn.food)}`,
+      ].join(" / "),
+    });
+    facts.push({
+      label: `Home pop T${SUMMARY_TURN}`,
+      value: [
+        `W ${formatCount(homeSummary.population.workersTotal)}`,
+        `S ${formatCount(homeSummary.population.soldiers)}`,
+        `Sci ${formatCount(homeSummary.population.scientists)}`,
+      ].join(" / "),
+    });
+  }
+
+  return {
+    facts,
+    description: facts
+      .map((fact) => `${fact.label}: ${fact.value}`)
+      .join(" | "),
+  };
+}
+
+function collectSummaryEntries(
+  lanes: Record<LaneId, LaneView | null>,
+  multiPlanetData?: MultiPlanetExportData,
+): LaneEntry[] {
+  if (multiPlanetData?.planets.length) {
+    return multiPlanetData.planets.flatMap((planet) =>
+      planet.lanes.flatMap((lane) => lane.entries),
+    );
+  }
+
+  return ALL_LANES.filter((laneId) => laneId !== "research").flatMap(
+    (laneId) => lanes[laneId]?.entries ?? [],
+  );
+}
+
+function findEarliestCompletion(
+  entries: LaneEntry[],
+  itemId: string,
+): number | null {
+  let earliest: number | null = null;
+  for (const entry of entries) {
+    if (entry.itemId !== itemId) continue;
+    const completionTurn = entry.completionTurn ?? entry.eta;
+    if (typeof completionTurn !== "number" || completionTurn < 1) continue;
+    earliest =
+      earliest === null ? completionTurn : Math.min(earliest, completionTurn);
+  }
+  return earliest;
+}
+
+function countQuantityStartingBefore(
+  entries: LaneEntry[],
+  itemId: string,
+  turnLimit: number,
+): number {
+  return entries.reduce((sum, entry) => {
+    if (entry.itemId !== itemId) return sum;
+    const startTurn = entry.startTurn ?? entry.queuedTurn;
+    if (typeof startTurn !== "number" || startTurn >= turnLimit) return sum;
+    return sum + Math.max(1, entry.quantity || 1);
+  }, 0);
+}
+
+function getHomeSummaryAtTurn(
+  planets: Map<string, ExtendedPlanetState>,
+  turn: number,
+) {
+  const home = Array.from(planets.values())[0];
+  if (!home) return null;
+
+  const stateAtTurn = home.timeline?.getStateAtTurn(turn) ?? home;
+  try {
+    return getPlanetSummary(stateAtTurn);
+  } catch {
+    return null;
+  }
+}
+
+function formatCount(value: number): string {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 0,
+  }).format(Math.round(value));
+}
+
+function formatSignedCount(value: number): string {
+  const rounded = Math.round(value);
+  return `${rounded >= 0 ? "+" : ""}${formatCount(rounded)}/t`;
+}
+
+function ensureMetaDescription(): HTMLMetaElement {
+  const existing = document.querySelector('meta[name="description"]');
+  if (existing instanceof HTMLMetaElement) return existing;
+
+  const meta = document.createElement("meta");
+  meta.setAttribute("name", "description");
+  document.head.appendChild(meta);
+  return meta;
 }
 
 function SharedLaneCard({

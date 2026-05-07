@@ -6,7 +6,6 @@ export default function Header() {
       <div className="flex items-center gap-3">
         <nav className="flex items-center gap-2">
           <button className="px-3 py-1 rounded bg-pink-nebula-accent-primary text-pink-nebula-text">HW</button>
-          <button className="px-3 py-1 rounded text-pink-nebula-muted">Mars</button>
           <button className="px-3 py-1 rounded text-pink-nebula-muted border border-pink-nebula-border">+</button>
         </nav>
       </div>

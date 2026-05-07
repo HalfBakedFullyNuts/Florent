@@ -1,10 +1,10 @@
-﻿# Infinite Conflict Planner
+﻿# [Infinite Conflict Planner](https://www.infiniteconflict.com/)
 
-A deterministic build planner and turn simulator for Infinite Conflict, built with Next.js, React, TypeScript, and Vitest.
+A deterministic build planner and turn simulator for [Infinite Conflict](https://www.infiniteconflict.com/), built with Next.js, React, TypeScript, and Vitest.
 
 The app helps plan planet development across multiple production lanes, inspect future turns, manage queues, and export/share build orders.
 
-The live website can be found here: florent-infiniteconflict.statichost.page
+The live website can be found here: [florent-infiniteconflict.statichost.page](https://florent-infiniteconflict.statichost.page/)
 
 ## Features
 

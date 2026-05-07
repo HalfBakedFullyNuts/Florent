@@ -83,7 +83,7 @@ export function AddPlanetModal({
   initialConfig,
   mode = 'add',
 }: AddPlanetModalProps) {
-  const [name, setName] = useState(initialConfig?.name ?? 'Colony');
+  const [name, setName] = useState(initialConfig?.name ?? 'Planet');
   const [startTurn, setStartTurn] = useState(initialConfig?.startTurn ?? currentTurn);
   // Explicitly type to avoid readonly literal types
   const [abundance, setAbundance] = useState<{
@@ -105,7 +105,7 @@ export function AddPlanetModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    setName(initialConfig?.name ?? 'Colony');
+    setName(initialConfig?.name ?? 'Planet');
     setStartTurn(initialConfig?.startTurn ?? currentTurn);
     setAbundance(initialConfig
       ? {
@@ -293,34 +293,18 @@ export function AddPlanetModal({
             Basic Settings
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL_CLASS}>
-                Planet Name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onFocus={(e) => e.target.select()}
-                className={INPUT_CLASS}
-                placeholder="Enter planet name"
-              />
-            </div>
-
-            <div>
-              <label className={LABEL_CLASS}>
-                Start Turn
-              </label>
-              <input
-                type="number"
-                value={startTurn}
-                onChange={(e) => setStartTurn(Math.max(1, parseInt(e.target.value) || 1))}
-                onFocus={(e) => e.target.select()}
-                className={INPUT_CLASS}
-                min="1"
-              />
-            </div>
+          <div>
+            <label className={LABEL_CLASS}>
+              Start Turn
+            </label>
+            <input
+              type="number"
+              value={startTurn}
+              onChange={(e) => setStartTurn(Math.max(1, parseInt(e.target.value) || 1))}
+              onFocus={(e) => e.target.select()}
+              className={INPUT_CLASS}
+              min="1"
+            />
           </div>
         </div>
 
