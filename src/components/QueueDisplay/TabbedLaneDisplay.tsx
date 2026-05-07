@@ -6,6 +6,8 @@ import type { LaneId } from '../../lib/sim/engine/types';
 import { QueueLaneEntry } from './QueueLaneEntry';
 import { Card } from '@/components/ui/card';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
+import { LANE_MANUAL_TOPICS } from '../../lib/constants/manualLinks';
+import { ManualLink } from '@/components/ui/ManualLink';
 
 export interface TabbedLaneDisplayProps {
   buildingLane: LaneView | null;
@@ -105,6 +107,9 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
           <h3 className="text-lg font-bold text-pink-nebula-text">
             {config.title}
           </h3>
+          {LANE_MANUAL_TOPICS[activeTab]?.map((topic) => (
+            <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
+          ))}
           <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
             {laneView && laneView.entries.length > 0 ? `${laneView.entries.length}` : '—'}
           </span>

@@ -5,6 +5,8 @@ import type { ItemDefinition, LaneId } from '../../lib/sim/engine/types';
 import { Card } from '@/components/ui/card';
 import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
+import { LANE_MANUAL_TOPICS } from '../../lib/constants/manualLinks';
+import { ManualLink } from '@/components/ui/ManualLink';
 
 export interface SmartQueueCheckShape {
   allowed: boolean;
@@ -340,6 +342,9 @@ export function TabbedItemGrid({
           <h3 className="text-lg font-bold text-pink-nebula-text">
             {config.title}
           </h3>
+          {LANE_MANUAL_TOPICS[activeTab]?.map((topic) => (
+            <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
+          ))}
           <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
             {items.length} items
           </span>
