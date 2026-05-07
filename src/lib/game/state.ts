@@ -4,7 +4,7 @@
  */
 
 import type { PlanetState } from '../sim/engine/types';
-import { simulate, runTurn } from '../sim/engine/turn';
+import { runTurn } from '../sim/engine/turn';
 import { CompletionBuffer } from '../sim/engine/buffers';
 import { cloneState } from '../sim/engine/helpers';
 import { getLogger } from './logger';

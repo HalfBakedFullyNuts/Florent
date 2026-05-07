@@ -3,7 +3,7 @@
  * Determines if items can be queued now or eventually with waiting
  */
 
-import type { PlanetState, ItemDefinition, LaneId, WorkItem, ResourceId } from './types';
+import type { PlanetState, ItemDefinition, LaneId, ResourceId } from './types';
 import { hasPrereqs, isUniqueLimitReached, energyNonNegativeAfterCompletion } from './validation';
 import { computeProjectedNetOutputsPerTurn } from './outputs';
 

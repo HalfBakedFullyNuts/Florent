@@ -66,13 +66,6 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
     return `${(abundance * 100).toFixed(0)}%`;
   };
 
-  // Get ship names from item IDs
-  const shipsList = Object.entries(summary.ships).map(([shipId, count]) => ({
-    id: shipId,
-    name: shipId.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' '),
-    count,
-  }));
-
   // Get structure list with formatted display info
   const structuresList = useMemo(() => {
     const structures = Object.entries(summary.structures).map(([structureId, count]) => {

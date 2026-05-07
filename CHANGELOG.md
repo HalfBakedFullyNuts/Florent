@@ -6,6 +6,26 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com/en/
 
 ---
 
+## [0.2.31] — 2026-05-07
+
+### Changed
+- Removed unused legacy UI/orchestration files, placeholder exporters, stale root styles, and tracked SSH key artifacts from the active app tree.
+- Reduced queue render work by caching build-catalog queue checks per render and calculating editable max quantities only when the user commits a quantity edit.
+- Added a shared global-research turn view so the main page no longer rebuilds the global research lane and completion-plan projections separately.
+- Updated agent guidance and ADRs to reflect that `src/lib/game/` is now React-free and queue mutations remain centralized through `GameController`.
+- Updated the README image-export stack note from `html2canvas` to native canvas rendering.
+
+### Tests
+- Captured a baseline full Vitest run: 494 tests passed, 1 skipped, and the existing `share-link.test.tsx` clipboard-copy test timed out once before refactoring.
+- Post-refactor focused regression suite passed across global research, multi-planet integration, item-grid, lane-display, and share-link tests.
+- Full Vitest suite passed after cleanup: 42 test files, 494 tests passed, 1 skipped.
+- Production build passed after cleanup.
+
+### Bumped
+- `package.json`, `package-lock.json`, and both visible `src/app/page.tsx` footer versions to `0.2.31`.
+
+---
+
 ## [0.2.29] — 2026-05-05
 
 ### Fixed

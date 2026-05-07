@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
 import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
 
@@ -9,11 +9,9 @@ export interface QueueLaneEntryProps {
   currentTurn: number;
   onCancel: () => void;
   onQuantityChange?: (newQuantity: number) => void;
-  maxQuantity?: number;
+  getMaxQuantity?: () => number;
   disabled?: boolean;
-  isNewest?: boolean;
   def?: any; // ItemDefinition
-  busyWorkers?: number;
   showQuantityInput?: boolean;
   onTurnClick?: (turn: number) => void;
   maxTurn?: number;
@@ -32,21 +30,18 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   currentTurn,
   onCancel,
   onQuantityChange,
-  maxQuantity,
+  getMaxQuantity,
   disabled = false,
-  isNewest = false,
   def,
-  busyWorkers = 0,
   showQuantityInput = false,
   onTurnClick,
   maxTurn = 199,
 }: QueueLaneEntryProps) {
-  const [editingQuantity, setEditingQuantity] = useState(false);
   const [quantityValue, setQuantityValue] = useState(entry.quantity.toString());
 
   const handleQuantityBlur = () => {
-    setEditingQuantity(false);
     const newQty = parseInt(quantityValue) || 1;
+    const maxQuantity = getMaxQuantity?.();
     const clampedQty = maxQuantity ? Math.min(Math.max(1, newQty), maxQuantity) : Math.max(1, newQty);
 
     if (clampedQty !== entry.quantity && onQuantityChange) {
@@ -59,7 +54,6 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     if (e.key === 'Enter') {
       handleQuantityBlur();
     } else if (e.key === 'Escape') {
-      setEditingQuantity(false);
       setQuantityValue(entry.quantity.toString());
     }
   };
@@ -126,10 +120,9 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
             <input
               type="number"
               min="1"
-              max={maxQuantity}
+              max={undefined}
               value={quantityValue}
               onChange={(e) => setQuantityValue(e.target.value)}
-              onFocus={() => setEditingQuantity(true)}
               onBlur={handleQuantityBlur}
               onKeyDown={handleQuantityKeyDown}
               onClick={(e) => e.stopPropagation()}
@@ -188,10 +181,8 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.entry.completionTurn === nextProps.entry.completionTurn &&
     prevProps.entry.invalid === nextProps.entry.invalid &&
     prevProps.currentTurn === nextProps.currentTurn &&
-    prevProps.maxQuantity === nextProps.maxQuantity &&
+    prevProps.getMaxQuantity === nextProps.getMaxQuantity &&
     prevProps.disabled === nextProps.disabled &&
-    prevProps.isNewest === nextProps.isNewest &&
-    prevProps.busyWorkers === nextProps.busyWorkers &&
     prevProps.showQuantityInput === nextProps.showQuantityInput &&
     prevProps.def?.durationTurns === nextProps.def?.durationTurns &&
     prevProps.def?.duration === nextProps.def?.duration &&

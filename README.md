@@ -25,7 +25,7 @@ The live website can be found here: [florent-infiniteconflict.statichost.page](h
 - TypeScript
 - Tailwind CSS
 - Vitest and Testing Library
-- html2canvas for image exports
+- Native canvas rendering for image exports
 
 ## Quick Start
 

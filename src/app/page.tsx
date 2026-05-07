@@ -33,10 +33,9 @@ import {
   validateAllQueueItems,
   type QueueValidationResult,
   getValidationMessage,
-  getDependentQueueItems,
 } from "../lib/game/validation";
 import { loadGameData } from "../lib/sim/defs/adapter.client";
-import type { LaneId, PlanetState } from "../lib/sim/engine/types";
+import type { PlanetState } from "../lib/sim/engine/types";
 import gameDataRaw from "../lib/game/game_data.json";
 import { setupLogging } from "../lib/game/logging-utils";
 import {
@@ -63,10 +62,8 @@ import {
   cancelGlobalResearch,
   canQueueGlobalResearch,
   getEarliestPlanetStartTurn,
-  getGlobalResearchAtTurn,
-  getGlobalResearchLaneView,
   getPlanetLimitAtTurn,
-  getResearchCompletionTurns,
+  getGlobalResearchTurnView,
   queueGlobalResearch,
   queueGlobalResearchWait,
   reorderGlobalResearch,
@@ -85,7 +82,6 @@ import {
   type PlanetConfig,
 } from "../components/AddPlanetModal";
 import { Card } from "@/components/ui/card";
-import { DependencyWarningModal } from "../components/DependencyWarningModal";
 import { SavesModal } from "../components/SavesModal";
 import { BuildListSelector } from "../components/BuildListSelector";
 import { SharedBuildListView } from "../components/SharedBuildListView";
@@ -405,11 +401,6 @@ export default function Home() {
   }, [activeShareMetadata]);
   // Transient toast message; null when nothing to show. Auto-clears after 3s.
   const [toast, setToast] = useState<string | null>(null);
-  const [pendingCancellation, setPendingCancellation] = useState<{
-    laneId: "building" | "ship" | "colonist" | "research";
-    entry: any;
-    brokenDependencies: any[];
-  } | null>(null);
   // Items auto-removed due to cascade dependency failure after a cancel
   const [cascadeWarnings, setCascadeWarnings] = useState<
     Array<{
@@ -428,7 +419,6 @@ export default function Home() {
       setGameState(createInitialGameState());
       setViewTurn(1);
       setQueueValidation(new Map());
-      setPendingCancellation(null);
       setCascadeWarnings([]);
       setError(null);
       clearStateFromURL();
@@ -596,13 +586,14 @@ export default function Home() {
   const isPlanetViewAvailable = planetUnavailableReason === null;
 
   const defs = currentState?.defs || loadGameData(gameDataRaw as any);
-  const globalResearch = useMemo(
-    () => getGlobalResearchAtTurn(gameState, viewTurn),
+  const globalResearchView = useMemo(
+    () => getGlobalResearchTurnView(gameState, viewTurn),
     [gameState, viewTurn],
   );
+  const globalResearch = globalResearchView.snapshot;
   const researchCompletionTurns = useMemo(
-    () => getResearchCompletionTurns(gameState),
-    [gameState],
+    () => globalResearchView.completionTurns,
+    [globalResearchView],
   );
   const effectivePlanetLimit = useMemo(
     () => globalResearch.planetLimit,
@@ -699,8 +690,8 @@ export default function Home() {
     [getAdjustedLaneView],
   );
   const globalResearchLane = useMemo(
-    () => getGlobalResearchLaneView(gameState, viewTurn),
-    [gameState, viewTurn],
+    () => globalResearchView.laneView,
+    [globalResearchView],
   );
 
   const warnings = useMemo(
@@ -1439,28 +1430,6 @@ export default function Home() {
     ],
   );
 
-  const confirmPendingCancellation = useCallback(() => {
-    if (!pendingCancellation || !controller) return;
-
-    // Cancel all broken dependencies (most recent future ones first is safest to avoid weird chronological cascading bugs, though GameController handles it robustly)
-    const sortedBroken = [...pendingCancellation.brokenDependencies].sort(
-      (a, b) => (b.queuedTurn || 0) - (a.queuedTurn || 0),
-    );
-
-    for (const dep of sortedBroken) {
-      controller.cancelPlannedItem(
-        dep.laneId as "building" | "ship" | "colonist" | "research",
-        dep.id,
-      );
-    }
-
-    // Finally cancel the root element the user actually clicked
-    executeCancellation(pendingCancellation.laneId, pendingCancellation.entry);
-
-    // Close modal
-    setPendingCancellation(null);
-  }, [pendingCancellation, controller, executeCancellation]);
-
   const handleCancelItem = useCallback(
     (laneId: "building" | "ship" | "colonist" | "research", entry: any) => {
       setError(null);
@@ -1474,39 +1443,12 @@ export default function Home() {
       }
 
       try {
-        // 1. Dependency Analysis for prerequisites
-        // Need to validate the full timeline to catch future breakages
-        const state = controller.getStateAtTurn(planetTimelineEndTurn);
-        if (state) {
-          const getLaneEntries = (
-            s: any,
-            lId: "building" | "ship" | "colonist" | "research",
-          ) => getLaneView(s, lId).entries;
-          const brokenDependencies = getDependentQueueItems(
-            state,
-            entry,
-            laneId,
-            getLaneEntries,
-          );
-
-          // If there are broken things down the line, halt and show warning modal
-          if (brokenDependencies.length > 0) {
-            setPendingCancellation({
-              laneId,
-              entry,
-              brokenDependencies,
-            });
-            return; // Abort standard cancellation
-          }
-        }
-
-        // 2. Standard Cancellation Execution
         executeCancellation(laneId, entry);
       } catch (e) {
         setError((e as Error).message || "Unknown error");
       }
     },
-    [controller, executeCancellation, planetTimelineEndTurn],
+    [controller, executeCancellation],
   );
 
   const handleQuantityChange = useCallback(
@@ -1632,7 +1574,7 @@ export default function Home() {
 
   const getMaxQuantity = useCallback(
     (
-      laneId: "building" | "ship" | "colonist" | "research",
+      _laneId: "building" | "ship" | "colonist" | "research",
       entry: any,
     ): number => {
       if (!controller) return entry.quantity;
@@ -1663,38 +1605,6 @@ export default function Home() {
     },
     [controller, canQueueItem, planetTimelineEndTurn],
   );
-
-  const handleAdvanceTurn = useCallback(() => {
-    setError(null);
-    if (!controller || !currentPlanet) {
-      setError("No planet selected");
-      return;
-    }
-
-    try {
-      controller.nextTurn();
-      // Move to the new latest turn
-      const newTurn = controller.getCurrentTurn();
-      setViewTurn(newTurn);
-
-      // Update the planet in game state with new turn
-      const updatedPlanet = controller.getStateAtTurn(newTurn);
-      if (updatedPlanet) {
-        setGameState((prev) => {
-          const newPlanets = new Map(prev.planets);
-          const planetToUpdate = newPlanets.get(gameState.currentPlanetId);
-          if (planetToUpdate) {
-            const merged = withPlanetMetadata(updatedPlanet, planetToUpdate);
-            merged.currentTurn = newTurn;
-            newPlanets.set(gameState.currentPlanetId, merged);
-          }
-          return { ...prev, planets: newPlanets };
-        });
-      }
-    } catch (e) {
-      setError((e as Error).message || "Unknown error");
-    }
-  }, [controller, currentPlanet, gameState]);
 
   // Reset the current planet's queue to its initial starting state
   const handleResetQueue = useCallback(() => {
@@ -1737,9 +1647,9 @@ export default function Home() {
 
     return {
       planets,
-      researchLane: getGlobalResearchLaneView(gameState, viewTurn),
+      researchLane: globalResearchView.laneView,
     };
-  }, [gameState, viewTurn]);
+  }, [gameState, globalResearchView]);
 
   const openExportModal = useCallback(
     (mode: "current" | "full") => {
@@ -2039,7 +1949,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.30</div>
+                      <div className="opacity-30 text-[10px]">v0.2.31</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2309,7 +2219,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.29</div>
+          <div className="opacity-30 text-[10px]">v0.2.31</div>
         </footer>
       </div>
 

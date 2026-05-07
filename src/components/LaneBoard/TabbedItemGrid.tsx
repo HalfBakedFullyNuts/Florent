@@ -1,9 +1,8 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
-import type { ItemDefinition, LaneId } from '../../lib/sim/engine/types';
+import React, { useState, useCallback, useMemo } from 'react';
+import type { LaneId } from '../../lib/sim/engine/types';
 import { Card } from '@/components/ui/card';
-import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
 
 export interface SmartQueueCheckShape {
@@ -21,7 +20,6 @@ export interface TabbedItemGridProps {
   canQueueItem: (itemId: string, quantity: number) => SmartQueueCheckShape;
   activeTab?: LaneId;
   onTabChange?: (tab: LaneId) => void;
-  currentTurn?: number;
 }
 
 export function getMaxImmediateQueueQuantity(
@@ -66,7 +64,6 @@ export function TabbedItemGrid({
   canQueueItem,
   activeTab: externalActiveTab,
   onTabChange,
-  currentTurn = 1,
 }: TabbedItemGridProps) {
   const [internalActiveTab, setInternalActiveTab] = useState<LaneId>('building');
   const [waitTurnsInput, setWaitTurnsInput] = useState<string>('5');
@@ -75,74 +72,72 @@ export function TabbedItemGrid({
   const activeTab = externalActiveTab ?? internalActiveTab;
   const setActiveTab = onTabChange ?? setInternalActiveTab;
 
-  // Group items by lane
-  const itemsByLane: Record<string, any[]> = {
-    building: [],
-    ship: [],
-    colonist: [],
-    research: [],
-  };
+  const { itemsByLane, queueChecks } = useMemo(() => {
+    const grouped: Record<string, any[]> = {
+      building: [],
+      ship: [],
+      colonist: [],
+      research: [],
+    };
+    const checks: Record<string, SmartQueueCheckShape> = {};
+    const prereqDepths: Record<string, number> = {};
 
-  Object.values(availableItems).forEach((item: any) => {
-    // Filter out outpost and worker - they cannot be built manually
-    if (item.id === 'outpost' || item.id === 'worker') {
-      return;
-    }
-    if (item.lane && itemsByLane[item.lane]) {
-      itemsByLane[item.lane].push(item);
-    }
-  });
-
-  /**
-   * Calculate the prerequisite chain depth for a research item.
-   * Items with no prerequisites have depth 0; each link in the chain adds 1.
-   * Capped at 20 to avoid infinite loops in case of circular data.
-   */
-  const getPrereqDepth = (itemId: string, visited = new Set<string>()): number => {
-    if (visited.has(itemId)) return 0; // Cycle guard
-    visited.add(itemId);
-    const item = availableItems[itemId];
-    if (!item?.prerequisites || item.prerequisites.length === 0) return 0;
-    const MAX_DEPTH = 20;
-    let maxParentDepth = 0;
-    for (const prereqId of item.prerequisites) {
-      if (visited.size < MAX_DEPTH) {
-        maxParentDepth = Math.max(maxParentDepth, getPrereqDepth(prereqId, new Set(visited)));
+    for (const item of Object.values(availableItems) as any[]) {
+      if (item.id === 'outpost' || item.id === 'worker') continue;
+      if (item.lane && grouped[item.lane]) {
+        grouped[item.lane].push(item);
+        checks[item.id] = canQueueItem(item.id, 1);
       }
     }
-    return maxParentDepth + 1;
-  };
 
-  // Sort items: available first (including those with wait), hard-blocked last.
-  // For research specifically, use prerequisite chain depth as secondary sort so the
-  // full tech tree always reads top-to-bottom regardless of lock state.
-  Object.keys(itemsByLane).forEach(laneId => {
-    itemsByLane[laneId].sort((a, b) => {
-      const aCheck = canQueueItem(a.id, 1);
-      const bCheck = canQueueItem(b.id, 1);
-      // Use canQueueEventually (false = hard block, grey out). Fallback to allowed for compatibility.
-      const aQueueable = aCheck.canQueueEventually ?? aCheck.allowed;
-      const bQueueable = bCheck.canQueueEventually ?? bCheck.allowed;
-
-      if (aQueueable !== bQueueable) {
-        return bQueueable ? 1 : -1;
+    const getPrereqDepth = (itemId: string, visited = new Set<string>()): number => {
+      if (prereqDepths[itemId] !== undefined) return prereqDepths[itemId];
+      if (visited.has(itemId)) return 0;
+      visited.add(itemId);
+      const item = availableItems[itemId];
+      if (!item?.prerequisites || item.prerequisites.length === 0) {
+        prereqDepths[itemId] = 0;
+        return 0;
       }
 
-      // For the research lane, sort within each group by prerequisite chain depth
-      // so the tech tree always shows in natural tier order.
-      if (laneId === 'research') {
-        const aDepth = getPrereqDepth(a.id);
-        const bDepth = getPrereqDepth(b.id);
-        if (aDepth !== bDepth) return aDepth - bDepth;
+      const MAX_DEPTH = 20;
+      let maxParentDepth = 0;
+      for (const prereqId of item.prerequisites) {
+        if (visited.size < MAX_DEPTH) {
+          maxParentDepth = Math.max(maxParentDepth, getPrereqDepth(prereqId, new Set(visited)));
+        }
       }
+      prereqDepths[itemId] = maxParentDepth + 1;
+      return prereqDepths[itemId];
+    };
 
-      if (a.durationTurns !== b.durationTurns) {
-        return a.durationTurns - b.durationTurns;
-      }
+    Object.keys(grouped).forEach(laneId => {
+      grouped[laneId].sort((a, b) => {
+        const aCheck = checks[a.id];
+        const bCheck = checks[b.id];
+        const aQueueable = aCheck.canQueueEventually ?? aCheck.allowed;
+        const bQueueable = bCheck.canQueueEventually ?? bCheck.allowed;
 
-      return a.name.localeCompare(b.name);
+        if (aQueueable !== bQueueable) {
+          return bQueueable ? 1 : -1;
+        }
+
+        if (laneId === 'research') {
+          const aDepth = getPrereqDepth(a.id);
+          const bDepth = getPrereqDepth(b.id);
+          if (aDepth !== bDepth) return aDepth - bDepth;
+        }
+
+        if (a.durationTurns !== b.durationTurns) {
+          return a.durationTurns - b.durationTurns;
+        }
+
+        return a.name.localeCompare(b.name);
+      });
     });
-  });
+
+    return { itemsByLane: grouped, queueChecks: checks };
+  }, [availableItems, canQueueItem]);
 
   const handleQueueWait = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -157,18 +152,8 @@ export function TabbedItemGrid({
   // Hard blocks (canQueueEventually === false) grey it out.
   // Items that need a wait (canQueueNow === false, canQueueEventually === true) remain clickable.
   const isItemQueueable = (itemId: string): boolean => {
-    const check = canQueueItem(itemId, 1);
+    const check = queueChecks[itemId] ?? canQueueItem(itemId, 1);
     return check.canQueueEventually ?? check.allowed;
-  };
-
-  const formatCost = (item: any): Array<{ resource: string; amount: number }> => {
-    if (!item.costsPerUnit) return [];
-    return Object.entries(item.costsPerUnit)
-      .filter(([_, amount]) => (amount as number) > 0)
-      .map(([resource, amount]) => ({
-        resource,
-        amount: amount as number,
-      }));
   };
 
   const getResourceColor = (resource: string): string => {
@@ -231,7 +216,7 @@ export function TabbedItemGrid({
     }
   }, [availableItems]);
 
-  const tryQueue = useCallback((itemId: string, laneId: LaneId) => {
+  const tryQueue = useCallback((itemId: string) => {
     const raw = getQty(itemId);
     if (raw === '' || raw === '0') {
       setItemErrors(prev => ({ ...prev, [itemId]: 'Quantity cannot be empty.' }));
@@ -263,7 +248,7 @@ export function TabbedItemGrid({
   const tryQueueMax = useCallback((itemId: string) => {
     const maxQuantity = findMaxQueueQuantity(itemId);
     if (maxQuantity < 1) {
-      const validation = canQueueItem(itemId, 1);
+      const validation = queueChecks[itemId] ?? canQueueItem(itemId, 1);
       setItemErrors(prev => ({ ...prev, [itemId]: humanizeReason(validation.reason, itemId) }));
       return;
     }
@@ -271,7 +256,7 @@ export function TabbedItemGrid({
     onQueueItem(itemId, maxQuantity);
     setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-  }, [findMaxQueueQuantity, canQueueItem, humanizeReason, onQueueItem, getDefaultQty]);
+  }, [findMaxQueueQuantity, queueChecks, canQueueItem, humanizeReason, onQueueItem, getDefaultQty]);
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
@@ -282,7 +267,7 @@ export function TabbedItemGrid({
       onQueueItem(itemId, 1);
     } else {
       // Ships/Colonists: delegate to tryQueue for validation
-      tryQueue(itemId, laneId);
+      tryQueue(itemId);
     }
   };
 
@@ -294,10 +279,10 @@ export function TabbedItemGrid({
     if (itemErrors[itemId]) setItemErrors(prev => ({ ...prev, [itemId]: '' }));
   };
 
-  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, itemId: string, laneId: LaneId) => {
+  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, itemId: string) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      tryQueue(itemId, laneId);
+      tryQueue(itemId);
     } else if (e.key === 'Escape') {
       setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
       setItemErrors(prev => ({ ...prev, [itemId]: '' }));
@@ -384,7 +369,7 @@ export function TabbedItemGrid({
             </div>
           ) : (
             items.map((item) => {
-              const queueCheck = canQueueItem(item.id, 1);
+              const queueCheck = queueChecks[item.id] ?? canQueueItem(item.id, 1);
               const queueable = isItemQueueable(item.id);
               const waitTurns = queueCheck.waitTurnsNeeded ?? 0;
               // hasWait covers: known wait (waitTurns > 0) OR resource soft-block (no production yet)
@@ -446,7 +431,7 @@ export function TabbedItemGrid({
                               pattern="[0-9]*"
                               value={getQty(item.id)}
                               onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                              onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
+                              onKeyDown={(e) => handleQuantityKeyDown(e, item.id)}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 (e.target as HTMLInputElement).select();
@@ -465,7 +450,7 @@ export function TabbedItemGrid({
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
-                                tryQueue(item.id, activeTab);
+                                tryQueue(item.id);
                               }}
                               disabled={!queueable}
                               className={`

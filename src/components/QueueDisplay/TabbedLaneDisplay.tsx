@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import type { LaneView, LaneEntry } from '../../lib/game/selectors';
 import type { LaneId } from '../../lib/sim/engine/types';
 import { QueueLaneEntry } from './QueueLaneEntry';
@@ -65,12 +65,6 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
 
   const config = LANE_CONFIG[activeTab];
   const laneView = laneViews[activeTab];
-
-  // Calculate newest item
-  const nonCompletedEntries = laneView?.entries.filter(e => e.status !== 'completed') || [];
-  const newestId = nonCompletedEntries.length > 0
-    ? nonCompletedEntries[nonCompletedEntries.length - 1].id
-    : null;
 
   return (
     <div className="w-full">
@@ -138,11 +132,8 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
             const elements: React.ReactNode[] = [];
 
             reversed.forEach((entry, displayIndex) => {
-              const isNewest = entry.id === newestId;
               const def = defs[entry.itemId];
-              const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
               const showQuantityInput = activeTab === 'ship' || activeTab === 'colonist';
-              const maxQuantity = getMaxQuantity ? getMaxQuantity(activeTab, entry) : undefined;
               const actualIndex = laneView.entries.length - 1 - displayIndex;
               const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === activeTab;
               // Allow reorder for any plan entry except auto-generated waits (they reposition on their own).
@@ -253,12 +244,10 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                       currentTurn={currentTurn}
                       onCancel={() => onCancel(activeTab, entry)}
                       onQuantityChange={onQuantityChange ? (newQty) => onQuantityChange(activeTab, entry, newQty) : undefined}
-                      maxQuantity={maxQuantity}
+                      getMaxQuantity={getMaxQuantity ? () => getMaxQuantity(activeTab, entry) : undefined}
                       showQuantityInput={showQuantityInput}
                       disabled={disabled}
-                      isNewest={isNewest}
                       def={def}
-                      busyWorkers={busyWorkers}
                       onTurnClick={onTurnClick}
                       maxTurn={maxTurn}
                     />

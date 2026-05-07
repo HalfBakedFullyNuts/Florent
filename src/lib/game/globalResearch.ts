@@ -31,6 +31,13 @@ export interface GlobalResearchPlanView {
   planetLimitMilestones: PlanetLimitMilestone[];
 }
 
+export interface GlobalResearchTurnView {
+  snapshot: GlobalResearchSnapshot;
+  laneView: LaneView;
+  completionTurns: Map<string, number>;
+  planetLimitMilestones: PlanetLimitMilestone[];
+}
+
 function cloneWorkItem(item: WorkItem): WorkItem {
   return { ...item };
 }
@@ -430,8 +437,8 @@ export function getCompletedResearchAtTurn(gameState: GameState, turn: number): 
   return getGlobalResearchAtTurn(gameState, turn).completed;
 }
 
-export function getGlobalResearchLaneView(gameState: GameState, turn: number): LaneView {
-  const planSnapshot = getGlobalResearchPlanView(gameState).snapshot;
+function buildLaneViewFromPlan(planView: GlobalResearchPlanView, turn: number): LaneView {
+  const planSnapshot = planView.snapshot;
   const entries: Array<{ entry: LaneView['entries'][number]; order: number }> = [];
   let order = 0;
 
@@ -489,6 +496,20 @@ export function getGlobalResearchLaneView(gameState: GameState, turn: number): L
   });
 
   return { laneId: 'research', entries: entries.map(({ entry }) => entry) };
+}
+
+export function getGlobalResearchLaneView(gameState: GameState, turn: number): LaneView {
+  return buildLaneViewFromPlan(getGlobalResearchPlanView(gameState), turn);
+}
+
+export function getGlobalResearchTurnView(gameState: GameState, turn: number): GlobalResearchTurnView {
+  const planView = getGlobalResearchPlanView(gameState);
+  return {
+    snapshot: getGlobalResearchAtTurn(gameState, turn),
+    laneView: buildLaneViewFromPlan(planView, turn),
+    completionTurns: planView.completionTurns,
+    planetLimitMilestones: planView.planetLimitMilestones,
+  };
 }
 
 export function canQueueGlobalResearch(gameState: GameState, itemId: string): { allowed: boolean; reason?: string } {

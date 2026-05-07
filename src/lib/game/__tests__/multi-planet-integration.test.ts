@@ -2,7 +2,6 @@ import { describe, test, expect } from 'vitest';
 import { createInitialGameState, addPlanet } from '../gameState';
 import { enqueueBuildingForPlanet, advanceTurnForPlanet, queueResearch } from '../commands';
 import { getGlobalResearchAtTurn, getGlobalResearchLaneView } from '../globalResearch';
-import { exportGameState } from '../../export/multiPlanetExporter';
 
 describe('Multi-Planet Integration', () => {
   test('building on Planet A doesnt affect Planet B', () => {
@@ -64,29 +63,6 @@ describe('Multi-Planet Integration', () => {
 
     const completed = getGlobalResearchAtTurn(gameState, 24).completed;
     expect(completed).toContain('planet_management');
-  });
-
-  test('export includes all planets', () => {
-    let gameState = createInitialGameState();
-    gameState = addPlanet(gameState, {
-      name: 'Mars',
-      startTurn: 5,
-      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
-      space: { groundCap: 25, orbitalCap: 15 },
-    });
-    gameState = addPlanet(gameState, {
-      name: 'Luna',
-      startTurn: 10,
-      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
-      space: { groundCap: 25, orbitalCap: 15 },
-    });
-
-    const exportData = exportGameState(gameState);
-
-    expect(exportData).toContain('Homeworld');
-    expect(exportData).toContain('Mars');
-    expect(exportData).toContain('Luna');
-    expect(exportData).toContain('Planet Count: 3/4');
   });
 
   test('timeline works per-planet', () => {

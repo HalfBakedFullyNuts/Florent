@@ -37,7 +37,7 @@ npm run test -- -t "enqueueItem"                         # Pattern match
 - `outputs.ts` — production / consumption math
 - `turn.ts` — deterministic turn sequencing
 
-**Orchestration** (`src/lib/game/`) — Commands API, timeline/snapshots, selectors. React-free **except** `GameStateContext.tsx`.
+**Orchestration** (`src/lib/game/`) — Commands API, timeline/snapshots, selectors. React-free.
 
 **UI** (`src/components/`, `src/app/`) — Next.js 14 App Router. Client components must start with `"use client"`.
 
@@ -46,14 +46,13 @@ npm run test -- -t "enqueueItem"                         # Pattern match
 These rules override any default behavior. Violating them causes silent breakage.
 
 ### 1. Mutate state via `GameController` only
-All UI mutations route through the `controller` from `useGameState()`. Legacy wrappers in `agent.ts` have been purged.
+All UI mutations route through a `GameController` instance owned by the active planner view. Legacy wrappers in `agent.ts` have been purged.
 ```tsx
-const { gameState, controller, viewTurn } = useGameState();
 controller.queueItem(viewTurn, itemId, quantity);
 controller.cancelEntryByIdSmart(viewTurn, laneId, entryId);
 controller.reorderQueueItem(viewTurn, laneId, entryId, newIndex);
 ```
-No prop drilling — components needing state read from `useGameState()`.
+Keep queue mutation behavior centralized in `src/lib/game/commands.ts`; do not reimplement queue math in components.
 
 ### 2. Respect `isStableState` when adding mechanics
 `src/lib/game/state.ts` aggressively caches turns when `production delta === 0` AND queues empty AND `worker growth < 1`. If you add continuous changes (passive generation, decay, automation), update `isStableState()` to return `false` for those conditions or the engine will freeze the UI.
@@ -65,7 +64,7 @@ Costs, workers, and space are reserved when an item moves from `pendingQueue` �
 All entities live in `src/lib/game/game_data.json`. Use `GameData.getStructureById(id)` / `getUnitById(id)`. Never hardcode unit/structure definitions in components or agent functions. Reference items by canonical `id` (e.g. `"army_barracks"`).
 
 ### 5. No React in `src/lib/game/`
-Keep game logic framework-agnostic for testability. Only exception is the orchestrator `GameStateContext.tsx`.
+Keep game logic framework-agnostic for testability. React state and hooks belong in `src/app/` or `src/components/`.
 
 ## Testing
 

@@ -7,7 +7,6 @@ import type { PlanetState, LaneId, NetOutputs, ResourceId, WorkItem } from '../s
 import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep, computeProjectedNetOutputsPerTurn } from '../sim/engine/outputs';
 import { computeGrowthBonus } from '../sim/engine/growth_food';
 import { WORKER_GROWTH_BASE } from '../sim/rules/constants';
-import { canQueue } from '../sim/engine/validation';
 import { validateQueueWithWait, type QueueBlocker } from '../sim/engine/queueValidation';
 
 export interface PlanetSummary {
