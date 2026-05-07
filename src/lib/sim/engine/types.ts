@@ -73,6 +73,7 @@ export interface ItemDefinition {
   isAbundanceScaled?: boolean;
   prerequisites: string[]; // structure IDs required
   unique?: boolean; // True = only one allowed per planet (formerly maxPerPlanet === 1). Defaults to false.
+  scoreValue?: number; // Point value for scoring; 0 / missing means no score contribution.
 }
 
 // ============================================================================

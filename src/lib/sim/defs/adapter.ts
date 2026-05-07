@@ -49,6 +49,7 @@ interface RawUnit {
     workers_occupied?: number;
   };
   requirements: RawRequirement[];
+  score_value?: number;
 }
 
 interface RawStructure {
@@ -67,6 +68,7 @@ interface RawStructure {
     consumption?: RawConsumption[];
     effects?: RawEffect[];
   };
+  score_value?: number;
 }
 
 interface RawResearch {
@@ -153,6 +155,7 @@ function convertUnit(raw: RawUnit): ItemDefinition {
     colonistKind,
     isAbundanceScaled: false, // Units don't have abundance-scaled production
     prerequisites,
+    ...(raw.score_value !== undefined && { scoreValue: raw.score_value }),
   };
 
   return def;
@@ -268,6 +271,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     upkeepPerUnit: upkeep,
     isAbundanceScaled: hasAbundanceScaledProduction,
     prerequisites,
+    ...(raw.score_value !== undefined && { scoreValue: raw.score_value }),
   };
 
   return def;

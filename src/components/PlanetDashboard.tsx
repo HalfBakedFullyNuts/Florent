@@ -4,6 +4,7 @@ import React, { useMemo } from 'react';
 import type { PlanetSummary as PlanetSummaryType } from '../lib/game/selectors';
 import { Card } from '@/components/ui/card';
 import { ManualLink } from '@/components/ui/ManualLink';
+import { computePlanetScore } from '../lib/game/scoring';
 
 export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
@@ -125,10 +126,23 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
   const groundFree = Math.max(0, summary.space.groundCap - summary.space.groundUsed);
   const orbitalFree = Math.max(0, summary.space.orbitalCap - summary.space.orbitalUsed);
 
+  const planetScore = useMemo(
+    () => computePlanetScore(summary, defs),
+    [summary, defs]
+  );
+
   return (
     <div className="my-4 px-3 md:px-6">
       <div className="mx-auto w-full max-w-[1800px]">
         <Card className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 p-3 md:p-4 glow-tyr border-gray-400/30">
+
+        {/* Score bar */}
+        <div className="col-span-full flex items-center justify-between border-b border-pink-nebula-border/50 pb-2 mb-1">
+          <span className="text-xs text-pink-nebula-muted uppercase tracking-widest">Planet score</span>
+          <span className="font-mono font-bold text-yellow-300 text-sm" aria-label={`Planet score: ${formatNumber(planetScore)}`}>
+            {formatNumber(planetScore)}
+          </span>
+        </div>
 
         {/* Resources Section */}
         <Card className="p-3">
