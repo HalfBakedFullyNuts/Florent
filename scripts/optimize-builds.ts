@@ -60,6 +60,8 @@ interface Candidate {
   plan: string[];
   result: SimResult;
   score: number;
+  /** Running net energy balance of the plan (must stay ≥ 0 at every step). */
+  netEnergy: number;
 }
 
 interface Objective {
@@ -280,32 +282,74 @@ function evalPlan(
   plan: string[],
   defs: Record<string, ItemDefinition>,
   objective: Objective,
+  netEnergy: number,
 ): Candidate {
   const state = applyPlan(baseState, plan, defs);
   const result = simulatePlan(state, 200, objective.targetItem, objective.stopEarly);
-  return { plan, result, score: objective.score(result, plan) };
+  return { plan, result, score: objective.score(result, plan), netEnergy };
+}
+
+// ─── Energy tracking ─────────────────────────────────────────────────────────
+
+/** Net energy produced per completed unit (positive = produces, negative = consumes). */
+function itemEnergyDelta(def: ItemDefinition): number {
+  return (def.effectsOnComplete?.production_energy ?? 0)
+       - (def.upkeepPerUnit?.energy ?? 0);
+}
+
+/**
+ * Compute the net energy balance of the base state (from its completedCounts).
+ * This is the starting value all plans begin from.
+ */
+function baseNetEnergy(
+  baseState: PlanetState,
+  defs: Record<string, ItemDefinition>,
+): number {
+  let net = 0;
+  for (const [id, cnt] of Object.entries(baseState.completedCounts)) {
+    const def = defs[id];
+    if (def) net += itemEnergyDelta(def) * cnt;
+  }
+  return net;
 }
 
 // ─── Candidate validity ───────────────────────────────────────────────────────
 
 /**
- * Returns true if `itemId` can be appended to `plan`.
- * A prerequisite is satisfied if it is in `baseCompleted` (already built at
- * game start) OR already present somewhere in the current plan.
+ * Returns true if `itemId` can legally be appended to `plan`.
+ *
+ * Three constraints must hold:
+ *  1. All prerequisites satisfied — either in baseCompleted (already built
+ *     in the starting state) or present earlier in the plan.
+ *  2. Max-repeat budget not exceeded for this item.
+ *  3. Net energy remains ≥ 0 after this item completes — mirrors the real
+ *     game's energyNonNegativeAfterCompletion guard in canQueue. Without this,
+ *     the optimizer generates plans the game would hard-block at queue time.
+ *
+ * Worker, resource, and space constraints are enforced by the engine at
+ * activation time inside the simulation, so no pre-check is needed here.
  */
 function canAppend(
   plan: string[],
+  currentNetEnergy: number,
   itemId: string,
   maxCount: number,
   def: ItemDefinition,
   baseCompleted: ReadonlySet<string>,
 ): boolean {
+  // 1. Repeat budget
   let count = 0;
   for (const id of plan) if (id === itemId) count++;
   if (count >= maxCount) return false;
+
+  // 2. Prerequisites
   for (const prereqId of def.prerequisites) {
     if (!baseCompleted.has(prereqId) && !plan.includes(prereqId)) return false;
   }
+
+  // 3. Energy balance (real game blocks queueing items that would push net energy < 0)
+  if (currentNetEnergy + itemEnergyDelta(def) < 0) return false;
+
   return true;
 }
 
@@ -323,8 +367,8 @@ function beamSearch(
   const seen = new Set<string>();
   const planKey = (plan: string[]) => plan.join(',');
 
-  // Items already present in the base state (prerequisites satisfied without
-  // needing to be in the plan).
+  // Items already present in the base state satisfy prerequisites without
+  // needing to be queued again.
   const baseCompleted = new Set<string>([
     ...Object.entries(baseState.completedCounts)
       .filter(([, cnt]) => cnt > 0)
@@ -332,7 +376,8 @@ function beamSearch(
     ...baseState.completedResearch,
   ]);
 
-  let beams: Candidate[] = [evalPlan(baseState, [], defs, objective)];
+  const startNetEnergy = baseNetEnergy(baseState, defs);
+  let beams: Candidate[] = [evalPlan(baseState, [], defs, objective, startNetEnergy)];
   seen.add(planKey([]));
 
   let best: Candidate = beams[0];
@@ -350,12 +395,13 @@ function beamSearch(
       for (const [itemId, maxCount] of objective.candidates) {
         const def = defs[itemId];
         if (!def) continue;
-        if (!canAppend(beam.plan, itemId, maxCount, def, baseCompleted)) continue;
+        if (!canAppend(beam.plan, beam.netEnergy, itemId, maxCount, def, baseCompleted)) continue;
         const newPlan = [...beam.plan, itemId];
         const key = planKey(newPlan);
         if (seen.has(key)) continue;
         seen.add(key);
-        candidates.push(evalPlan(baseState, newPlan, defs, objective));
+        const newNetEnergy = beam.netEnergy + itemEnergyDelta(def);
+        candidates.push(evalPlan(baseState, newPlan, defs, objective, newNetEnergy));
       }
     }
 
@@ -400,11 +446,23 @@ interface BuildEvent {
   lane: LaneId;
   activatedTurn: number | null;
   completedTurn: number | null;
+  /** How many turns did the item sit in the queue waiting before it could activate. */
+  waitedTurns: number;
+  /** Primary reason for waiting, if any. */
+  waitReason: string;
+  /** Workers idle at activation time. */
+  workersAtActivation: number;
+  /** Key resources at activation time. */
+  metalAtActivation: number;
+  mineralAtActivation: number;
+  energyNetAtActivation: number;
 }
 
 /**
- * Re-simulate the best plan to get per-item activation and completion turns.
- * Detects activations by comparing active item IDs between turns.
+ * Re-simulate the best plan to get per-item timing with constraint annotations.
+ * Captures activation/completion turns, wait durations, and resource/worker
+ * state at the moment each item activates — so the output can explain WHY
+ * gaps exist (worker growth, resource accumulation, etc.).
  */
 function traceTimeline(
   baseState: PlanetState,
@@ -414,6 +472,12 @@ function traceTimeline(
   const state = applyPlan(baseState, plan, defs);
   const buffer = new CompletionBuffer();
 
+  // Items already completed in the base state — used to identify non-base prerequisites
+  const baseCompleted = new Set<string>([
+    ...Object.entries(baseState.completedCounts).filter(([, c]) => c > 0).map(([id]) => id),
+    ...baseState.completedResearch,
+  ]);
+
   const events: BuildEvent[] = plan.map((itemId, i) => ({
     slotIndex: i,
     itemId,
@@ -421,13 +485,34 @@ function traceTimeline(
     lane: (defs[itemId]?.lane ?? 'building') as LaneId,
     activatedTurn: null,
     completedTurn: null,
+    waitedTurns: 0,
+    waitReason: '',
+    workersAtActivation: 0,
+    metalAtActivation: 0,
+    mineralAtActivation: 0,
+    energyNetAtActivation: 0,
   }));
 
-  // Per-itemId slot cursor: which unrecorded event to fill next
   const actCursor: Record<string, number> = {};
   const doneCursor: Record<string, number> = {};
 
-  function recordActivation(itemId: string, turn: number) {
+  // Track when each item first became front-of-queue in its lane
+  const queueFrontTurn: Record<LaneId, number> = {
+    building: 1, ship: 1, colonist: 1, research: 1,
+  };
+
+  // Compute net energy at a given state
+  function computeNetEnergy(s: PlanetState): number {
+    let net = 0;
+    for (const [id, cnt] of Object.entries(s.completedCounts)) {
+      const def = defs[id];
+      if (def) net += itemEnergyDelta(def) * cnt;
+    }
+    // Also include active items (their upkeep kicks in on completion, but close enough)
+    return net;
+  }
+
+  function recordActivation(itemId: string, turn: number, frontTurn: number) {
     const cursor = actCursor[itemId] ?? 0;
     let idx = 0;
     for (const ev of events) {
@@ -435,6 +520,34 @@ function traceTimeline(
       if (ev.activatedTurn !== null) { idx++; continue; }
       if (idx === cursor) {
         ev.activatedTurn = turn;
+        ev.waitedTurns = Math.max(0, turn - frontTurn);
+        ev.workersAtActivation = state.population.workersIdle + (defs[itemId]?.costsPerUnit.workers ?? 0);
+        ev.metalAtActivation = state.stocks.metal + (defs[itemId]?.costsPerUnit.metal ?? 0);
+        ev.mineralAtActivation = state.stocks.mineral + (defs[itemId]?.costsPerUnit.mineral ?? 0);
+        ev.energyNetAtActivation = computeNetEnergy(state);
+        // Determine the stall reason for the wait period.
+        // A non-base prerequisite is "blocking" only if it completed on or after
+        // the turn the item first became front-of-queue (earlier completions are
+        // irrelevant — the item was stalling for a different reason at that point).
+        if (ev.waitedTurns > 0) {
+          const def = defs[itemId];
+          const needed = def?.costsPerUnit.workers ?? 0;
+          const workersBefore = ev.workersAtActivation;
+          const frontTurn = turn - ev.waitedTurns; // approx turn item became front-of-queue
+          const blockingPrereqs = (def?.prerequisites ?? []).filter((prereqId) => {
+            if (baseCompleted.has(prereqId)) return false; // already done in base state
+            const prereqEv = events.find((e) => e.itemId === prereqId);
+            // Prereq is "blocking" if it completed at or after the item became front-of-queue
+            return prereqEv?.completedTurn != null && prereqEv.completedTurn >= frontTurn;
+          });
+          if (blockingPrereqs.length > 0) {
+            ev.waitReason = `prereq: ${blockingPrereqs.join(', ')}`;
+          } else if (needed > 0 && workersBefore < needed + 5000) {
+            ev.waitReason = `workers growing to ${(needed / 1000).toFixed(0)}k`;
+          } else {
+            ev.waitReason = 'resource accumulation';
+          }
+        }
         actCursor[itemId] = cursor + 1;
         return;
       }
@@ -457,12 +570,20 @@ function traceTimeline(
     }
   }
 
-  // Capture items that already activated during applyPlan's initial tryActivateNext
+  // Track which item is active per lane and when the lane's active slot last became free.
+  // "Lane free since T" = the turn after the previous item completed, which is the first
+  // turn the current front-of-queue item could theoretically start (if constraints allowed).
   const prevActiveId: Record<LaneId, string | null> = {} as any;
+  const laneFreeSince: Record<LaneId, number> = { building: 1, ship: 1, colonist: 1, research: 1 };
+
   for (const laneId of LANE_ORDER as LaneId[]) {
     const active = state.lanes[laneId].active;
     prevActiveId[laneId] = active?.id ?? null;
-    if (active) recordActivation(active.itemId, active.startTurn ?? state.currentTurn);
+    if (active) {
+      // Item activated by applyPlan's initial tryActivateNext — started at T1
+      recordActivation(active.itemId, active.startTurn ?? 1, 1);
+      laneFreeSince[laneId] = 999; // lane is occupied, not free
+    }
   }
 
   const prevCounts: Record<string, number> = { ...state.completedCounts };
@@ -470,22 +591,28 @@ function traceTimeline(
   for (let t = 0; t < 200; t++) {
     runTurn(state, buffer);
 
-    // Detect new activations (active item ID changed)
-    for (const laneId of LANE_ORDER as LaneId[]) {
-      const curr = state.lanes[laneId].active;
-      const currId = curr?.id ?? null;
-      if (currId && currId !== prevActiveId[laneId]) {
-        // startTurn was set inside runTurn (before currentTurn increment)
-        recordActivation(curr!.itemId, curr!.startTurn ?? state.currentTurn - 1);
-      }
-      prevActiveId[laneId] = currId;
-    }
-
-    // Detect completions via completedCounts delta
+    // Record completions FIRST so prereq.completedTurn is set before
+    // recordActivation looks it up (items can activate in the same runTurn
+    // that their prerequisite completes via the phase-4 re-activation pass).
     for (const [itemId, newCount] of Object.entries(state.completedCounts)) {
       const prev = prevCounts[itemId] ?? 0;
       for (let d = 0; d < newCount - prev; d++) recordCompletion(itemId, state.currentTurn);
       prevCounts[itemId] = newCount;
+    }
+
+    // Detect new activations after completions are recorded
+    for (const laneId of LANE_ORDER as LaneId[]) {
+      const curr = state.lanes[laneId].active;
+      const currId = curr?.id ?? null;
+      if (currId && currId !== prevActiveId[laneId]) {
+        const startT = curr!.startTurn ?? state.currentTurn - 1;
+        recordActivation(curr!.itemId, startT, laneFreeSince[laneId]);
+        laneFreeSince[laneId] = 999;
+      }
+      if (!curr && prevActiveId[laneId] !== null) {
+        laneFreeSince[laneId] = state.currentTurn;
+      }
+      prevActiveId[laneId] = currId;
     }
   }
 
@@ -532,11 +659,46 @@ function printResults(
     const laneEvents = events.filter((e) => e.lane === laneId);
     console.log(`  ${laneLabels[laneId]}`);
     console.log(`  ${'─'.repeat(W - 2)}`);
-    console.log(`    ${'Start'.padEnd(7)}  ${'Done'.padEnd(7)}  Item`);
+    console.log(`    ${'Start'.padEnd(6)}  ${'Done'.padEnd(6)}  ${'Wait'.padEnd(8)}  Item`);
+
+    let prevDone: number | null = null;
+
     for (const ev of laneEvents) {
       const act = ev.activatedTurn !== null ? `T${ev.activatedTurn}` : '?';
       const done = ev.completedTurn !== null ? `T${ev.completedTurn}` : '?';
-      console.log(`    ${act.padEnd(7)}  ${done.padEnd(7)}  ${ev.name}`);
+
+      // Show idle gap between previous item finishing and this one starting
+      if (prevDone !== null && ev.activatedTurn !== null && ev.activatedTurn > prevDone + 1) {
+        const idleTurns = ev.activatedTurn - prevDone - 1;
+        const gapReason = ev.waitReason ? ` — stalled: ${ev.waitReason}` : '';
+        console.log(`    ${'·'.repeat(14)}  (${idleTurns}T idle${gapReason})`);
+      }
+
+      const waitStr = ev.waitedTurns > 0
+        ? `${ev.waitedTurns}T queued`
+        : 'immediate';
+      const constraintNote = ev.waitedTurns > 0 && ev.waitReason ? ` [${ev.waitReason}]` : '';
+
+      console.log(
+        `    ${act.padEnd(6)}  ${done.padEnd(6)}  ${waitStr.padEnd(8)}  ${ev.name}${constraintNote}`,
+      );
+
+      // Resource state at activation
+      if (ev.activatedTurn !== null) {
+        const def = defs[ev.itemId];
+        const costs: string[] = [];
+        if ((def?.costsPerUnit.metal ?? 0) > 0)
+          costs.push(`-${(def!.costsPerUnit.metal!).toLocaleString()} metal (had ${ev.metalAtActivation.toLocaleString()})`);
+        if ((def?.costsPerUnit.mineral ?? 0) > 0)
+          costs.push(`-${(def!.costsPerUnit.mineral!).toLocaleString()} mineral (had ${ev.mineralAtActivation.toLocaleString()})`);
+        if ((def?.costsPerUnit.workers ?? 0) > 0)
+          costs.push(`${(def!.costsPerUnit.workers!).toLocaleString()} workers (idle: ${ev.workersAtActivation.toLocaleString()})`);
+        if (costs.length > 0) {
+          console.log(`    ${''.padEnd(6)}  ${''.padEnd(6)}  ${''.padEnd(8)}  ↳ ${costs.join(', ')}`);
+        }
+      }
+
+      prevDone = ev.completedTurn;
     }
     console.log();
   }
@@ -553,6 +715,7 @@ function printResults(
   }
 
   console.log();
+  console.log(`  Net energy after plan: ${best.netEnergy >= 0 ? '+' : ''}${best.netEnergy}/turn`);
   console.log(`  Plan: ${best.plan.join(' → ')}`);
   console.log();
 }
@@ -606,12 +769,15 @@ async function main(): Promise<void> {
     + `${baseState.stocks.mineral.toLocaleString()} mineral, `
     + `${baseState.population.workersTotal.toLocaleString()} workers`);
   console.log(`  Production : ~${startMetal.toLocaleString()} metal/turn at start`);
+  const startEnergy = baseNetEnergy(baseState, defs);
+  console.log(`  Net energy : ${startEnergy >= 0 ? '+' : ''}${startEnergy}/turn`
+    + `  (each building costs 10/turn — solar_generator needed before energy-draining items)`);
   console.log(`  Housing cap: ${baseState.housing.workerCap.toLocaleString()} workers`
     + `  (shipyard needs 60,000 idle workers → living_quarters is mandatory)`);
 
   // Baseline: no preparation, just the mandatory chain
   const baselinePlan = ['launch_site', 'shipyard', 'outpost_ship'];
-  const baselineResult = evalPlan(baseState, baselinePlan, defs, objective);
+  const baselineResult = evalPlan(baseState, baselinePlan, defs, objective, startEnergy);
   const baselineT = baselineResult.result.firstTargetTurn;
   console.log(`\n  Baseline (no resource prep): ${baselineT !== null ? `T${baselineT}` : 'never'}`);
 
