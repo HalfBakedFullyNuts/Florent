@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type { ItemDefinition, LaneId } from '../../lib/sim/engine/types';
 import { Card } from '@/components/ui/card';
 import { GlassQueueButton } from '@/components/ui/glass-queue-button';
@@ -115,13 +115,23 @@ export function TabbedItemGrid({
     return maxParentDepth + 1;
   };
 
+  // Pre-compute canQueueItem(id, 1) for all items once per render to avoid
+  // O(N log N) redundant calls inside the sort comparator.
+  const queueChecks = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof canQueueItem>>();
+    Object.values(availableItems).forEach((item: any) => {
+      map.set(item.id, canQueueItem(item.id, 1));
+    });
+    return map;
+  }, [availableItems, canQueueItem]);
+
   // Sort items: available first (including those with wait), hard-blocked last.
   // For research specifically, use prerequisite chain depth as secondary sort so the
   // full tech tree always reads top-to-bottom regardless of lock state.
   Object.keys(itemsByLane).forEach(laneId => {
     itemsByLane[laneId].sort((a, b) => {
-      const aCheck = canQueueItem(a.id, 1);
-      const bCheck = canQueueItem(b.id, 1);
+      const aCheck = queueChecks.get(a.id) ?? canQueueItem(a.id, 1);
+      const bCheck = queueChecks.get(b.id) ?? canQueueItem(b.id, 1);
       // Use canQueueEventually (false = hard block, grey out). Fallback to allowed for compatibility.
       const aQueueable = aCheck.canQueueEventually ?? aCheck.allowed;
       const bQueueable = bCheck.canQueueEventually ?? bCheck.allowed;
@@ -159,7 +169,7 @@ export function TabbedItemGrid({
   // Hard blocks (canQueueEventually === false) grey it out.
   // Items that need a wait (canQueueNow === false, canQueueEventually === true) remain clickable.
   const isItemQueueable = (itemId: string): boolean => {
-    const check = canQueueItem(itemId, 1);
+    const check = queueChecks.get(itemId) ?? canQueueItem(itemId, 1);
     return check.canQueueEventually ?? check.allowed;
   };
 
@@ -261,6 +271,14 @@ export function TabbedItemGrid({
   const findMaxQueueQuantity = useCallback((itemId: string): number => {
     return getMaxImmediateQueueQuantity(itemId, canQueueItem);
   }, [canQueueItem]);
+
+  const incrementQty = useCallback((itemId: string, delta: number) => {
+    const current = parseInt(getQty(itemId), 10) || 0;
+    const maxQty = findMaxQueueQuantity(itemId);
+    const next = maxQty > 0 ? Math.min(current + delta, maxQty) : current + delta;
+    setItemQuantities(prev => ({ ...prev, [itemId]: String(Math.max(1, next)) }));
+    setItemErrors(prev => ({ ...prev, [itemId]: '' }));
+  }, [getQty, findMaxQueueQuantity]);
 
   const tryQueueMax = useCallback((itemId: string) => {
     const maxQuantity = findMaxQueueQuantity(itemId);
@@ -389,7 +407,7 @@ export function TabbedItemGrid({
             </div>
           ) : (
             items.map((item) => {
-              const queueCheck = canQueueItem(item.id, 1);
+              const queueCheck = queueChecks.get(item.id) ?? canQueueItem(item.id, 1);
               const queueable = isItemQueueable(item.id);
               const waitTurns = queueCheck.waitTurnsNeeded ?? 0;
               // hasWait covers: known wait (waitTurns > 0) OR resource soft-block (no production yet)
@@ -444,63 +462,75 @@ export function TabbedItemGrid({
                       {/* Quantity input + Button for batchable items — top-right on mobile, end of row on desktop */}
                       {isBatchable && (
                         <div className="flex flex-col items-end gap-0.5 md:order-last">
-                          <div className="flex items-center gap-1">
-                            <input
-                              type="text"
-                              inputMode="numeric"
-                              pattern="[0-9]*"
-                              value={getQty(item.id)}
-                              onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                              onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                (e.target as HTMLInputElement).select();
-                              }}
-                              onFocus={(e) => (e.target as HTMLInputElement).select()}
-                              disabled={!queueable}
-                              className={`
-                                w-14 px-2 py-1 bg-pink-nebula-bg border rounded
-                                text-pink-nebula-text text-sm text-center font-mono
-                                focus:outline-none focus:border-pink-nebula-accent-primary
-                                ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
-                                ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
-                              `}
-                              placeholder="qty"
-                            />
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                tryQueue(item.id, activeTab);
-                              }}
-                              disabled={!queueable}
-                              className={`
-                                min-w-[32px] px-2 py-1 rounded text-base font-semibold
-                                ${queueable
-                                  ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
-                                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                }
-                              `}
-                            >
-                              +
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                tryQueueMax(item.id);
-                              }}
-                              disabled={!maxQueueableNow}
-                              title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
-                              aria-label={`Queue maximum ${item.name}`}
-                              className={`
-                                min-w-[42px] px-2 py-1 rounded text-xs font-bold
-                                ${maxQueueableNow
-                                  ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
-                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                }
-                              `}
-                            >
-                              Max
-                            </button>
+                          <div className="flex flex-col items-end gap-0.5">
+                            {/* Qty input + steppers */}
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={getQty(item.id)}
+                                onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                                onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  (e.target as HTMLInputElement).select();
+                                }}
+                                onFocus={(e) => (e.target as HTMLInputElement).select()}
+                                disabled={!queueable}
+                                className={`
+                                  w-14 px-2 py-1 bg-pink-nebula-bg border rounded
+                                  text-pink-nebula-text text-sm text-center font-mono
+                                  focus:outline-none focus:border-pink-nebula-accent-primary
+                                  ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
+                                  ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
+                                `}
+                                placeholder="qty"
+                              />
+                              {([1, 10, 1000] as const).map((delta) => (
+                                <button
+                                  key={delta}
+                                  onClick={(e) => { e.stopPropagation(); incrementQty(item.id, delta); }}
+                                  disabled={!queueable}
+                                  aria-label={`Add ${delta} to quantity`}
+                                  className={`min-w-[28px] px-1.5 py-1 rounded text-xs font-semibold ${
+                                    queueable
+                                      ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                  }`}
+                                >
+                                  +{delta >= 1000 ? '1k' : delta}
+                                </button>
+                              ))}
+                            </div>
+                            {/* Queue + Max actions */}
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); tryQueue(item.id, activeTab); }}
+                                disabled={!queueable}
+                                aria-label={`Queue ${item.name}`}
+                                className={`flex-1 px-2 py-1 rounded text-xs font-bold ${
+                                  queueable
+                                    ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
+                                    : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                                }`}
+                              >
+                                Queue
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); tryQueueMax(item.id); }}
+                                disabled={!maxQueueableNow}
+                                title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
+                                aria-label={`Queue maximum ${item.name}`}
+                                className={`px-2 py-1 rounded text-xs font-bold ${
+                                  maxQueueableNow
+                                    ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
+                                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                }`}
+                              >
+                                Max
+                              </button>
+                            </div>
                           </div>
                           {itemErrors[item.id] && (
                             <span className="text-red-400 text-xs leading-tight max-w-[120px] text-right">

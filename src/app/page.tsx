@@ -2092,7 +2092,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.36</div>
+                      <div className="opacity-30 text-[10px]">v0.2.37</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2362,7 +2362,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.36</div>
+          <div className="opacity-30 text-[10px]">v0.2.37</div>
         </footer>
       </div>
 
@@ -2395,6 +2395,11 @@ export default function Home() {
         currentTurn={planetModalTurn}
         mode={editingPlanetId ? "edit" : "add"}
         initialConfig={editingPlanetConfig}
+        outpostShipTurn={editingPlanetId ? undefined : (() => {
+          const hw = gameState.planets.get('planet-1');
+          const s = hw?.timeline?.getStateAtTurn(1);
+          return (s?.completedCounts?.outpost_ship ?? 0) >= 1 ? 1 : undefined;
+        })()}
       />
 
       {/* Saves Modal — IndexedDB-backed named saves, auto-save history, and JSON import */}
