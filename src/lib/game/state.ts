@@ -24,7 +24,11 @@ export class Timeline {
   private highestComputedIndex: number = 0; // Track how far we've computed
 
   constructor(initialState: PlanetState, totalTurns: number = Timeline.DEFAULT_TURNS) {
-    this.totalTurns = Math.max(Timeline.DEFAULT_TURNS, Math.floor(totalTurns));
+    const sanitizedTotalTurns = Number.isFinite(totalTurns)
+      ? Math.floor(totalTurns)
+      : Timeline.DEFAULT_TURNS;
+
+    this.totalTurns = Math.max(Timeline.DEFAULT_TURNS, sanitizedTotalTurns);
     this.states = new Array(this.totalTurns);
     this.states[0] = cloneState(initialState);
     this.currentTurnIndex = 0;
