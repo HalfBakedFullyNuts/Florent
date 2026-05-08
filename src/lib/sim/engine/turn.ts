@@ -70,8 +70,44 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
   // If the bonus was the deciding factor, state.activationUsedProjectedProduction is set
   // and the UI will render stocks in italic with a tooltip explaining the situation.
   const projectedOutputs = computeNetOutputsPerTurn(state);
+
+  // Track which lanes are idle so we know which ones Phase 2b newly activates.
+  const idleBeforePhase2b = new Set<string>();
+  for (const laneId of LANE_ORDER) {
+    if (!state.lanes[laneId].active) idleBeforePhase2b.add(laneId);
+  }
+
   for (const laneId of LANE_ORDER) {
     tryActivateNext(state, laneId, projectedOutputs);
+  }
+
+  // Give Phase 2b items their first tick in the same turn their prerequisite completed.
+  // Without this, the item activates but sits idle until the next turn — a wasted turn.
+  // Wait items are excluded: they represent explicit pauses and must run for their full
+  // declared duration — giving them an early tick would silently shorten the wait.
+  const phase2bCompletions: WorkItem[] = [];
+  for (const laneId of LANE_ORDER) {
+    if (idleBeforePhase2b.has(laneId) && state.lanes[laneId].active && !state.lanes[laneId].active!.isWait) {
+      const completedItem = progressActive(state, laneId);
+      if (completedItem) {
+        const def = state.defs[completedItem.itemId];
+        if (def && !def.colonistKind) {
+          if (def.type === 'structure') {
+            phase2bCompletions.push(completedItem);
+          } else {
+            completionBuffer.enqueue(currentTurn + 1, completedItem);
+          }
+        }
+      }
+    }
+  }
+  // Apply any structures that completed on their first Phase 2b tick, then give
+  // dependent items one more activation opportunity (handles chained prerequisites).
+  if (phase2bCompletions.length > 0) {
+    processCompletions(state, phase2bCompletions);
+    for (const laneId of LANE_ORDER) {
+      tryActivateNext(state, laneId, projectedOutputs);
+    }
   }
 
   // Phase 5: Process colonist conversions (same-turn completion)

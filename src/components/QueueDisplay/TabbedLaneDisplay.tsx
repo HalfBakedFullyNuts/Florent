@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { LaneView, LaneEntry } from '../../lib/game/selectors';
 import type { LaneId } from '../../lib/sim/engine/types';
 import { QueueLaneEntry } from './QueueLaneEntry';
@@ -25,6 +25,8 @@ export interface TabbedLaneDisplayProps {
   onTabChange?: (tab: LaneId) => void;
   onTurnClick?: (turn: number) => void;
   maxTurn?: number;
+  /** Called when an item is dragged from the Add-to-Queue panel and dropped here. */
+  onDropGridItem?: (itemId: string, quantity: number) => void;
 }
 
 /**
@@ -48,10 +50,36 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   onTabChange,
   onTurnClick,
   maxTurn = 199,
+  onDropGridItem,
 }: TabbedLaneDisplayProps) {
   const [internalActiveTab, setInternalActiveTab] = useState<LaneId>('building');
   const [draggedItem, setDraggedItem] = useState<{ laneId: LaneId; entryId: string } | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [dragOverExternal, setDragOverExternal] = useState(false);
+
+  // Ref for the scrollable card so we can drive edge-scroll during drag
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+
+  const stopEdgeScroll = useCallback(() => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  }, []);
+
+  const startEdgeScroll = useCallback((direction: 'up' | 'down') => {
+    stopEdgeScroll();
+    const speed = 8;
+    const tick = () => {
+      const el = scrollRef.current;
+      if (el) el.scrollTop += direction === 'down' ? speed : -speed;
+      rafRef.current = requestAnimationFrame(tick);
+    };
+    rafRef.current = requestAnimationFrame(tick);
+  }, [stopEdgeScroll]);
+
+  useEffect(() => stopEdgeScroll, [stopEdgeScroll]);
 
   // Use external tab state if provided, otherwise use internal
   const activeTab = externalActiveTab ?? internalActiveTab;
@@ -99,7 +127,48 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
       </div>
 
       {/* Active Tab Content */}
-      <Card className="scroll-nebula max-h-[60vh] overflow-y-auto p-3 pr-4 md:max-h-[600px] md:p-4 md:pr-5">
+      <Card
+        ref={scrollRef}
+        className={`scroll-nebula max-h-[60vh] overflow-y-auto p-3 pr-4 md:max-h-[600px] md:p-4 md:pr-5 transition-shadow${dragOverExternal ? ' ring-2 ring-cyan-300/40' : ''}`}
+        onDragOver={(e) => {
+          // Edge-scroll when an internal reorder drag is near the container boundary
+          if (draggedItem) {
+            const rect = scrollRef.current?.getBoundingClientRect();
+            if (rect) {
+              const edge = 60;
+              if (e.clientY < rect.top + edge) startEdgeScroll('up');
+              else if (e.clientY > rect.bottom - edge) startEdgeScroll('down');
+              else stopEdgeScroll();
+            }
+          }
+          // Accept drops from TabbedItemGrid
+          if (e.dataTransfer.types.includes('application/x-florent-grid-item')) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+            setDragOverExternal(true);
+          }
+        }}
+        onDragLeave={(e) => {
+          if (!scrollRef.current?.contains(e.relatedTarget as Node)) {
+            stopEdgeScroll();
+            setDragOverExternal(false);
+          }
+        }}
+        onDrop={(e) => {
+          stopEdgeScroll();
+          setDragOverExternal(false);
+          const raw = e.dataTransfer.getData('application/x-florent-grid-item');
+          if (raw) {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+              const { itemId, quantity } = JSON.parse(raw) as { itemId: string; quantity: number };
+              onDropGridItem?.(itemId, quantity);
+            } catch { /* ignore malformed data */ }
+          }
+        }}
+        onDragEnd={() => stopEdgeScroll()}
+      >
         <div className="mb-3 flex items-center gap-2 border-b border-white/10 pb-2">
           <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
             {config.icon}

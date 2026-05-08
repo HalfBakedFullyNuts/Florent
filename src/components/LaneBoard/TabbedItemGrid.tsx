@@ -403,6 +403,15 @@ export function TabbedItemGrid({
               return (
                 <div
                   key={item.id}
+                  draggable={queueable}
+                  onDragStart={(e) => {
+                    const qty = Number(getQty(item.id)) || 1;
+                    e.dataTransfer.setData(
+                      'application/x-florent-grid-item',
+                      JSON.stringify({ itemId: item.id, quantity: qty })
+                    );
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
                   onClick={() => !isBatchable && queueable && handleItemClick(item.id, activeTab)}
                   className={`
                     w-full text-left p-2 bg-pink-nebula-panel/50 border border-pink-nebula-border rounded
