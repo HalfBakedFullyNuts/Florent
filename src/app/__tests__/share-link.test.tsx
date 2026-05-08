@@ -104,7 +104,7 @@ describe("share link flow", () => {
     const writeText = installClipboardMock();
     render(<Home />);
 
-    fireEvent.change(screen.getByLabelText(/shared list name/i), {
+    fireEvent.change(screen.getByLabelText(/^list name$/i), {
       target: { value: "Ada Opening" },
     });
     fireEvent.change(screen.getByLabelText(/author/i), {
@@ -140,7 +140,7 @@ describe("share link flow", () => {
     });
     render(<Home />);
 
-    fireEvent.change(screen.getByLabelText(/shared list name/i), {
+    fireEvent.change(screen.getByLabelText(/^list name$/i), {
       target: { value: "Fallback Opening" },
     });
     fireEvent.change(screen.getByLabelText(/author/i), {
