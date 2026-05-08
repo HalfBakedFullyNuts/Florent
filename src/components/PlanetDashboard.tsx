@@ -5,6 +5,7 @@ import type { PlanetSummary as PlanetSummaryType } from '../lib/game/selectors';
 import { Card } from '@/components/ui/card';
 import { ManualLink } from '@/components/ui/ManualLink';
 import { computePlanetScore } from '../lib/game/scoring';
+import { ItemIcon } from '@/components/ui/ItemIcon';
 
 export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
@@ -293,7 +294,10 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
             <div className="space-y-1.5">
               {shipsList.map((ship) => (
                 <div key={ship.id} className="flex justify-between items-center text-sm">
-                  <span className="text-pink-nebula-text">{ship.name}</span>
+                  <span className="flex items-center gap-1.5 text-pink-nebula-text">
+                    <ItemIcon itemId={ship.id} size={20} className="opacity-85" />
+                    {ship.name}
+                  </span>
                   <span className="text-pink-nebula-muted font-mono">×{ship.count}</span>
                 </div>
               ))}

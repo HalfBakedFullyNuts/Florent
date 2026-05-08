@@ -7,6 +7,7 @@ import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
 import { LANE_MANUAL_TOPICS } from '../../lib/constants/manualLinks';
 import { ManualLink } from '@/components/ui/ManualLink';
+import { ItemIcon } from '@/components/ui/ItemIcon';
 
 export interface SmartQueueCheckShape {
   allowed: boolean;
@@ -438,7 +439,8 @@ export function TabbedItemGrid({
                     {/* Top row on mobile: name + duration + qty controls (right side) */}
                     <div className="flex items-center gap-2 min-w-0 md:contents">
                       {/* Item Name */}
-                      <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1">
+                      <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1.5">
+                        <ItemIcon itemId={item.id} size={20} className="opacity-90" />
                         {item.name}
                         {hasWait && (
                           <span
