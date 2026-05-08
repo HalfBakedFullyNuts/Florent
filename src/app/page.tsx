@@ -2399,8 +2399,14 @@ export default function Home() {
         initialConfig={editingPlanetConfig}
         outpostShipTurn={editingPlanetId ? undefined : (() => {
           const hw = gameState.planets.get('planet-1');
-          const s = hw?.timeline?.getStateAtTurn(1);
-          return (s?.completedCounts?.outpost_ship ?? 0) >= 1 ? 1 : undefined;
+          if (!hw?.timeline) return undefined;
+          for (let turn = 1; turn <= planetModalTurn; turn += 1) {
+            const s = hw.timeline.getStateAtTurn(turn);
+            if ((s?.completedCounts?.outpost_ship ?? 0) >= 1) {
+              return turn;
+            }
+          }
+          return undefined;
         })()}
       />
 
