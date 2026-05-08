@@ -15,7 +15,8 @@ function activateWaitItem(
   state: PlanetState,
   lane: PlanetState['lanes'][LaneId],
   laneId: LaneId,
-  pending: WorkItem
+  pending: WorkItem,
+  isPhase2b = false
 ): void {
   if (!pending.isWait) {
     console.error('activateWaitItem called with non-wait item');
@@ -26,10 +27,14 @@ function activateWaitItem(
     return;
   }
 
+  // startTurn is always the activation turn so encoding (end - start) gives the correct
+  // planned duration. Phase 2b waits don't get a first tick, which is tracked separately
+  // via isPhase2bWait so the display formula can compensate.
   lane.active = {
     ...pending,
     status: 'active',
     startTurn: state.currentTurn,
+    isPhase2bWait: isPhase2b || undefined,
   };
 
   getLogger().logQueueOperation(
@@ -130,7 +135,7 @@ export function tryActivateNext(
   }
 
   if (pending.isWait) {
-    activateWaitItem(state, lane, laneId, pending);
+    activateWaitItem(state, lane, laneId, pending, projectedBonus !== undefined);
     return;
   }
 

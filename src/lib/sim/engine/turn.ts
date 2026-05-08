@@ -46,12 +46,9 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
     if (completedItem) {
       const def = state.defs[completedItem.itemId];
       if (def && !def.colonistKind) {
-        // Buildings get same-turn completion, ships get next-turn
-        if (def.type === 'structure') {
-          sameTurnCompletions.push(completedItem);
-        } else {
-          completionBuffer.enqueue(currentTurn + 1, completedItem);
-        }
+        // All non-colonist completions (structures and ships) apply same-turn so
+        // completedCounts reflects the correct turn for both queue scheduling and UI.
+        sameTurnCompletions.push(completedItem);
       }
     }
   }
@@ -92,11 +89,7 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
       if (completedItem) {
         const def = state.defs[completedItem.itemId];
         if (def && !def.colonistKind) {
-          if (def.type === 'structure') {
-            phase2bCompletions.push(completedItem);
-          } else {
-            completionBuffer.enqueue(currentTurn + 1, completedItem);
-          }
+          phase2bCompletions.push(completedItem);
         }
       }
     }

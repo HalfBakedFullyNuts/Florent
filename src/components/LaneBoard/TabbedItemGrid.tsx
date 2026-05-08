@@ -262,18 +262,28 @@ export function TabbedItemGrid({
     return getMaxImmediateQueueQuantity(itemId, canQueueItem);
   }, [canQueueItem]);
 
-  const tryQueueMax = useCallback((itemId: string) => {
-    const maxQuantity = findMaxQueueQuantity(itemId);
-    if (maxQuantity < 1) {
-      const validation = canQueueItem(itemId, 1);
-      setItemErrors(prev => ({ ...prev, [itemId]: humanizeReason(validation.reason, itemId) }));
-      return;
-    }
-
-    onQueueItem(itemId, maxQuantity);
-    setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
+  // Freely increment the displayed quantity — no real-time constraint check.
+  // Validation only happens when the user actually submits (clicks "add" or "∞").
+  const incrementQty = useCallback((itemId: string, delta: number) => {
+    const current = parseInt(getQty(itemId), 10) || 0;
+    setItemQuantities(prev => ({ ...prev, [itemId]: String(Math.max(1, current + delta)) }));
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-  }, [findMaxQueueQuantity, canQueueItem, humanizeReason, onQueueItem, getDefaultQty]);
+  }, [getQty]);
+
+  const tryQueueMax = useCallback((itemId: string, laneId: LaneId) => {
+    const maxQuantity = findMaxQueueQuantity(itemId);
+    if (maxQuantity >= 1) {
+      // Something is affordable right now — queue the maximum
+      onQueueItem(itemId, maxQuantity);
+      setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
+      setItemErrors(prev => ({ ...prev, [itemId]: '' }));
+    } else {
+      // Nothing affordable NOW but the item may still be queueable (e.g. with a wait).
+      // Fall through to tryQueue with the entered quantity so the same submit-time
+      // validation path runs — it will queue with a wait or show the real error.
+      tryQueue(itemId, laneId);
+    }
+  }, [findMaxQueueQuantity, onQueueItem, getDefaultQty, tryQueue]);
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
@@ -364,12 +374,15 @@ export function TabbedItemGrid({
               </div>
               <div className="flex items-center gap-2 sm:justify-end">
                 <input
-                  type="number"
-                  min="1"
-                  max="100"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className="h-10 w-16 rounded-xl border border-pink-nebula-border/80 bg-slate-950/70 px-2 text-center text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25"
                   value={waitTurnsInput}
-                  onChange={(e) => setWaitTurnsInput(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d+$/.test(v)) setWaitTurnsInput(v);
+                  }}
                 />
                 <span className="mr-1 text-sm text-pink-nebula-muted">turns</span>
                 <button
@@ -476,39 +489,45 @@ export function TabbedItemGrid({
                               `}
                               placeholder="qty"
                             />
+                            {/* +1: freely increments the qty field — no constraint check */}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                tryQueue(item.id, activeTab);
-                              }}
+                              onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 1); }}
                               disabled={!queueable}
-                              className={`
-                                min-w-[32px] px-2 py-1 rounded text-base font-semibold
-                                ${queueable
-                                  ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
-                                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                }
-                              `}
+                              aria-label="Increase quantity by 1"
+                              className={`px-1.5 py-1 rounded text-xs font-semibold ${
+                                queueable
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
                             >
                               +
                             </button>
+                            {/* add: submits qty — validation happens here, not on the +  */}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                tryQueueMax(item.id);
-                              }}
-                              disabled={!maxQueueableNow}
-                              title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
+                              onClick={(e) => { e.stopPropagation(); tryQueue(item.id, activeTab); }}
+                              disabled={!queueable}
+                              aria-label={`Queue ${item.name}`}
+                              className={`px-2 py-1 rounded text-xs font-bold ${
+                                queueable
+                                  ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
+                                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              add
+                            </button>
+                            {/* ∞: queue max affordable, or tryQueue(qty) if nothing affordable now */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); tryQueueMax(item.id, activeTab); }}
+                              disabled={!queueable}
+                              title={queueable ? 'Queue maximum available' : humanizeReason(queueCheck.reason, item.id)}
                               aria-label={`Queue maximum ${item.name}`}
-                              className={`
-                                min-w-[42px] px-2 py-1 rounded text-xs font-bold
-                                ${maxQueueableNow
+                              className={`px-1.5 py-1 rounded text-xs font-bold ${
+                                queueable
                                   ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
                                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                }
-                              `}
+                              }`}
                             >
-                              Max
+                              ∞
                             </button>
                           </div>
                           {itemErrors[item.id] && (
