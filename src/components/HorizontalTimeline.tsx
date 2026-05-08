@@ -59,8 +59,9 @@ export function HorizontalTimeline({
     onTurnChange(turn);
   };
 
-  // Generate turn labels (1, 50, 100, 150, 200)
-  const turnLabels = [1, 50, 100, 150, 200].filter(t => t <= totalTurns);
+  const turnLabels = Array.from(
+    new Set([1, 50, 100, 150, 200, totalTurns].filter(t => t <= totalTurns))
+  ).sort((a, b) => a - b);
 
   return (
     <div className="w-full rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/75 via-slate-950/45 to-pink-nebula-panel/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl md:p-4">

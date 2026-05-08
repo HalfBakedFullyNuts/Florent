@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
 import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
+import { ItemIcon } from '@/components/ui/ItemIcon';
 
 export interface QueueLaneEntryProps {
   entry: LaneEntry;
@@ -112,7 +113,10 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
         </div>
 
         {/* Item Name */}
-        <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : 'text-pink-nebula-text'}`}>
+        <div className={`flex items-center gap-1.5 truncate ${isAutoWait ? 'text-pink-nebula-muted' : 'text-pink-nebula-text'}`}>
+          {!entry.isWait && entry.itemId && (
+            <ItemIcon itemId={entry.itemId} size={18} className="opacity-80 shrink-0" />
+          )}
           {isAutoWait
             ? `⏳ Auto-wait: ${waitTurns}t (resource gap)`
             : entry.isWait

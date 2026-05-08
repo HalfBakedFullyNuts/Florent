@@ -196,6 +196,8 @@ export function createStandardStart(defs: Record<string, ItemDefinition>): Plane
       mineral_extractor: 3,
       farm: 1,
       solar_generator: 1,
+      // Homeworld starts with one outpost ship for the first colonisation mission
+      outpost_ship: 1,
     },
     space: {
       groundCap: 60,

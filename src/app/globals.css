@@ -327,6 +327,103 @@ body > .min-h-screen { z-index: 1; position: relative; }
   background: linear-gradient(180deg, rgba(255, 107, 167, 1), rgba(192, 132, 252, 0.92));
 }
 
+.wait-code-shell {
+  animation: wait-code-rise 420ms ease-out both;
+}
+
+.wait-code-shell::before {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background:
+    conic-gradient(from 110deg, transparent, rgba(34, 211, 238, 0.18), transparent 35%),
+    radial-gradient(circle at center, rgba(217, 70, 239, 0.16), transparent 45%);
+  animation: wait-code-spin 9s linear infinite;
+}
+
+.wait-code-button {
+  animation: wait-code-pulse 2400ms ease-in-out infinite;
+}
+
+.wait-code-spark {
+  position: absolute;
+  width: 9rem;
+  height: 9rem;
+  border-radius: 9999px;
+  filter: blur(18px);
+  opacity: 0.24;
+  pointer-events: none;
+}
+
+.wait-code-spark-a {
+  left: -3rem;
+  top: -3rem;
+  background: #22d3ee;
+  animation: wait-code-drift 7s ease-in-out infinite;
+}
+
+.wait-code-spark-b {
+  right: -3rem;
+  bottom: -3rem;
+  background: #d946ef;
+  animation: wait-code-drift 8s ease-in-out infinite reverse;
+}
+
+.wait-code-spark-c {
+  right: 35%;
+  top: 50%;
+  width: 6rem;
+  height: 6rem;
+  background: #34d399;
+  animation: wait-code-drift 6s ease-in-out infinite;
+}
+
+@keyframes wait-code-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes wait-code-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes wait-code-pulse {
+  0%, 100% {
+    transform: translateY(0);
+    box-shadow: 0 0 0 rgba(34, 211, 238, 0);
+  }
+  50% {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 28px rgba(34, 211, 238, 0.12);
+  }
+}
+
+@keyframes wait-code-drift {
+  0%, 100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(1.2rem, -0.8rem, 0) scale(1.08);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wait-code-shell,
+  .wait-code-shell::before,
+  .wait-code-button,
+  .wait-code-spark {
+    animation: none;
+  }
+}
+
 /* Token mappings for Tailwind usage (use these in tailwind.config.js theme.extend if desired):
 	--bg-primary -> theme('colors.pink-nebula.bg')
 	--bg-secondary -> theme('colors.pink-nebula.panel')
