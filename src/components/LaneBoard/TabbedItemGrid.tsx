@@ -5,7 +5,7 @@ import type { ItemDefinition, LaneId } from '../../lib/sim/engine/types';
 import { Card } from '@/components/ui/card';
 import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
-import { LANE_MANUAL_TOPICS } from '../../lib/constants/manualLinks';
+import { LANE_MANUAL_TOPICS, MANUAL_LINKS } from '../../lib/constants/manualLinks';
 import { ManualLink } from '@/components/ui/ManualLink';
 import { ItemIcon } from '@/components/ui/ItemIcon';
 
@@ -358,10 +358,19 @@ export function TabbedItemGrid({
           <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
             {config.icon}
           </span>
-          <h3 className="text-lg font-bold text-pink-nebula-text">
-            {config.title}
-          </h3>
-          {LANE_MANUAL_TOPICS[activeTab]?.map((topic) => (
+          {LANE_MANUAL_TOPICS[activeTab]?.[0] ? (
+            <a
+              href={MANUAL_LINKS[LANE_MANUAL_TOPICS[activeTab]![0]]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-bold text-pink-nebula-text hover:text-pink-nebula-text/80 hover:underline transition-colors"
+            >
+              {config.title}
+            </a>
+          ) : (
+            <h3 className="text-lg font-bold text-pink-nebula-text">{config.title}</h3>
+          )}
+          {LANE_MANUAL_TOPICS[activeTab]?.slice(1).map((topic) => (
             <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
           ))}
           <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
@@ -461,81 +470,75 @@ export function TabbedItemGrid({
                         {item.durationTurns}T
                       </div>
 
-                      {/* Quantity input + Button for batchable items — top-right on mobile, end of row on desktop */}
+                      {/* Quantity controls for batchable items — single row */}
                       {isBatchable && (
-                        <div className="flex flex-col items-end gap-0.5 md:order-last">
-                          <div className="flex flex-col items-end gap-0.5">
-                            {/* Qty input + steppers */}
-                            <div className="flex items-center gap-1">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
-                                value={getQty(item.id)}
-                                onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                                onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  (e.target as HTMLInputElement).select();
-                                }}
-                                onFocus={(e) => (e.target as HTMLInputElement).select()}
-                                disabled={!queueable}
-                                className={`
-                                  w-14 px-2 py-1 bg-pink-nebula-bg border rounded
-                                  text-pink-nebula-text text-sm text-center font-mono
-                                  focus:outline-none focus:border-pink-nebula-accent-primary
-                                  ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
-                                  ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
-                                `}
-                                placeholder="qty"
-                              />
-                              {([1, 10, 1000] as const).map((delta) => (
-                                <button
-                                  key={delta}
-                                  onClick={(e) => { e.stopPropagation(); incrementQty(item.id, delta); }}
-                                  disabled={!queueable}
-                                  aria-label={`Add ${delta} to quantity`}
-                                  className={`min-w-[28px] px-1.5 py-1 rounded text-xs font-semibold ${
-                                    queueable
-                                      ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
-                                      : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                  }`}
-                                >
-                                  +{delta >= 1000 ? '1k' : delta}
-                                </button>
-                              ))}
-                            </div>
-                            {/* Queue + Max actions */}
-                            <div className="flex items-center gap-1">
+                        <div className="flex flex-col items-end gap-0.5 md:order-last flex-none">
+                          <div className="flex items-center gap-1 flex-nowrap">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={getQty(item.id)}
+                              onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                              onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                (e.target as HTMLInputElement).select();
+                              }}
+                              onFocus={(e) => (e.target as HTMLInputElement).select()}
+                              disabled={!queueable}
+                              className={`
+                                w-12 px-1 py-0.5 bg-pink-nebula-bg border rounded
+                                text-pink-nebula-text text-xs text-center font-mono
+                                focus:outline-none focus:border-pink-nebula-accent-primary
+                                ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
+                                ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
+                              `}
+                              placeholder="qty"
+                            />
+                            {([1, 10, 1000] as const).map((delta, i) => (
                               <button
-                                onClick={(e) => { e.stopPropagation(); tryQueue(item.id, activeTab); }}
+                                key={delta}
+                                onClick={(e) => { e.stopPropagation(); incrementQty(item.id, delta); }}
                                 disabled={!queueable}
-                                aria-label={`Queue ${item.name}`}
-                                className={`flex-1 px-2 py-1 rounded text-xs font-bold ${
+                                aria-label={`Add ${delta} to quantity`}
+                                className={`px-1 py-0.5 rounded text-xs font-semibold ${
                                   queueable
-                                    ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
-                                    : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                }`}
-                              >
-                                Queue
-                              </button>
-                              <button
-                                onClick={(e) => { e.stopPropagation(); tryQueueMax(item.id); }}
-                                disabled={!maxQueueableNow}
-                                title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
-                                aria-label={`Queue maximum ${item.name}`}
-                                className={`px-2 py-1 rounded text-xs font-bold ${
-                                  maxQueueableNow
-                                    ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
+                                    ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
                                     : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                                 }`}
                               >
-                                Max
+                                {'+'.repeat(i + 1)}
                               </button>
-                            </div>
+                            ))}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); tryQueue(item.id, activeTab); }}
+                              disabled={!queueable}
+                              aria-label={`Queue ${item.name}`}
+                              className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                                queueable
+                                  ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
+                                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              add
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); tryQueueMax(item.id); }}
+                              disabled={!maxQueueableNow}
+                              title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
+                              aria-label={`Queue maximum ${item.name}`}
+                              className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                                maxQueueableNow
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              ∞
+                            </button>
                           </div>
                           {itemErrors[item.id] && (
-                            <span className="text-red-400 text-xs leading-tight max-w-[120px] text-right">
+                            <span className="text-red-400 text-xs leading-tight max-w-[160px] text-right">
                               {itemErrors[item.id]}
                             </span>
                           )}

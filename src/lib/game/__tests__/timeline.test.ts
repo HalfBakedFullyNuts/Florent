@@ -85,6 +85,14 @@ describe('Timeline - Fixed 200-Turn Architecture', () => {
       const state = timeline.getStateAtTurn(201);
       expect(state).toBeUndefined();
     });
+
+    it('should allow explicit extension beyond the default range', () => {
+      timeline.extendToTotalTurns(300);
+
+      expect(timeline.getTotalTurns()).toBe(300);
+      expect(timeline.setCurrentTurn(300)).toBe(true);
+      expect(timeline.getStateAtTurn(300)?.currentTurn).toBe(300);
+    });
   });
 
   describe('next turn', () => {

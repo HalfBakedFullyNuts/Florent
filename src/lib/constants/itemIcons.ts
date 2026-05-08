@@ -1,4 +1,4 @@
-type ImageDir = 'buildings' | 'ships' | 'colonists';
+type ImageDir = 'buildings' | 'ships' | 'colonists' | 'units';
 
 interface ItemIconConfig {
   slug: string;
@@ -55,7 +55,7 @@ const ITEM_ICON_MAP: Record<string, ItemIconConfig> = {
   trader:                     { slug: 'trader',                   dir: 'ships' },
   command_carrier:            { slug: 'carrier',                  dir: 'ships' },
   invasion_ship:              { slug: 'invasion-ship',            dir: 'ships' },
-  outpost_ship:               { slug: 'outpost-ship',             dir: 'ships' },
+  outpost_ship:               { slug: 'outpost-ship',             dir: 'units' },
 
   // ── Colonists ───────────────────────────────────────────────────────
   soldier:                    { slug: 'soldier',                  dir: 'colonists' },
@@ -76,6 +76,6 @@ export function getItemImageUrl(
 ): string | null {
   const config = ITEM_ICON_MAP[itemId];
   if (!config) return null;
-  const path = encodeURIComponent(`/images/${config.dir}/${config.slug}.jpg`);
+  const path = `images/${config.dir}/${config.slug}.jpg`;
   return `${CF_BASE}/width=${width},height=${height},contrast=1,brightness=1,gamma=1,format=webp,quality=90,fit=cover/${path}`;
 }

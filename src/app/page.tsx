@@ -947,23 +947,24 @@ export default function Home() {
         ),
       };
 
-      const result = validateQueueItem(validationState, itemId, quantity);
+      const baseResult = validateQueueItem(validationState, itemId, quantity);
+      let finalResult = baseResult;
       if (
         researchReadyTurn !== undefined &&
         researchReadyTurn > validationTurn &&
-        result.canQueueEventually !== false
+        baseResult.canQueueEventually !== false
       ) {
         const turnsUntilReady = researchReadyTurn - validationTurn;
-        return {
-          ...result,
+        finalResult = {
+          ...baseResult,
           allowed: false,
           canQueueEventually: true,
           waitTurnsNeeded: Math.max(
-            result.waitTurnsNeeded ?? 0,
+            baseResult.waitTurnsNeeded ?? 0,
             turnsUntilReady,
           ),
           blockers: [
-            ...(result.blockers || []),
+            ...(baseResult.blockers || []),
             {
               type: "PREREQUISITE",
               turnsUntilReady,
@@ -973,7 +974,20 @@ export default function Home() {
         };
       }
 
-      return result;
+      // waitTurnsNeeded is measured from firstFreeTurn (the turn AFTER the last
+      // queue item finishes). The user wants the gap between the last item's
+      // completion turn and the new item's start, which is waitTurnsNeeded + 1
+      // when the lane is non-empty. Empty-lane case (firstFreeTurn === currentTurn)
+      // is already correct.
+      const laneHasItems = firstFreeTurn > (t1State.currentTurn ?? planTurn);
+      if (laneHasItems && (finalResult.waitTurnsNeeded ?? 0) > 0) {
+        finalResult = {
+          ...finalResult,
+          waitTurnsNeeded: (finalResult.waitTurnsNeeded ?? 0) + 1,
+        };
+      }
+
+      return finalResult;
     },
     [
       defs,
@@ -2092,7 +2106,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.38</div>
+                      <div className="opacity-30 text-[10px]">v0.2.39</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2204,18 +2218,6 @@ export default function Home() {
                             <h2 className="shrink-0 text-xl md:text-2xl font-bold text-pink-nebula-text">
                               Planet Queue
                             </h2>
-                            <div className="flex min-h-[28px] items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-pink-nebula-muted md:text-sm">
-                              <span className="font-mono text-pink-nebula-text">
-                                {totalQueuedItems} queued
-                              </span>
-                              <span className="text-pink-nebula-muted/45">
-                                |
-                              </span>
-                              <span className="font-mono text-pink-nebula-text">
-                                {isMounted ? window.location.href.length : 0}
-                              </span>
-                              <span className="hidden sm:inline">chars</span>
-                            </div>
                           </div>
                           <div className="grid min-h-[46px] w-full grid-cols-2 gap-2 xl:grid-cols-4">
                             <button
@@ -2362,7 +2364,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.38</div>
+          <div className="opacity-30 text-[10px]">v0.2.39</div>
         </footer>
       </div>
 
