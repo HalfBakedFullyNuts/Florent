@@ -12,6 +12,10 @@ export interface PlanetDashboardProps {
   turnsToHousingCap?: number | null;
   /** True when a building activated this turn using projected production to cover costs */
   stocksEstimated?: boolean;
+  /** Called when the player clicks a building name to schedule demolition. */
+  onDemolish?: (structureId: string) => void;
+  /** Set of structure IDs that are safe to schedule for demolition right now. */
+  demolishableIds?: ReadonlySet<string>;
 }
 
 const SHIP_SORT_ORDER: Record<string, number> = {
@@ -25,7 +29,7 @@ const SHIP_SORT_ORDER: Record<string, number> = {
   battleship: 7,
 };
 
-export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, defs, turnsToHousingCap, stocksEstimated }: PlanetDashboardProps) {
+export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, defs, turnsToHousingCap, stocksEstimated, onDemolish, demolishableIds }: PlanetDashboardProps) {
   const resources = [
     { id: 'metal', label: 'Metal', color: 'text-gray-300' },
     { id: 'mineral', label: 'Mineral', color: 'text-red-500' },
@@ -353,8 +357,33 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
                         <td className={`py-1.5 pr-1 text-right ${spaceColor} font-semibold md:w-8 md:pr-2`}>
                           {spaceDisplay}
                         </td>
-                        <td className="break-words py-1.5 pr-1 text-pink-nebula-text font-semibold leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
-                          {structure.name}
+                        <td className="break-words py-1.5 pr-1 leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
+                          <span className="inline-flex items-center gap-1 group/demolish">
+                            <span className="text-pink-nebula-text font-semibold">{structure.name}</span>
+                            {onDemolish && (() => {
+                              const demolishable = demolishableIds?.has(structure.id) ?? false;
+                              const turns = Math.max(1, Math.ceil((defs[structure.id]?.durationTurns ?? 1) / 2));
+                              return (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); if (demolishable) onDemolish(structure.id); }}
+                                  title={
+                                    demolishable
+                                      ? `Demolish ${structure.name} (${turns}T) — click to queue`
+                                      : `Cannot demolish: another completed building requires ${structure.name}`
+                                  }
+                                  aria-label={`Demolish ${structure.name}`}
+                                  disabled={!demolishable}
+                                  className={`opacity-0 group-hover/demolish:opacity-100 transition-opacity rounded text-[10px] leading-none px-0.5 py-0.5 ${
+                                    demolishable
+                                      ? 'text-red-400 hover:text-red-300 cursor-pointer'
+                                      : 'text-pink-nebula-muted/30 cursor-not-allowed'
+                                  }`}
+                                >
+                                  🔨
+                                </button>
+                              );
+                            })()}
+                          </span>
                         </td>
                         <td className="whitespace-nowrap py-1.5 pr-1 text-right text-pink-nebula-text md:w-10 md:pr-2">
                           ×{structure.count}

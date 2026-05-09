@@ -38,6 +38,7 @@ import {
 import { loadGameData } from "../lib/sim/defs/adapter.client";
 import type { LaneId, PlanetState } from "../lib/sim/engine/types";
 import gameDataRaw from "../lib/game/game_data.json";
+import { canDemolish, createDemolishDef, DEMOLISH_PREFIX } from "../lib/game/demolish";
 import { setupLogging } from "../lib/game/logging-utils";
 import {
   CommandHistory,
@@ -834,6 +835,16 @@ export default function Home() {
     return items;
   }, [defs]);
 
+  // Set of structure IDs that are safe to schedule for demolition at the current view.
+  const demolishableIds = useMemo((): ReadonlySet<string> => {
+    if (!currentState) return new Set();
+    return new Set(
+      Object.keys(currentState.completedCounts).filter((id) =>
+        !id.startsWith(DEMOLISH_PREFIX) && canDemolish(id, currentState, defs)
+      )
+    );
+  }, [currentState, defs]);
+
   // canQueueItem callback - must be before early return
   // Uses smart first-free-turn validation: evaluates the item against the state
   // at the turn when it would actually activate, not hardcoded T1.
@@ -1231,6 +1242,30 @@ export default function Home() {
       isPlanetViewAvailable,
       planetUnavailableReason,
     ],
+  );
+
+  const handleDemolish = useCallback(
+    (structureId: string) => {
+      if (!controller || !currentState) return;
+      const def = defs[structureId];
+      if (!def) return;
+
+      // Inject the synthetic demolish def into state.defs so the engine can
+      // look it up for worker reservation, validation, and completion handling.
+      const demolishDef = createDemolishDef(structureId, defs);
+
+      controller.injectDef(planTurn, demolishDef);
+
+      // Queue the demolish item (prerequisites: [structureId] keeps it waiting
+      // in the queue until the target building actually exists at that point).
+      const result = controller.queueItem(planTurn, demolishDef.id, 1);
+      if (result.success) {
+        setGameState((prev) => ({ ...prev }));
+      } else {
+        setError(`Cannot queue demolition: ${result.reason ?? 'unknown error'}`);
+      }
+    },
+    [controller, currentState, defs, planTurn],
   );
 
   const recordWaitCodeAttempt = useCallback((waitTurns: number) => {
@@ -2086,13 +2121,15 @@ export default function Home() {
                 stocksEstimated={
                   currentState?.activationUsedProjectedProduction === true
                 }
+                onDemolish={handleDemolish}
+                demolishableIds={demolishableIds}
               />
             ) : (
               <div className="px-3 py-4 md:px-6">
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.40</div>
+                      <div className="opacity-30 text-[10px]">v0.2.42</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2363,7 +2400,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.40</div>
+          <div className="opacity-30 text-[10px]">v0.2.42</div>
         </footer>
       </div>
 
