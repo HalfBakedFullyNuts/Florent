@@ -348,7 +348,10 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
                           {spaceDisplay}
                         </td>
                         <td className="break-words py-1.5 pr-1 text-pink-nebula-text font-semibold leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
-                          {structure.name}
+                          <span className="inline-flex items-center gap-1">
+                            <ItemIcon itemId={structure.id} size={16} className="opacity-85" />
+                            {structure.name}
+                          </span>
                         </td>
                         <td className="whitespace-nowrap py-1.5 pr-1 text-right text-pink-nebula-text md:w-10 md:pr-2">
                           ×{structure.count}

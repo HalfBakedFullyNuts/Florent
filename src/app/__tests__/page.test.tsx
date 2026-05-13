@@ -3,6 +3,10 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import Home from '../page';
 
 describe('Home page', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
   it('renders without crashing', () => {
     const { container } = render(<Home />);
     expect(container).toBeTruthy();
@@ -60,6 +64,11 @@ describe('Home page', () => {
     expect(getByLabelText(/Turn slider/i)).toBeInTheDocument();
   });
 
+  it('displays a score value on the page', () => {
+    render(<Home />);
+    expect(screen.getByText('Score:')).toBeInTheDocument();
+  });
+
   it('reveals the extended turn modal after the wait code sequence', async () => {
     render(<Home />);
 
@@ -84,5 +93,56 @@ describe('Home page', () => {
     });
 
     expect(screen.getByText(/Planning range extended to T300/i)).toBeInTheDocument();
+  });
+
+  it('does NOT show the wait code modal for wrong sequence (50 then 67)', async () => {
+    render(<Home />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '50' } });
+      fireEvent.click(screen.getByRole('button', { name: /inject wait/i }));
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '67' } });
+      fireEvent.click(screen.getByRole('button', { name: /inject wait/i }));
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/^Turn$/i), { target: { value: '123' } });
+    });
+
+    expect(screen.queryByRole('dialog', { name: /signal found/i })).not.toBeInTheDocument();
+  });
+
+  it('increments the awoo counter to 1 after clicking awoo', async () => {
+    render(<Home />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '99' } });
+      fireEvent.click(screen.getByRole('button', { name: /inject wait/i }));
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '67' } });
+      fireEvent.click(screen.getByRole('button', { name: /inject wait/i }));
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/^Turn$/i), { target: { value: '123' } });
+    });
+
+    expect(screen.getByRole('dialog', { name: /signal found/i })).toBeInTheDocument();
+
+    // The awoo button counter should show "0" before clicking
+    const awooButton = screen.getByRole('button', { name: /awoo!/i });
+    expect(awooButton).toHaveTextContent('0');
+
+    await act(async () => {
+      fireEvent.click(awooButton);
+    });
+
+    // After clicking, counter should show "1"
+    expect(awooButton).toHaveTextContent('1');
   });
 });

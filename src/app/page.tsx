@@ -35,7 +35,9 @@ import {
   getValidationMessage,
   getDependentQueueItems,
 } from "../lib/game/validation";
+import { Timeline } from "../lib/game/state";
 import { loadGameData } from "../lib/sim/defs/adapter.client";
+import { computePlanetScore } from "../lib/game/scoring";
 import type { LaneId, PlanetState } from "../lib/sim/engine/types";
 import gameDataRaw from "../lib/game/game_data.json";
 import { setupLogging } from "../lib/game/logging-utils";
@@ -377,10 +379,31 @@ export default function Home() {
   const [editingPlanetId, setEditingPlanetId] = useState<string | null>(null);
   const [viewTurn, setViewTurn] = useState(1);
   const [isAutoJumpEnabled, setIsAutoJumpEnabled] = useState(true);
-  const [waitCodeStage, setWaitCodeStage] = useState<0 | 1 | 2>(0);
+  const [waitCodeStage, setWaitCodeStage] = useState<0 | 1 | 2>(() => {
+    if (typeof window === 'undefined') return 0;
+    const stored = localStorage.getItem('ic_wait_code_stage');
+    const parsed = stored ? parseInt(stored, 10) : 0;
+    return (parsed === 1 || parsed === 2) ? parsed as 0 | 1 | 2 : 0;
+  });
   const [showWaitCodeModal, setShowWaitCodeModal] = useState(false);
-  const [extendedViewUnlocked, setExtendedViewUnlocked] = useState(false);
-  const [waitCodeCounts, setWaitCodeCounts] = useState({ awoo: 0, aroo: 0 });
+  const [extendedViewUnlocked, setExtendedViewUnlocked] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('ic_extended_view') === 'true';
+  });
+  const [waitCodeCounts, setWaitCodeCounts] = useState(() => {
+    if (typeof window === 'undefined') return { awoo: 0, aroo: 0 };
+    try {
+      const stored = localStorage.getItem('ic_wait_code_counts');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          awoo: typeof parsed.awoo === 'number' ? parsed.awoo : 0,
+          aroo: typeof parsed.aroo === 'number' ? parsed.aroo : 0,
+        };
+      }
+    } catch { /* ignore parse errors */ }
+    return { awoo: 0, aroo: 0 };
+  });
   const [error, setError] = useState<string | null>(null);
   const [queueValidation, setQueueValidation] = useState<
     Map<string, QueueValidationResult>
@@ -436,6 +459,9 @@ export default function Home() {
       setShowWaitCodeModal(false);
       setExtendedViewUnlocked(false);
       setWaitCodeCounts({ awoo: 0, aroo: 0 });
+      localStorage.removeItem('ic_wait_code_stage');
+      localStorage.removeItem('ic_extended_view');
+      localStorage.removeItem('ic_wait_code_counts');
       setQueueValidation(new Map());
       setPendingCancellation(null);
       setCascadeWarnings([]);
@@ -595,6 +621,19 @@ export default function Home() {
     });
   }, [extendedViewUnlocked, gameState.planets]);
 
+  // Persist easter egg state to localStorage
+  useEffect(() => {
+    localStorage.setItem('ic_wait_code_stage', String(waitCodeStage));
+  }, [waitCodeStage]);
+
+  useEffect(() => {
+    localStorage.setItem('ic_extended_view', String(extendedViewUnlocked));
+  }, [extendedViewUnlocked]);
+
+  useEffect(() => {
+    localStorage.setItem('ic_wait_code_counts', JSON.stringify(waitCodeCounts));
+  }, [waitCodeCounts]);
+
   const totalTurns = controller?.getTotalTurns() || 200;
   const planetTimelineEndTurn = currentPlanet
     ? currentPlanet.startTurn + totalTurns - 1
@@ -634,6 +673,20 @@ export default function Home() {
   const isPlanetViewAvailable = planetUnavailableReason === null;
 
   const defs = currentState?.defs || loadGameData(gameDataRaw as any);
+
+  // Global score across all planets (structures + ships + colonists)
+  const globalScore = useMemo(() => {
+    let total = 0;
+    for (const [, planet] of gameState.planets) {
+      if (viewTurn < planet.startTurn) continue;
+      const planetState = planet.timeline?.getStateAtTurn(viewTurn);
+      if (!planetState) continue;
+      const planetSummary = getPlanetSummary(planetState);
+      total += computePlanetScore(planetSummary, defs);
+    }
+    return total;
+  }, [gameState.planets, viewTurn, defs]);
+
   const globalResearch = useMemo(
     () => getGlobalResearchAtTurn(gameState, viewTurn),
     [gameState, viewTurn],
@@ -1113,6 +1166,21 @@ export default function Home() {
               : config;
         }
         const newGameState = addPlanet(gameState, adjustedConfig);
+
+        // Consume one outpost ship from homeworld (starter ship is reserved)
+        const hw = newGameState.planets.get('planet-1');
+        if (hw && (hw.completedCounts?.outpost_ship ?? 0) > 0) {
+          const updatedHw = {
+            ...hw,
+            completedCounts: {
+              ...hw.completedCounts,
+              outpost_ship: (hw.completedCounts?.outpost_ship ?? 0) - 1,
+            },
+          } as ExtendedPlanetState;
+          updatedHw.timeline = new Timeline(updatedHw);
+          newGameState.planets.set('planet-1', updatedHw);
+        }
+
         const newPlanetId = `planet-${newGameState.nextPlanetId - 1}`;
         commandHistory.recordAddPlanet(adjustedConfig);
         // Sync viewTurn to new planet's start turn BEFORE switching
@@ -2087,6 +2155,14 @@ export default function Home() {
               </div>
             )}
 
+            {/* Global Score */}
+            <div className="px-3 md:px-6">
+              <div className="mx-auto flex max-w-[1800px] items-center gap-2 text-sm text-pink-nebula-muted">
+                <span className="font-semibold text-yellow-400">Score:</span>
+                <span className="font-mono text-pink-nebula-text">{globalScore.toLocaleString()}</span>
+              </div>
+            </div>
+
             {/* Planet Dashboard - Horizontal Overview */}
             {summary ? (
               <PlanetDashboard
@@ -2106,7 +2182,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.39</div>
+                      <div className="opacity-30 text-[10px]">v0.2.40</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2364,7 +2440,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.39</div>
+          <div className="opacity-30 text-[10px]">v0.2.40</div>
         </footer>
       </div>
 
@@ -2402,7 +2478,7 @@ export default function Home() {
           if (!hw?.timeline) return undefined;
           for (let turn = 1; turn <= planetModalTurn; turn += 1) {
             const s = hw.timeline.getStateAtTurn(turn);
-            if ((s?.completedCounts?.outpost_ship ?? 0) >= 1) {
+            if ((s?.completedCounts?.outpost_ship ?? 0) > 1) {
               return turn;
             }
           }

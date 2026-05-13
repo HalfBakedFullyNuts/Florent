@@ -309,6 +309,13 @@ describe('Seed Functions', () => {
     });
   });
 
+  describe('outpost ship in seed', () => {
+    it('createStandardStart includes outpost_ship = 1', () => {
+      const state = createStandardStart(defs);
+      expect(state.completedCounts.outpost_ship).toBe(1);
+    });
+  });
+
   describe('State validity', () => {
     it('should produce valid PlanetState for standard start', () => {
       const state = createStandardStart(defs);

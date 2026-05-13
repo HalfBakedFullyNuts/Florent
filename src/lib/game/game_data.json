@@ -8,19 +8,23 @@
   "resources": [
     {
       "id": "metal",
-      "name": "Metal"
+      "name": "Metal",
+      "score_value": 1
     },
     {
       "id": "mineral",
-      "name": "Mineral"
+      "name": "Mineral",
+      "score_value": 1.5
     },
     {
       "id": "food",
-      "name": "Food"
+      "name": "Food",
+      "score_value": 2
     },
     {
       "id": "energy",
-      "name": "Energy"
+      "name": "Energy",
+      "score_value": 2
     },
     {
       "id": "ground_space",
@@ -57,7 +61,7 @@
         }
       ],
       "requirements": [],
-      "score_value": 1
+      "score_value": 12
     },
     {
       "id": "soldier",
@@ -109,7 +113,7 @@
           "id": "army_barracks"
         }
       ],
-      "score_value": 104
+      "score_value": 128
     },
     {
       "id": "scientist",
@@ -161,7 +165,7 @@
           "id": "research_lab"
         }
       ],
-      "score_value": 208
+      "score_value": 340
     },
     {
       "id": "fighter",

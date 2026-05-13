@@ -352,6 +352,26 @@ describe('Multi-Planet State Management', () => {
     expect(gameState.planets.get('planet-4')?.startTurn).toBe(175);
   });
 
+  describe('outpost ship seeding', () => {
+    test('homeworld starts with exactly one outpost ship', () => {
+      const state = createInitialGameState();
+      const homeworld = state.planets.get('planet-1')!;
+      expect(homeworld.completedCounts.outpost_ship).toBe(1);
+    });
+
+    test('added planets do NOT start with an outpost ship', () => {
+      let state = createInitialGameState();
+      state = addPlanet(state, {
+        name: 'Colony',
+        startTurn: 20,
+        abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+        space: { groundCap: 60, orbitalCap: 40 },
+      });
+      const colony = state.planets.get('planet-2')!;
+      expect(colony.completedCounts.outpost_ship ?? 0).toBe(0);
+    });
+  });
+
   test('tracks per-planet turns correctly', () => {
     let gameState = createInitialGameState();
 
