@@ -1,17 +1,20 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
 import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
+import { DEMOLISH_PREFIX } from '../../lib/game/demolish';
 
 export interface QueueLaneEntryProps {
   entry: LaneEntry;
   currentTurn: number;
   onCancel: () => void;
   onQuantityChange?: (newQuantity: number) => void;
-  getMaxQuantity?: () => number;
+  maxQuantity?: number;
   disabled?: boolean;
+  isNewest?: boolean;
   def?: any; // ItemDefinition
+  busyWorkers?: number;
   showQuantityInput?: boolean;
   onTurnClick?: (turn: number) => void;
   maxTurn?: number;
@@ -30,18 +33,21 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   currentTurn,
   onCancel,
   onQuantityChange,
-  getMaxQuantity,
+  maxQuantity,
   disabled = false,
+  isNewest = false,
   def,
+  busyWorkers = 0,
   showQuantityInput = false,
   onTurnClick,
   maxTurn = 199,
 }: QueueLaneEntryProps) {
+  const [editingQuantity, setEditingQuantity] = useState(false);
   const [quantityValue, setQuantityValue] = useState(entry.quantity.toString());
 
   const handleQuantityBlur = () => {
+    setEditingQuantity(false);
     const newQty = parseInt(quantityValue) || 1;
-    const maxQuantity = getMaxQuantity?.();
     const clampedQty = maxQuantity ? Math.min(Math.max(1, newQty), maxQuantity) : Math.max(1, newQty);
 
     if (clampedQty !== entry.quantity && onQuantityChange) {
@@ -54,9 +60,12 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     if (e.key === 'Enter') {
       handleQuantityBlur();
     } else if (e.key === 'Escape') {
+      setEditingQuantity(false);
       setQuantityValue(entry.quantity.toString());
     }
   };
+
+  const isDemolish = entry.itemId?.startsWith(DEMOLISH_PREFIX) ?? false;
 
   // Determine status color
   const statusColor = entry.status === 'active' ? 'border-l-4 border-l-yellow-500' :
@@ -70,7 +79,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   return (
     <div
       className={`
-        w-full text-left px-3 py-2 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : 'bg-pink-nebula-panel/50'} border border-pink-nebula-border rounded
+        w-full text-left px-3 py-2 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : isDemolish ? 'bg-red-950/30' : 'bg-pink-nebula-panel/50'} border ${isDemolish ? 'border-red-800/40' : 'border-pink-nebula-border'} rounded
         transition-colors group
         ${statusColor}
         ${entry.invalid ? 'border-orange-500/50 bg-orange-900/10' : ''}
@@ -106,12 +115,14 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
         </div>
 
         {/* Item Name */}
-        <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : 'text-pink-nebula-text'}`}>
+        <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : isDemolish ? 'text-red-300' : 'text-pink-nebula-text'}`}>
           {isAutoWait
             ? `⏳ Auto-wait: ${waitTurns}t (resource gap)`
             : entry.isWait
               ? `⏳ Manual wait: ${waitTurns}t`
-              : entry.itemName}
+              : isDemolish
+                ? `🔨 ${entry.itemName}`
+                : entry.itemName}
         </div>
 
         {/* Quantity */}
@@ -120,9 +131,10 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
             <input
               type="number"
               min="1"
-              max={undefined}
+              max={maxQuantity}
               value={quantityValue}
               onChange={(e) => setQuantityValue(e.target.value)}
+              onFocus={() => setEditingQuantity(true)}
               onBlur={handleQuantityBlur}
               onKeyDown={handleQuantityKeyDown}
               onClick={(e) => e.stopPropagation()}
@@ -181,8 +193,10 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.entry.completionTurn === nextProps.entry.completionTurn &&
     prevProps.entry.invalid === nextProps.entry.invalid &&
     prevProps.currentTurn === nextProps.currentTurn &&
-    prevProps.getMaxQuantity === nextProps.getMaxQuantity &&
+    prevProps.maxQuantity === nextProps.maxQuantity &&
     prevProps.disabled === nextProps.disabled &&
+    prevProps.isNewest === nextProps.isNewest &&
+    prevProps.busyWorkers === nextProps.busyWorkers &&
     prevProps.showQuantityInput === nextProps.showQuantityInput &&
     prevProps.def?.durationTurns === nextProps.def?.durationTurns &&
     prevProps.def?.duration === nextProps.def?.duration &&

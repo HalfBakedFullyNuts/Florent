@@ -3,7 +3,7 @@
  * All UI actions should go through these commands
  */
 
-import type { PlanetState, LaneId } from '../sim/engine/types';
+import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
 import { canQueue } from '../sim/engine/validation';
 import { tryActivateNext } from '../sim/engine/lanes';
 import { generateWorkItemId, refundActivationCosts } from '../sim/engine/helpers';
@@ -204,6 +204,17 @@ export class GameController {
     );
 
     return { success: true, itemId: workItemId };
+  }
+
+  /**
+   * Inject a synthetic ItemDefinition into the state at `turn` so the engine
+   * can look it up by id during validation and completion handling.
+   * The mutation propagates to all recomputed future states.
+   */
+  injectDef(turn: number, def: import('../sim/engine/types').ItemDefinition): void {
+    this.timeline.mutateAtTurn(turn, (state) => {
+      state.defs[def.id] = def;
+    });
   }
 
   /**
@@ -461,7 +472,7 @@ export class GameController {
    *
    * This method is kept for backwards compatibility but should be deprecated.
    */
-  removeFromHistory(_turn: number, _laneId: LaneId, _workItemId: string): CancelResult {
+  removeFromHistory(turn: number, laneId: LaneId, workItemId: string): CancelResult {
     // This operation is not supported in a deterministic simulation
     console.warn('[removeFromHistory] This operation is deprecated and causes state corruption.');
     console.warn('You cannot retroactively remove completed items from history.');

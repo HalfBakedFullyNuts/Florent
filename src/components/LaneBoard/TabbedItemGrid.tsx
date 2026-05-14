@@ -1,9 +1,13 @@
 "use client";
 
 import React, { useState, useCallback, useMemo } from 'react';
-import type { LaneId } from '../../lib/sim/engine/types';
+import type { ItemDefinition, LaneId } from '../../lib/sim/engine/types';
 import { Card } from '@/components/ui/card';
+import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
+import { LANE_MANUAL_TOPICS, MANUAL_LINKS } from '../../lib/constants/manualLinks';
+import { ManualLink } from '@/components/ui/ManualLink';
+import { ItemIcon } from '@/components/ui/ItemIcon';
 
 export interface SmartQueueCheckShape {
   allowed: boolean;
@@ -20,6 +24,7 @@ export interface TabbedItemGridProps {
   canQueueItem: (itemId: string, quantity: number) => SmartQueueCheckShape;
   activeTab?: LaneId;
   onTabChange?: (tab: LaneId) => void;
+  currentTurn?: number;
 }
 
 export function getMaxImmediateQueueQuantity(
@@ -64,6 +69,7 @@ export function TabbedItemGrid({
   canQueueItem,
   activeTab: externalActiveTab,
   onTabChange,
+  currentTurn = 1,
 }: TabbedItemGridProps) {
   const [internalActiveTab, setInternalActiveTab] = useState<LaneId>('building');
   const [waitTurnsInput, setWaitTurnsInput] = useState<string>('5');
@@ -72,72 +78,84 @@ export function TabbedItemGrid({
   const activeTab = externalActiveTab ?? internalActiveTab;
   const setActiveTab = onTabChange ?? setInternalActiveTab;
 
-  const { itemsByLane, queueChecks } = useMemo(() => {
-    const grouped: Record<string, any[]> = {
-      building: [],
-      ship: [],
-      colonist: [],
-      research: [],
-    };
-    const checks: Record<string, SmartQueueCheckShape> = {};
-    const prereqDepths: Record<string, number> = {};
+  // Group items by lane
+  const itemsByLane: Record<string, any[]> = {
+    building: [],
+    ship: [],
+    colonist: [],
+    research: [],
+  };
 
-    for (const item of Object.values(availableItems) as any[]) {
-      if (item.id === 'outpost' || item.id === 'worker') continue;
-      if (item.lane && grouped[item.lane]) {
-        grouped[item.lane].push(item);
-        checks[item.id] = canQueueItem(item.id, 1);
+  Object.values(availableItems).forEach((item: any) => {
+    // Filter out outpost and worker - they cannot be built manually
+    if (item.id === 'outpost' || item.id === 'worker') {
+      return;
+    }
+    if (item.lane && itemsByLane[item.lane]) {
+      itemsByLane[item.lane].push(item);
+    }
+  });
+
+  /**
+   * Calculate the prerequisite chain depth for a research item.
+   * Items with no prerequisites have depth 0; each link in the chain adds 1.
+   * Capped at 20 to avoid infinite loops in case of circular data.
+   */
+  const getPrereqDepth = (itemId: string, visited = new Set<string>()): number => {
+    if (visited.has(itemId)) return 0; // Cycle guard
+    visited.add(itemId);
+    const item = availableItems[itemId];
+    if (!item?.prerequisites || item.prerequisites.length === 0) return 0;
+    const MAX_DEPTH = 20;
+    let maxParentDepth = 0;
+    for (const prereqId of item.prerequisites) {
+      if (visited.size < MAX_DEPTH) {
+        maxParentDepth = Math.max(maxParentDepth, getPrereqDepth(prereqId, new Set(visited)));
       }
     }
+    return maxParentDepth + 1;
+  };
 
-    const getPrereqDepth = (itemId: string, visited = new Set<string>()): number => {
-      if (prereqDepths[itemId] !== undefined) return prereqDepths[itemId];
-      if (visited.has(itemId)) return 0;
-      visited.add(itemId);
-      const item = availableItems[itemId];
-      if (!item?.prerequisites || item.prerequisites.length === 0) {
-        prereqDepths[itemId] = 0;
-        return 0;
-      }
-
-      const MAX_DEPTH = 20;
-      let maxParentDepth = 0;
-      for (const prereqId of item.prerequisites) {
-        if (visited.size < MAX_DEPTH) {
-          maxParentDepth = Math.max(maxParentDepth, getPrereqDepth(prereqId, new Set(visited)));
-        }
-      }
-      prereqDepths[itemId] = maxParentDepth + 1;
-      return prereqDepths[itemId];
-    };
-
-    Object.keys(grouped).forEach(laneId => {
-      grouped[laneId].sort((a, b) => {
-        const aCheck = checks[a.id];
-        const bCheck = checks[b.id];
-        const aQueueable = aCheck.canQueueEventually ?? aCheck.allowed;
-        const bQueueable = bCheck.canQueueEventually ?? bCheck.allowed;
-
-        if (aQueueable !== bQueueable) {
-          return bQueueable ? 1 : -1;
-        }
-
-        if (laneId === 'research') {
-          const aDepth = getPrereqDepth(a.id);
-          const bDepth = getPrereqDepth(b.id);
-          if (aDepth !== bDepth) return aDepth - bDepth;
-        }
-
-        if (a.durationTurns !== b.durationTurns) {
-          return a.durationTurns - b.durationTurns;
-        }
-
-        return a.name.localeCompare(b.name);
-      });
+  // Pre-compute canQueueItem(id, 1) for all items once per render to avoid
+  // O(N log N) redundant calls inside the sort comparator.
+  const queueChecks = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof canQueueItem>>();
+    Object.values(availableItems).forEach((item: any) => {
+      map.set(item.id, canQueueItem(item.id, 1));
     });
-
-    return { itemsByLane: grouped, queueChecks: checks };
+    return map;
   }, [availableItems, canQueueItem]);
+
+  // Sort items: available first (including those with wait), hard-blocked last.
+  // For research specifically, use prerequisite chain depth as secondary sort so the
+  // full tech tree always reads top-to-bottom regardless of lock state.
+  Object.keys(itemsByLane).forEach(laneId => {
+    itemsByLane[laneId].sort((a, b) => {
+      const aCheck = queueChecks.get(a.id) ?? canQueueItem(a.id, 1);
+      const bCheck = queueChecks.get(b.id) ?? canQueueItem(b.id, 1);
+      // Use canQueueEventually (false = hard block, grey out). Fallback to allowed for compatibility.
+      const aQueueable = aCheck.canQueueEventually ?? aCheck.allowed;
+      const bQueueable = bCheck.canQueueEventually ?? bCheck.allowed;
+
+      if (aQueueable !== bQueueable) {
+        return bQueueable ? 1 : -1;
+      }
+
+      // For the research lane, sort within each group by prerequisite chain depth
+      // so the tech tree always shows in natural tier order.
+      if (laneId === 'research') {
+        const aDepth = getPrereqDepth(a.id);
+        const bDepth = getPrereqDepth(b.id);
+        if (aDepth !== bDepth) return aDepth - bDepth;
+      }
+
+      if (a.durationTurns !== b.durationTurns) {
+        return a.durationTurns - b.durationTurns;
+      }
+
+      return a.name.localeCompare(b.name);
+    });
+  });
 
   const handleQueueWait = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -152,8 +170,18 @@ export function TabbedItemGrid({
   // Hard blocks (canQueueEventually === false) grey it out.
   // Items that need a wait (canQueueNow === false, canQueueEventually === true) remain clickable.
   const isItemQueueable = (itemId: string): boolean => {
-    const check = queueChecks[itemId] ?? canQueueItem(itemId, 1);
+    const check = queueChecks.get(itemId) ?? canQueueItem(itemId, 1);
     return check.canQueueEventually ?? check.allowed;
+  };
+
+  const formatCost = (item: any): Array<{ resource: string; amount: number }> => {
+    if (!item.costsPerUnit) return [];
+    return Object.entries(item.costsPerUnit)
+      .filter(([_, amount]) => (amount as number) > 0)
+      .map(([resource, amount]) => ({
+        resource,
+        amount: amount as number,
+      }));
   };
 
   const getResourceColor = (resource: string): string => {
@@ -216,7 +244,7 @@ export function TabbedItemGrid({
     }
   }, [availableItems]);
 
-  const tryQueue = useCallback((itemId: string) => {
+  const tryQueue = useCallback((itemId: string, laneId: LaneId) => {
     const raw = getQty(itemId);
     if (raw === '' || raw === '0') {
       setItemErrors(prev => ({ ...prev, [itemId]: 'Quantity cannot be empty.' }));
@@ -241,22 +269,13 @@ export function TabbedItemGrid({
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
   }, [getQty, getDefaultQty, humanizeReason, canQueueItem, onQueueItem]);
 
-  const findMaxQueueQuantity = useCallback((itemId: string): number => {
-    return getMaxImmediateQueueQuantity(itemId, canQueueItem);
-  }, [canQueueItem]);
-
-  const tryQueueMax = useCallback((itemId: string) => {
-    const maxQuantity = findMaxQueueQuantity(itemId);
-    if (maxQuantity < 1) {
-      const validation = queueChecks[itemId] ?? canQueueItem(itemId, 1);
-      setItemErrors(prev => ({ ...prev, [itemId]: humanizeReason(validation.reason, itemId) }));
-      return;
-    }
-
-    onQueueItem(itemId, maxQuantity);
-    setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
+  // Freely increment the displayed quantity — no real-time constraint check.
+  // Validation only happens when the user actually submits (clicks "add" or "∞").
+  const incrementQty = useCallback((itemId: string, delta: number) => {
+    const current = parseInt(getQty(itemId), 10) || 0;
+    setItemQuantities(prev => ({ ...prev, [itemId]: String(Math.max(1, current + delta)) }));
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-  }, [findMaxQueueQuantity, queueChecks, canQueueItem, humanizeReason, onQueueItem, getDefaultQty]);
+  }, [getQty]);
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
@@ -267,7 +286,7 @@ export function TabbedItemGrid({
       onQueueItem(itemId, 1);
     } else {
       // Ships/Colonists: delegate to tryQueue for validation
-      tryQueue(itemId);
+      tryQueue(itemId, laneId);
     }
   };
 
@@ -279,10 +298,10 @@ export function TabbedItemGrid({
     if (itemErrors[itemId]) setItemErrors(prev => ({ ...prev, [itemId]: '' }));
   };
 
-  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, itemId: string) => {
+  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>, itemId: string, laneId: LaneId) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      tryQueue(itemId);
+      tryQueue(itemId, laneId);
     } else if (e.key === 'Escape') {
       setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
       setItemErrors(prev => ({ ...prev, [itemId]: '' }));
@@ -322,9 +341,21 @@ export function TabbedItemGrid({
           <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
             {config.icon}
           </span>
-          <h3 className="text-lg font-bold text-pink-nebula-text">
-            {config.title}
-          </h3>
+          {LANE_MANUAL_TOPICS[activeTab]?.[0] ? (
+            <a
+              href={MANUAL_LINKS[LANE_MANUAL_TOPICS[activeTab]![0]]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-bold text-pink-nebula-text hover:text-pink-nebula-text/80 hover:underline transition-colors"
+            >
+              {config.title}
+            </a>
+          ) : (
+            <h3 className="text-lg font-bold text-pink-nebula-text">{config.title}</h3>
+          )}
+          {LANE_MANUAL_TOPICS[activeTab]?.slice(1).map((topic) => (
+            <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
+          ))}
           <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
             {items.length} items
           </span>
@@ -344,12 +375,15 @@ export function TabbedItemGrid({
               </div>
               <div className="flex items-center gap-2 sm:justify-end">
                 <input
-                  type="number"
-                  min="1"
-                  max="100"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className="h-10 w-16 rounded-xl border border-pink-nebula-border/80 bg-slate-950/70 px-2 text-center text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25"
                   value={waitTurnsInput}
-                  onChange={(e) => setWaitTurnsInput(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d+$/.test(v)) setWaitTurnsInput(v);
+                  }}
                 />
                 <span className="mr-1 text-sm text-pink-nebula-muted">turns</span>
                 <button
@@ -369,7 +403,7 @@ export function TabbedItemGrid({
             </div>
           ) : (
             items.map((item) => {
-              const queueCheck = queueChecks[item.id] ?? canQueueItem(item.id, 1);
+              const queueCheck = queueChecks.get(item.id) ?? canQueueItem(item.id, 1);
               const queueable = isItemQueueable(item.id);
               const waitTurns = queueCheck.waitTurnsNeeded ?? 0;
               // hasWait covers: known wait (waitTurns > 0) OR resource soft-block (no production yet)
@@ -383,6 +417,15 @@ export function TabbedItemGrid({
               return (
                 <div
                   key={item.id}
+                  draggable={queueable}
+                  onDragStart={(e) => {
+                    const qty = Number(getQty(item.id)) || 1;
+                    e.dataTransfer.setData(
+                      'application/x-florent-grid-item',
+                      JSON.stringify({ itemId: item.id, quantity: qty })
+                    );
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
                   onClick={() => !isBatchable && queueable && handleItemClick(item.id, activeTab)}
                   className={`
                     w-full text-left p-2 bg-pink-nebula-panel/50 border border-pink-nebula-border rounded
@@ -399,8 +442,14 @@ export function TabbedItemGrid({
                   <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-xs md:text-sm font-mono">
                     {/* Top row on mobile: name + duration + qty controls (right side) */}
                     <div className="flex items-center gap-2 min-w-0 md:contents">
+                      {/* Drag handle */}
+                      {queueable && (
+                        <span className="text-pink-nebula-muted/40 group-hover:text-pink-nebula-muted/80 cursor-grab select-none text-xs" title="Drag to queue panel">⠿</span>
+                      )}
+
                       {/* Item Name */}
-                      <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1">
+                      <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1.5">
+                        <ItemIcon itemId={item.id} size={20} className="opacity-90" />
                         {item.name}
                         {hasWait && (
                           <span
@@ -421,17 +470,17 @@ export function TabbedItemGrid({
                         {item.durationTurns}T
                       </div>
 
-                      {/* Quantity input + Button for batchable items — top-right on mobile, end of row on desktop */}
+                      {/* Quantity controls for batchable items — single row */}
                       {isBatchable && (
-                        <div className="flex flex-col items-end gap-0.5 md:order-last">
-                          <div className="flex items-center gap-1">
+                        <div className="flex flex-col items-end gap-0.5 md:order-last flex-none">
+                          <div className="flex items-center gap-1 flex-nowrap">
                             <input
                               type="text"
                               inputMode="numeric"
                               pattern="[0-9]*"
                               value={getQty(item.id)}
                               onChange={(e) => handleQuantityChange(item.id, e.target.value)}
-                              onKeyDown={(e) => handleQuantityKeyDown(e, item.id)}
+                              onKeyDown={(e) => handleQuantityKeyDown(e, item.id, activeTab)}
                               onClick={(e) => {
                                 e.stopPropagation();
                                 (e.target as HTMLInputElement).select();
@@ -439,51 +488,93 @@ export function TabbedItemGrid({
                               onFocus={(e) => (e.target as HTMLInputElement).select()}
                               disabled={!queueable}
                               className={`
-                                w-14 px-2 py-1 bg-pink-nebula-bg border rounded
-                                text-pink-nebula-text text-sm text-center font-mono
+                                w-12 px-1 py-0.5 bg-pink-nebula-bg border rounded
+                                text-pink-nebula-text text-xs text-center font-mono
                                 focus:outline-none focus:border-pink-nebula-accent-primary
                                 ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
                                 ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
                               `}
                               placeholder="qty"
                             />
+                            {([1, 10, 1000] as const).map((delta, i) => (
+                              <button
+                                key={delta}
+                                onClick={(e) => { e.stopPropagation(); incrementQty(item.id, delta); }}
+                                disabled={!queueable}
+                                aria-label={`Add ${delta} to quantity`}
+                                className={`px-1 py-0.5 rounded text-xs font-semibold ${
+                                  queueable
+                                    ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                }`}
+                              >
+                                {'+'.repeat(i + 1)}
+                              </button>
+                            ))}
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                tryQueue(item.id);
-                              }}
+                              onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 1); }}
                               disabled={!queueable}
-                              className={`
-                                min-w-[32px] px-2 py-1 rounded text-base font-semibold
-                                ${queueable
-                                  ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
-                                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-                                }
-                              `}
+                              aria-label="Increase quantity by 1"
+                              className={`px-1.5 py-1 rounded text-xs font-semibold ${
+                                queueable
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
                             >
-                              +
+                              add
                             </button>
                             <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                tryQueueMax(item.id);
-                              }}
-                              disabled={!maxQueueableNow}
-                              title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
+                              onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 10); }}
+                              disabled={!queueable}
+                              aria-label="Increase quantity by 10"
+                              className={`px-1.5 py-1 rounded text-xs font-semibold ${
+                                queueable
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              ++
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 100); }}
+                              disabled={!queueable}
+                              aria-label="Increase quantity by 100"
+                              className={`px-1.5 py-1 rounded text-xs font-semibold ${
+                                queueable
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              +++
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); tryQueue(item.id, activeTab); }}
+                              disabled={!queueable}
+                              aria-label={`Queue ${item.name}`}
+                              className={`px-2 py-1 rounded text-xs font-bold ${
+                                queueable
+                                  ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
+                                  : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              add
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onQueueItem(item.id, 99999); }}
+                              disabled={!queueable}
+                              title={queueable ? 'Queue maximum available' : humanizeReason(queueCheck.reason, item.id)}
                               aria-label={`Queue maximum ${item.name}`}
-                              className={`
-                                min-w-[42px] px-2 py-1 rounded text-xs font-bold
-                                ${maxQueueableNow
+                              className={`px-1.5 py-1 rounded text-xs font-bold ${
+                                queueable
                                   ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
                                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                }
-                              `}
+                              }`}
                             >
-                              Max
+                              ∞
                             </button>
                           </div>
                           {itemErrors[item.id] && (
-                            <span className="text-red-400 text-xs leading-tight max-w-[120px] text-right">
+                            <span className="text-red-400 text-xs leading-tight max-w-[160px] text-right">
                               {itemErrors[item.id]}
                             </span>
                           )}

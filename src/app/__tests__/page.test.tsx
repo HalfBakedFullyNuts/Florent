@@ -1,5 +1,5 @@
 import React from 'react';
-import { render } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import Home from '../page';
 
 describe('Home page', () => {
@@ -58,5 +58,31 @@ describe('Home page', () => {
   it('shows turn slider controls', () => {
     const { getByLabelText } = render(<Home />);
     expect(getByLabelText(/Turn slider/i)).toBeInTheDocument();
+  });
+
+  it('reveals the extended turn modal after the wait code sequence', async () => {
+    render(<Home />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '99' } });
+      fireEvent.click(screen.getByRole('button', { name: /inject wait/i }));
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByDisplayValue('5'), { target: { value: '67' } });
+      fireEvent.click(screen.getByRole('button', { name: /inject wait/i }));
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/^Turn$/i), { target: { value: '123' } });
+    });
+
+    expect(screen.getByRole('dialog', { name: /signal found/i })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /awoo!/i }));
+    });
+
+    expect(screen.getByText(/Planning range extended to T300/i)).toBeInTheDocument();
   });
 });

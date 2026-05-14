@@ -5,7 +5,7 @@
  * after queue modifications (removals, additions, etc.)
  */
 
-import type { PlanetState, LaneId } from '../sim/engine/types';
+import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
 import { cloneState } from '../sim/engine/helpers';
 import type { LaneEntry } from './selectors';
 
@@ -67,7 +67,7 @@ export function validateAllQueueItems(
 export function validateQueueEntry(
   state: PlanetState,
   entry: LaneEntry,
-  _laneId: LaneId
+  laneId: LaneId
 ): { valid: boolean; reason?: string; missingPrereqs?: string[] } {
 
   const def = state.defs[entry.itemId];
@@ -77,6 +77,8 @@ export function validateQueueEntry(
 
   // For pending/active items, check prerequisites at the item's start turn
   // This handles the case where a prerequisite structure was removed from the queue
+  const checkTurn = entry.startTurn || state.currentTurn;
+
   // Prerequisite check
   if (def.prerequisites && def.prerequisites.length > 0) {
     const missing: string[] = [];

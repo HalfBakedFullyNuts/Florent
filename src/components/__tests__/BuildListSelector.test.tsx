@@ -116,7 +116,7 @@ describe('BuildListSelector', () => {
 
     expect(screen.getByRole('option', { name: /My Rush/i })).toBeInTheDocument();
     expect(screen.getByText(/Neighbor Rush by Lin - opened/i)).toBeInTheDocument();
-    expect(screen.getByText(/Local cache for your plans and opened shares/i)).toBeInTheDocument();
+    expect(screen.getByText(/Local plans & opened shares/i)).toBeInTheDocument();
   });
 
   test('loads the selected shared list', async () => {

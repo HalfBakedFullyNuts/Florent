@@ -1,30 +1,35 @@
 /**
  * Timeline management and recomputation
- * Fixed 200-turn timeline architecture for simplified queue management
+ * Fixed-length timeline architecture for simplified queue management
  */
 
 import type { PlanetState } from '../sim/engine/types';
-import { runTurn } from '../sim/engine/turn';
+import { simulate, runTurn } from '../sim/engine/turn';
 import { CompletionBuffer } from '../sim/engine/buffers';
 import { cloneState } from '../sim/engine/helpers';
 import { getLogger } from './logger';
 import { computeNetOutputsPerTurn } from '../sim/engine/outputs';
 
 /**
- * Timeline state manager with fixed 200-turn architecture
- * Always maintains exactly 200 pre-computed turns for consistent UX
+ * Timeline state manager with a fixed turn window.
  */
 export class Timeline {
-  private static readonly FIXED_TURNS = 200;
+  private static readonly DEFAULT_TURNS = 200;
   private static readonly LAZY_COMPUTE_BUFFER = 50; // Compute 50 turns ahead
   private states: PlanetState[];
+  private totalTurns: number;
   private currentTurnIndex: number;
   private completionBuffer: CompletionBuffer;
   private stableFromTurn: number = -1; // Cache for stable state optimization
   private highestComputedIndex: number = 0; // Track how far we've computed
 
-  constructor(initialState: PlanetState) {
-    this.states = new Array(Timeline.FIXED_TURNS);
+  constructor(initialState: PlanetState, totalTurns: number = Timeline.DEFAULT_TURNS) {
+    const sanitizedTotalTurns = Number.isFinite(totalTurns)
+      ? Math.floor(totalTurns)
+      : Timeline.DEFAULT_TURNS;
+
+    this.totalTurns = Math.max(Timeline.DEFAULT_TURNS, sanitizedTotalTurns);
+    this.states = new Array(this.totalTurns);
     this.states[0] = cloneState(initialState);
     this.currentTurnIndex = 0;
     this.completionBuffer = new CompletionBuffer();
@@ -61,7 +66,7 @@ export class Timeline {
 
     // Lazy computation: if requesting a turn we haven't computed yet, compute up to it + buffer
     if (index > this.highestComputedIndex) {
-      const targetIndex = Math.min(index + Timeline.LAZY_COMPUTE_BUFFER, Timeline.FIXED_TURNS - 1);
+      const targetIndex = Math.min(index + Timeline.LAZY_COMPUTE_BUFFER, this.states.length - 1);
       this.computeUpToIndex(targetIndex);
 
       // If we still don't have the state (stable state was detected before reaching index),
@@ -103,7 +108,7 @@ export class Timeline {
     if (this.currentTurnIndex > this.highestComputedIndex) {
       const targetIndex = Math.min(
         this.currentTurnIndex + Timeline.LAZY_COMPUTE_BUFFER,
-        Timeline.FIXED_TURNS - 1
+        this.states.length - 1
       );
       this.computeUpToIndex(targetIndex);
     }
@@ -111,10 +116,24 @@ export class Timeline {
   }
 
   /**
-   * Get total number of computed turns (always 200)
+   * Get total number of turns in the timeline (default 200, extendable).
    */
   getTotalTurns(): number {
-    return Timeline.FIXED_TURNS;
+    return this.states.length;
+  }
+
+  /**
+   * Extend the timeline to accommodate more turns.
+   * No-op if the timeline already covers the requested total.
+   */
+  extendToTotalTurns(newTotal: number): void {
+    if (newTotal <= this.states.length) return;
+    const expanded: PlanetState[] = new Array(newTotal);
+    for (let i = 0; i < this.states.length; i++) {
+      expanded[i] = this.states[i];
+    }
+    this.states = expanded;
+    this.stableFromTurn = -1; // Invalidate stable-state shortcut — must compute new turns
   }
 
   /**
@@ -125,7 +144,7 @@ export class Timeline {
     if (index > this.highestComputedIndex) {
       const targetIndex = Math.min(
         index + Timeline.LAZY_COMPUTE_BUFFER,
-        Timeline.FIXED_TURNS - 1
+        this.states.length - 1
       );
       this.computeUpToIndex(targetIndex);
     }
@@ -198,7 +217,7 @@ export class Timeline {
       this.highestComputedIndex + Timeline.LAZY_COMPUTE_BUFFER,
       Timeline.LAZY_COMPUTE_BUFFER
     );
-    this.computeUpToIndex(Math.min(targetIndex, Timeline.FIXED_TURNS - 1));
+    this.computeUpToIndex(Math.min(targetIndex, this.states.length - 1));
   }
 
   /**
@@ -252,7 +271,7 @@ export class Timeline {
 
   /**
    * Set current turn number (for time travel)
-   * Accepts turn numbers (1-200), not indices
+   * Accepts turn numbers, not indices
    */
   setCurrentTurn(turn: number): boolean {
     // Map turn number to array index (turn 1 = index 0)
@@ -274,7 +293,7 @@ export class Timeline {
    * Simply advances the view index (all turns pre-computed)
    */
   nextTurn(): PlanetState {
-    if (this.currentTurnIndex < Timeline.FIXED_TURNS - 1) {
+    if (this.currentTurnIndex < this.states.length - 1) {
       this.currentTurnIndex += 1;
       getLogger().logTimelineEvent(
         this.getCurrentTurn(),
@@ -292,7 +311,7 @@ export class Timeline {
   simulateTurns(count: number): void {
     // Advance current turn index by count (max at 199)
     const newIndex = this.currentTurnIndex + count;
-    const targetIndex = Math.min(newIndex, Timeline.FIXED_TURNS - 1);
+    const targetIndex = Math.min(newIndex, this.states.length - 1);
 
     // Ensure target turn is computed
     this.ensureComputedUpTo(targetIndex);
@@ -308,7 +327,7 @@ export class Timeline {
     const initialTurn = this.states[0]?.currentTurn || 1;
     const index = turn - initialTurn;
 
-    if (index < 0 || index >= Timeline.FIXED_TURNS) {
+    if (index < 0 || index >= this.states.length) {
       return false;
     }
 
@@ -333,12 +352,12 @@ export class Timeline {
       turn,
       'mutation',
       `State mutated at turn ${turn}`,
-      Timeline.FIXED_TURNS - turn
+      this.states.length - turn
     );
 
     // Recompute from the next index forward (index+1) so the mutation at index is preserved
     // The mutation affects the state AT this index, so we recompute from the NEXT index
-    if (index + 1 < Timeline.FIXED_TURNS) {
+    if (index + 1 < this.states.length) {
       this.recomputeAll(index + 1);
     }
 
@@ -346,10 +365,10 @@ export class Timeline {
   }
 
   /**
-   * Reset timeline to initial state and recompute all 200 turns
+   * Reset timeline to initial state and recompute the current turn window.
    */
   reset(initialState: PlanetState): void {
-    this.states = new Array(Timeline.FIXED_TURNS);
+    this.states = new Array(this.totalTurns);
     this.states[0] = cloneState(initialState);
     this.currentTurnIndex = 0;
     this.completionBuffer.clear();
@@ -362,12 +381,12 @@ export class Timeline {
    */
   getAllStates(): PlanetState[] {
     // Ensure all states are computed before returning
-    this.ensureComputedUpTo(Timeline.FIXED_TURNS - 1);
+    this.ensureComputedUpTo(this.states.length - 1);
 
     // Fill in any missing states from stable state template
     if (this.stableFromTurn >= 0) {
       const stableState = this.states[this.stableFromTurn];
-      for (let i = this.stableFromTurn + 1; i < Timeline.FIXED_TURNS; i++) {
+      for (let i = this.stableFromTurn + 1; i < this.states.length; i++) {
         if (!this.states[i]) {
           this.states[i] = cloneState(stableState);
           this.states[i].currentTurn = stableState.currentTurn + (i - this.stableFromTurn);

@@ -1,0 +1,470 @@
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-size: 16px;
+  --background: #0a0514;
+  --foreground: #f0e7ff;
+  --card: #1a0f2e;
+  --card-foreground: #f0e7ff;
+  --popover: #1a0f2e;
+  --popover-foreground: #f0e7ff;
+  --primary: #e879f9;
+  --primary-foreground: #1a0f2e;
+  --secondary: #7c3aed;
+  --secondary-foreground: #f0e7ff;
+  --muted: #2d1b4e;
+  --muted-foreground: #b794f6;
+  --accent: #c084fc;
+  --accent-foreground: #1a0f2e;
+  --destructive: #fb7185;
+  --destructive-foreground: #ffffff;
+  --border: rgba(232, 121, 249, 0.2);
+  --input: transparent;
+  --input-background: #2d1b4e;
+  --switch-background: #7c3aed;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --ring: #e879f9;
+  --chart-1: #e879f9;
+  --chart-2: #c084fc;
+  --chart-3: #7c3aed;
+  --chart-4: #f0abfc;
+  --chart-5: #d8b4fe;
+  --radius: 0.625rem;
+  --sidebar: #1a0f2e;
+  --sidebar-foreground: #f0e7ff;
+  --sidebar-primary: #e879f9;
+  --sidebar-primary-foreground: #1a0f2e;
+  --sidebar-accent: #2d1b4e;
+  --sidebar-accent-foreground: #f0e7ff;
+  --sidebar-border: rgba(232, 121, 249, 0.2);
+  --sidebar-ring: #e879f9;
+}
+
+.dark {
+  --background: #0a0514;
+  --foreground: #f0e7ff;
+  --card: #1a0f2e;
+  --card-foreground: #f0e7ff;
+  --popover: #1a0f2e;
+  --popover-foreground: #f0e7ff;
+  --primary: #e879f9;
+  --primary-foreground: #1a0f2e;
+  --secondary: #7c3aed;
+  --secondary-foreground: #f0e7ff;
+  --muted: #2d1b4e;
+  --muted-foreground: #b794f6;
+  --accent: #c084fc;
+  --accent-foreground: #1a0f2e;
+  --destructive: #fb7185;
+  --destructive-foreground: #ffffff;
+  --border: rgba(232, 121, 249, 0.2);
+  --input: rgba(232, 121, 249, 0.1);
+  --ring: #e879f9;
+  --font-weight-medium: 500;
+  --font-weight-normal: 400;
+  --chart-1: #e879f9;
+  --chart-2: #c084fc;
+  --chart-3: #7c3aed;
+  --chart-4: #f0abfc;
+  --chart-5: #d8b4fe;
+  --sidebar: #1a0f2e;
+  --sidebar-foreground: #f0e7ff;
+  --sidebar-primary: #e879f9;
+  --sidebar-primary-foreground: #1a0f2e;
+  --sidebar-accent: #2d1b4e;
+  --sidebar-accent-foreground: #f0e7ff;
+  --sidebar-border: rgba(232, 121, 249, 0.2);
+  --sidebar-ring: #e879f9;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-input-background: var(--input-background);
+  --color-switch-background: var(--switch-background);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/**
+ * Nebula Command Design System
+ * Custom utility classes for pink nebula space theme
+ */
+
+/* Glass-morphism Effects */
+.glass-card {
+  background: rgba(26, 15, 46, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(232, 121, 249, 0.15);
+  box-shadow: 
+    0 8px 32px 0 rgba(232, 121, 249, 0.1),
+    inset 0 1px 0 0 rgba(232, 121, 249, 0.1);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card-hover:hover {
+  border-color: rgba(232, 121, 249, 0.4);
+  box-shadow: 
+    0 8px 32px 0 rgba(232, 121, 249, 0.25),
+    inset 0 1px 0 0 rgba(232, 121, 249, 0.2);
+  transform: translateY(-2px);
+}
+
+.glass-panel {
+  background: rgba(26, 15, 46, 0.7);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(232, 121, 249, 0.2);
+}
+
+.glass-subtle {
+  background: rgba(26, 15, 46, 0.4);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(232, 121, 249, 0.1);
+}
+
+/* Glow Effects */
+.glow-primary {
+  box-shadow: 
+    0 0 20px rgba(232, 121, 249, 0.3),
+    0 0 40px rgba(232, 121, 249, 0.15);
+}
+
+.glow-primary-subtle {
+  box-shadow: 
+    0 0 10px rgba(232, 121, 249, 0.2),
+    0 0 20px rgba(232, 121, 249, 0.1);
+}
+
+.glow-secondary {
+  box-shadow: 
+    0 0 20px rgba(192, 132, 252, 0.3),
+    0 0 40px rgba(192, 132, 252, 0.15);
+}
+
+.glow-accent {
+  box-shadow: 
+    0 0 15px rgba(192, 132, 252, 0.25),
+    0 0 30px rgba(192, 132, 252, 0.12);
+}
+
+.glow-tyr {
+  box-shadow: 0 0 15px rgba(156, 163, 175, 0.3);
+}
+
+.glow-mineral {
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+}
+
+.glow-food {
+  box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+}
+
+.glow-energy {
+  box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+}
+
+/* Button Enhancements */
+.btn-nebula {
+  border: 1px solid rgba(232, 121, 249, 0.4);
+  background: rgba(26, 15, 46, 0.6);
+  backdrop-filter: blur(12px);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-nebula:hover {
+  border-color: rgba(232, 121, 249, 0.6);
+  background: rgba(232, 121, 249, 0.2);
+  box-shadow: 0 4px 12px rgba(232, 121, 249, 0.2);
+  transform: scale(1.05);
+}
+
+.btn-nebula-primary {
+  background: rgba(232, 121, 249, 0.2);
+  border: 2px solid rgba(232, 121, 249, 0.6);
+  color: #e879f9;
+  backdrop-filter: blur(12px);
+  box-shadow: 
+    0 0 10px rgba(232, 121, 249, 0.2),
+    0 0 20px rgba(232, 121, 249, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-nebula-primary:hover {
+  background: rgba(232, 121, 249, 0.3);
+  box-shadow: 
+    0 0 20px rgba(232, 121, 249, 0.3),
+    0 0 40px rgba(232, 121, 249, 0.15);
+  transform: scale(1.05);
+}
+
+.btn-nebula-primary:active {
+  transform: scale(0.95);
+}
+
+/* Border Treatments */
+.border-nebula {
+  border: 1px solid rgba(232, 121, 249, 0.2);
+}
+
+.border-nebula-bright {
+  border: 1px solid rgba(232, 121, 249, 0.4);
+}
+
+.border-nebula-glow {
+  border: 2px solid rgba(232, 121, 249, 0.3);
+  box-shadow: 
+    0 0 10px rgba(232, 121, 249, 0.2),
+    inset 0 0 10px rgba(232, 121, 249, 0.1);
+}
+
+/* Background Treatments */
+.bg-nebula-gradient {
+  background: linear-gradient(135deg, 
+    rgba(232, 121, 249, 0.1) 0%, 
+    rgba(192, 132, 252, 0.1) 50%, 
+    rgba(124, 58, 237, 0.1) 100%
+  );
+}
+
+.bg-nebula-radial {
+  background: radial-gradient(
+    circle at 50% 50%,
+    rgba(232, 121, 249, 0.15) 0%,
+    rgba(26, 15, 46, 0.6) 70%
+  );
+}
+
+/* Card Variants */
+.card-elevated {
+  background: rgba(26, 15, 46, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(232, 121, 249, 0.15);
+  box-shadow: 
+    0 10px 40px rgba(232, 121, 249, 0.15),
+    0 0 0 1px rgba(232, 121, 249, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.card-interactive {
+  background: rgba(26, 15, 46, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(232, 121, 249, 0.15);
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.card-interactive:hover {
+  border-color: rgba(232, 121, 249, 0.4);
+  box-shadow: 
+    0 8px 32px 0 rgba(232, 121, 249, 0.25),
+    inset 0 1px 0 0 rgba(232, 121, 249, 0.2);
+  transform: translateY(-2px);
+}
+
+.card-interactive:active {
+  transform: translateY(0) scale(0.98);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 4rem 0;
+  border: 2px dashed rgba(232, 121, 249, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(45, 27, 78, 0.1);
+}
+
+.empty-state-icon {
+  height: 4rem;
+  width: 4rem;
+  color: rgba(232, 121, 249, 0.3);
+  margin: 0 auto 1rem;
+}
+
+/* Scroll Enhancements */
+.scroll-nebula::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.scroll-nebula::-webkit-scrollbar-track {
+  background: rgba(26, 15, 46, 0.4);
+  border-radius: 4px;
+}
+
+.scroll-nebula::-webkit-scrollbar-thumb {
+  background: rgba(232, 121, 249, 0.3);
+  border-radius: 4px;
+  transition: background 0.3s;
+}
+
+.scroll-nebula::-webkit-scrollbar-thumb:hover {
+  background: rgba(232, 121, 249, 0.5);
+}
+
+/* Hover Effects */
+.hover-lift {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+}
+
+.hover-glow {
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.hover-glow:hover {
+  box-shadow: 
+    0 0 20px rgba(232, 121, 249, 0.3),
+    0 0 40px rgba(232, 121, 249, 0.15);
+}
+
+/* Animations */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 
+      0 0 20px rgba(232, 121, 249, 0.3),
+      0 0 40px rgba(232, 121, 249, 0.15);
+  }
+  50% {
+    box-shadow: 
+      0 0 25px rgba(232, 121, 249, 0.4),
+      0 0 50px rgba(232, 121, 249, 0.2);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes progress-shine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/**
+ * Base typography. This is not applied to elements which have an ancestor with a Tailwind text class.
+ */
+@layer base {
+  :where(:not(:has([class*=" text-"]), :not(:has([class^="text-"])))) {
+    h1 {
+      font-size: var(--text-2xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h2 {
+      font-size: var(--text-xl);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h3 {
+      font-size: var(--text-lg);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    h4 {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    p {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+
+    label {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    button {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-medium);
+      line-height: 1.5;
+    }
+
+    input {
+      font-size: var(--text-base);
+      font-weight: var(--font-weight-normal);
+      line-height: 1.5;
+    }
+  }
+}
+
+html {
+  font-size: var(--font-size);
+}

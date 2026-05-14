@@ -104,7 +104,7 @@ describe("share link flow", () => {
     const writeText = installClipboardMock();
     render(<Home />);
 
-    fireEvent.change(screen.getByLabelText(/shared list name/i), {
+    fireEvent.change(screen.getByLabelText(/^list name$/i), {
       target: { value: "Ada Opening" },
     });
     fireEvent.change(screen.getByLabelText(/author/i), {
@@ -140,7 +140,7 @@ describe("share link flow", () => {
     });
     render(<Home />);
 
-    fireEvent.change(screen.getByLabelText(/shared list name/i), {
+    fireEvent.change(screen.getByLabelText(/^list name$/i), {
       target: { value: "Fallback Opening" },
     });
     fireEvent.change(screen.getByLabelText(/author/i), {
@@ -181,7 +181,7 @@ describe("share link flow", () => {
 
     render(<Home />);
 
-    await screen.findByText(/1 queued/i);
+    await screen.findByRole("button", { name: /edit bl/i });
     fireEvent.click(screen.getByRole("button", { name: /edit bl/i }));
     fireEvent.click(screen.getByRole("button", { name: /share link/i }));
 
@@ -201,12 +201,12 @@ describe("share link flow", () => {
     });
     render(<Home />);
 
-    expect(screen.queryByText(/1 queued/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Shared list")).not.toBeInTheDocument();
 
     window.history.pushState(null, "", `/#state=${encoded}`);
     fireEvent(window, new Event("hashchange"));
 
-    await screen.findByText(/1 queued/i);
+    await screen.findByText("Shared list");
     expect(screen.getByText("Shared list")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: "Neighbor Tech Rush" }),
@@ -306,7 +306,7 @@ describe("share link flow", () => {
 
     expect(await screen.findByText(/^Add to Queue$/i)).toBeInTheDocument();
     expect(screen.queryByText("Disposable Preview")).not.toBeInTheDocument();
-    expect(screen.queryByText(/^1 queued$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/\(1\)/)).not.toBeInTheDocument();
     expect(screen.queryByText("Shared list")).not.toBeInTheDocument();
     expect(window.location.hash).toBe("");
     expect(window.localStorage.getItem("florent_save")).toBeNull();
@@ -324,8 +324,7 @@ describe("share link flow", () => {
 
     render(<Home />);
 
-    await screen.findByText(/1 queued/i);
-    expect(screen.getByText(/^Add to Queue$/i)).toBeInTheDocument();
+    await screen.findByText(/^Add to Queue$/i);
     expect(
       screen.queryByRole("button", { name: /edit bl/i }),
     ).not.toBeInTheDocument();
@@ -339,13 +338,13 @@ describe("share link flow", () => {
 
     render(<Home />);
 
-    await screen.findByText(/1 queued/i);
+    await screen.findByText(/^Add to Queue$/i);
 
     window.history.pushState(null, "", "/");
     fireEvent(window, new Event("hashchange"));
 
     await waitFor(() =>
-      expect(screen.queryByText(/1 queued/i)).not.toBeInTheDocument(),
+      expect(window.localStorage.getItem("florent_save")).toBeNull(),
     );
     expect(window.location.hash).toBe("");
     expect(window.localStorage.getItem("florent_save")).toBeNull();

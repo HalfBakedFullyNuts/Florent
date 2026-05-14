@@ -24,13 +24,14 @@ const RECENT_LOCAL_LIMIT = 5;
 
 export interface BuildListSelectorProps {
   onRestore: (encoded: string, label: string, options?: { shared?: boolean }) => void;
+  className?: string;
 }
 
 /**
  * Local build-list switcher. Named saves are user-owned; shared lists are only
  * cached locally after opening a shared link and are never synced.
  */
-export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
+export function BuildListSelector({ onRestore, className }: BuildListSelectorProps) {
   const [recentLocalLists, setRecentLocalLists] = useState<HistoryRecord[]>([]);
   const [ownLists, setOwnLists] = useState<SaveRecord[]>([]);
   const [sharedLists, setSharedLists] = useState<SharedRecord[]>([]);
@@ -183,17 +184,11 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
   }, [refresh, selected]);
 
   return (
-    <div className={`relative px-3 md:px-6 py-3 ${isMenuOpen ? 'z-40' : 'z-20'}`}>
-      <div className="relative max-w-[1800px] mx-auto overflow-visible rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/90 via-slate-950/55 to-pink-nebula-panel/80 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-          <div className="min-w-0 xl:w-72">
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-xl border border-pink-nebula-accent-primary/40 bg-pink-nebula-accent-primary/15 shadow-lg shadow-pink-nebula-accent-primary/10" />
-              <div>
-                <div className="text-sm font-bold uppercase tracking-[0.18em] text-pink-nebula-text">Build lists</div>
-                <div className="text-xs text-pink-nebula-muted">Local cache for your plans and opened shares</div>
-              </div>
-            </div>
+      <div className={`relative overflow-visible rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/90 via-slate-950/55 to-pink-nebula-panel/80 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl ${isMenuOpen ? 'z-40' : 'z-20'} ${className ?? ''}`}>
+        <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
+          <div className="min-w-0 shrink-0">
+            <div className="text-sm font-bold uppercase tracking-[0.18em] text-pink-nebula-text">Build lists</div>
+            <div className="text-[11px] text-pink-nebula-muted">Local plans & opened shares</div>
           </div>
 
           <div className="relative flex-1 min-w-0" ref={dropdownRef}>
@@ -201,7 +196,7 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
               type="button"
               onClick={handleToggleMenu}
               disabled={!hasLists}
-              className="group flex min-h-[58px] w-full items-center justify-between gap-3 rounded-2xl border border-pink-nebula-border/80 bg-slate-950/60 px-4 py-3 text-left shadow-inner shadow-black/30 outline-none transition-all duration-200 hover:border-pink-nebula-accent-primary/70 hover:bg-slate-900/80 focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25 disabled:cursor-not-allowed disabled:opacity-55"
+              className="group flex min-h-[44px] w-full items-center justify-between gap-3 rounded-2xl border border-pink-nebula-border/80 bg-slate-950/60 px-4 py-2 text-left shadow-inner shadow-black/30 outline-none transition-all duration-200 hover:border-pink-nebula-accent-primary/70 hover:bg-slate-900/80 focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25 disabled:cursor-not-allowed disabled:opacity-55"
               aria-label="Select build list"
               aria-haspopup="listbox"
               aria-expanded={isMenuOpen}
@@ -250,21 +245,21 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
             <button
               onClick={handleLoad}
               disabled={!selected}
-              className="min-h-[46px] rounded-xl border border-pink-nebula-accent-secondary/40 bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-pink-nebula-accent-primary/20 transition-colors duration-200 hover:from-pink-nebula-accent-secondary hover:to-pink-nebula-accent-primary disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-none disabled:bg-white/5 disabled:text-pink-nebula-muted disabled:shadow-none"
+              className="min-h-[38px] rounded-xl border border-pink-nebula-accent-secondary/40 bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-pink-nebula-accent-primary/20 transition-colors duration-200 hover:from-pink-nebula-accent-secondary hover:to-pink-nebula-accent-primary disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-none disabled:bg-white/5 disabled:text-pink-nebula-muted disabled:shadow-none"
             >
               Load
             </button>
             <button
               onClick={handleDelete}
               disabled={!selected}
-              className="min-h-[46px] rounded-xl border border-red-400/25 bg-red-950/35 px-4 py-2 text-sm font-semibold text-red-200 transition-all duration-200 hover:border-red-300/60 hover:bg-red-700/70 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-pink-nebula-muted"
+              className="min-h-[38px] rounded-xl border border-red-400/25 bg-red-950/35 px-4 py-2 text-sm font-semibold text-red-200 transition-all duration-200 hover:border-red-300/60 hover:bg-red-700/70 hover:text-white disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/5 disabled:text-pink-nebula-muted"
             >
               Delete
             </button>
             <button
               onClick={refresh}
               disabled={loading}
-              className="min-h-[46px] rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-pink-nebula-text transition-all duration-200 hover:border-pink-nebula-accent-primary/50 hover:bg-white/10 disabled:cursor-wait disabled:opacity-50"
+              className="min-h-[38px] rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-pink-nebula-text transition-all duration-200 hover:border-pink-nebula-accent-primary/50 hover:bg-white/10 disabled:cursor-wait disabled:opacity-50"
             >
               Refresh
             </button>
@@ -283,7 +278,6 @@ export function BuildListSelector({ onRestore }: BuildListSelectorProps) {
           </div>
         )}
       </div>
-    </div>
   );
 }
 

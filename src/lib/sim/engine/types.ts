@@ -73,6 +73,7 @@ export interface ItemDefinition {
   isAbundanceScaled?: boolean;
   prerequisites: string[]; // structure IDs required
   unique?: boolean; // True = only one allowed per planet (formerly maxPerPlanet === 1). Defaults to false.
+  scoreValue?: number; // Point value for scoring; 0 / missing means no score contribution.
 }
 
 // ============================================================================
@@ -93,6 +94,7 @@ export interface WorkItem {
   blockedResearch?: string[]; // Research prereqs that are no longer completed or scheduled
   isWait?: boolean; // True for wait items (pauses lane for N turns)
   isAutoWait?: boolean; // True for auto-inserted wait items (can be overwritten/collapsed)
+  isPhase2bWait?: boolean; // True for wait items activated in Phase 2b (no first-tick that turn)
 }
 
 // ============================================================================

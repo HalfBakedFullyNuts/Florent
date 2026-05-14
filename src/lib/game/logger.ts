@@ -3,7 +3,7 @@
  * Logs operations to CSV files in logs/ directory
  */
 
-import type { PlanetState, LaneId } from '../sim/engine/types';
+import type { PlanetState, LaneId, WorkItem } from '../sim/engine/types';
 
 export interface LoggerConfig {
   enabled: boolean;

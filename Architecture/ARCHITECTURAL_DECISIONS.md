@@ -15,9 +15,6 @@ Short rationale (1-2 sentences).
 
 ## Recent Decisions - Turn-Based Simulator Implementation
 
-2026-05-07 — Remove Unused React Orchestrator and Legacy Adapters
-The unused `GameStateContext`, legacy `agent`/`dataManager` wrapper layer, placeholder multi-planet exporter, and obsolete UI modal components were removed so the active app path is the only maintained orchestration surface. Queue state still mutates through `GameController`, with React ownership kept in the app/components layer.
-
 2026-05-04 — Guard Next Builds While Dev Is Running
 Local production builds refuse to run while port 3000 is serving `next dev`. This prevents `npm run build` from rewriting the active localhost webpack chunk cache and causing missing-module dev-server failures.
 

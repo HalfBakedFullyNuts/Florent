@@ -35,6 +35,7 @@ export interface PlanetConfig {
     orbitalCap: number;
   };
   starting?: PlanetStartingSettings;
+  galaxyChoice?: 'odd' | 'even'; // Fleet Drive 1 travel: odd=16t, even=26t
 }
 
 export interface GameState {

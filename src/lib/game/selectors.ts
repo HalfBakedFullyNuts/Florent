@@ -7,6 +7,7 @@ import type { PlanetState, LaneId, NetOutputs, ResourceId, WorkItem } from '../s
 import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep, computeProjectedNetOutputsPerTurn } from '../sim/engine/outputs';
 import { computeGrowthBonus } from '../sim/engine/growth_food';
 import { WORKER_GROWTH_BASE } from '../sim/rules/constants';
+import { canQueue } from '../sim/engine/validation';
 import { validateQueueWithWait, type QueueBlocker } from '../sim/engine/queueValidation';
 
 export interface PlanetSummary {
@@ -38,6 +39,11 @@ export interface PlanetSummary {
   foodUpkeep: number;
   planetLimit: number; // Maximum number of planets allowed
   completedResearch: string[]; // List of completed research IDs
+  workerGrowthDetail?: {
+    growthPerTurn: number;
+    ratePercent: number;   // e.g. 1.5 means 1.5%/turn
+    turnsToDouble: number | null;
+  } | null;
 }
 
 export interface LaneEntry {
@@ -167,6 +173,17 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
     0
   );
 
+  const workerCount = state.population.workersTotal;
+  const projectedGrowth = calculateProjectedGrowth(state, workerCount);
+  let workerGrowthDetail: PlanetSummary['workerGrowthDetail'] = null;
+  if (projectedGrowth > 0 && workerCount > 0) {
+    const bonus = computeGrowthBonus(state);
+    const rate = WORKER_GROWTH_BASE + bonus;
+    const ratePercent = Math.round(rate * 1000) / 10;
+    const turnsToDouble = rate > 0 ? Math.ceil(Math.log(2) / Math.log(1 + rate)) : null;
+    workerGrowthDetail = { growthPerTurn: projectedGrowth, ratePercent, turnsToDouble };
+  }
+
   return {
     turn: state.currentTurn,
     stocks: { ...state.stocks },
@@ -187,6 +204,7 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
     foodUpkeep,
     planetLimit: state.planetLimit || 4,
     completedResearch: state.completedResearch || [],
+    workerGrowthDetail,
   };
 }
 
