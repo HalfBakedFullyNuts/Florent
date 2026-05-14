@@ -523,7 +523,7 @@ describe('Export Formatters (TICKET-5)', () => {
       const discord = formatAsDiscord(lanesWithResearch);
 
       expect(discord).toContain('| Research');
-      expect(discord).toContain('Planet Manageme');
+      expect(discord).toContain('Pla. Man.');
       expect(discord).not.toContain('1x Planet');
     });
   });

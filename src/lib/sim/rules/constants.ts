@@ -54,7 +54,7 @@ export const STARTING_STATE = {
 
 // Colonist worker occupation rules
 export const SOLDIER_WORKERS_OCCUPIED = 10; // Reserves 10 workers during training, converts 1 at completion
-export const SCIENTIST_WORKERS_OCCUPIED = 25; // Reserves 25 workers during training, converts 1 at completion
+export const SCIENTIST_WORKERS_OCCUPIED = 20; // Reserves 20 workers during training, converts 1 at completion
 
 // Growth facilities (for bonus calculation)
 export const GROWTH_FACILITY_IDS = ['leisure_centre', 'hospital'] as const;

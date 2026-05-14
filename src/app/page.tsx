@@ -14,6 +14,7 @@ import {
   updatePlanetConfig,
   resetToHomeworld,
   switchPlanet,
+  planPlanetExpansion,
   getLocalResearchGateForItem,
   refreshLocalResearchGates,
   type GameState,
@@ -97,6 +98,7 @@ import {
   type AutosaveTimer,
 } from "./restoreState";
 import type { MultiPlanetExportData } from "../lib/export/formatters";
+import { DEFAULT_EXPANSION_TRAVEL_CHOICE } from "../lib/constants/travel";
 
 // Persistence
 import {
@@ -742,6 +744,33 @@ export default function Home() {
     [gameState, viewTurn],
   );
 
+  const currentBuilds = useMemo(() => {
+    const formatActiveItem = (
+      item: PlanetState["lanes"][LaneId]["active"] | LaneView["entries"][number] | null | undefined,
+      defs: Record<string, { name?: string }>
+    ) => {
+      if (!item) return null;
+      if (item.isWait) {
+        const turns = Math.max(1, item.turnsRemaining ?? 1);
+        return `Wait ${turns}T`;
+      }
+      const name = defs[item.itemId]?.name || item.itemId;
+      const shortName = name.length > 18 ? `${name.slice(0, 16)}...` : name;
+      return item.quantity > 1 ? `${shortName} x${item.quantity}` : shortName;
+    };
+    const planetDefs = currentState?.defs ?? {};
+    const researchActive = globalResearchLane?.entries.find(
+      (entry) => entry.status === "active",
+    );
+
+    return {
+      building: formatActiveItem(currentState?.lanes.building.active, planetDefs),
+      ship: formatActiveItem(currentState?.lanes.ship.active, planetDefs),
+      colonist: formatActiveItem(currentState?.lanes.colonist.active, planetDefs),
+      research: formatActiveItem(researchActive, planetDefs),
+    };
+  }, [currentState, globalResearchLane]);
+
   const warnings = useMemo(
     () => (currentState ? getWarnings(currentState) : []),
     [currentState],
@@ -1123,6 +1152,16 @@ export default function Home() {
               ? { ...config, startTurn: earliestTurn }
               : config;
         }
+        adjustedConfig = planPlanetExpansion(
+          gameState,
+          {
+            ...adjustedConfig,
+            expansion: adjustedConfig.expansion ?? {
+              travelChoice: DEFAULT_EXPANSION_TRAVEL_CHOICE,
+            },
+          },
+          currentPlanetId,
+        ).config;
         const newGameState = addPlanet(gameState, adjustedConfig);
         const newPlanetId = `planet-${newGameState.nextPlanetId - 1}`;
         commandHistory.recordAddPlanet(adjustedConfig);
@@ -1137,7 +1176,7 @@ export default function Home() {
         return false;
       }
     },
-    [gameState, editingPlanetId, commandHistory],
+    [gameState, editingPlanetId, commandHistory, currentPlanetId],
   );
 
   // Command handlers
@@ -1613,6 +1652,138 @@ export default function Home() {
       }
     },
     [controller, executeCancellation, planetTimelineEndTurn],
+  );
+
+  const handleClearLane = useCallback(
+    (laneId: LaneId) => {
+      setError(null);
+
+      if (laneId === "research") {
+        const entries = getGlobalResearchLaneView(
+          gameState,
+          planetTimelineEndTurn,
+        ).entries;
+        if (entries.length === 0) return;
+
+        let nextState = gameState;
+        for (const entry of entries) {
+          commandHistory.recordCancel(0, "research", entry.id);
+          nextState = cancelGlobalResearch(nextState, entry.id);
+        }
+        setGameState(refreshLocalResearchGates(nextState));
+        return;
+      }
+
+      if (!controller || !currentPlanet) {
+        setError("No planet selected");
+        return;
+      }
+
+      const planState =
+        controller.getStateAtTurn(planetTimelineEndTurn) ??
+        controller.getStateAtTurn(planTurn);
+      if (!planState) return;
+
+      const entries = getLaneView(planState, laneId).entries;
+      if (entries.length === 0) return;
+
+      const planetIdx = Math.max(0, getPlanetIndex(gameState, currentPlanetId));
+      const cancelledDefIds = new Set<string>();
+      const newCascadeWarnings: Array<{
+        entryId: string;
+        laneId: string;
+        reason: string;
+      }> = [];
+
+      for (const entry of entries) {
+        const result = controller.cancelPlannedItem(laneId, entry.id);
+        if (!result.success) continue;
+        commandHistory.recordCancel(planetIdx, laneId, entry.id);
+        if (!entry.isWait && !entry.isAutoWait) {
+          cancelledDefIds.add(entry.itemId);
+        }
+      }
+
+      const laneIds: Array<"building" | "ship" | "colonist"> = [
+        "building",
+        "ship",
+        "colonist",
+      ];
+      let moreFound = cancelledDefIds.size > 0;
+      while (moreFound) {
+        moreFound = false;
+        const scanState = controller.getStateAtTurn(planTurn);
+        if (!scanState) break;
+
+        for (const scanLaneId of laneIds) {
+          const scanEntries = getLaneView(scanState, scanLaneId).entries;
+          for (const qEntry of scanEntries) {
+            if (qEntry.isWait || qEntry.isAutoWait) continue;
+            const qDef = scanState.defs[qEntry.itemId];
+            if (!qDef) continue;
+
+            const hasCancelledPrereq = qDef.prerequisites?.some((prereq) =>
+              cancelledDefIds.has(prereq),
+            );
+            if (!hasCancelledPrereq) continue;
+
+            const result = controller.cancelPlannedItem(scanLaneId, qEntry.id);
+            if (!result.success) continue;
+
+            commandHistory.recordCancel(planetIdx, scanLaneId, qEntry.id);
+            cancelledDefIds.add(qEntry.itemId);
+            newCascadeWarnings.push({
+              entryId: qEntry.id,
+              laneId: scanLaneId,
+              reason: `${qDef.name || qEntry.itemId} - prerequisite removed`,
+            });
+            moreFound = true;
+          }
+        }
+      }
+
+      controller.repackAllLanes(planTurn);
+      setCascadeWarnings(newCascadeWarnings);
+
+      const updatedPlanet = controller.getStateAtTurn(viewTurn);
+      if (!updatedPlanet) return;
+
+      setGameState((prev) => {
+        const newPlanets = new Map(prev.planets);
+        const existing = newPlanets.get(prev.currentPlanetId);
+        if (existing) {
+          newPlanets.set(
+            prev.currentPlanetId,
+            withPlanetMetadata(updatedPlanet, existing),
+          );
+        }
+        return { ...prev, planets: newPlanets };
+      });
+
+      const getLaneEntries = (
+        state: any,
+        lId: "building" | "ship" | "colonist" | "research",
+      ) => getLaneView(state, lId).entries;
+      const validationResults = validateAllQueueItems(
+        updatedPlanet,
+        getLaneEntries,
+      );
+      const validationMap = new Map<string, QueueValidationResult>();
+      for (const res of validationResults) {
+        validationMap.set(res.entryId, res);
+      }
+      setQueueValidation(validationMap);
+    },
+    [
+      commandHistory,
+      controller,
+      currentPlanet,
+      currentPlanetId,
+      gameState,
+      planetTimelineEndTurn,
+      planTurn,
+      viewTurn,
+    ],
   );
 
   const handleQuantityChange = useCallback(
@@ -2143,7 +2314,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.43</div>
+                      <div className="opacity-30 text-[10px]">v0.2.44</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2176,6 +2347,7 @@ export default function Home() {
                   totalTurns={timelineMaxTurn}
                   onTurnChange={setViewTurn}
                   firstEmptyTurns={firstEmptyTurns}
+                  currentBuilds={currentBuilds}
                   isAutoJumpEnabled={isAutoJumpEnabled}
                   onAutoJumpToggle={setIsAutoJumpEnabled}
                 />
@@ -2240,6 +2412,7 @@ export default function Home() {
                           onQueueItem={handleQueueItem}
                           onQueueWait={handleQueueWait}
                           canQueueItem={canQueueItem}
+                          onClearLane={handleClearLane}
                           activeTab={activeTab}
                           onTabChange={setActiveTab}
                         />
@@ -2402,7 +2575,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.43</div>
+          <div className="opacity-30 text-[10px]">v0.2.44</div>
         </footer>
       </div>
 

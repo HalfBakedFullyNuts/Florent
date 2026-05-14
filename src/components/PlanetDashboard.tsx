@@ -90,10 +90,14 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
       const def = defs[structureId];
       const name = def?.name || structureId.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-      const metalOut = def?.effectsOnComplete?.production_metal || 0;
-      const mineralOut = def?.effectsOnComplete?.production_mineral || 0;
-      const foodOut = def?.effectsOnComplete?.production_food || 0;
-      const energyOut = def?.effectsOnComplete?.production_energy || 0;
+      const scaleProduction = (
+        resourceId: 'metal' | 'mineral' | 'food' | 'energy',
+        production: number
+      ) => def?.isAbundanceScaled ? production * summary.abundance[resourceId] : production;
+      const metalOut = scaleProduction('metal', def?.effectsOnComplete?.production_metal || 0);
+      const mineralOut = scaleProduction('mineral', def?.effectsOnComplete?.production_mineral || 0);
+      const foodOut = scaleProduction('food', def?.effectsOnComplete?.production_food || 0);
+      const energyOut = scaleProduction('energy', def?.effectsOnComplete?.production_energy || 0);
       const metalIn = def?.upkeepPerUnit?.metal || 0;
       const mineralIn = def?.upkeepPerUnit?.mineral || 0;
       const foodIn = def?.upkeepPerUnit?.food || 0;
@@ -126,7 +130,7 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
     });
 
     return structures;
-  }, [summary.structures, defs]);
+  }, [summary.structures, summary.abundance, defs]);
 
   const groundFree = Math.max(0, summary.space.groundCap - summary.space.groundUsed);
   const orbitalFree = Math.max(0, summary.space.orbitalCap - summary.space.orbitalUsed);
