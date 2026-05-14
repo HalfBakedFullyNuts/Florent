@@ -22,6 +22,7 @@ export interface TabbedItemGridProps {
   onQueueItem: (itemId: string, quantity: number) => void;
   onQueueWait?: (laneId: LaneId, waitTurns: number) => void;
   canQueueItem: (itemId: string, quantity: number) => SmartQueueCheckShape;
+  onClearLane?: (laneId: LaneId) => void;
   activeTab?: LaneId;
   onTabChange?: (tab: LaneId) => void;
   currentTurn?: number;
@@ -58,6 +59,40 @@ export function getMaxImmediateQueueQuantity(
   return low;
 }
 
+export function getMaxQueueableQuantity(
+  itemId: string,
+  canQueueItem: (itemId: string, quantity: number) => SmartQueueCheckShape
+): number {
+  const canQueueEventually = (quantity: number) => {
+    const check = canQueueItem(itemId, quantity);
+    return check.canQueueEventually ?? check.allowed;
+  };
+  if (!canQueueEventually(1)) return 0;
+
+  let low = 1;
+  let high = 2;
+  const MAX_SEARCH_QUANTITY = 1_000_000;
+
+  while (high < MAX_SEARCH_QUANTITY && canQueueEventually(high)) {
+    low = high;
+    high *= 2;
+  }
+
+  high = Math.min(high, MAX_SEARCH_QUANTITY);
+  if (canQueueEventually(high)) return high;
+
+  while (low + 1 < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (canQueueEventually(mid)) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low;
+}
+
 /**
  * TabbedItemGrid - Tabbed interface for queue items
  * Shows only the active tab's items
@@ -67,6 +102,7 @@ export function TabbedItemGrid({
   onQueueItem,
   onQueueWait,
   canQueueItem,
+  onClearLane,
   activeTab: externalActiveTab,
   onTabChange,
   currentTurn = 1,
@@ -356,9 +392,26 @@ export function TabbedItemGrid({
           {LANE_MANUAL_TOPICS[activeTab]?.slice(1).map((topic) => (
             <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
           ))}
-          <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
-            {items.length} items
-          </span>
+          {onClearLane ? (
+            <button
+              type="button"
+              onClick={() => onClearLane(activeTab)}
+              className="group ml-auto inline-flex min-w-[5.75rem] items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted transition-colors hover:border-red-300/45 hover:bg-red-500/12 hover:text-red-200 focus:outline-none focus:ring-2 focus:ring-red-300/30"
+              aria-label={`Clear ${config.title} lane`}
+              title={`Clear ${config.title} lane`}
+            >
+              <span className="group-hover:hidden group-focus:hidden">
+                {items.length} items
+              </span>
+              <span className="hidden group-hover:inline group-focus:inline">
+                Clear lane
+              </span>
+            </button>
+          ) : (
+            <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
+              {items.length} items
+            </span>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -496,21 +549,6 @@ export function TabbedItemGrid({
                               `}
                               placeholder="qty"
                             />
-                            {([1, 10, 1000] as const).map((delta, i) => (
-                              <button
-                                key={delta}
-                                onClick={(e) => { e.stopPropagation(); incrementQty(item.id, delta); }}
-                                disabled={!queueable}
-                                aria-label={`Add ${delta} to quantity`}
-                                className={`px-1 py-0.5 rounded text-xs font-semibold ${
-                                  queueable
-                                    ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
-                                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                }`}
-                              >
-                                {'+'.repeat(i + 1)}
-                              </button>
-                            ))}
                             <button
                               onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 1); }}
                               disabled={!queueable}

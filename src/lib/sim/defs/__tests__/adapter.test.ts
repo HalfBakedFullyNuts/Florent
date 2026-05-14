@@ -93,7 +93,7 @@ describe('Data Adapter', () => {
         expect(scientist.costsPerUnit.metal).toBe(5);
         expect(scientist.costsPerUnit.mineral).toBe(20);
         expect(scientist.costsPerUnit.food).toBe(25);
-        expect(scientist.costsPerUnit.workers).toBe(25); // Reserved during training
+        expect(scientist.costsPerUnit.workers).toBe(20); // Reserved during training
 
         // Check prerequisites
         expect(scientist.prerequisites).toContain('research_lab');

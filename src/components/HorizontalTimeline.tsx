@@ -13,6 +13,12 @@ export interface HorizontalTimelineProps {
   totalTurns: number;
   onTurnChange: (turn: number) => void;
   firstEmptyTurns?: FirstEmptyTurns;
+  currentBuilds?: {
+    building?: string | null;
+    ship?: string | null;
+    colonist?: string | null;
+    research?: string | null;
+  };
 }
 
 /**
@@ -28,6 +34,7 @@ export function HorizontalTimeline({
   totalTurns, 
   onTurnChange, 
   firstEmptyTurns,
+  currentBuilds,
   isAutoJumpEnabled,
   onAutoJumpToggle 
 }: HorizontalTimelineProps & { isAutoJumpEnabled?: boolean; onAutoJumpToggle?: (v: boolean) => void }) {
@@ -62,9 +69,28 @@ export function HorizontalTimeline({
   const turnLabels = Array.from(
     new Set([1, 50, 100, 150, 200, totalTurns].filter(t => t <= totalTurns))
   ).sort((a, b) => a - b);
+  const buildStatus = currentBuilds
+    ? [
+        { key: 'building', label: 'B', value: currentBuilds.building },
+        { key: 'ship', label: 'S', value: currentBuilds.ship },
+        { key: 'colonist', label: 'C', value: currentBuilds.colonist },
+        { key: 'research', label: 'R', value: currentBuilds.research },
+      ]
+    : [];
 
   return (
     <div className="w-full rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/75 via-slate-950/45 to-pink-nebula-panel/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl md:p-4">
+      {buildStatus.length > 0 && (
+        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-pink-nebula-muted">
+          <span className="uppercase tracking-wide text-pink-nebula-accent-secondary">Now</span>
+          {buildStatus.map((item) => (
+            <span key={item.key} className="min-w-0">
+              <span className="text-pink-nebula-muted/80">{item.label}:</span>{' '}
+              <span className="text-pink-nebula-text">{item.value || '-'}</span>
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-3 md:gap-4">
         {/* Current Turn Input with Step Buttons */}
         <div className="grid w-full grid-cols-[auto_auto_minmax(4rem,5rem)_auto_1fr] items-center gap-2 md:flex md:w-auto">

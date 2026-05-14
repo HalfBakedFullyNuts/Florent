@@ -63,7 +63,7 @@
     "id": "pl_8",
     "name": "PL 8",
     "tier": 1.5,
-    "rpCost": 100,
+    "rpCost": 1000,
     "turnsToComplete": 24,
     "prerequisites": [
       "pl_6"

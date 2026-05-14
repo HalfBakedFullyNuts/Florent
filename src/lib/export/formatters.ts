@@ -6,7 +6,7 @@
 import type { LaneView } from '../game/selectors';
 import type { LaneId } from '../sim/engine/types';
 import { getPlannedWaitTurns } from '../game/waitDuration';
-import { abbreviateName } from './abbreviations';
+import { abbreviateName, abbreviateToFit } from './abbreviations';
 
 export const DISCORD_MESSAGE_LIMIT = 2000;
 
@@ -279,7 +279,7 @@ export function formatAsDiscordMessages(laneViews: LaneView[], maxTurn?: number)
       const structureText = structure ? formatQueueItemLabel(structure, abbreviateName(structure.name)) : '';
       const shipText = ship ? formatQueueItemLabel(ship, abbreviateName(ship.name)) : '';
       const colonistText = colonist ? formatQueueItemLabel(colonist, abbreviateName(colonist.name)) : '';
-      const researchText = research ? formatQueueItemLabel(research, abbreviateName(research.name)) : '';
+      const researchText = research ? formatQueueItemLabel(research, abbreviateToFit(research.name, 15)) : '';
 
       const row = `\n| ${String(turn).padEnd(5)} | ${
         fitDiscordCell(structureText)
@@ -381,7 +381,7 @@ export function formatMultiPlanetAsDiscordMessages(data: MultiPlanetExportData, 
     lines.push('| Start | Research        |');
     lines.push('|-------|-----------------|');
     researchItems.forEach((item) => {
-      lines.push(`| ${String(item.turn).padEnd(5)} | ${fitDiscordCell(formatQueueItemLabel(item), 15)} |`);
+      lines.push(`| ${String(item.turn).padEnd(5)} | ${fitDiscordCell(formatQueueItemLabel(item, abbreviateToFit(item.name, 15)), 15)} |`);
     });
   }
 

@@ -3,6 +3,7 @@ import LZString from 'lz-string';
 import {
   buildCompactShareURL,
   buildShareURL,
+  CommandHistory,
   decodeGameState,
   encodeCompactShareState,
   encodeGameState,
@@ -260,6 +261,38 @@ describe('URL state helpers', () => {
       author: 'Ada',
       sharedAt: '2026-05-04T13:00:00.000Z',
     });
+  });
+
+  test('round-trips expansion travel metadata in planet configs and add commands', () => {
+    const expansionConfig: PlanetConfig = {
+      name: 'Expansion',
+      startTurn: 36,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 60, orbitalCap: 40 },
+      expansion: {
+        travelChoice: 'galaxy_to_galaxy',
+        sourcePlanetIndex: 0,
+        departureTurn: 10,
+      },
+    };
+    const commandHistory = new CommandHistory();
+    commandHistory.recordAddPlanet(expansionConfig);
+
+    const encoded = encodeGameState(
+      [homeworldConfig, expansionConfig],
+      commandHistory.getCommands()
+    );
+    const snapshot = decodeGameState(encoded);
+    const compactExpansion = {
+      n: 'Expansion',
+      st: 36,
+      tc: 2,
+      o: 0,
+      d: 10,
+    };
+
+    expect(snapshot?.planets[1]).toEqual(compactExpansion);
+    expect(snapshot?.cmds).toEqual([['p', compactExpansion]]);
   });
 
   test('still decodes legacy compressed JSON links', () => {

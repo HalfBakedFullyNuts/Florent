@@ -8,6 +8,7 @@ import {
   Home,
   Import,
   Layers,
+  Route,
   Rocket,
   Save,
   Sparkles,
@@ -27,7 +28,12 @@ import {
   validateAllAbundances,
   normalizePlanetStarting,
 } from '../lib/constants/planet';
-import { GALAXY_TRAVEL_DELAY, type GalaxyChoice } from '../lib/constants/travel';
+import {
+  DEFAULT_EXPANSION_TRAVEL_CHOICE,
+  EXPANSION_TRAVEL_CHOICES,
+  type ExpansionTravelChoice,
+  getExpansionTravelTime,
+} from '../lib/constants/travel';
 
 const STARTING_STRUCTURE_FIELDS: Array<{
   id: keyof PlanetStartingSettings['structures'];
@@ -73,7 +79,11 @@ export interface PlanetConfig {
     orbitalCap: number;
   };
   starting?: PlanetStartingSettings;
-  galaxyChoice?: GalaxyChoice;
+  expansion?: {
+    travelChoice: ExpansionTravelChoice;
+    sourcePlanetIndex?: number;
+    departureTurn?: number;
+  };
 }
 
 /**
@@ -90,7 +100,6 @@ export function AddPlanetModal({
 }: AddPlanetModalProps) {
   const [name, setName] = useState(initialConfig?.name ?? 'Planet');
   const [startTurn, setStartTurn] = useState(initialConfig?.startTurn ?? currentTurn);
-  const [galaxyChoice, setGalaxyChoice] = useState<GalaxyChoice>(initialConfig?.galaxyChoice ?? 'odd');
   // Explicitly type to avoid readonly literal types
   const [abundance, setAbundance] = useState<{
     metal: number;
@@ -106,6 +115,9 @@ export function AddPlanetModal({
   const [starting, setStarting] = useState<PlanetStartingSettings>(() =>
     normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING)
   );
+  const [travelChoice, setTravelChoice] = useState<ExpansionTravelChoice>(
+    initialConfig?.expansion?.travelChoice ?? DEFAULT_EXPANSION_TRAVEL_CHOICE
+  );
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
 
@@ -113,7 +125,6 @@ export function AddPlanetModal({
     if (!isOpen) return;
     setName(initialConfig?.name ?? 'Planet');
     setStartTurn(initialConfig?.startTurn ?? currentTurn);
-    setGalaxyChoice(initialConfig?.galaxyChoice ?? 'odd');
     setAbundance(initialConfig
       ? {
         metal: Math.round(initialConfig.abundance.metal * 100),
@@ -125,10 +136,10 @@ export function AddPlanetModal({
       : { ...PLANET_PRESETS.HOMEWORLD.abundance });
     setSpace(initialConfig ? { ...initialConfig.space } : { ...PLANET_PRESETS.HOMEWORLD.space });
     setStarting(normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING));
+    setTravelChoice(initialConfig?.expansion?.travelChoice ?? DEFAULT_EXPANSION_TRAVEL_CHOICE);
   }, [isOpen, currentTurn, initialConfig]);
 
-  // Earliest start turn enforced by travel delay (only for add mode)
-  const travelDelay = GALAXY_TRAVEL_DELAY[galaxyChoice];
+  const travelDelay = getExpansionTravelTime(travelChoice);
   const travelBase = outpostShipTurn ?? currentTurn;
   const minTravelStart = mode === 'add' ? travelBase + travelDelay : 1;
 
@@ -147,10 +158,13 @@ export function AddPlanetModal({
       abundance: abundanceMultipliers as typeof abundance,
       space,
       starting: normalizePlanetStarting(starting),
-      galaxyChoice,
+      expansion:
+        mode === 'add' || initialConfig?.expansion
+          ? { ...initialConfig?.expansion, travelChoice }
+          : undefined,
     });
     if (added !== false) onClose();
-  }, [name, startTurn, minTravelStart, abundance, space, starting, galaxyChoice, onAddPlanet, onClose]);
+  }, [name, startTurn, minTravelStart, abundance, space, starting, mode, initialConfig, travelChoice, onAddPlanet, onClose]);
 
   const updateAbundance = useCallback((resource: string, value: number) => {
     // Allow free typing - validation happens on blur and submit
@@ -306,44 +320,6 @@ export function AddPlanetModal({
             Basic Settings
           </h3>
 
-          {mode === 'add' && (
-            <div className="mb-4">
-              <label className={LABEL_CLASS}>Galaxy destination</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setGalaxyChoice('odd')}
-                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${
-                    galaxyChoice === 'odd'
-                      ? 'border-cyan-300/60 bg-cyan-400/15 text-cyan-50'
-                      : 'border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-white/20'
-                  }`}
-                >
-                  <div>Odd Galaxy</div>
-                  <div className="mt-0.5 text-xs opacity-70">+{GALAXY_TRAVEL_DELAY.odd} turns travel</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGalaxyChoice('even')}
-                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${
-                    galaxyChoice === 'even'
-                      ? 'border-fuchsia-300/60 bg-fuchsia-400/15 text-fuchsia-50'
-                      : 'border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-white/20'
-                  }`}
-                >
-                  <div>Even Galaxy</div>
-                  <div className="mt-0.5 text-xs opacity-70">+{GALAXY_TRAVEL_DELAY.even} turns travel</div>
-                </button>
-              </div>
-              <div className="mt-2 text-xs text-pink-nebula-muted">
-                Earliest start: T{minTravelStart}
-                {outpostShipTurn !== undefined && outpostShipTurn > currentTurn && (
-                  <span className="ml-1 text-yellow-400">⚠ outpost ship available T{outpostShipTurn}</span>
-                )}
-              </div>
-            </div>
-          )}
-
           <div>
             <label className={LABEL_CLASS}>
               Start Turn
@@ -361,6 +337,48 @@ export function AddPlanetModal({
             )}
           </div>
         </div>
+
+        {mode === 'add' && (
+          <div className={`${PANEL_CLASS} mb-4`}>
+            <h3 className="mb-3 flex items-center gap-2 text-lg font-black text-pink-nebula-text">
+              <Route className="h-5 w-5 text-cyan-100" aria-hidden="true" />
+              Travel
+            </h3>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {(Object.keys(EXPANSION_TRAVEL_CHOICES) as ExpansionTravelChoice[]).map((choice) => {
+                const selected = travelChoice === choice;
+                const config = EXPANSION_TRAVEL_CHOICES[choice];
+                const turns = getExpansionTravelTime(choice);
+                return (
+                  <button
+                    key={choice}
+                    type="button"
+                    onClick={() => setTravelChoice(choice)}
+                    className={`rounded-xl border px-3 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-cyan-300/25 ${
+                      selected
+                        ? 'border-cyan-200/55 bg-cyan-300/15 text-cyan-50 shadow-lg shadow-cyan-500/10'
+                        : 'border-white/10 bg-white/[0.04] text-pink-nebula-text hover:border-cyan-200/35 hover:bg-white/[0.08]'
+                    }`}
+                    aria-pressed={selected}
+                  >
+                    <span className="block text-sm font-black">
+                      {config.label}
+                    </span>
+                    <span className="mt-1 block text-xs text-pink-nebula-muted">
+                      {turns} turns travel
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-2 text-xs text-pink-nebula-muted">
+              Earliest start: T{minTravelStart}
+              {outpostShipTurn !== undefined && outpostShipTurn > currentTurn && (
+                <span className="ml-1 text-yellow-400">⚠ outpost ship available T{outpostShipTurn}</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Resource Abundances */}
         <div className={`${PANEL_CLASS} mb-4`}>

@@ -136,6 +136,43 @@ describe('PlanetDashboard', () => {
       expect(allText).toContain('×2');
     });
 
+    it('should display abundance-scaled building production', () => {
+      const summary: PlanetSummaryType = {
+        ...mockSummary,
+        abundance: {
+          ...mockSummary.abundance,
+          metal: 1.5,
+          food: 0.5,
+        },
+        structures: {
+          metal_mine: 2,
+          farm: 3,
+        },
+      };
+      const defs = {
+        metal_mine: {
+          name: 'Metal Mine',
+          effectsOnComplete: { production_metal: 300 },
+          upkeepPerUnit: {},
+          costsPerUnit: {},
+          isAbundanceScaled: true,
+        },
+        farm: {
+          name: 'Farm',
+          effectsOnComplete: { production_food: 100 },
+          upkeepPerUnit: {},
+          costsPerUnit: {},
+          isAbundanceScaled: true,
+        },
+      };
+
+      const { container } = render(<PlanetDashboard summary={summary} defs={defs} />);
+      const allText = container.textContent || '';
+
+      expect(allText).toContain('+900');
+      expect(allText).toContain('+150');
+    });
+
     it('should display growth hint', () => {
       render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
       expect(screen.getByText(/Workers will grow next turn/i)).toBeInTheDocument();

@@ -37,6 +37,10 @@ import {
   DEFAULT_ADDED_PLANET_STARTING,
   normalizePlanetStarting,
 } from '../constants/planet';
+import {
+  DEFAULT_EXPANSION_TRAVEL_CHOICE,
+  type ExpansionTravelChoice,
+} from '../constants/travel';
 
 const STATE_VERSION_V1 = 1;
 const STATE_VERSION_V2 = 2;
@@ -158,6 +162,16 @@ const DEFAULT_STARTING_STRUCTURES: [number, number, number, number] = [
   DEFAULT_ADDED_PLANET_STARTING.structures.farm,
   DEFAULT_ADDED_PLANET_STARTING.structures.solar_generator,
 ];
+const EXPANSION_TRAVEL_TO_CODE: Record<ExpansionTravelChoice, number> = {
+  inside_system: 0,
+  inside_galaxy: 1,
+  galaxy_to_galaxy: 2,
+};
+const EXPANSION_TRAVEL_FROM_CODE: Record<number, ExpansionTravelChoice> = {
+  0: 'inside_system',
+  1: 'inside_galaxy',
+  2: 'galaxy_to_galaxy',
+};
 
 // ---------------------------------------------------------------------------
 // Command types
@@ -196,7 +210,15 @@ interface V1CompactPlanetConfig {
   n: string; t: number; a: number[]; s: [number, number];
 }
 interface V2CompactPlanetConfig {
-  n: string; st?: number; a?: number[]; s?: [number, number]; p?: number; b?: [number, number, number, number];
+  n: string;
+  st?: number;
+  a?: number[];
+  s?: [number, number];
+  p?: number;
+  b?: [number, number, number, number];
+  tc?: number;
+  o?: number;
+  d?: number;
 }
 
 interface GameSnapshot {
@@ -245,6 +267,18 @@ function compactPlanetConfigV2(config: PlanetConfig): V2CompactPlanetConfig {
     starting.structures.solar_generator,
   ];
   if (b.some((v, i) => v !== DEFAULT_STARTING_STRUCTURES[i])) compact.b = b;
+  if (config.expansion) {
+    compact.tc =
+      EXPANSION_TRAVEL_TO_CODE[
+        config.expansion.travelChoice ?? DEFAULT_EXPANSION_TRAVEL_CHOICE
+      ];
+    if (config.expansion.sourcePlanetIndex !== undefined) {
+      compact.o = config.expansion.sourcePlanetIndex;
+    }
+    if (config.expansion.departureTurn !== undefined) {
+      compact.d = config.expansion.departureTurn;
+    }
+  }
   return compact;
 }
 
@@ -252,6 +286,10 @@ function expandPlanetConfigV2(compact: V2CompactPlanetConfig): PlanetConfig {
   const a = compact.a ?? DEFAULT_ABUNDANCE;
   const s = compact.s ?? DEFAULT_SPACE;
   const b = compact.b ?? DEFAULT_STARTING_STRUCTURES;
+  const travelChoice =
+    compact.tc !== undefined
+      ? EXPANSION_TRAVEL_FROM_CODE[compact.tc] ?? DEFAULT_EXPANSION_TRAVEL_CHOICE
+      : undefined;
   return {
     name: compact.n,
     startTurn: compact.st ?? 1,
@@ -269,6 +307,14 @@ function expandPlanetConfigV2(compact: V2CompactPlanetConfig): PlanetConfig {
         solar_generator: b[3],
       },
     },
+    expansion:
+      travelChoice !== undefined || compact.o !== undefined || compact.d !== undefined
+        ? {
+            travelChoice: travelChoice ?? DEFAULT_EXPANSION_TRAVEL_CHOICE,
+            sourcePlanetIndex: compact.o,
+            departureTurn: compact.d,
+          }
+        : undefined,
   };
 }
 
@@ -564,6 +610,9 @@ const PLANET_HAS_ABUNDANCE = 1 << 1;
 const PLANET_HAS_SPACE = 1 << 2;
 const PLANET_HAS_STARTING_POP = 1 << 3;
 const PLANET_HAS_STARTING_STRUCTURES = 1 << 4;
+const PLANET_HAS_EXPANSION_TRAVEL = 1 << 5;
+const PLANET_HAS_EXPANSION_SOURCE = 1 << 6;
+const PLANET_HAS_EXPANSION_DEPARTURE = 1 << 7;
 
 const SHARE_HAS_NAME = 1 << 0;
 const SHARE_HAS_AUTHOR = 1 << 1;
@@ -572,7 +621,10 @@ const PLANET_FLAG_MASK = PLANET_HAS_START_TURN
   | PLANET_HAS_ABUNDANCE
   | PLANET_HAS_SPACE
   | PLANET_HAS_STARTING_POP
-  | PLANET_HAS_STARTING_STRUCTURES;
+  | PLANET_HAS_STARTING_STRUCTURES
+  | PLANET_HAS_EXPANSION_TRAVEL
+  | PLANET_HAS_EXPANSION_SOURCE
+  | PLANET_HAS_EXPANSION_DEPARTURE;
 const SHARE_FLAG_MASK = SHARE_HAS_NAME | SHARE_HAS_AUTHOR | SHARE_HAS_TIME;
 const MAX_BINARY_PLANETS = 64;
 const MAX_BINARY_COMMANDS = 20000;
@@ -877,6 +929,9 @@ function writeBinaryPlanetConfig(writer: BinaryWriter, compact: V2CompactPlanetC
   if (compact.s !== undefined) flags |= PLANET_HAS_SPACE;
   if (compact.p !== undefined) flags |= PLANET_HAS_STARTING_POP;
   if (compact.b !== undefined) flags |= PLANET_HAS_STARTING_STRUCTURES;
+  if (compact.tc !== undefined) flags |= PLANET_HAS_EXPANSION_TRAVEL;
+  if (compact.o !== undefined) flags |= PLANET_HAS_EXPANSION_SOURCE;
+  if (compact.d !== undefined) flags |= PLANET_HAS_EXPANSION_DEPARTURE;
   writer.writeByte(flags);
 
   if (compact.st !== undefined) writer.writeVarint(compact.st);
@@ -887,6 +942,9 @@ function writeBinaryPlanetConfig(writer: BinaryWriter, compact: V2CompactPlanetC
   }
   if (compact.p !== undefined) writer.writeVarint(compact.p);
   if (compact.b !== undefined) compact.b.forEach((value) => writer.writeVarint(value));
+  if (compact.tc !== undefined) writer.writeVarint(compact.tc);
+  if (compact.o !== undefined) writer.writeVarint(compact.o);
+  if (compact.d !== undefined) writer.writeVarint(compact.d);
 }
 
 function readBinaryPlanetConfig(reader: BinaryReader): V2CompactPlanetConfig {
@@ -909,6 +967,9 @@ function readBinaryPlanetConfig(reader: BinaryReader): V2CompactPlanetConfig {
   if (flags & PLANET_HAS_STARTING_STRUCTURES) {
     compact.b = [reader.readVarint(), reader.readVarint(), reader.readVarint(), reader.readVarint()];
   }
+  if (flags & PLANET_HAS_EXPANSION_TRAVEL) compact.tc = reader.readVarint();
+  if (flags & PLANET_HAS_EXPANSION_SOURCE) compact.o = reader.readVarint();
+  if (flags & PLANET_HAS_EXPANSION_DEPARTURE) compact.d = reader.readVarint();
 
   return compact;
 }
@@ -1551,6 +1612,7 @@ export function extractPlanetConfigs(gameState: GameState): PlanetConfig[] {
           solar_generator: initialState.completedCounts?.solar_generator ?? 0,
         },
       },
+      expansion: planet.expansion,
     };
   });
 }

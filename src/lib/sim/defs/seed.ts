@@ -172,7 +172,7 @@ export function createInitialState(
  * Create standard starting scenario
  */
 export function createStandardStart(defs: Record<string, ItemDefinition>): PlanetState {
-  return createInitialState(defs, {
+  const state = createInitialState(defs, {
     stocks: {
       metal: 30000,
       mineral: 20000,
@@ -204,6 +204,8 @@ export function createStandardStart(defs: Record<string, ItemDefinition>): Plane
       orbitalCap: 40,
     },
   });
+  state.completedCounts.outpost_ship = 1;
+  return state;
 }
 
 /**
