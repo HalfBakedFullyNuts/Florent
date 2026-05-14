@@ -258,10 +258,6 @@ export function TabbedItemGrid({
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
   }, [getQty, getDefaultQty, humanizeReason, canQueueItem, onQueueItem]);
 
-  const findMaxQueueQuantity = useCallback((itemId: string): number => {
-    return getMaxImmediateQueueQuantity(itemId, canQueueItem);
-  }, [canQueueItem]);
-
   // Freely increment the displayed quantity — no real-time constraint check.
   // Validation only happens when the user actually submits (clicks "add" or "∞").
   const incrementQty = useCallback((itemId: string, delta: number) => {
@@ -269,21 +265,6 @@ export function TabbedItemGrid({
     setItemQuantities(prev => ({ ...prev, [itemId]: String(Math.max(1, current + delta)) }));
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
   }, [getQty]);
-
-  const tryQueueMax = useCallback((itemId: string, laneId: LaneId) => {
-    const maxQuantity = findMaxQueueQuantity(itemId);
-    if (maxQuantity >= 1) {
-      // Something is affordable right now — queue the maximum
-      onQueueItem(itemId, maxQuantity);
-      setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
-      setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-    } else {
-      // Nothing affordable NOW but the item may still be queueable (e.g. with a wait).
-      // Fall through to tryQueue with the entered quantity so the same submit-time
-      // validation path runs — it will queue with a wait or show the real error.
-      tryQueue(itemId, laneId);
-    }
-  }, [findMaxQueueQuantity, onQueueItem, getDefaultQty, tryQueue]);
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
@@ -441,6 +422,11 @@ export function TabbedItemGrid({
                   <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-xs md:text-sm font-mono">
                     {/* Top row on mobile: name + duration + qty controls (right side) */}
                     <div className="flex items-center gap-2 min-w-0 md:contents">
+                      {/* Drag handle */}
+                      {queueable && (
+                        <span className="text-pink-nebula-muted/40 group-hover:text-pink-nebula-muted/80 cursor-grab select-none text-xs" title="Drag to queue panel">⠿</span>
+                      )}
+
                       {/* Item Name */}
                       <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1">
                         {item.name}
@@ -489,7 +475,6 @@ export function TabbedItemGrid({
                               `}
                               placeholder="qty"
                             />
-                            {/* +1: freely increments the qty field — no constraint check */}
                             <button
                               onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 1); }}
                               disabled={!queueable}
@@ -502,7 +487,30 @@ export function TabbedItemGrid({
                             >
                               +
                             </button>
-                            {/* add: submits qty — validation happens here, not on the +  */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 10); }}
+                              disabled={!queueable}
+                              aria-label="Increase quantity by 10"
+                              className={`px-1.5 py-1 rounded text-xs font-semibold ${
+                                queueable
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              ++
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 100); }}
+                              disabled={!queueable}
+                              aria-label="Increase quantity by 100"
+                              className={`px-1.5 py-1 rounded text-xs font-semibold ${
+                                queueable
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              +++
+                            </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); tryQueue(item.id, activeTab); }}
                               disabled={!queueable}
@@ -515,9 +523,8 @@ export function TabbedItemGrid({
                             >
                               add
                             </button>
-                            {/* ∞: queue max affordable, or tryQueue(qty) if nothing affordable now */}
                             <button
-                              onClick={(e) => { e.stopPropagation(); tryQueueMax(item.id, activeTab); }}
+                              onClick={(e) => { e.stopPropagation(); onQueueItem(item.id, 99999); }}
                               disabled={!queueable}
                               title={queueable ? 'Queue maximum available' : humanizeReason(queueCheck.reason, item.id)}
                               aria-label={`Queue maximum ${item.name}`}

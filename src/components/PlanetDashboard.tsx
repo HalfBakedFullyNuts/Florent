@@ -358,33 +358,33 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
                           {spaceDisplay}
                         </td>
                         <td className="break-words py-1.5 pr-1 leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
-                          <span className="inline-flex items-center gap-1 group/demolish">
-                            <span className="text-pink-nebula-text font-semibold">{structure.name}</span>
-                            {onDemolish && (() => {
-                              const demolishable = demolishableIds?.has(structure.id) ?? false;
-                              const turns = Math.max(1, Math.ceil((defs[structure.id]?.durationTurns ?? 1) / 2));
-                              return (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); if (demolishable) onDemolish(structure.id); }}
-                                  title={
-                                    demolishable
-                                      ? `Demolish ${structure.name} (${turns}T) — click to queue`
-                                      : `Cannot demolish: another completed building requires ${structure.name}`
-                                  }
-                                  aria-label={`Demolish ${structure.name}`}
-                                  disabled={!demolishable}
-                                  className={`opacity-0 group-hover/demolish:opacity-100 transition-opacity rounded text-[10px] leading-none px-0.5 py-0.5 ${
-                                    demolishable
-                                      ? 'text-red-400 hover:text-red-300 cursor-pointer'
-                                      : 'text-pink-nebula-muted/30 cursor-not-allowed'
-                                  }`}
-                                >
-                                  🔨
-                                </button>
-                              );
-                            })()}
-                          </span>
+                          <span className="text-pink-nebula-text font-semibold">{structure.name}</span>
                         </td>
+                        {onDemolish && (() => {
+                          const demolishable = demolishableIds?.has(structure.id) ?? false;
+                          const turns = Math.max(1, Math.ceil((defs[structure.id]?.durationTurns ?? 1) / 2));
+                          return (
+                            <td className="w-6 py-1.5 text-center">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); if (demolishable) onDemolish(structure.id); }}
+                                title={
+                                  demolishable
+                                    ? `Demolish ${structure.name} (${turns}T) — click to queue`
+                                    : `Cannot demolish: another completed building requires ${structure.name}`
+                                }
+                                aria-label={`Demolish ${structure.name}`}
+                                disabled={!demolishable}
+                                className={`rounded text-xs leading-none px-1 py-0.5 transition-all ${
+                                  demolishable
+                                    ? 'text-red-400 hover:text-red-200 cursor-pointer shadow-[0_0_6px_rgba(248,113,113,0.5)] hover:shadow-[0_0_10px_rgba(248,113,113,0.8)] bg-red-900/30 hover:bg-red-800/40'
+                                    : 'text-pink-nebula-muted/30 cursor-not-allowed'
+                                }`}
+                              >
+                                🔨
+                              </button>
+                            </td>
+                          );
+                        })()}
                         <td className="whitespace-nowrap py-1.5 pr-1 text-right text-pink-nebula-text md:w-10 md:pr-2">
                           ×{structure.count}
                         </td>
