@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computePlanetScore } from '../scoring';
+import { computePlanetScore, RESOURCE_SCORE_VALUES, SCORE_DIVISOR } from '../scoring';
 import type { PlanetSummary } from '../selectors';
 
 const baseSummary: PlanetSummary = {
@@ -19,9 +19,9 @@ const baseSummary: PlanetSummary = {
 };
 
 const defs: Record<string, { scoreValue?: number }> = {
-  worker:      { scoreValue: 1 },
-  soldier:     { scoreValue: 104 },
-  scientist:   { scoreValue: 208 },
+  worker:      { scoreValue: 12 },
+  soldier:     { scoreValue: 128 },
+  scientist:   { scoreValue: 340 },
   fighter:     { scoreValue: 5 },
   destroyer:   { scoreValue: 100 },
   battleship:  { scoreValue: 800 },
@@ -35,7 +35,7 @@ describe('computePlanetScore', () => {
 
   it('scores workers correctly', () => {
     const summary = { ...baseSummary, population: { ...baseSummary.population, workersTotal: 1000 } };
-    expect(computePlanetScore(summary, defs)).toBe(1000 * 1);
+    expect(computePlanetScore(summary, defs)).toBe((1000 / SCORE_DIVISOR) * 12);
   });
 
   it('scores soldiers and scientists correctly', () => {
@@ -43,18 +43,18 @@ describe('computePlanetScore', () => {
       ...baseSummary,
       population: { ...baseSummary.population, soldiers: 100, scientists: 10 },
     };
-    expect(computePlanetScore(summary, defs)).toBe(100 * 104 + 10 * 208);
+    expect(computePlanetScore(summary, defs)).toBe((100 / SCORE_DIVISOR) * 128 + (10 / SCORE_DIVISOR) * 340);
   });
 
   it('scores ships correctly', () => {
     const summary = { ...baseSummary, ships: { fighter: 3, destroyer: 1 } };
-    expect(computePlanetScore(summary, defs)).toBe(3 * 5 + 1 * 100);
+    expect(computePlanetScore(summary, defs)).toBe((3 / SCORE_DIVISOR) * 5 + (1 / SCORE_DIVISOR) * 100);
   });
 
   it('scores structures that have scoreValue', () => {
     const defsWithScore = { ...defs, outpost: { scoreValue: 50 } };
     const summary = { ...baseSummary, structures: { outpost: 2 } };
-    expect(computePlanetScore(summary, defsWithScore)).toBe(2 * 50);
+    expect(computePlanetScore(summary, defsWithScore)).toBe((2 / SCORE_DIVISOR) * 50);
   });
 
   it('ignores structures without scoreValue (treats as 0)', () => {
@@ -71,17 +71,51 @@ describe('computePlanetScore', () => {
   it('accumulates all categories together', () => {
     const summary = {
       ...baseSummary,
+      stocks: { metal: 100, mineral: 100, food: 100, energy: 100 },
       population: { ...baseSummary.population, workersTotal: 500, soldiers: 50, scientists: 5 },
       ships: { battleship: 2, fighter: 10 },
       structures: { metal_mine: 3 },
     };
-    const expected = 500 * 1 + 50 * 104 + 5 * 208 + 2 * 800 + 10 * 5 + 0;
-    expect(computePlanetScore(summary, defs)).toBe(expected);
+    const D = SCORE_DIVISOR;
+    const resourceScore = (100 / D) * 1 + (100 / D) * 1.5 + (100 / D) * 2 + (100 / D) * 2;
+    const popScore = (500 / D) * 12 + (50 / D) * 128 + (5 / D) * 340;
+    const shipScore = (2 / D) * 800 + (10 / D) * 5;
+    const expected = resourceScore + popScore + shipScore;
+    expect(computePlanetScore(summary, defs)).toBeCloseTo(expected, 10);
   });
 
   it('score updates reflect a ship completion (before vs after)', () => {
     const before = { ...baseSummary, ships: {} };
     const after  = { ...baseSummary, ships: { destroyer: 1 } };
-    expect(computePlanetScore(after, defs) - computePlanetScore(before, defs)).toBe(100);
+    expect(computePlanetScore(after, defs) - computePlanetScore(before, defs)).toBe((1 / SCORE_DIVISOR) * 100);
+  });
+
+  it('scores resources from stocks correctly', () => {
+    const summary = {
+      ...baseSummary,
+      stocks: { metal: 1000, mineral: 500, food: 200, energy: 100 },
+    };
+    const D = SCORE_DIVISOR;
+    // (1000/D)*1 + (500/D)*1.5 + (200/D)*2 + (100/D)*2 = 1 + 0.75 + 0.4 + 0.2 = 2.35
+    expect(computePlanetScore(summary, defs)).toBe(
+      (1000 / D) * 1 + (500 / D) * 1.5 + (200 / D) * 2 + (100 / D) * 2
+    );
+  });
+
+  it('ignores non-scored resources (research_points, ground_space)', () => {
+    const summary = {
+      ...baseSummary,
+      stocks: { ...baseSummary.stocks, research_points: 999, ground_space: 50 },
+    };
+    expect(computePlanetScore(summary, defs)).toBe(0);
+  });
+
+  it('exports correct RESOURCE_SCORE_VALUES and SCORE_DIVISOR', () => {
+    expect(RESOURCE_SCORE_VALUES.metal).toBe(1);
+    expect(RESOURCE_SCORE_VALUES.mineral).toBe(1.5);
+    expect(RESOURCE_SCORE_VALUES.food).toBe(2);
+    expect(RESOURCE_SCORE_VALUES.energy).toBe(2);
+    expect(RESOURCE_SCORE_VALUES.research_points).toBeUndefined();
+    expect(SCORE_DIVISOR).toBe(1000);
   });
 });

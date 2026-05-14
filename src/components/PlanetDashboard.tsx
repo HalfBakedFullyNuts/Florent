@@ -356,7 +356,10 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
                           {spaceDisplay}
                         </td>
                         <td className="break-words py-1.5 pr-1 leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
-                          <span className="text-pink-nebula-text font-semibold">{structure.name}</span>
+                          <span className="inline-flex items-center gap-1 text-pink-nebula-text font-semibold">
+                            <ItemIcon itemId={structure.id} size={16} className="opacity-85" />
+                            {structure.name}
+                          </span>
                         </td>
                         {onDemolish && (() => {
                           const demolishable = demolishableIds?.has(structure.id) ?? false;

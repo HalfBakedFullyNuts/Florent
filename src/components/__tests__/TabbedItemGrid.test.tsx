@@ -29,6 +29,15 @@ describe('TabbedItemGrid queue helpers', () => {
     expect(getMaxImmediateQueueQuantity('scientist', canQueueItem)).toBe(37);
   });
 
+  test('handles a large max correctly (50000)', () => {
+    const canQueueItem = (_itemId: string, qty: number): SmartQueueCheckShape => ({
+      allowed: qty <= 50000,
+      canQueueEventually: true,
+      waitTurnsNeeded: 0,
+    });
+    expect(getMaxImmediateQueueQuantity('fighter', canQueueItem)).toBe(50000);
+  });
+
   test('max queueable quantity follows eventual queueability like manual input', () => {
     const canQueueItem = (_itemId: string, quantity: number): SmartQueueCheckShape => ({
       allowed: quantity <= 37,
