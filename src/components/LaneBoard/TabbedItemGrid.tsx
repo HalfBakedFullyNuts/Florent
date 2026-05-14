@@ -22,6 +22,7 @@ export interface TabbedItemGridProps {
   onQueueItem: (itemId: string, quantity: number) => void;
   onQueueWait?: (laneId: LaneId, waitTurns: number) => void;
   canQueueItem: (itemId: string, quantity: number) => SmartQueueCheckShape;
+  onClearLane?: (laneId: LaneId) => void;
   activeTab?: LaneId;
   onTabChange?: (tab: LaneId) => void;
   currentTurn?: number;
@@ -58,6 +59,40 @@ export function getMaxImmediateQueueQuantity(
   return low;
 }
 
+export function getMaxQueueableQuantity(
+  itemId: string,
+  canQueueItem: (itemId: string, quantity: number) => SmartQueueCheckShape
+): number {
+  const canQueueEventually = (quantity: number) => {
+    const check = canQueueItem(itemId, quantity);
+    return check.canQueueEventually ?? check.allowed;
+  };
+  if (!canQueueEventually(1)) return 0;
+
+  let low = 1;
+  let high = 2;
+  const MAX_SEARCH_QUANTITY = 1_000_000;
+
+  while (high < MAX_SEARCH_QUANTITY && canQueueEventually(high)) {
+    low = high;
+    high *= 2;
+  }
+
+  high = Math.min(high, MAX_SEARCH_QUANTITY);
+  if (canQueueEventually(high)) return high;
+
+  while (low + 1 < high) {
+    const mid = Math.floor((low + high) / 2);
+    if (canQueueEventually(mid)) {
+      low = mid;
+    } else {
+      high = mid;
+    }
+  }
+
+  return low;
+}
+
 /**
  * TabbedItemGrid - Tabbed interface for queue items
  * Shows only the active tab's items
@@ -67,6 +102,7 @@ export function TabbedItemGrid({
   onQueueItem,
   onQueueWait,
   canQueueItem,
+  onClearLane,
   activeTab: externalActiveTab,
   onTabChange,
   currentTurn = 1,
@@ -269,30 +305,13 @@ export function TabbedItemGrid({
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
   }, [getQty, getDefaultQty, humanizeReason, canQueueItem, onQueueItem]);
 
-  const findMaxQueueQuantity = useCallback((itemId: string): number => {
-    return getMaxImmediateQueueQuantity(itemId, canQueueItem);
-  }, [canQueueItem]);
-
+  // Freely increment the displayed quantity — no real-time constraint check.
+  // Validation only happens when the user actually submits (clicks "add" or "∞").
   const incrementQty = useCallback((itemId: string, delta: number) => {
     const current = parseInt(getQty(itemId), 10) || 0;
-    const maxQty = findMaxQueueQuantity(itemId);
-    const next = maxQty > 0 ? Math.min(current + delta, maxQty) : current + delta;
-    setItemQuantities(prev => ({ ...prev, [itemId]: String(Math.max(1, next)) }));
+    setItemQuantities(prev => ({ ...prev, [itemId]: String(Math.max(1, current + delta)) }));
     setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-  }, [getQty, findMaxQueueQuantity]);
-
-  const tryQueueMax = useCallback((itemId: string) => {
-    const maxQuantity = findMaxQueueQuantity(itemId);
-    if (maxQuantity < 1) {
-      const validation = canQueueItem(itemId, 1);
-      setItemErrors(prev => ({ ...prev, [itemId]: humanizeReason(validation.reason, itemId) }));
-      return;
-    }
-
-    onQueueItem(itemId, maxQuantity);
-    setItemQuantities(prev => ({ ...prev, [itemId]: getDefaultQty(itemId) }));
-    setItemErrors(prev => ({ ...prev, [itemId]: '' }));
-  }, [findMaxQueueQuantity, canQueueItem, humanizeReason, onQueueItem, getDefaultQty]);
+  }, [getQty]);
 
   const handleItemClick = (itemId: string, laneId: LaneId) => {
     const queueable = isItemQueueable(itemId);
@@ -373,9 +392,26 @@ export function TabbedItemGrid({
           {LANE_MANUAL_TOPICS[activeTab]?.slice(1).map((topic) => (
             <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
           ))}
-          <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
-            {items.length} items
-          </span>
+          {onClearLane ? (
+            <button
+              type="button"
+              onClick={() => onClearLane(activeTab)}
+              className="group ml-auto inline-flex min-w-[5.75rem] items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted transition-colors hover:border-red-300/45 hover:bg-red-500/12 hover:text-red-200 focus:outline-none focus:ring-2 focus:ring-red-300/30"
+              aria-label={`Clear ${config.title} lane`}
+              title={`Clear ${config.title} lane`}
+            >
+              <span className="group-hover:hidden group-focus:hidden">
+                {items.length} items
+              </span>
+              <span className="hidden group-hover:inline group-focus:inline">
+                Clear lane
+              </span>
+            </button>
+          ) : (
+            <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
+              {items.length} items
+            </span>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -392,12 +428,15 @@ export function TabbedItemGrid({
               </div>
               <div className="flex items-center gap-2 sm:justify-end">
                 <input
-                  type="number"
-                  min="1"
-                  max="100"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   className="h-10 w-16 rounded-xl border border-pink-nebula-border/80 bg-slate-950/70 px-2 text-center text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25"
                   value={waitTurnsInput}
-                  onChange={(e) => setWaitTurnsInput(e.target.value)}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === '' || /^\d+$/.test(v)) setWaitTurnsInput(v);
+                  }}
                 />
                 <span className="mr-1 text-sm text-pink-nebula-muted">turns</span>
                 <button
@@ -431,6 +470,15 @@ export function TabbedItemGrid({
               return (
                 <div
                   key={item.id}
+                  draggable={queueable}
+                  onDragStart={(e) => {
+                    const qty = Number(getQty(item.id)) || 1;
+                    e.dataTransfer.setData(
+                      'application/x-florent-grid-item',
+                      JSON.stringify({ itemId: item.id, quantity: qty })
+                    );
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
                   onClick={() => !isBatchable && queueable && handleItemClick(item.id, activeTab)}
                   className={`
                     w-full text-left p-2 bg-pink-nebula-panel/50 border border-pink-nebula-border rounded
@@ -447,6 +495,11 @@ export function TabbedItemGrid({
                   <div className="flex flex-col md:flex-row md:items-center gap-1 md:gap-2 text-xs md:text-sm font-mono">
                     {/* Top row on mobile: name + duration + qty controls (right side) */}
                     <div className="flex items-center gap-2 min-w-0 md:contents">
+                      {/* Drag handle */}
+                      {queueable && (
+                        <span className="text-pink-nebula-muted/40 group-hover:text-pink-nebula-muted/80 cursor-grab select-none text-xs" title="Drag to queue panel">⠿</span>
+                      )}
+
                       {/* Item Name */}
                       <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1.5">
                         <ItemIcon itemId={item.id} size={20} className="opacity-90" />
@@ -496,26 +549,47 @@ export function TabbedItemGrid({
                               `}
                               placeholder="qty"
                             />
-                            {([1, 10, 1000] as const).map((delta, i) => (
-                              <button
-                                key={delta}
-                                onClick={(e) => { e.stopPropagation(); incrementQty(item.id, delta); }}
-                                disabled={!queueable}
-                                aria-label={`Add ${delta} to quantity`}
-                                className={`px-1 py-0.5 rounded text-xs font-semibold ${
-                                  queueable
-                                    ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
-                                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                                }`}
-                              >
-                                {'+'.repeat(i + 1)}
-                              </button>
-                            ))}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 1); }}
+                              disabled={!queueable}
+                              aria-label="Increase quantity by 1"
+                              className={`px-1.5 py-1 rounded text-xs font-semibold ${
+                                queueable
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              add
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 10); }}
+                              disabled={!queueable}
+                              aria-label="Increase quantity by 10"
+                              className={`px-1.5 py-1 rounded text-xs font-semibold ${
+                                queueable
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              ++
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 100); }}
+                              disabled={!queueable}
+                              aria-label="Increase quantity by 100"
+                              className={`px-1.5 py-1 rounded text-xs font-semibold ${
+                                queueable
+                                  ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                  : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                              }`}
+                            >
+                              +++
+                            </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); tryQueue(item.id, activeTab); }}
                               disabled={!queueable}
                               aria-label={`Queue ${item.name}`}
-                              className={`px-1.5 py-0.5 rounded text-xs font-bold ${
+                              className={`px-2 py-1 rounded text-xs font-bold ${
                                 queueable
                                   ? 'bg-pink-nebula-accent-primary/80 hover:bg-pink-nebula-accent-primary text-white cursor-pointer'
                                   : 'bg-slate-700 text-slate-500 cursor-not-allowed'
@@ -524,12 +598,12 @@ export function TabbedItemGrid({
                               add
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); tryQueueMax(item.id); }}
-                              disabled={!maxQueueableNow}
-                              title={maxQueueableNow ? 'Queue maximum available now' : humanizeReason(queueCheck.reason, item.id)}
+                              onClick={(e) => { e.stopPropagation(); onQueueItem(item.id, 99999); }}
+                              disabled={!queueable}
+                              title={queueable ? 'Queue maximum available' : humanizeReason(queueCheck.reason, item.id)}
                               aria-label={`Queue maximum ${item.name}`}
-                              className={`px-1.5 py-0.5 rounded text-xs font-bold ${
-                                maxQueueableNow
+                              className={`px-1.5 py-1 rounded text-xs font-bold ${
+                                queueable
                                   ? 'bg-slate-700 hover:bg-slate-600 text-yellow-300 cursor-pointer'
                                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                               }`}

@@ -112,7 +112,7 @@ describe('Research System', () => {
       food: 0,
       energy: 0,
       research_points: 0,
-      workers: 25, // Scientists reserve 25 workers
+      workers: 20, // Scientists reserve 20 workers
       space: 0,
     },
     effectsOnComplete: {},
@@ -420,20 +420,20 @@ describe('Research System', () => {
       expect(result.reason).toBe('HOUSING_MISSING');
     });
 
-    it('should reserve 25 workers per scientist', () => {
+    it('should reserve 20 workers per scientist', () => {
       state.population.workersIdle = 9000;
 
-      // Verify scientist definition requires 25 workers
+      // Verify scientist definition requires 20 workers
       const workersNeeded = scientistDef.costsPerUnit.workers || 0;
-      expect(workersNeeded).toBe(25);
+      expect(workersNeeded).toBe(20);
 
       // Worker reservation happens during activation via tryActivateNext, not during queueing
       // Just verify the cost is defined correctly
-      expect(scientistDef.costsPerUnit.workers).toBe(25);
+      expect(scientistDef.costsPerUnit.workers).toBe(20);
     });
 
     it('should prevent queuing scientists without enough idle workers', () => {
-      state.population.workersIdle = 20; // Less than 25 needed
+      state.population.workersIdle = 19; // Less than 20 needed
 
       // Worker validation happens during activation, not queue time
       // Just verify the constraint

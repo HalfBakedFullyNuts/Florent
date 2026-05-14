@@ -66,7 +66,7 @@ export class Timeline {
 
     // Lazy computation: if requesting a turn we haven't computed yet, compute up to it + buffer
     if (index > this.highestComputedIndex) {
-      const targetIndex = Math.min(index + Timeline.LAZY_COMPUTE_BUFFER, this.totalTurns - 1);
+      const targetIndex = Math.min(index + Timeline.LAZY_COMPUTE_BUFFER, this.states.length - 1);
       this.computeUpToIndex(targetIndex);
 
       // If we still don't have the state (stable state was detected before reaching index),
@@ -108,7 +108,7 @@ export class Timeline {
     if (this.currentTurnIndex > this.highestComputedIndex) {
       const targetIndex = Math.min(
         this.currentTurnIndex + Timeline.LAZY_COMPUTE_BUFFER,
-        this.totalTurns - 1
+        this.states.length - 1
       );
       this.computeUpToIndex(targetIndex);
     }
@@ -116,17 +116,24 @@ export class Timeline {
   }
 
   /**
-   * Get total number of viewable turns.
+   * Get total number of turns in the timeline (default 200, extendable).
    */
   getTotalTurns(): number {
-    return this.totalTurns;
+    return this.states.length;
   }
 
-  extendToTotalTurns(totalTurns: number): void {
-    const nextTotal = Math.max(this.totalTurns, Math.floor(totalTurns));
-    if (nextTotal === this.totalTurns) return;
-    this.states.length = nextTotal;
-    this.totalTurns = nextTotal;
+  /**
+   * Extend the timeline to accommodate more turns.
+   * No-op if the timeline already covers the requested total.
+   */
+  extendToTotalTurns(newTotal: number): void {
+    if (newTotal <= this.states.length) return;
+    const expanded: PlanetState[] = new Array(newTotal);
+    for (let i = 0; i < this.states.length; i++) {
+      expanded[i] = this.states[i];
+    }
+    this.states = expanded;
+    this.stableFromTurn = -1; // Invalidate stable-state shortcut — must compute new turns
   }
 
   /**
@@ -137,7 +144,7 @@ export class Timeline {
     if (index > this.highestComputedIndex) {
       const targetIndex = Math.min(
         index + Timeline.LAZY_COMPUTE_BUFFER,
-        this.totalTurns - 1
+        this.states.length - 1
       );
       this.computeUpToIndex(targetIndex);
     }
@@ -210,7 +217,7 @@ export class Timeline {
       this.highestComputedIndex + Timeline.LAZY_COMPUTE_BUFFER,
       Timeline.LAZY_COMPUTE_BUFFER
     );
-    this.computeUpToIndex(Math.min(targetIndex, this.totalTurns - 1));
+    this.computeUpToIndex(Math.min(targetIndex, this.states.length - 1));
   }
 
   /**
@@ -286,7 +293,7 @@ export class Timeline {
    * Simply advances the view index (all turns pre-computed)
    */
   nextTurn(): PlanetState {
-    if (this.currentTurnIndex < this.totalTurns - 1) {
+    if (this.currentTurnIndex < this.states.length - 1) {
       this.currentTurnIndex += 1;
       getLogger().logTimelineEvent(
         this.getCurrentTurn(),
@@ -304,7 +311,7 @@ export class Timeline {
   simulateTurns(count: number): void {
     // Advance current turn index by count (max at 199)
     const newIndex = this.currentTurnIndex + count;
-    const targetIndex = Math.min(newIndex, this.totalTurns - 1);
+    const targetIndex = Math.min(newIndex, this.states.length - 1);
 
     // Ensure target turn is computed
     this.ensureComputedUpTo(targetIndex);
@@ -320,7 +327,7 @@ export class Timeline {
     const initialTurn = this.states[0]?.currentTurn || 1;
     const index = turn - initialTurn;
 
-    if (index < 0 || index >= this.totalTurns) {
+    if (index < 0 || index >= this.states.length) {
       return false;
     }
 
@@ -345,12 +352,12 @@ export class Timeline {
       turn,
       'mutation',
       `State mutated at turn ${turn}`,
-      this.totalTurns - turn
+      this.states.length - turn
     );
 
     // Recompute from the next index forward (index+1) so the mutation at index is preserved
     // The mutation affects the state AT this index, so we recompute from the NEXT index
-    if (index + 1 < this.totalTurns) {
+    if (index + 1 < this.states.length) {
       this.recomputeAll(index + 1);
     }
 
@@ -374,12 +381,12 @@ export class Timeline {
    */
   getAllStates(): PlanetState[] {
     // Ensure all states are computed before returning
-    this.ensureComputedUpTo(this.totalTurns - 1);
+    this.ensureComputedUpTo(this.states.length - 1);
 
     // Fill in any missing states from stable state template
     if (this.stableFromTurn >= 0) {
       const stableState = this.states[this.stableFromTurn];
-      for (let i = this.stableFromTurn + 1; i < this.totalTurns; i++) {
+      for (let i = this.stableFromTurn + 1; i < this.states.length; i++) {
         if (!this.states[i]) {
           this.states[i] = cloneState(stableState);
           this.states[i].currentTurn = stableState.currentTurn + (i - this.stableFromTurn);

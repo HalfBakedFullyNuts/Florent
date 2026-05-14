@@ -145,7 +145,7 @@
         }
       ],
       "build_requirements": {
-        "workers_occupied": 25
+        "workers_occupied": 20
       },
       "consumption": [
         {
@@ -795,12 +795,12 @@
         {
           "type": "resource",
           "id": "metal",
-          "amount": 2400
+          "amount": 4800
         },
         {
           "type": "resource",
           "id": "mineral",
-          "amount": 1600
+          "amount": 2400
         }
       ],
       "build_requirements": {
@@ -1135,7 +1135,7 @@
           {
             "type": "resource",
             "id": "energy",
-            "amount": 20
+            "amount": 10
           }
         ],
         "effects": [

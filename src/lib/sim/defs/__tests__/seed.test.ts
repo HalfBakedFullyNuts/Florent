@@ -251,6 +251,7 @@ describe('Seed Functions', () => {
       expect(state.completedCounts.mineral_extractor).toBe(3);
       expect(state.completedCounts.farm).toBe(1);
       expect(state.completedCounts.solar_generator).toBe(1);
+      expect(state.completedCounts.outpost_ship).toBe(1);
     });
 
     it('should have standard space limits', () => {

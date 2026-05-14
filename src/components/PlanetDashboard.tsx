@@ -13,6 +13,10 @@ export interface PlanetDashboardProps {
   turnsToHousingCap?: number | null;
   /** True when a building activated this turn using projected production to cover costs */
   stocksEstimated?: boolean;
+  /** Called when the player clicks a building name to schedule demolition. */
+  onDemolish?: (structureId: string) => void;
+  /** Set of structure IDs that are safe to schedule for demolition right now. */
+  demolishableIds?: ReadonlySet<string>;
 }
 
 const SHIP_SORT_ORDER: Record<string, number> = {
@@ -26,7 +30,7 @@ const SHIP_SORT_ORDER: Record<string, number> = {
   battleship: 7,
 };
 
-export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, defs, turnsToHousingCap, stocksEstimated }: PlanetDashboardProps) {
+export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, defs, turnsToHousingCap, stocksEstimated, onDemolish, demolishableIds }: PlanetDashboardProps) {
   const resources = [
     { id: 'metal', label: 'Metal', color: 'text-gray-300' },
     { id: 'mineral', label: 'Mineral', color: 'text-red-500' },
@@ -86,10 +90,14 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
       const def = defs[structureId];
       const name = def?.name || structureId.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-      const metalOut = def?.effectsOnComplete?.production_metal || 0;
-      const mineralOut = def?.effectsOnComplete?.production_mineral || 0;
-      const foodOut = def?.effectsOnComplete?.production_food || 0;
-      const energyOut = def?.effectsOnComplete?.production_energy || 0;
+      const scaleProduction = (
+        resourceId: 'metal' | 'mineral' | 'food' | 'energy',
+        production: number
+      ) => def?.isAbundanceScaled ? production * summary.abundance[resourceId] : production;
+      const metalOut = scaleProduction('metal', def?.effectsOnComplete?.production_metal || 0);
+      const mineralOut = scaleProduction('mineral', def?.effectsOnComplete?.production_mineral || 0);
+      const foodOut = scaleProduction('food', def?.effectsOnComplete?.production_food || 0);
+      const energyOut = scaleProduction('energy', def?.effectsOnComplete?.production_energy || 0);
       const metalIn = def?.upkeepPerUnit?.metal || 0;
       const mineralIn = def?.upkeepPerUnit?.mineral || 0;
       const foodIn = def?.upkeepPerUnit?.food || 0;
@@ -122,7 +130,7 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
     });
 
     return structures;
-  }, [summary.structures, defs]);
+  }, [summary.structures, summary.abundance, defs]);
 
   const groundFree = Math.max(0, summary.space.groundCap - summary.space.groundUsed);
   const orbitalFree = Math.max(0, summary.space.orbitalCap - summary.space.orbitalUsed);
@@ -347,12 +355,37 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
                         <td className={`py-1.5 pr-1 text-right ${spaceColor} font-semibold md:w-8 md:pr-2`}>
                           {spaceDisplay}
                         </td>
-                        <td className="break-words py-1.5 pr-1 text-pink-nebula-text font-semibold leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
-                          <span className="inline-flex items-center gap-1">
+                        <td className="break-words py-1.5 pr-1 leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
+                          <span className="inline-flex items-center gap-1 text-pink-nebula-text font-semibold">
                             <ItemIcon itemId={structure.id} size={16} className="opacity-85" />
                             {structure.name}
                           </span>
                         </td>
+                        {onDemolish && (() => {
+                          const demolishable = demolishableIds?.has(structure.id) ?? false;
+                          const turns = Math.max(1, Math.ceil((defs[structure.id]?.durationTurns ?? 1) / 2));
+                          return (
+                            <td className="w-6 py-1.5 text-center">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); if (demolishable) onDemolish(structure.id); }}
+                                title={
+                                  demolishable
+                                    ? `Demolish ${structure.name} (${turns}T) — click to queue`
+                                    : `Cannot demolish: another completed building requires ${structure.name}`
+                                }
+                                aria-label={`Demolish ${structure.name}`}
+                                disabled={!demolishable}
+                                className={`rounded text-xs leading-none px-1 py-0.5 transition-all ${
+                                  demolishable
+                                    ? 'text-red-400 hover:text-red-200 cursor-pointer shadow-[0_0_6px_rgba(248,113,113,0.5)] hover:shadow-[0_0_10px_rgba(248,113,113,0.8)] bg-red-900/30 hover:bg-red-800/40'
+                                    : 'text-pink-nebula-muted/30 cursor-not-allowed'
+                                }`}
+                              >
+                                🔨
+                              </button>
+                            </td>
+                          );
+                        })()}
                         <td className="whitespace-nowrap py-1.5 pr-1 text-right text-pink-nebula-text md:w-10 md:pr-2">
                           ×{structure.count}
                         </td>

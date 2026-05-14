@@ -15,10 +15,21 @@ import {
   type PlanetStartingSettings,
   normalizePlanetStarting,
 } from '../constants/planet';
+import {
+  DEFAULT_EXPANSION_TRAVEL_CHOICE,
+  type ExpansionTravelChoice,
+  getExpansionTravelTime,
+} from '../constants/travel';
 
 // ============================================================================
 // Types
 // ============================================================================
+
+export interface PlanetExpansionConfig {
+  travelChoice: ExpansionTravelChoice;
+  sourcePlanetIndex?: number;
+  departureTurn?: number;
+}
 
 export interface PlanetConfig {
   name: string;
@@ -35,7 +46,7 @@ export interface PlanetConfig {
     orbitalCap: number;
   };
   starting?: PlanetStartingSettings;
-  galaxyChoice?: 'odd' | 'even'; // Fleet Drive 1 travel: odd=16t, even=26t
+  expansion?: PlanetExpansionConfig;
 }
 
 export interface GameState {
@@ -55,6 +66,7 @@ export interface ExtendedPlanetState extends PlanetState {
   id: string;
   name: string;
   startTurn: number;
+  expansion?: PlanetExpansionConfig;
   timeline?: Timeline;  // Each planet has its own timeline
 }
 
@@ -62,6 +74,8 @@ export interface ExtendedPlanetState extends PlanetState {
 const itemDefinitions: Record<string, ItemDefinition> = loadGameData(gameDataJson as any);
 const PLANET_LANES: LaneId[] = ['building', 'ship', 'colonist', 'research'];
 const BASE_PLANET_LIMIT = 4;
+const OUTPOST_SHIP_ID = 'outpost_ship';
+const RESERVED_OUTPOST_SHIPS = 1;
 
 export interface LocalResearchGateOptions {
   completedResearch: string[];
@@ -269,6 +283,7 @@ function getPlanetConfigFromInitialState(planet: ExtendedPlanetState): PlanetCon
         return structures;
       }, {} as PlanetStartingSettings['structures']),
     },
+    expansion: planet.expansion,
   };
 }
 
@@ -283,7 +298,208 @@ function createCleanPlanetBase(planet: ExtendedPlanetState): ExtendedPlanetState
   extended.name = planet.name;
   extended.startTurn = planet.startTurn;
   extended.currentTurn = planet.startTurn;
+  extended.expansion = planet.expansion;
   return extended;
+}
+
+function withPlanetMetadata(
+  snapshot: PlanetState,
+  existing: ExtendedPlanetState
+): ExtendedPlanetState {
+  return {
+    ...snapshot,
+    id: existing.id,
+    name: existing.name,
+    startTurn: existing.startTurn,
+    currentTurn: snapshot.currentTurn ?? existing.currentTurn,
+    expansion: existing.expansion,
+    timeline: existing.timeline,
+  } as ExtendedPlanetState;
+}
+
+function getPlanetIdByIndex(
+  gameState: GameState,
+  planetIndex: number
+): string | undefined {
+  return Array.from(gameState.planets.keys())[planetIndex];
+}
+
+function getPlanetIndexById(gameState: GameState, planetId: string): number {
+  return Array.from(gameState.planets.keys()).indexOf(planetId);
+}
+
+function getPlanetTimelineEndTurn(planet: ExtendedPlanetState): number {
+  const totalTurns = planet.timeline?.getTotalTurns() ?? 200;
+  return planet.startTurn + totalTurns - 1;
+}
+
+export function getFirstUsableOutpostShipTurn(
+  gameState: GameState,
+  sourcePlanetId: string,
+  fromTurn: number = 1
+): number | null {
+  const sourcePlanet = gameState.planets.get(sourcePlanetId);
+  if (!sourcePlanet) return null;
+
+  const startTurn = Math.max(sourcePlanet.startTurn, Math.floor(fromTurn));
+  const endTurn = getPlanetTimelineEndTurn(sourcePlanet);
+
+  for (let turn = startTurn; turn <= endTurn; turn++) {
+    const state = sourcePlanet.timeline?.getStateAtTurn(turn) ?? sourcePlanet;
+    const outpostShips = state.completedCounts?.[OUTPOST_SHIP_ID] ?? 0;
+    if (outpostShips > RESERVED_OUTPOST_SHIPS) {
+      return turn;
+    }
+  }
+
+  return null;
+}
+
+export interface PlanetExpansionPlan {
+  config: PlanetConfig;
+  sourcePlanetId: string;
+  departureTurn: number;
+  arrivalTurn: number;
+  travelTime: number;
+}
+
+export function planPlanetExpansion(
+  gameState: GameState,
+  config: PlanetConfig,
+  sourcePlanetId: string = gameState.currentPlanetId
+): PlanetExpansionPlan {
+  const expansion = config.expansion;
+  if (!expansion) {
+    throw new Error('Expansion travel choice is required');
+  }
+
+  const travelChoice =
+    expansion.travelChoice ?? DEFAULT_EXPANSION_TRAVEL_CHOICE;
+  const travelTime = getExpansionTravelTime(travelChoice);
+  const resolvedSourcePlanetId =
+    expansion.sourcePlanetIndex !== undefined
+      ? getPlanetIdByIndex(gameState, expansion.sourcePlanetIndex)
+      : sourcePlanetId;
+
+  if (!resolvedSourcePlanetId || !gameState.planets.has(resolvedSourcePlanetId)) {
+    throw new Error('Expansion source planet is unavailable');
+  }
+
+  const sourcePlanetIndex = getPlanetIndexById(gameState, resolvedSourcePlanetId);
+  const desiredDepartureTurn = Math.max(1, config.startTurn - travelTime);
+  const departureTurn =
+    expansion.departureTurn ??
+    getFirstUsableOutpostShipTurn(
+      gameState,
+      resolvedSourcePlanetId,
+      desiredDepartureTurn
+    );
+
+  if (departureTurn === null) {
+    throw new Error(
+      'No usable outpost ship is available. Build an Outpost Ship first; the starter ship is reserved.'
+    );
+  }
+
+  const sourceState =
+    gameState.planets
+      .get(resolvedSourcePlanetId)
+      ?.timeline?.getStateAtTurn(departureTurn) ??
+    gameState.planets.get(resolvedSourcePlanetId);
+  const outpostShips = sourceState?.completedCounts?.[OUTPOST_SHIP_ID] ?? 0;
+  if (outpostShips <= RESERVED_OUTPOST_SHIPS) {
+    throw new Error(
+      `No usable outpost ship is available on turn ${departureTurn}.`
+    );
+  }
+
+  const arrivalTurn = Math.max(config.startTurn, departureTurn + travelTime);
+
+  return {
+    config: {
+      ...config,
+      startTurn: arrivalTurn,
+      expansion: {
+        travelChoice,
+        sourcePlanetIndex,
+        departureTurn,
+      },
+    },
+    sourcePlanetId: resolvedSourcePlanetId,
+    departureTurn,
+    arrivalTurn,
+    travelTime,
+  };
+}
+
+function consumeOutpostShip(
+  gameState: GameState,
+  sourcePlanetId: string,
+  departureTurn: number
+): GameState {
+  const sourcePlanet = gameState.planets.get(sourcePlanetId);
+  if (!sourcePlanet?.timeline) {
+    throw new Error('Expansion source planet timeline is unavailable');
+  }
+
+  const departureState = sourcePlanet.timeline.getStateAtTurn(departureTurn);
+  const outpostShips = departureState?.completedCounts?.[OUTPOST_SHIP_ID] ?? 0;
+  if (outpostShips <= RESERVED_OUTPOST_SHIPS) {
+    throw new Error(
+      `No usable outpost ship is available on turn ${departureTurn}.`
+    );
+  }
+
+  const consumed = sourcePlanet.timeline.mutateAtTurn(departureTurn, (state) => {
+    const current = state.completedCounts[OUTPOST_SHIP_ID] ?? 0;
+    state.completedCounts[OUTPOST_SHIP_ID] = Math.max(0, current - 1);
+    if (state.completedCounts[OUTPOST_SHIP_ID] === 0) {
+      delete state.completedCounts[OUTPOST_SHIP_ID];
+    }
+  });
+
+  if (!consumed) {
+    throw new Error(`Unable to consume outpost ship on turn ${departureTurn}`);
+  }
+
+  const currentTurn = sourcePlanet.currentTurn ?? sourcePlanet.startTurn;
+  const currentSnapshot =
+    sourcePlanet.timeline.getStateAtTurn(currentTurn) ?? sourcePlanet;
+  const refreshedSource = withPlanetMetadata(currentSnapshot, sourcePlanet);
+  const planets = new Map(gameState.planets);
+  planets.set(sourcePlanetId, refreshedSource);
+
+  return {
+    ...gameState,
+    planets,
+  };
+}
+
+function reapplyExpansionConsumptions(gameState: GameState): GameState {
+  let nextState = gameState;
+
+  for (const planet of gameState.planets.values()) {
+    const expansion = planet.expansion;
+    if (
+      expansion?.sourcePlanetIndex === undefined ||
+      expansion.departureTurn === undefined
+    ) {
+      continue;
+    }
+
+    const sourcePlanetId = getPlanetIdByIndex(
+      nextState,
+      expansion.sourcePlanetIndex
+    );
+    if (!sourcePlanetId) continue;
+    nextState = consumeOutpostShip(
+      nextState,
+      sourcePlanetId,
+      expansion.departureTurn
+    );
+  }
+
+  return nextState;
 }
 
 function resetWorkItemForStart(
@@ -369,30 +585,55 @@ export function createInitialGameState(): GameState {
  * Add a new planet to the game
  */
 export function addPlanet(gameState: GameState, config: PlanetConfig): GameState {
-  const requestedPlanetNumber = gameState.planets.size + 1;
+  let workingGameState = gameState;
+  let effectiveConfig = config;
+  let expansionPlan: PlanetExpansionPlan | null = null;
+
+  if (config.expansion) {
+    expansionPlan = planPlanetExpansion(
+      workingGameState,
+      config,
+      workingGameState.currentPlanetId
+    );
+    effectiveConfig = expansionPlan.config;
+  }
+
+  const requestedPlanetNumber = workingGameState.planets.size + 1;
   if (requestedPlanetNumber > BASE_PLANET_LIMIT) {
-    const effectiveLimit = getPlanetLimitAtTurn(gameState, config.startTurn);
+    const effectiveLimit = getPlanetLimitAtTurn(
+      workingGameState,
+      effectiveConfig.startTurn
+    );
     if (requestedPlanetNumber > effectiveLimit) {
-      throw new Error(`Maximum planet limit reached for turn ${config.startTurn}`);
+      throw new Error(`Maximum planet limit reached for turn ${effectiveConfig.startTurn}`);
     }
   }
 
-  const planetId = `planet-${gameState.nextPlanetId}`;
+  if (expansionPlan) {
+    workingGameState = consumeOutpostShip(
+      workingGameState,
+      expansionPlan.sourcePlanetId,
+      expansionPlan.departureTurn
+    );
+  }
+
+  const planetId = `planet-${workingGameState.nextPlanetId}`;
 
   // Create planet with starter configuration
-  const starterConfig = createStarterConfig(config);
+  const starterConfig = createStarterConfig(effectiveConfig);
 
   const newPlanet = createInitialState(itemDefinitions, starterConfig) as ExtendedPlanetState;
 
   // Set extended fields
   newPlanet.id = planetId;
-  newPlanet.name = config.name;
-  newPlanet.startTurn = config.startTurn;
-  newPlanet.currentTurn = config.startTurn;
+  newPlanet.name = effectiveConfig.name;
+  newPlanet.startTurn = effectiveConfig.startTurn;
+  newPlanet.currentTurn = effectiveConfig.startTurn;
+  newPlanet.expansion = effectiveConfig.expansion;
   newPlanet.completedResearch = getCompletedResearchAtTurnFromPlan(
-    gameState,
-    getResearchCompletionTurns(gameState),
-    config.startTurn
+    workingGameState,
+    getResearchCompletionTurns(workingGameState),
+    effectiveConfig.startTurn
   );
 
   // Keep research lane but empty (for compatibility with turn engine)
@@ -402,13 +643,13 @@ export function addPlanet(gameState: GameState, config: PlanetConfig): GameState
   newPlanet.timeline = new Timeline(newPlanet);
 
   // Create new game state with added planet
-  const newPlanets = new Map(gameState.planets);
+  const newPlanets = new Map(workingGameState.planets);
   newPlanets.set(planetId, newPlanet);
 
   return {
-    ...gameState,
+    ...workingGameState,
     planets: newPlanets,
-    nextPlanetId: gameState.nextPlanetId + 1,
+    nextPlanetId: workingGameState.nextPlanetId + 1,
   };
 }
 
@@ -483,6 +724,7 @@ export function updatePlanetConfig(
   updatedPlanet.name = config.name;
   updatedPlanet.startTurn = config.startTurn;
   updatedPlanet.currentTurn = config.startTurn;
+  updatedPlanet.expansion = config.expansion ?? planet.expansion;
   updatedPlanet.completedResearch = getCompletedResearchAtTurnFromPlan(gameState, completionTurns, config.startTurn);
   applyLanePlans(
     updatedPlanet,
@@ -534,16 +776,17 @@ export function refreshLocalResearchGates(gameState: GameState): GameState {
       name: planet.name,
       startTurn: planet.startTurn,
       currentTurn,
+      expansion: planet.expansion,
       timeline,
     } as ExtendedPlanetState;
 
     newPlanets.set(planetId, refreshedPlanet);
   }
 
-  return {
+  return reapplyExpansionConsumptions({
     ...gameState,
     planets: newPlanets,
-  };
+  });
 }
 
 export function resetToHomeworld(gameState: GameState): GameState {

@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
 import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
-import { ItemIcon } from '@/components/ui/ItemIcon';
+import { DEMOLISH_PREFIX } from '../../lib/game/demolish';
 
 export interface QueueLaneEntryProps {
   entry: LaneEntry;
@@ -65,6 +65,8 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     }
   };
 
+  const isDemolish = entry.itemId?.startsWith(DEMOLISH_PREFIX) ?? false;
+
   // Determine status color
   const statusColor = entry.status === 'active' ? 'border-l-4 border-l-yellow-500' :
     entry.status === 'pending' ? 'border-l-4 border-l-blue-500' :
@@ -77,7 +79,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   return (
     <div
       className={`
-        w-full text-left px-3 py-2 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : 'bg-pink-nebula-panel/50'} border border-pink-nebula-border rounded
+        w-full text-left px-3 py-2 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : isDemolish ? 'bg-red-950/30' : 'bg-pink-nebula-panel/50'} border ${isDemolish ? 'border-red-800/40' : 'border-pink-nebula-border'} rounded
         transition-colors group
         ${statusColor}
         ${entry.invalid ? 'border-orange-500/50 bg-orange-900/10' : ''}
@@ -113,15 +115,14 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
         </div>
 
         {/* Item Name */}
-        <div className={`flex items-center gap-1.5 truncate ${isAutoWait ? 'text-pink-nebula-muted' : 'text-pink-nebula-text'}`}>
-          {!entry.isWait && entry.itemId && (
-            <ItemIcon itemId={entry.itemId} size={18} className="opacity-80 shrink-0" />
-          )}
+        <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : isDemolish ? 'text-red-300' : 'text-pink-nebula-text'}`}>
           {isAutoWait
             ? `⏳ Auto-wait: ${waitTurns}t (resource gap)`
             : entry.isWait
               ? `⏳ Manual wait: ${waitTurns}t`
-              : entry.itemName}
+              : isDemolish
+                ? `🔨 ${entry.itemName}`
+                : entry.itemName}
         </div>
 
         {/* Quantity */}

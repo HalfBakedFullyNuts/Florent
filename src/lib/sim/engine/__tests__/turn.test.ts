@@ -245,11 +245,10 @@ describe('Turn Runner', () => {
       expect(state.completedCounts.metal_mine).toBe(1);
     });
 
-    it('should record startTurn = currentTurn + 1 for Phase-2b activations', () => {
-      // Repro of the planet-queue overlap bug. Active mine has 1 turn left, with a
-      // second mine waiting. When the active item completes during this turn, Phase 2b
-      // activates the next one in the same turn — but it gets no progressActive until
-      // the following turn, so its work-window starts on currentTurn + 1.
+    it('Phase-2b activated item gets startTurn = currentTurn and its first tick immediately', () => {
+      // When the active item completes during this turn, Phase 2b activates the next
+      // pending item in the same turn AND gives it its first progressActive tick.
+      // This means no wasted turn between sequential builds.
       state.lanes.building.active = {
         id: 'active_1',
         itemId: 'metal_mine',
@@ -284,10 +283,10 @@ describe('Turn Runner', () => {
       const newActive = state.lanes.building.active;
       expect(newActive).not.toBeNull();
       expect(newActive?.itemId).toBe('metal_mine');
-      // Bug was: startTurn === turnBeforeRun (same as completion turn of prior item).
-      // Fix: startTurn === turnBeforeRun + 1 (the turn its first decrement occurs).
-      expect(newActive?.startTurn).toBe(turnBeforeRun + 1);
-      expect(newActive?.turnsRemaining).toBe(4); // not yet decremented
+      // startTurn is the same turn the prerequisite completed (not +1).
+      expect(newActive?.startTurn).toBe(turnBeforeRun);
+      // turnsRemaining is decremented once (the first Phase-2b tick).
+      expect(newActive?.turnsRemaining).toBe(3);
     });
   });
 });

@@ -207,6 +207,17 @@ export class GameController {
   }
 
   /**
+   * Inject a synthetic ItemDefinition into the state at `turn` so the engine
+   * can look it up by id during validation and completion handling.
+   * The mutation propagates to all recomputed future states.
+   */
+  injectDef(turn: number, def: import('../sim/engine/types').ItemDefinition): void {
+    this.timeline.mutateAtTurn(turn, (state) => {
+      state.defs[def.id] = def;
+    });
+  }
+
+  /**
    * Cancel an entry in a lane
    * For pending: just remove
    * For active: refund resources, release workers/space, then remove and try activate next

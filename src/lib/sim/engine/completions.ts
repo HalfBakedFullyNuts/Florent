@@ -4,12 +4,60 @@
  */
 
 import type { PlanetState, WorkItem } from './types';
+import { DEMOLISH_PREFIX, demolishTarget } from '../../game/demolish';
+
+/**
+ * Reverse the effects of a completed building when a demolish item finishes.
+ * - Decrements completedCounts for the target structure
+ * - Reverses housing / space-cap deltas from effectsOnComplete
+ * - Frees the ground or orbital space that was reserved at build-activation time
+ */
+function applyDemolishCompletion(state: PlanetState, item: WorkItem): void {
+  const targetId = demolishTarget(item.itemId);
+  if (!targetId) return;
+
+  const def = state.defs[targetId];
+  if (!def) {
+    console.error(`applyDemolishCompletion: no def for "${targetId}"`);
+    return;
+  }
+
+  // Decrement count (guard against going below 0)
+  const current = state.completedCounts[targetId] ?? 0;
+  if (current > 0) {
+    state.completedCounts[targetId] = current - 1;
+    if (state.completedCounts[targetId] === 0) {
+      delete state.completedCounts[targetId];
+    }
+  }
+
+  // Reverse housing capacity changes
+  const effects = def.effectsOnComplete ?? {};
+  if (effects.housing_worker_cap)   state.housing.workerCap    -= effects.housing_worker_cap;
+  if (effects.housing_soldier_cap)  state.housing.soldierCap   -= effects.housing_soldier_cap;
+  if (effects.housing_scientist_cap) state.housing.scientistCap -= effects.housing_scientist_cap;
+
+  // Reverse space capacity changes
+  if (effects.space_ground_cap)   state.space.groundCap  -= effects.space_ground_cap;
+  if (effects.space_orbital_cap)  state.space.orbitalCap -= effects.space_orbital_cap;
+
+  // Free the physical space the building was occupying
+  const costs = def.costsPerUnit ?? {};
+  if ((costs.space ?? 0) > 0)         state.space.groundUsed  -= costs.space;
+  if ((costs.space_orbital ?? 0) > 0) state.space.orbitalUsed -= costs.space_orbital;
+}
 
 /**
  * Apply effects when structure/ship/research completes
  * Releases workers/space, updates counts, applies housing/space deltas, research effects
  */
 export function applyStructureCompletion(state: PlanetState, item: WorkItem): void {
+  // Demolish items reverse an existing building's effects instead of adding new ones
+  if (item.itemId.startsWith(DEMOLISH_PREFIX)) {
+    applyDemolishCompletion(state, item);
+    return;
+  }
+
   const def = state.defs[item.itemId];
   if (!def) {
     console.error(`Definition not found for item: ${item.itemId}`);

@@ -265,7 +265,7 @@ describe('Colonist Conversion', () => {
         mineral: 100,
         food: 150,
         energy: 0,
-        workers: 25, // Reserves 25 workers during training
+        workers: 20, // Reserves 20 workers during training
         space: 0,
       },
       effectsOnComplete: {},
@@ -325,7 +325,7 @@ describe('Colonist Conversion', () => {
   });
 
   describe('Scientist Conversion', () => {
-    it('should convert 1 worker to scientist and refund 24 workers (n-1 pattern)', () => {
+    it('should convert 1 worker to scientist and refund 19 workers (n-1 pattern)', () => {
       const item: WorkItem = {
         id: 'item1',
         itemId: 'scientist',
@@ -339,8 +339,8 @@ describe('Colonist Conversion', () => {
 
       applyColonistConversion(state, item);
 
-      // 25 workers reserved, 24 refunded to idle, 1 converted
-      expect(state.population.workersIdle).toBe(initialIdle + 24);
+      // 20 workers reserved, 19 refunded to idle, 1 converted
+      expect(state.population.workersIdle).toBe(initialIdle + 19);
       expect(state.population.workersTotal).toBe(initialWorkers - 1);
       expect(state.population.scientists).toBe(1);
     });
@@ -359,10 +359,10 @@ describe('Colonist Conversion', () => {
 
       applyColonistConversion(state, item);
 
-      // 3 units × 25 workers = 75 reserved
-      // Refund: 3 × 24 = 72 workers
+      // 3 units × 20 workers = 60 reserved
+      // Refund: 3 × 19 = 57 workers
       // Convert: 3 workers → 3 scientists
-      expect(state.population.workersIdle).toBe(initialIdle + 72);
+      expect(state.population.workersIdle).toBe(initialIdle + 57);
       expect(state.population.workersTotal).toBe(initialWorkers - 3);
       expect(state.population.scientists).toBe(3);
     });
@@ -461,7 +461,7 @@ describe('Batch Colonist Conversions', () => {
         mineral: 100,
         food: 150,
         energy: 0,
-        workers: 25,
+        workers: 20,
         space: 0,
       },
       effectsOnComplete: {},
@@ -501,9 +501,9 @@ describe('Batch Colonist Conversions', () => {
     applyColonistConversions(state);
 
     // Soldiers: 2 × 10 = 20 workers reserved → 18 refunded, 2 converted
-    // Scientists: 1 × 25 = 25 workers reserved → 24 refunded, 1 converted
-    // Total: 42 refunded, 3 converted
-    expect(state.population.workersIdle).toBe(initialIdle + 42);
+    // Scientists: 1 × 20 = 20 workers reserved → 19 refunded, 1 converted
+    // Total: 37 refunded, 3 converted
+    expect(state.population.workersIdle).toBe(initialIdle + 37);
     expect(state.population.workersTotal).toBe(initialWorkers - 3);
     expect(state.population.soldiers).toBe(2);
     expect(state.population.scientists).toBe(1);

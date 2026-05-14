@@ -1,5 +1,13 @@
 import { describe, test, expect } from 'vitest';
-import { createInitialGameState, addPlanet, resetToHomeworld, switchPlanet, updatePlanetConfig } from '../gameState';
+import {
+  createInitialGameState,
+  addPlanet,
+  getFirstUsableOutpostShipTurn,
+  planPlanetExpansion,
+  resetToHomeworld,
+  switchPlanet,
+  updatePlanetConfig,
+} from '../gameState';
 import { CommandHistory, replayCommands } from '../urlState';
 import { queueGlobalResearch } from '../globalResearch';
 
@@ -20,6 +28,107 @@ describe('Multi-Planet State Management', () => {
     expect(firstPlanet!.id).toBe('planet-1');
     expect(firstPlanet!.name).toBe('Homeworld');
     expect(firstPlanet!.startTurn).toBe(1);
+    expect(firstPlanet!.completedCounts.outpost_ship).toBe(1);
+    expect(getFirstUsableOutpostShipTurn(gameState, 'planet-1')).toBeNull();
+  });
+
+  test('plans expansion from the first usable outpost ship plus inside-galaxy travel time', () => {
+    let gameState = createInitialGameState();
+    const homeworld = gameState.planets.get('planet-1')!;
+    homeworld.timeline!.mutateAtTurn(20, (state) => {
+      state.completedCounts.outpost_ship = 2;
+    });
+
+    const planned = planPlanetExpansion(
+      gameState,
+      {
+        name: 'Mars Colony',
+        startTurn: 1,
+        abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+        space: { groundCap: 30, orbitalCap: 20 },
+        expansion: { travelChoice: 'inside_galaxy' },
+      },
+      'planet-1'
+    );
+
+    expect(planned.departureTurn).toBe(20);
+    expect(planned.arrivalTurn).toBe(36);
+
+    gameState = addPlanet(gameState, planned.config);
+    const colony = gameState.planets.get('planet-2')!;
+    const sourceAtDeparture = gameState.planets
+      .get('planet-1')!
+      .timeline!.getStateAtTurn(20)!;
+
+    expect(colony.startTurn).toBe(36);
+    expect(colony.expansion).toEqual({
+      travelChoice: 'inside_galaxy',
+      sourcePlanetIndex: 0,
+      departureTurn: 20,
+    });
+    expect(sourceAtDeparture.completedCounts.outpost_ship).toBe(1);
+  });
+
+  test('uses galaxy-to-galaxy travel time when selected', () => {
+    let gameState = createInitialGameState();
+    const homeworld = gameState.planets.get('planet-1')!;
+    homeworld.timeline!.mutateAtTurn(10, (state) => {
+      state.completedCounts.outpost_ship = 2;
+    });
+
+    gameState = addPlanet(gameState, {
+      name: 'Distant Colony',
+      startTurn: 1,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 30, orbitalCap: 20 },
+      expansion: { travelChoice: 'galaxy_to_galaxy' },
+    });
+
+    expect(gameState.planets.get('planet-2')!.startTurn).toBe(36);
+  });
+
+  test('blocks expansion when only the reserved starter outpost ship exists', () => {
+    const gameState = createInitialGameState();
+
+    expect(() => addPlanet(gameState, {
+      name: 'Blocked Colony',
+      startTurn: 1,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 30, orbitalCap: 20 },
+      expansion: { travelChoice: 'inside_galaxy' },
+    })).toThrow('No usable outpost ship is available');
+  });
+
+  test('does not consume an outpost ship when expansion fails planet-limit validation', () => {
+    let gameState = createInitialGameState();
+    for (let i = 2; i <= 4; i++) {
+      gameState = addPlanet(gameState, {
+        name: `Planet ${i}`,
+        startTurn: 1,
+        abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+        space: { groundCap: 30, orbitalCap: 20 },
+      });
+    }
+
+    const homeworld = gameState.planets.get('planet-1')!;
+    homeworld.timeline!.mutateAtTurn(10, (state) => {
+      state.completedCounts.outpost_ship = 2;
+    });
+
+    expect(() => addPlanet(gameState, {
+      name: 'Blocked Fifth Colony',
+      startTurn: 1,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 30, orbitalCap: 20 },
+      expansion: { travelChoice: 'inside_galaxy' },
+    })).toThrow('Maximum planet limit reached');
+
+    expect(
+      gameState.planets
+        .get('planet-1')!
+        .timeline!.getStateAtTurn(10)!
+        .completedCounts.outpost_ship
+    ).toBe(2);
   });
 
   test('adds new planet with starter buildings', () => {
