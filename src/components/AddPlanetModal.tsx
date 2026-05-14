@@ -27,6 +27,7 @@ import {
   validateAllAbundances,
   normalizePlanetStarting,
 } from '../lib/constants/planet';
+import { GALAXY_TRAVEL_DELAY, type GalaxyChoice } from '../lib/constants/travel';
 
 const STARTING_STRUCTURE_FIELDS: Array<{
   id: keyof PlanetStartingSettings['structures'];
@@ -53,6 +54,8 @@ interface AddPlanetModalProps {
   currentTurn: number;
   initialConfig?: PlanetConfig;
   mode?: 'add' | 'edit';
+  /** First turn where the player owns ≥1 outpost ship (for travel gating). Omit in edit mode. */
+  outpostShipTurn?: number;
 }
 
 export interface PlanetConfig {
@@ -70,6 +73,7 @@ export interface PlanetConfig {
     orbitalCap: number;
   };
   starting?: PlanetStartingSettings;
+  galaxyChoice?: GalaxyChoice;
 }
 
 /**
@@ -82,9 +86,11 @@ export function AddPlanetModal({
   currentTurn,
   initialConfig,
   mode = 'add',
+  outpostShipTurn,
 }: AddPlanetModalProps) {
   const [name, setName] = useState(initialConfig?.name ?? 'Planet');
   const [startTurn, setStartTurn] = useState(initialConfig?.startTurn ?? currentTurn);
+  const [galaxyChoice, setGalaxyChoice] = useState<GalaxyChoice>(initialConfig?.galaxyChoice ?? 'odd');
   // Explicitly type to avoid readonly literal types
   const [abundance, setAbundance] = useState<{
     metal: number;
@@ -107,6 +113,7 @@ export function AddPlanetModal({
     if (!isOpen) return;
     setName(initialConfig?.name ?? 'Planet');
     setStartTurn(initialConfig?.startTurn ?? currentTurn);
+    setGalaxyChoice(initialConfig?.galaxyChoice ?? 'odd');
     setAbundance(initialConfig
       ? {
         metal: Math.round(initialConfig.abundance.metal * 100),
@@ -120,6 +127,11 @@ export function AddPlanetModal({
     setStarting(normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING));
   }, [isOpen, currentTurn, initialConfig]);
 
+  // Earliest start turn enforced by travel delay (only for add mode)
+  const travelDelay = GALAXY_TRAVEL_DELAY[galaxyChoice];
+  const travelBase = outpostShipTurn ?? currentTurn;
+  const minTravelStart = mode === 'add' ? travelBase + travelDelay : 1;
+
   const handleSubmit = useCallback(() => {
     // Validate and clamp all abundances before submitting
     const validatedAbundance = validateAllAbundances(abundance);
@@ -131,13 +143,14 @@ export function AddPlanetModal({
 
     const added = onAddPlanet({
       name,
-      startTurn,
+      startTurn: Math.max(startTurn, minTravelStart),
       abundance: abundanceMultipliers as typeof abundance,
       space,
       starting: normalizePlanetStarting(starting),
+      galaxyChoice,
     });
     if (added !== false) onClose();
-  }, [name, startTurn, abundance, space, starting, onAddPlanet, onClose]);
+  }, [name, startTurn, minTravelStart, abundance, space, starting, galaxyChoice, onAddPlanet, onClose]);
 
   const updateAbundance = useCallback((resource: string, value: number) => {
     // Allow free typing - validation happens on blur and submit
@@ -293,6 +306,44 @@ export function AddPlanetModal({
             Basic Settings
           </h3>
 
+          {mode === 'add' && (
+            <div className="mb-4">
+              <label className={LABEL_CLASS}>Galaxy destination</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGalaxyChoice('odd')}
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${
+                    galaxyChoice === 'odd'
+                      ? 'border-cyan-300/60 bg-cyan-400/15 text-cyan-50'
+                      : 'border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-white/20'
+                  }`}
+                >
+                  <div>Odd Galaxy</div>
+                  <div className="mt-0.5 text-xs opacity-70">+{GALAXY_TRAVEL_DELAY.odd} turns travel</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGalaxyChoice('even')}
+                  className={`rounded-xl border px-3 py-2 text-sm font-semibold transition-all ${
+                    galaxyChoice === 'even'
+                      ? 'border-fuchsia-300/60 bg-fuchsia-400/15 text-fuchsia-50'
+                      : 'border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-white/20'
+                  }`}
+                >
+                  <div>Even Galaxy</div>
+                  <div className="mt-0.5 text-xs opacity-70">+{GALAXY_TRAVEL_DELAY.even} turns travel</div>
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-pink-nebula-muted">
+                Earliest start: T{minTravelStart}
+                {outpostShipTurn !== undefined && outpostShipTurn > currentTurn && (
+                  <span className="ml-1 text-yellow-400">⚠ outpost ship available T{outpostShipTurn}</span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className={LABEL_CLASS}>
               Start Turn
@@ -300,11 +351,14 @@ export function AddPlanetModal({
             <input
               type="number"
               value={startTurn}
-              onChange={(e) => setStartTurn(Math.max(1, parseInt(e.target.value) || 1))}
+              onChange={(e) => setStartTurn(Math.max(minTravelStart, parseInt(e.target.value) || minTravelStart))}
               onFocus={(e) => e.target.select()}
               className={INPUT_CLASS}
-              min="1"
+              min={minTravelStart}
             />
+            {mode === 'add' && startTurn < minTravelStart && (
+              <p className="mt-1 text-xs text-yellow-400">Will be adjusted to T{minTravelStart} on submit.</p>
+            )}
           </div>
         </div>
 

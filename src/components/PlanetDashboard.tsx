@@ -4,7 +4,8 @@ import React, { useMemo } from 'react';
 import type { PlanetSummary as PlanetSummaryType } from '../lib/game/selectors';
 import { Card } from '@/components/ui/card';
 import { ManualLink } from '@/components/ui/ManualLink';
-import { computePlanetScore } from '../lib/game/scoring';
+import { MANUAL_LINKS } from '../lib/constants/manualLinks';
+import { ItemIcon } from '@/components/ui/ItemIcon';
 
 export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
@@ -130,29 +131,17 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
   const groundFree = Math.max(0, summary.space.groundCap - summary.space.groundUsed);
   const orbitalFree = Math.max(0, summary.space.orbitalCap - summary.space.orbitalUsed);
 
-  const planetScore = useMemo(
-    () => computePlanetScore(summary, defs),
-    [summary, defs]
-  );
-
   return (
     <div className="my-4 px-3 md:px-6">
       <div className="mx-auto w-full max-w-[1800px]">
         <Card className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4 p-3 md:p-4 glow-tyr border-gray-400/30">
 
-        {/* Score bar */}
-        <div className="col-span-full flex items-center justify-between border-b border-pink-nebula-border/50 pb-2 mb-1">
-          <span className="text-xs text-pink-nebula-muted uppercase tracking-widest">Planet score</span>
-          <span className="font-mono font-bold text-yellow-300 text-sm" aria-label={`Planet score: ${formatNumber(planetScore)}`}>
-            {formatNumber(planetScore)}
-          </span>
-        </div>
-
         {/* Resources Section */}
         <Card className="p-3">
-          <div className="mb-3 flex items-center gap-0.5">
-            <h3 className="text-sm font-semibold text-pink-nebula-muted">Resources</h3>
-            <ManualLink topic="resources" label="IC manual: resources" />
+          <div className="mb-3 flex items-center">
+            <a href={MANUAL_LINKS.resources} target="_blank" rel="noopener noreferrer" aria-label="IC manual: resources" className="text-sm font-semibold text-pink-nebula-muted hover:text-pink-nebula-text hover:underline transition-colors">
+              Resources
+            </a>
           </div>
           <table className="w-full text-sm">
             <thead>
@@ -194,9 +183,10 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
 
         {/* Population + Housing Section */}
         <Card className="p-3">
-          <div className="mb-3 flex items-center gap-0.5">
-            <h3 className="text-sm font-semibold text-pink-nebula-muted">Population</h3>
-            <ManualLink topic="colonists" label="IC manual: colonists" />
+          <div className="mb-3 flex items-center">
+            <a href={MANUAL_LINKS.colonists} target="_blank" rel="noopener noreferrer" aria-label="IC manual: colonists" className="text-sm font-semibold text-pink-nebula-muted hover:text-pink-nebula-text hover:underline transition-colors">
+              Population
+            </a>
           </div>
           <table className="w-full text-sm">
             <thead>
@@ -289,15 +279,19 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
         {/* Ships Section — replaced Space Remaining */}
         <Card className="p-3">
           <div className="mb-3 flex items-center gap-0.5">
-            <h3 className="text-sm font-semibold text-pink-nebula-muted">Ships</h3>
-            <ManualLink topic="ships" label="IC manual: ships" />
+            <a href={MANUAL_LINKS.ships} target="_blank" rel="noopener noreferrer" aria-label="IC manual: ships" className="text-sm font-semibold text-pink-nebula-muted hover:text-pink-nebula-text hover:underline transition-colors">
+              Ships
+            </a>
             <ManualLink topic="travelTimes" label="IC manual: travel times" />
           </div>
           {shipsList.length > 0 ? (
             <div className="space-y-1.5">
               {shipsList.map((ship) => (
                 <div key={ship.id} className="flex justify-between items-center text-sm">
-                  <span className="text-pink-nebula-text">{ship.name}</span>
+                  <span className="flex items-center gap-1.5 text-pink-nebula-text">
+                    <ItemIcon itemId={ship.id} size={20} className="opacity-85" />
+                    {ship.name}
+                  </span>
                   <span className="text-pink-nebula-muted font-mono">×{ship.count}</span>
                 </div>
               ))}
@@ -312,18 +306,18 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
               <span className="text-yellow-400 font-semibold">Planet Limit</span>
               <span className="text-yellow-400 font-mono">{summary.planetLimit || 4}</span>
             </div>
-            <div className="text-xs text-pink-nebula-muted mt-0.5">Max planets you can control</div>
           </div>
         </Card>
 
         {/* Buildings Section */}
         <Card className="p-3">
-          <div className="mb-3 flex items-center gap-0.5 flex-wrap">
-            <h3 className="text-sm font-semibold text-pink-nebula-muted">Buildings</h3>
-            <ManualLink topic="structures" label="IC manual: structures" />
-            <span className="ml-1 text-[11px] font-normal text-pink-nebula-muted normal-case tracking-normal">
+          <div className="mb-3 flex items-center gap-1">
+            <a href={MANUAL_LINKS.structures} target="_blank" rel="noopener noreferrer" aria-label="IC manual: structures" className="text-sm font-semibold text-pink-nebula-muted hover:text-pink-nebula-text hover:underline transition-colors">
+              Buildings
+            </a>
+            <span className="ml-auto text-[11px] font-normal text-pink-nebula-muted normal-case tracking-normal">
               <span className="text-amber-600">{groundFree} GS</span>
-              {' and '}
+              {' · '}
               <span className="text-blue-400">{orbitalFree} OS</span>
               {' free'}
             </span>

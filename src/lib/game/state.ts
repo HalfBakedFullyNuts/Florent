@@ -1,6 +1,6 @@
 /**
  * Timeline management and recomputation
- * Fixed 200-turn timeline architecture for simplified queue management
+ * Fixed-length timeline architecture for simplified queue management
  */
 
 import type { PlanetState } from '../sim/engine/types';
@@ -11,20 +11,25 @@ import { getLogger } from './logger';
 import { computeNetOutputsPerTurn } from '../sim/engine/outputs';
 
 /**
- * Timeline state manager with fixed 200-turn architecture
- * Always maintains exactly 200 pre-computed turns for consistent UX
+ * Timeline state manager with a fixed turn window.
  */
 export class Timeline {
-  private static readonly FIXED_TURNS = 200;
+  private static readonly DEFAULT_TURNS = 200;
   private static readonly LAZY_COMPUTE_BUFFER = 50; // Compute 50 turns ahead
   private states: PlanetState[];
+  private totalTurns: number;
   private currentTurnIndex: number;
   private completionBuffer: CompletionBuffer;
   private stableFromTurn: number = -1; // Cache for stable state optimization
   private highestComputedIndex: number = 0; // Track how far we've computed
 
-  constructor(initialState: PlanetState) {
-    this.states = new Array(Timeline.FIXED_TURNS);
+  constructor(initialState: PlanetState, totalTurns: number = Timeline.DEFAULT_TURNS) {
+    const sanitizedTotalTurns = Number.isFinite(totalTurns)
+      ? Math.floor(totalTurns)
+      : Timeline.DEFAULT_TURNS;
+
+    this.totalTurns = Math.max(Timeline.DEFAULT_TURNS, sanitizedTotalTurns);
+    this.states = new Array(this.totalTurns);
     this.states[0] = cloneState(initialState);
     this.currentTurnIndex = 0;
     this.completionBuffer = new CompletionBuffer();
@@ -266,7 +271,7 @@ export class Timeline {
 
   /**
    * Set current turn number (for time travel)
-   * Accepts turn numbers (1-200), not indices
+   * Accepts turn numbers, not indices
    */
   setCurrentTurn(turn: number): boolean {
     // Map turn number to array index (turn 1 = index 0)
@@ -360,10 +365,10 @@ export class Timeline {
   }
 
   /**
-   * Reset timeline to initial state and recompute all 200 turns
+   * Reset timeline to initial state and recompute the current turn window.
    */
   reset(initialState: PlanetState): void {
-    this.states = new Array(Timeline.FIXED_TURNS);
+    this.states = new Array(this.totalTurns);
     this.states[0] = cloneState(initialState);
     this.currentTurnIndex = 0;
     this.completionBuffer.clear();

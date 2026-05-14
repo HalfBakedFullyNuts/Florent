@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import type { ItemDefinition, LaneId } from '../../lib/sim/engine/types';
 import { Card } from '@/components/ui/card';
 import { GlassQueueButton } from '@/components/ui/glass-queue-button';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
-import { LANE_MANUAL_TOPICS } from '../../lib/constants/manualLinks';
+import { LANE_MANUAL_TOPICS, MANUAL_LINKS } from '../../lib/constants/manualLinks';
 import { ManualLink } from '@/components/ui/ManualLink';
+import { ItemIcon } from '@/components/ui/ItemIcon';
 
 export interface SmartQueueCheckShape {
   allowed: boolean;
@@ -115,13 +116,23 @@ export function TabbedItemGrid({
     return maxParentDepth + 1;
   };
 
+  // Pre-compute canQueueItem(id, 1) for all items once per render to avoid
+  // O(N log N) redundant calls inside the sort comparator.
+  const queueChecks = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof canQueueItem>>();
+    Object.values(availableItems).forEach((item: any) => {
+      map.set(item.id, canQueueItem(item.id, 1));
+    });
+    return map;
+  }, [availableItems, canQueueItem]);
+
   // Sort items: available first (including those with wait), hard-blocked last.
   // For research specifically, use prerequisite chain depth as secondary sort so the
   // full tech tree always reads top-to-bottom regardless of lock state.
   Object.keys(itemsByLane).forEach(laneId => {
     itemsByLane[laneId].sort((a, b) => {
-      const aCheck = canQueueItem(a.id, 1);
-      const bCheck = canQueueItem(b.id, 1);
+      const aCheck = queueChecks.get(a.id) ?? canQueueItem(a.id, 1);
+      const bCheck = queueChecks.get(b.id) ?? canQueueItem(b.id, 1);
       // Use canQueueEventually (false = hard block, grey out). Fallback to allowed for compatibility.
       const aQueueable = aCheck.canQueueEventually ?? aCheck.allowed;
       const bQueueable = bCheck.canQueueEventually ?? bCheck.allowed;
@@ -159,7 +170,7 @@ export function TabbedItemGrid({
   // Hard blocks (canQueueEventually === false) grey it out.
   // Items that need a wait (canQueueNow === false, canQueueEventually === true) remain clickable.
   const isItemQueueable = (itemId: string): boolean => {
-    const check = canQueueItem(itemId, 1);
+    const check = queueChecks.get(itemId) ?? canQueueItem(itemId, 1);
     return check.canQueueEventually ?? check.allowed;
   };
 
@@ -330,10 +341,19 @@ export function TabbedItemGrid({
           <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
             {config.icon}
           </span>
-          <h3 className="text-lg font-bold text-pink-nebula-text">
-            {config.title}
-          </h3>
-          {LANE_MANUAL_TOPICS[activeTab]?.map((topic) => (
+          {LANE_MANUAL_TOPICS[activeTab]?.[0] ? (
+            <a
+              href={MANUAL_LINKS[LANE_MANUAL_TOPICS[activeTab]![0]]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-bold text-pink-nebula-text hover:text-pink-nebula-text/80 hover:underline transition-colors"
+            >
+              {config.title}
+            </a>
+          ) : (
+            <h3 className="text-lg font-bold text-pink-nebula-text">{config.title}</h3>
+          )}
+          {LANE_MANUAL_TOPICS[activeTab]?.slice(1).map((topic) => (
             <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
           ))}
           <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
@@ -383,7 +403,7 @@ export function TabbedItemGrid({
             </div>
           ) : (
             items.map((item) => {
-              const queueCheck = canQueueItem(item.id, 1);
+              const queueCheck = queueChecks.get(item.id) ?? canQueueItem(item.id, 1);
               const queueable = isItemQueueable(item.id);
               const waitTurns = queueCheck.waitTurnsNeeded ?? 0;
               // hasWait covers: known wait (waitTurns > 0) OR resource soft-block (no production yet)
@@ -428,7 +448,8 @@ export function TabbedItemGrid({
                       )}
 
                       {/* Item Name */}
-                      <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1">
+                      <div className="text-pink-nebula-text font-semibold flex-1 min-w-0 truncate md:flex-none md:w-40 md:whitespace-nowrap flex items-center gap-1.5">
+                        <ItemIcon itemId={item.id} size={20} className="opacity-90" />
                         {item.name}
                         {hasWait && (
                           <span
@@ -449,10 +470,10 @@ export function TabbedItemGrid({
                         {item.durationTurns}T
                       </div>
 
-                      {/* Quantity input + Button for batchable items — top-right on mobile, end of row on desktop */}
+                      {/* Quantity controls for batchable items — single row */}
                       {isBatchable && (
-                        <div className="flex flex-col items-end gap-0.5 md:order-last">
-                          <div className="flex items-center gap-1">
+                        <div className="flex flex-col items-end gap-0.5 md:order-last flex-none">
+                          <div className="flex items-center gap-1 flex-nowrap">
                             <input
                               type="text"
                               inputMode="numeric"
@@ -467,14 +488,29 @@ export function TabbedItemGrid({
                               onFocus={(e) => (e.target as HTMLInputElement).select()}
                               disabled={!queueable}
                               className={`
-                                w-14 px-2 py-1 bg-pink-nebula-bg border rounded
-                                text-pink-nebula-text text-sm text-center font-mono
+                                w-12 px-1 py-0.5 bg-pink-nebula-bg border rounded
+                                text-pink-nebula-text text-xs text-center font-mono
                                 focus:outline-none focus:border-pink-nebula-accent-primary
                                 ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
                                 ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
                               `}
                               placeholder="qty"
                             />
+                            {([1, 10, 1000] as const).map((delta, i) => (
+                              <button
+                                key={delta}
+                                onClick={(e) => { e.stopPropagation(); incrementQty(item.id, delta); }}
+                                disabled={!queueable}
+                                aria-label={`Add ${delta} to quantity`}
+                                className={`px-1 py-0.5 rounded text-xs font-semibold ${
+                                  queueable
+                                    ? 'bg-slate-700 hover:bg-slate-600 text-pink-nebula-text cursor-pointer'
+                                    : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                }`}
+                              >
+                                {'+'.repeat(i + 1)}
+                              </button>
+                            ))}
                             <button
                               onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 1); }}
                               disabled={!queueable}
@@ -485,7 +521,7 @@ export function TabbedItemGrid({
                                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                               }`}
                             >
-                              +
+                              add
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 10); }}
@@ -538,7 +574,7 @@ export function TabbedItemGrid({
                             </button>
                           </div>
                           {itemErrors[item.id] && (
-                            <span className="text-red-400 text-xs leading-tight max-w-[120px] text-right">
+                            <span className="text-red-400 text-xs leading-tight max-w-[160px] text-right">
                               {itemErrors[item.id]}
                             </span>
                           )}

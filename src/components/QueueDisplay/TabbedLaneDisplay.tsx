@@ -6,7 +6,7 @@ import type { LaneId } from '../../lib/sim/engine/types';
 import { QueueLaneEntry } from './QueueLaneEntry';
 import { Card } from '@/components/ui/card';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
-import { LANE_MANUAL_TOPICS } from '../../lib/constants/manualLinks';
+import { LANE_MANUAL_TOPICS, MANUAL_LINKS } from '../../lib/constants/manualLinks';
 import { ManualLink } from '@/components/ui/ManualLink';
 
 export interface TabbedLaneDisplayProps {
@@ -173,10 +173,19 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
           <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
             {config.icon}
           </span>
-          <h3 className="text-lg font-bold text-pink-nebula-text">
-            {config.title}
-          </h3>
-          {LANE_MANUAL_TOPICS[activeTab]?.map((topic) => (
+          {LANE_MANUAL_TOPICS[activeTab]?.[0] ? (
+            <a
+              href={MANUAL_LINKS[LANE_MANUAL_TOPICS[activeTab]![0]]}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-bold text-pink-nebula-text hover:text-pink-nebula-text/80 hover:underline transition-colors"
+            >
+              {config.title}
+            </a>
+          ) : (
+            <h3 className="text-lg font-bold text-pink-nebula-text">{config.title}</h3>
+          )}
+          {LANE_MANUAL_TOPICS[activeTab]?.slice(1).map((topic) => (
             <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
           ))}
           <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
