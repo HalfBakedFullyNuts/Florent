@@ -316,14 +316,14 @@ function calculateScheduleStart(
   if (lane.completionHistory && lane.completionHistory.length > 0) {
     const lastCompleted = lane.completionHistory[lane.completionHistory.length - 1];
     if (lastCompleted.completionTurn) {
-      scheduleStart = lastCompleted.completionTurn + 1;
+      scheduleStart = lastCompleted.completionTurn;
     }
   }
 
   if (lane.active) {
     scheduleStart = lane.active.completionTurn
       ? lane.active.completionTurn + 1
-      : currentTurn + lane.active.turnsRemaining;
+      : currentTurn + lane.active.turnsRemaining - 1;
   }
 
   return scheduleStart;
@@ -366,12 +366,12 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
       completionTurn: displayEnd,
     }));
 
-    scheduleStart = displayEnd + 1;
+    scheduleStart = displayEnd;
   }
 
   // Add active entry
   if (lane.active) {
-    const eta = state.currentTurn + lane.active.turnsRemaining;
+    const eta = state.currentTurn + lane.active.turnsRemaining - 1;
     addEntry(workItemToLaneEntry(lane.active, state.defs, 'active', { eta }));
   }
 

@@ -128,7 +128,7 @@ describe('Selectors', () => {
 
       expect(view.entries).toHaveLength(1);
       expect(view.entries[0].status).toBe('active');
-      expect(view.entries[0].eta).toBe(8); // Turn 5 + 3 remaining
+      expect(view.entries[0].eta).toBe(7); // Turn 5 + 3 remaining - 1
       expect(view.entries[0].turnsRemaining).toBe(3);
     });
 
@@ -203,7 +203,7 @@ describe('Selectors', () => {
         'active_1',
         'pending_1',
       ]);
-      expect(view.entries.map((entry) => entry.completionTurn ?? entry.eta)).toEqual([4, 8, 11, 14]);
+      expect(view.entries.map((entry) => entry.completionTurn ?? entry.eta)).toEqual([4, 8, 10, 13]);
     });
 
     it('should work for all lane types', () => {

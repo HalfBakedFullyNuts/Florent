@@ -211,6 +211,7 @@ function getDisplayWaitTurns(entry: LaneEntry, currentTurn?: number): number | s
 
 function getDisplayDurationTurns(entry: LaneEntry, def?: any, currentTurn?: number): number | string {
   if (entry.isWait) return getDisplayWaitTurns(entry, currentTurn);
+  if (entry.status === 'active' && def?.durationTurns != null) return def.durationTurns;
   if (entry.turnsRemaining > 0) return entry.turnsRemaining;
   if (def?.durationTurns !== undefined || def?.duration !== undefined) {
     return def?.durationTurns ?? def?.duration;

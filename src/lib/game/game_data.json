@@ -1658,10 +1658,6 @@
         {
           "type": "structure",
           "id": "leisure_centre"
-        },
-        {
-          "type": "structure",
-          "id": "colony"
         }
       ],
       "operations": {
