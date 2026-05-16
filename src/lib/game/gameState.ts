@@ -75,7 +75,11 @@ const itemDefinitions: Record<string, ItemDefinition> = loadGameData(gameDataJso
 const PLANET_LANES: LaneId[] = ['building', 'ship', 'colonist', 'research'];
 const BASE_PLANET_LIMIT = 4;
 const OUTPOST_SHIP_ID = 'outpost_ship';
-const RESERVED_OUTPOST_SHIPS = 1;
+const RESERVED_OUTPOST_SHIPS = 1; // HW keeps 1 reserved; non-HW planets reserve 0
+
+function getReservedOutpostShipCount(planet: ExtendedPlanetState): number {
+  return planet.id === 'planet-1' ? RESERVED_OUTPOST_SHIPS : 0;
+}
 
 export interface LocalResearchGateOptions {
   completedResearch: string[];
@@ -344,10 +348,11 @@ export function getFirstUsableOutpostShipTurn(
   const startTurn = Math.max(sourcePlanet.startTurn, Math.floor(fromTurn));
   const endTurn = getPlanetTimelineEndTurn(sourcePlanet);
 
+  const reserved = getReservedOutpostShipCount(sourcePlanet);
   for (let turn = startTurn; turn <= endTurn; turn++) {
     const state = sourcePlanet.timeline?.getStateAtTurn(turn) ?? sourcePlanet;
     const outpostShips = state.completedCounts?.[OUTPOST_SHIP_ID] ?? 0;
-    if (outpostShips > RESERVED_OUTPOST_SHIPS) {
+    if (outpostShips > reserved) {
       return turn;
     }
   }
@@ -406,8 +411,12 @@ export function planPlanetExpansion(
       .get(resolvedSourcePlanetId)
       ?.timeline?.getStateAtTurn(departureTurn) ??
     gameState.planets.get(resolvedSourcePlanetId);
+  const sourcePlanetForReserved = gameState.planets.get(resolvedSourcePlanetId);
+  const reserved = sourcePlanetForReserved
+    ? getReservedOutpostShipCount(sourcePlanetForReserved)
+    : RESERVED_OUTPOST_SHIPS;
   const outpostShips = sourceState?.completedCounts?.[OUTPOST_SHIP_ID] ?? 0;
-  if (outpostShips <= RESERVED_OUTPOST_SHIPS) {
+  if (outpostShips <= reserved) {
     throw new Error(
       `No usable outpost ship is available on turn ${departureTurn}.`
     );
@@ -442,9 +451,10 @@ function consumeOutpostShip(
     throw new Error('Expansion source planet timeline is unavailable');
   }
 
+  const reserved = getReservedOutpostShipCount(sourcePlanet);
   const departureState = sourcePlanet.timeline.getStateAtTurn(departureTurn);
   const outpostShips = departureState?.completedCounts?.[OUTPOST_SHIP_ID] ?? 0;
-  if (outpostShips <= RESERVED_OUTPOST_SHIPS) {
+  if (outpostShips <= reserved) {
     throw new Error(
       `No usable outpost ship is available on turn ${departureTurn}.`
     );

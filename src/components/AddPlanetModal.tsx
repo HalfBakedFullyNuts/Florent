@@ -53,6 +53,12 @@ const PRIMARY_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-cent
 const QUIET_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-black text-pink-nebula-muted transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/20';
 const LABEL_CLASS = 'mb-1 block text-xs font-bold uppercase tracking-[0.16em] text-pink-nebula-muted';
 
+export interface BestExpansionSource {
+  departureTurn: number;
+  sourcePlanetIdx: number;
+  travelChoice: ExpansionTravelChoice;
+}
+
 interface AddPlanetModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -60,8 +66,8 @@ interface AddPlanetModalProps {
   currentTurn: number;
   initialConfig?: PlanetConfig;
   mode?: 'add' | 'edit';
-  /** First turn where the player owns ≥1 outpost ship (for travel gating). Omit in edit mode. */
-  outpostShipTurn?: number;
+  /** Best available expansion source across all planets. Omit in edit mode. */
+  expansionSource?: BestExpansionSource;
 }
 
 export interface PlanetConfig {
@@ -96,7 +102,7 @@ export function AddPlanetModal({
   currentTurn,
   initialConfig,
   mode = 'add',
-  outpostShipTurn,
+  expansionSource,
 }: AddPlanetModalProps) {
   const [name, setName] = useState(initialConfig?.name ?? 'Planet');
   const [startTurn, setStartTurn] = useState(initialConfig?.startTurn ?? currentTurn);
@@ -116,7 +122,7 @@ export function AddPlanetModal({
     normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING)
   );
   const [travelChoice, setTravelChoice] = useState<ExpansionTravelChoice>(
-    initialConfig?.expansion?.travelChoice ?? DEFAULT_EXPANSION_TRAVEL_CHOICE
+    initialConfig?.expansion?.travelChoice ?? expansionSource?.travelChoice ?? DEFAULT_EXPANSION_TRAVEL_CHOICE
   );
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importText, setImportText] = useState('');
@@ -136,11 +142,11 @@ export function AddPlanetModal({
       : { ...PLANET_PRESETS.HOMEWORLD.abundance });
     setSpace(initialConfig ? { ...initialConfig.space } : { ...PLANET_PRESETS.HOMEWORLD.space });
     setStarting(normalizePlanetStarting(initialConfig?.starting ?? DEFAULT_ADDED_PLANET_STARTING));
-    setTravelChoice(initialConfig?.expansion?.travelChoice ?? DEFAULT_EXPANSION_TRAVEL_CHOICE);
-  }, [isOpen, currentTurn, initialConfig]);
+    setTravelChoice(initialConfig?.expansion?.travelChoice ?? expansionSource?.travelChoice ?? DEFAULT_EXPANSION_TRAVEL_CHOICE);
+  }, [isOpen, currentTurn, initialConfig, expansionSource]);
 
   const travelDelay = getExpansionTravelTime(travelChoice);
-  const travelBase = outpostShipTurn ?? currentTurn;
+  const travelBase = expansionSource?.departureTurn ?? currentTurn;
   const minTravelStart = mode === 'add' ? travelBase + travelDelay : 1;
 
   const handleSubmit = useCallback(() => {
@@ -160,11 +166,17 @@ export function AddPlanetModal({
       starting: normalizePlanetStarting(starting),
       expansion:
         mode === 'add' || initialConfig?.expansion
-          ? { ...initialConfig?.expansion, travelChoice }
+          ? {
+              ...initialConfig?.expansion,
+              travelChoice,
+              // Thread best source planet index so planPlanetExpansion uses the right source
+              sourcePlanetIndex: initialConfig?.expansion?.sourcePlanetIndex
+                ?? expansionSource?.sourcePlanetIdx,
+            }
           : undefined,
     });
     if (added !== false) onClose();
-  }, [name, startTurn, minTravelStart, abundance, space, starting, mode, initialConfig, travelChoice, onAddPlanet, onClose]);
+  }, [name, startTurn, minTravelStart, abundance, space, starting, mode, initialConfig, travelChoice, expansionSource, onAddPlanet, onClose]);
 
   const updateAbundance = useCallback((resource: string, value: number) => {
     // Allow free typing - validation happens on blur and submit
@@ -373,9 +385,12 @@ export function AddPlanetModal({
             </div>
             <div className="mt-2 text-xs text-pink-nebula-muted">
               Earliest start: T{minTravelStart}
-              {outpostShipTurn !== undefined && outpostShipTurn > currentTurn && (
-                <span className="ml-1 text-yellow-400">⚠ outpost ship available T{outpostShipTurn}</span>
-              )}
+              {expansionSource === undefined
+                ? <span className="ml-1 text-red-400">⚠ No spare outpost ship — build one first</span>
+                : expansionSource.departureTurn > currentTurn && (
+                  <span className="ml-1 text-yellow-400">⚠ outpost ship departs T{expansionSource.departureTurn}</span>
+                )
+              }
             </div>
           </div>
         )}

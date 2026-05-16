@@ -167,8 +167,8 @@ describe('Multi-Planet State Management', () => {
     // Those are only in createStandardStart (homeworld)
 
     // Check starter population
-    expect(mars!.population.workersTotal).toBe(5000);
-    expect(mars!.population.workersIdle).toBe(5000);
+    expect(mars!.population.workersTotal).toBe(12000);
+    expect(mars!.population.workersIdle).toBe(12000);
 
     // Check abundances
     expect(mars!.abundance.metal).toBe(1.5);

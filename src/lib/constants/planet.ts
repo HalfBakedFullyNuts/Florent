@@ -79,7 +79,7 @@ export interface PlanetStartingSettings {
 }
 
 export const DEFAULT_ADDED_PLANET_STARTING: PlanetStartingSettings = {
-  workersTotal: STARTER_PACKAGE.WORKERS,
+  workersTotal: 12000,
   structures: {
     metal_mine: 0,
     mineral_extractor: 0,

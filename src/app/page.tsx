@@ -86,6 +86,7 @@ import { ExportModal } from "../components/ExportModal";
 import { PlanetTabs } from "../components/PlanetTabs";
 import {
   AddPlanetModal,
+  type BestExpansionSource,
   type PlanetConfig,
 } from "../components/AddPlanetModal";
 import { Card } from "@/components/ui/card";
@@ -100,7 +101,11 @@ import {
   type AutosaveTimer,
 } from "./restoreState";
 import type { MultiPlanetExportData } from "../lib/export/formatters";
-import { DEFAULT_EXPANSION_TRAVEL_CHOICE } from "../lib/constants/travel";
+import {
+  DEFAULT_EXPANSION_TRAVEL_CHOICE,
+  type ExpansionTravelChoice,
+  getExpansionTravelTime,
+} from "../lib/constants/travel";
 
 // Persistence
 import {
@@ -155,6 +160,52 @@ function withPlanetMetadata(
     currentTurn: snapshot.currentTurn ?? existing.currentTurn,
     timeline: existing.timeline,
   } as ExtendedPlanetState;
+}
+
+// Scan all planets to find the earliest possible outpost-ship arrival at a new planet.
+// HW (planet-1) reserves 1 ship and uses 26T galaxy_to_galaxy travel.
+// Non-HW planets reserve 0 ships and use 16T inside_galaxy travel.
+function getBestExpansionSource(
+  gameState: GameState,
+  upToTurn: number = 200,
+): BestExpansionSource | null {
+  const planetEntries = Array.from(gameState.planets.entries());
+  let best: BestExpansionSource | null = null;
+
+  for (let idx = 0; idx < planetEntries.length; idx++) {
+    const [, planet] = planetEntries[idx];
+    const isHomeworld = planet.id === 'planet-1';
+    const reserved = isHomeworld ? 1 : 0;
+    const travelChoice: ExpansionTravelChoice = isHomeworld
+      ? 'galaxy_to_galaxy'
+      : 'inside_galaxy';
+    const travelTime = getExpansionTravelTime(travelChoice);
+
+    const startTurn = planet.startTurn ?? 1;
+    const endTurn = Math.min(upToTurn, planet.timeline
+      ? planet.startTurn + planet.timeline.getTotalTurns() - 1
+      : upToTurn);
+
+    let departureTurn: number | null = null;
+    for (let t = startTurn; t <= endTurn; t++) {
+      const s = planet.timeline?.getStateAtTurn(t) ?? planet;
+      if ((s?.completedCounts?.outpost_ship ?? 0) > reserved) {
+        departureTurn = t;
+        break;
+      }
+    }
+    if (departureTurn === null) continue;
+
+    const arrival = departureTurn + travelTime;
+    const bestArrival = best
+      ? best.departureTurn + getExpansionTravelTime(best.travelChoice)
+      : Infinity;
+    if (arrival < bestArrival) {
+      best = { departureTurn, sourcePlanetIdx: idx, travelChoice };
+    }
+  }
+
+  return best;
 }
 
 type ActionGlyphName = "link" | "saves" | "export" | "full-list";
@@ -1205,31 +1256,19 @@ export default function Home() {
               ? { ...config, startTurn: earliestTurn }
               : config;
         }
+        // Use the best source from the modal's computed expansion source if available
+        const expansionBase = adjustedConfig.expansion ?? {
+          travelChoice: DEFAULT_EXPANSION_TRAVEL_CHOICE,
+        };
         adjustedConfig = planPlanetExpansion(
           gameState,
           {
             ...adjustedConfig,
-            expansion: adjustedConfig.expansion ?? {
-              travelChoice: DEFAULT_EXPANSION_TRAVEL_CHOICE,
-            },
+            expansion: expansionBase,
           },
           currentPlanetId,
         ).config;
         const newGameState = addPlanet(gameState, adjustedConfig);
-
-        // Consume one outpost ship from homeworld (starter ship is reserved)
-        const hw = newGameState.planets.get('planet-1');
-        if (hw && (hw.completedCounts?.outpost_ship ?? 0) > 0) {
-          const updatedHw = {
-            ...hw,
-            completedCounts: {
-              ...hw.completedCounts,
-              outpost_ship: (hw.completedCounts?.outpost_ship ?? 0) - 1,
-            },
-          } as ExtendedPlanetState;
-          updatedHw.timeline = new Timeline(updatedHw);
-          newGameState.planets.set('planet-1', updatedHw);
-        }
 
         const newPlanetId = `planet-${newGameState.nextPlanetId - 1}`;
         commandHistory.recordAddPlanet(adjustedConfig);
@@ -2390,7 +2429,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.44</div>
+                      <div className="opacity-30 text-[10px]">v0.2.45</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2651,7 +2690,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.44</div>
+          <div className="opacity-30 text-[10px]">v0.2.45</div>
         </footer>
       </div>
 
@@ -2684,17 +2723,7 @@ export default function Home() {
         currentTurn={planetModalTurn}
         mode={editingPlanetId ? "edit" : "add"}
         initialConfig={editingPlanetConfig}
-        outpostShipTurn={editingPlanetId ? undefined : (() => {
-          const hw = gameState.planets.get('planet-1');
-          if (!hw?.timeline) return undefined;
-          for (let turn = 1; turn <= planetModalTurn; turn += 1) {
-            const s = hw.timeline.getStateAtTurn(turn);
-            if ((s?.completedCounts?.outpost_ship ?? 0) > 1) {
-              return turn;
-            }
-          }
-          return undefined;
-        })()}
+        expansionSource={editingPlanetId ? undefined : getBestExpansionSource(gameState) ?? undefined}
       />
 
       {/* Saves Modal — IndexedDB-backed named saves, auto-save history, and JSON import */}
