@@ -19,7 +19,19 @@ import {
   DEFAULT_EXPANSION_TRAVEL_CHOICE,
   type ExpansionTravelChoice,
   getExpansionTravelTime,
+  type TravelScope,
+  type FleetDriveLevel,
+  TRAVEL_TIMES,
 } from '../constants/travel';
+import {
+  type TradeRoute,
+  type TradeCargo,
+  type CargoCapacity,
+  validateCargo,
+  computeArrivalTurn,
+  TRADE_SHIP_IDS,
+  TIMELINE_LENGTH,
+} from './tradeRoutes';
 
 // ============================================================================
 // Types
@@ -59,6 +71,8 @@ export interface GameState {
   };
   nextPlanetId: number;
   maxPlanets: number;
+  tradeRoutes: TradeRoute[];
+  nextTradeRouteId: number;
 }
 
 // Extended PlanetState with additional fields
@@ -502,6 +516,231 @@ function reapplyExpansionConsumptions(gameState: GameState): GameState {
   return nextState;
 }
 
+// ============================================================================
+// Trade route helpers
+// ============================================================================
+
+export interface CreateTradeRouteParams {
+  shipId: string;
+  sourcePlanetId: string;
+  destinationPlanetId: string;
+  departureTurn: number;
+  travelScope: TravelScope;
+  driveLevel: FleetDriveLevel;
+  cargo: TradeCargo;
+}
+
+function getCargoCapacity(shipId: string): CargoCapacity | null {
+  const raw = (gameDataJson as any).units?.find((s: any) => s.id === shipId);
+  return raw?.cargo_capacity ?? null;
+}
+
+export function validateTradeRoute(
+  gameState: GameState,
+  params: CreateTradeRouteParams,
+): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+
+  if (!TRADE_SHIP_IDS.includes(params.shipId)) {
+    errors.push(`${params.shipId} is not a trade ship`);
+    return { valid: false, errors };
+  }
+
+  const cap = getCargoCapacity(params.shipId);
+  if (!cap) {
+    errors.push(`Cargo capacity not defined for ${params.shipId}`);
+    return { valid: false, errors };
+  }
+
+  const cargoResult = validateCargo(params.cargo, cap);
+  if (!cargoResult.valid) {
+    errors.push(...cargoResult.errors);
+  }
+
+  if (params.sourcePlanetId === params.destinationPlanetId) {
+    errors.push('Source and destination must be different planets');
+  }
+
+  const source = gameState.planets.get(params.sourcePlanetId);
+  const dest = gameState.planets.get(params.destinationPlanetId);
+
+  if (!source) { errors.push('Source planet not found'); }
+  if (!dest) { errors.push('Destination planet not found'); }
+
+  if (source && params.departureTurn < source.startTurn) {
+    errors.push(`Departure turn (${params.departureTurn}) is before source planet start (${source.startTurn})`);
+  }
+
+  const arrivalTurn = computeArrivalTurn(params.departureTurn, params.driveLevel, params.travelScope);
+
+  if (dest && arrivalTurn < (dest.startTurn ?? 1)) {
+    errors.push(`Arrival turn (${arrivalTurn}) is before destination planet start (${dest.startTurn})`);
+  }
+
+  if (arrivalTurn > TIMELINE_LENGTH) {
+    errors.push(`Arrival turn (${arrivalTurn}) exceeds timeline length (${TIMELINE_LENGTH})`);
+  }
+
+  if (source?.timeline) {
+    const depState = source.timeline.getStateAtTurn(params.departureTurn);
+    const available = depState?.completedCounts?.[params.shipId] ?? 0;
+
+    // Count ships already allocated to pending routes from same planet on earlier/same turns
+    const allocated = gameState.tradeRoutes.filter(
+      r => !r.cancelled &&
+        r.sourcePlanetId === params.sourcePlanetId &&
+        r.shipId === params.shipId &&
+        r.departureTurn <= params.departureTurn,
+    ).length;
+
+    if (available - allocated < 1) {
+      errors.push(`No ${params.shipId} available on turn ${params.departureTurn} (have ${available}, ${allocated} already allocated)`);
+    }
+
+    const resMetal = depState?.stocks?.metal ?? 0;
+    const resMineral = depState?.stocks?.mineral ?? 0;
+    const resFood = depState?.stocks?.food ?? 0;
+    const resEnergy = depState?.stocks?.energy ?? 0;
+
+    if (params.cargo.metal > resMetal) {
+      errors.push(`Insufficient metal at departure (need ${params.cargo.metal}, have ${resMetal})`);
+    }
+    if (params.cargo.mineral > resMineral) {
+      errors.push(`Insufficient mineral at departure (need ${params.cargo.mineral}, have ${resMineral})`);
+    }
+    if (params.cargo.food > resFood) {
+      errors.push(`Insufficient food at departure (need ${params.cargo.food}, have ${resFood})`);
+    }
+    if (params.cargo.energy > resEnergy) {
+      errors.push(`Insufficient energy at departure (need ${params.cargo.energy}, have ${resEnergy})`);
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+}
+
+export function createTradeRoute(
+  gameState: GameState,
+  params: CreateTradeRouteParams,
+): GameState {
+  const arrivalTurn = computeArrivalTurn(params.departureTurn, params.driveLevel, params.travelScope);
+  const id = `tr_${gameState.nextTradeRouteId}`;
+
+  const route: TradeRoute = {
+    id,
+    shipId: params.shipId,
+    sourcePlanetId: params.sourcePlanetId,
+    destinationPlanetId: params.destinationPlanetId,
+    departureTurn: params.departureTurn,
+    arrivalTurn,
+    travelScope: params.travelScope,
+    driveLevel: params.driveLevel,
+    cargo: { ...params.cargo },
+    cancelled: false,
+  };
+
+  const updated: GameState = {
+    ...gameState,
+    tradeRoutes: [...gameState.tradeRoutes, route],
+    nextTradeRouteId: gameState.nextTradeRouteId + 1,
+  };
+
+  return refreshLocalResearchGates(updated);
+}
+
+export function cancelTradeRoute(gameState: GameState, routeId: string): GameState {
+  const route = gameState.tradeRoutes.find(r => r.id === routeId);
+  if (!route || route.cancelled) return gameState;
+
+  const updated: GameState = {
+    ...gameState,
+    tradeRoutes: gameState.tradeRoutes.map(r =>
+      r.id === routeId ? { ...r, cancelled: true } : r
+    ),
+  };
+
+  return refreshLocalResearchGates(updated);
+}
+
+function pruneInvalidTradeRoutes(gameState: GameState): GameState {
+  const valid = gameState.tradeRoutes.filter(route => {
+    if (route.cancelled) return true; // keep cancelled for URL history
+    const source = gameState.planets.get(route.sourcePlanetId);
+    const dest = gameState.planets.get(route.destinationPlanetId);
+    if (!source?.timeline || !dest) return false;
+    if (route.arrivalTurn < (dest.startTurn ?? 1)) return false;
+    return true;
+  });
+
+  if (valid.length === gameState.tradeRoutes.length) return gameState;
+  return { ...gameState, tradeRoutes: valid };
+}
+
+function applyRouteToTimelines(
+  gameState: GameState,
+  route: TradeRoute,
+): GameState {
+  const source = gameState.planets.get(route.sourcePlanetId);
+  const dest = gameState.planets.get(route.destinationPlanetId);
+
+  if (!source?.timeline || !dest?.timeline) return gameState;
+
+  // Mutate source at departure: deduct cargo and consume ship
+  source.timeline.mutateAtTurn(route.departureTurn, (state) => {
+    for (const [res, amount] of Object.entries(route.cargo) as [keyof TradeCargo, number][]) {
+      if (amount > 0) {
+        state.stocks[res] = (state.stocks[res] ?? 0) - amount;
+      }
+    }
+    const cur = state.completedCounts[route.shipId] ?? 0;
+    state.completedCounts[route.shipId] = Math.max(0, cur - 1);
+    if (state.completedCounts[route.shipId] === 0) {
+      delete state.completedCounts[route.shipId];
+    }
+  });
+
+  // Refresh source snapshot
+  const srcCurrentTurn = source.currentTurn ?? source.startTurn;
+  const srcSnapshot = source.timeline.getStateAtTurn(srcCurrentTurn) ?? source;
+  const refreshedSource = withPlanetMetadata(srcSnapshot, source);
+
+  // Mutate destination at arrival: add cargo and ship arrives
+  dest.timeline.mutateAtTurn(route.arrivalTurn, (state) => {
+    for (const [res, amount] of Object.entries(route.cargo) as [keyof TradeCargo, number][]) {
+      if (amount > 0) {
+        state.stocks[res] = (state.stocks[res] ?? 0) + amount;
+      }
+    }
+    state.completedCounts[route.shipId] = (state.completedCounts[route.shipId] ?? 0) + 1;
+  });
+
+  // Refresh destination snapshot
+  const dstCurrentTurn = dest.currentTurn ?? dest.startTurn;
+  const dstSnapshot = dest.timeline.getStateAtTurn(dstCurrentTurn) ?? dest;
+  const refreshedDest = withPlanetMetadata(dstSnapshot, dest);
+
+  const planets = new Map(gameState.planets);
+  planets.set(route.sourcePlanetId, refreshedSource);
+  planets.set(route.destinationPlanetId, refreshedDest);
+
+  return { ...gameState, planets };
+}
+
+export function reapplyTradeRoutes(gameState: GameState): GameState {
+  let nextState = pruneInvalidTradeRoutes(gameState);
+
+  // Sort by departure turn for deterministic order; batch same-planet same-turn later via ordering
+  const active = nextState.tradeRoutes
+    .filter(r => !r.cancelled)
+    .sort((a, b) => a.departureTurn - b.departureTurn);
+
+  for (const route of active) {
+    nextState = applyRouteToTimelines(nextState, route);
+  }
+
+  return nextState;
+}
+
 function resetWorkItemForStart(
   item: WorkItem,
   startTurn: number,
@@ -578,6 +817,8 @@ export function createInitialGameState(): GameState {
     globalResearch: createInitialGlobalResearchState(),
     nextPlanetId: 2,
     maxPlanets: 4,
+    tradeRoutes: [],
+    nextTradeRouteId: 1,
   };
 }
 
@@ -783,10 +1024,12 @@ export function refreshLocalResearchGates(gameState: GameState): GameState {
     newPlanets.set(planetId, refreshedPlanet);
   }
 
-  return reapplyExpansionConsumptions({
+  // Expansions must run before trade routes (trade routes read post-expansion timelines)
+  const afterExpansions = reapplyExpansionConsumptions({
     ...gameState,
     planets: newPlanets,
   });
+  return reapplyTradeRoutes(afterExpansions);
 }
 
 export function resetToHomeworld(gameState: GameState): GameState {
@@ -803,5 +1046,7 @@ export function resetToHomeworld(gameState: GameState): GameState {
     currentPlanetId: 'planet-1',
     globalResearch: createInitialGlobalResearchState(),
     nextPlanetId: 2,
+    tradeRoutes: [],
+    nextTradeRouteId: 1,
   };
 }

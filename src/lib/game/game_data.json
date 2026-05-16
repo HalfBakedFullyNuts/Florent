@@ -368,6 +368,7 @@
         }
       ],
       "special": "Stores up to 120000 metal and 80000 mineral; capacity of 40000 shared for energy, food and colonists",
+      "cargo_capacity": { "metal": 120000, "mineral": 80000, "shared_pool": 40000 },
       "score_value": 50
     },
     {
@@ -540,6 +541,7 @@
         }
       ],
       "special": "Stores up to 240000 metal and 160000 mineral; capacity of 80000 shared for energy, food and colonists",
+      "cargo_capacity": { "metal": 240000, "mineral": 160000, "shared_pool": 80000 },
       "score_value": 100
     },
     {
@@ -572,6 +574,7 @@
         }
       ],
       "special": "Stores up to 480000 metal and 320000 mineral; capacity of 160000 shared for energy, food and colonists",
+      "cargo_capacity": { "metal": 480000, "mineral": 320000, "shared_pool": 160000 },
       "score_value": 150
     }
   ],

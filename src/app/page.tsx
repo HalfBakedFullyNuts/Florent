@@ -17,8 +17,11 @@ import {
   planPlanetExpansion,
   getLocalResearchGateForItem,
   refreshLocalResearchGates,
+  createTradeRoute,
+  cancelTradeRoute,
   type GameState,
   type ExtendedPlanetState,
+  type CreateTradeRouteParams,
 } from "../lib/game/gameState";
 import {
   getPlanetSummary,
@@ -61,6 +64,7 @@ import {
   normaliseShareMetadata,
   replayCommands,
   saveEncodedStateToURL,
+  saveStateToURL,
   type ShareMetadata,
 } from "../lib/game/urlState";
 import {
@@ -109,6 +113,7 @@ import {
   saveSharedLink,
 } from "../lib/persistence/savesDb";
 import { buildSaveSummary } from "../lib/persistence/saveSummary";
+import { TradePanel } from "../components/TradePanel";
 
 type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
 type RestoreOptions = { shared?: boolean };
@@ -436,6 +441,7 @@ export default function Home() {
   }, [activeShareMetadata]);
   // Transient toast message; null when nothing to show. Auto-clears after 3s.
   const [toast, setToast] = useState<string | null>(null);
+  const [isTradePanelOpen, setIsTradePanelOpen] = useState(false);
   const [pendingCancellation, setPendingCancellation] = useState<{
     laneId: "building" | "ship" | "colonist" | "research";
     entry: any;
@@ -1136,6 +1142,34 @@ export default function Home() {
       setGameState((prev) => switchPlanet(prev, planetId));
     },
     [gameState],
+  );
+
+  const handleCreateTradeRoute = useCallback(
+    (params: CreateTradeRouteParams) => {
+      const srcPlanetKeys = Array.from(gameState.planets.keys());
+      const srcIdx = srcPlanetKeys.indexOf(params.sourcePlanetId);
+      const dstIdx = srcPlanetKeys.indexOf(params.destinationPlanetId);
+      if (srcIdx < 0 || dstIdx < 0) return;
+      setGameState((prev) => createTradeRoute(prev, params));
+      commandHistory.recordTradeRoute(srcIdx, dstIdx, `tr_${gameState.nextTradeRouteId}`, params);
+      saveStateToURL(
+        extractPlanetConfigs(gameState),
+        commandHistory.getCommands(),
+      );
+    },
+    [gameState, commandHistory],
+  );
+
+  const handleCancelTradeRoute = useCallback(
+    (routeId: string) => {
+      setGameState((prev) => cancelTradeRoute(prev, routeId));
+      commandHistory.recordCancelTradeRoute(routeId);
+      saveStateToURL(
+        extractPlanetConfigs(gameState),
+        commandHistory.getCommands(),
+      );
+    },
+    [gameState, commandHistory],
   );
 
   const handleAddPlanet = useCallback(() => {
@@ -2390,7 +2424,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.44</div>
+                      <div className="opacity-30 text-[10px]">v0.2.45</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2411,6 +2445,23 @@ export default function Home() {
                       )}
                     </div>
                   </Card>
+                </div>
+              </div>
+            )}
+
+            {/* Trade Routes Panel - Between dashboard and timeline */}
+            {gameState.planets.size >= 2 && (
+              <div className="px-3 md:px-6">
+                <div className="mx-auto w-full max-w-[1800px]">
+                  <TradePanel
+                    gameState={gameState}
+                    viewTurn={viewTurn}
+                    isOpen={isTradePanelOpen}
+                    onToggle={() => setIsTradePanelOpen((v) => !v)}
+                    onCreateRoute={handleCreateTradeRoute}
+                    onCancelRoute={handleCancelTradeRoute}
+                    onTurnClick={setViewTurn}
+                  />
                 </div>
               </div>
             )}
@@ -2651,7 +2702,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.44</div>
+          <div className="opacity-30 text-[10px]">v0.2.45</div>
         </footer>
       </div>
 

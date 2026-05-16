@@ -28,8 +28,12 @@ import {
   refreshLocalResearchGates,
   resetToHomeworld,
   updatePlanetConfig,
+  createTradeRoute,
+  cancelTradeRoute,
+  type CreateTradeRouteParams,
 } from './gameState';
 import { GameController } from './commands';
+import { TRAVEL_TIMES, type TravelScope, type FleetDriveLevel } from '../constants/travel';
 import { cancelGlobalResearch, getGlobalResearchPlanView, queueGlobalResearch, queueGlobalResearchWait, reorderGlobalResearch } from './globalResearch';
 import { getLaneView } from './selectors';
 import { LaneId } from '../sim/engine/types';
@@ -41,6 +45,16 @@ import {
   DEFAULT_EXPANSION_TRAVEL_CHOICE,
   type ExpansionTravelChoice,
 } from '../constants/travel';
+
+// Trade route scope codec — APPEND ONLY
+const TRADE_SCOPE_ENC: Record<TravelScope, number> = {
+  inside_system: 0,
+  inside_galaxy: 1,
+  galaxy_to_galaxy: 2,
+};
+const TRADE_SCOPE_DEC: TravelScope[] = ['inside_system', 'inside_galaxy', 'galaxy_to_galaxy'];
+const TRADE_SHIP_CODE: Record<string, number> = { freighter: 0, merchant: 1, trader: 2 };
+const TRADE_SHIP_DEC: string[] = ['freighter', 'merchant', 'trader'];
 
 const STATE_VERSION_V1 = 1;
 const STATE_VERSION_V2 = 2;
@@ -201,7 +215,11 @@ type V2CommandType =
   | ['qr', number]                          // queue research: itemCode
   | ['qw', number]                          // queue research wait: turns
   | ['xa']                                  // reset all additional planets and home queue
-  | ['x', number];                          // reset: planetIdx
+  | ['x', number]                           // reset: planetIdx
+  | ['tr', number, number, number, number, number, number, number, number, number, number]
+  //       srcPlanetIdx, dstPlanetIdx, shipCode, departureTurn, scopeCode (0/1/2), driveLevel (1/2/3)
+  //       metalCargo, mineralCargo, energyCargo, foodCargo
+  | ['tc', number];                         // cancel trade route: routeSeqId
 
 // Union used at runtime
 type CommandType = V1CommandType | V2CommandType;
@@ -341,6 +359,8 @@ export class CommandHistory {
   private nextSeqId = 1;
   // maps live entryId (from queueItem result) → seqId stored in URL
   private entryIdToSeqId = new Map<string, number>();
+  // maps trade route id → seqId for cancel lookups
+  private tradeRouteIdToSeqId = new Map<string, number>();
 
   /**
    * Record a queue command. Pass the entryId returned by queueItem so cancel/reorder
@@ -423,6 +443,37 @@ export class CommandHistory {
     this.commands.push(['xa']);
   }
 
+  recordTradeRoute(
+    srcPlanetIdx: number,
+    dstPlanetIdx: number,
+    routeId: string,
+    params: Pick<CreateTradeRouteParams, 'shipId' | 'departureTurn' | 'travelScope' | 'driveLevel' | 'cargo'>
+  ) {
+    const shipCode = TRADE_SHIP_CODE[params.shipId];
+    if (shipCode === undefined) {
+      console.warn(`[CommandHistory] Unknown trade ship: ${params.shipId}`);
+      return;
+    }
+    const scopeCode = TRADE_SCOPE_ENC[params.travelScope];
+    const seqId = this.nextSeqId++;
+    this.tradeRouteIdToSeqId.set(routeId, seqId);
+    this.commands.push([
+      'tr',
+      srcPlanetIdx, dstPlanetIdx, shipCode, params.departureTurn,
+      scopeCode, params.driveLevel,
+      params.cargo.metal, params.cargo.mineral, params.cargo.energy, params.cargo.food,
+    ]);
+  }
+
+  recordCancelTradeRoute(routeId: string) {
+    const seqId = this.tradeRouteIdToSeqId.get(routeId);
+    if (seqId === undefined) {
+      console.warn(`[CommandHistory] cancelTradeRoute: unknown routeId ${routeId}`);
+      return;
+    }
+    this.commands.push(['tc', seqId]);
+  }
+
   getCommands(): V2CommandType[] {
     return [...this.commands];
   }
@@ -476,6 +527,7 @@ export class CommandHistory {
     this.commands = [];
     this.nextSeqId = 1;
     this.entryIdToSeqId.clear();
+    this.tradeRouteIdToSeqId.clear();
   }
 }
 
@@ -1395,6 +1447,8 @@ export function replayCommands(
   let seqCounter = 0;
   // maps seqId → deterministic entry ID used on replay
   const seqToEntryId = new Map<number, string>();
+  // maps trade route seqId → route id (tr_N assigned at replay time)
+  const tradeSeqToRouteId = new Map<number, string>();
 
   for (let i = 0; i < commands.length; i++) {
     const cmd = commands[i];
@@ -1568,6 +1622,36 @@ export function replayCommands(
 
         case 'xa': {
           gameState = resetToHomeworld(gameState);
+          break;
+        }
+
+        case 'tr': {
+          const [, srcIdx, dstIdx, shipCode, departureTurn, scopeCode, driveLevel,
+            metalCargo, mineralCargo, energyCargo, foodCargo] = cmd as
+            ['tr', number, number, number, number, number, number, number, number, number, number];
+          const srcId = Array.from(gameState.planets.keys())[srcIdx];
+          const dstId = Array.from(gameState.planets.keys())[dstIdx];
+          if (!srcId || !dstId) break;
+          const trSeq = ++seqCounter;
+          const params: CreateTradeRouteParams = {
+            shipId: TRADE_SHIP_DEC[shipCode] ?? 'freighter',
+            sourcePlanetId: srcId,
+            destinationPlanetId: dstId,
+            departureTurn,
+            travelScope: TRADE_SCOPE_DEC[scopeCode] ?? 'inside_galaxy',
+            driveLevel: driveLevel as FleetDriveLevel,
+            cargo: { metal: metalCargo, mineral: mineralCargo, energy: energyCargo, food: foodCargo },
+          };
+          gameState = createTradeRoute(gameState, params);
+          const newRoute = gameState.tradeRoutes[gameState.tradeRoutes.length - 1];
+          if (newRoute) tradeSeqToRouteId.set(trSeq, newRoute.id);
+          break;
+        }
+
+        case 'tc': {
+          const trSeqId = cmd[1] as number;
+          const routeId = tradeSeqToRouteId.get(trSeqId);
+          if (routeId) gameState = cancelTradeRoute(gameState, routeId);
           break;
         }
 
