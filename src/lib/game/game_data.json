@@ -800,7 +800,7 @@
         {
           "type": "resource",
           "id": "mineral",
-          "amount": 2400
+          "amount": 3200
         }
       ],
       "build_requirements": {
@@ -979,7 +979,7 @@
           {
             "type": "energy",
             "base_amount": 100,
-            "is_abundance_scaled": false
+            "is_abundance_scaled": true
           }
         ],
         "consumption": [],
@@ -1505,7 +1505,7 @@
           {
             "type": "energy",
             "base_amount": 300,
-            "is_abundance_scaled": false
+            "is_abundance_scaled": true
           }
         ],
         "consumption": [],
@@ -2359,7 +2359,7 @@
           {
             "type": "energy",
             "base_amount": 3000,
-            "is_abundance_scaled": false
+            "is_abundance_scaled": true
           }
         ],
         "consumption": [],
