@@ -2303,8 +2303,9 @@ export default function Home() {
       <div className="flex flex-col flex-1 relative z-10">
         {/* Header */}
         <header className="border-b border-white/10 bg-gradient-to-r from-pink-nebula-panel/95 via-[#190f22]/95 to-pink-nebula-panel/85 px-3 py-2 shadow-2xl shadow-black/20 md:px-6 md:py-3">
-          <div className="mx-auto flex max-w-[1800px] items-center gap-3">
-            <div>
+          <div className="mx-auto flex max-w-[1800px] items-center gap-4">
+            {/* Title */}
+            <div className="shrink-0">
               <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-pink-nebula-accent-secondary/80">
                 Command planner
               </div>
@@ -2318,6 +2319,41 @@ export default function Home() {
                   Infinite Conflict Simulator
                 </a>
               </h1>
+            </div>
+
+            {/* Build list selector + metadata inputs */}
+            <div className="hidden min-w-0 flex-1 lg:block">
+              <div className="grid gap-2 lg:grid-cols-[2fr_1fr] items-stretch">
+                <BuildListSelector onRestore={handleRestoreSave} />
+                <div className="rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-2 shadow-lg shadow-black/15 backdrop-blur-xl">
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
+                        List name
+                      </span>
+                      <input
+                        type="text"
+                        value={shareListName}
+                        onChange={(e) => setShareListName(e.target.value)}
+                        placeholder="Build list"
+                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                      />
+                    </label>
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
+                        Author
+                      </span>
+                      <input
+                        type="text"
+                        value={shareAuthor}
+                        onChange={(e) => setShareAuthor(e.target.value)}
+                        placeholder="Commander"
+                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </header>
@@ -2344,35 +2380,41 @@ export default function Home() {
           />
         ) : (
           <>
-            <div className="px-3 py-2 md:px-6">
+            {/* Mobile-only build list selector (hidden on lg+, shown in header there) */}
+            <div className="px-3 py-2 md:px-6 lg:hidden" aria-hidden="true">
               <div className="grid gap-3 lg:grid-cols-[2fr_1fr] items-stretch">
                 <BuildListSelector onRestore={handleRestoreSave} />
                 <div className="rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-3 shadow-lg shadow-black/15 backdrop-blur-xl">
                   <div className="grid grid-cols-2 gap-2">
-                    <label className="block min-w-0">
+                    {/* aria-hidden inputs — duplicates of the header inputs; excluded from a11y tree */}
+                    <div className="block min-w-0">
                       <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
                         List name
                       </span>
                       <input
+                        aria-hidden="true"
+                        tabIndex={-1}
                         type="text"
                         value={shareListName}
                         onChange={(e) => setShareListName(e.target.value)}
                         placeholder="Build list"
                         className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
                       />
-                    </label>
-                    <label className="block min-w-0">
+                    </div>
+                    <div className="block min-w-0">
                       <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
                         Author
                       </span>
                       <input
+                        aria-hidden="true"
+                        tabIndex={-1}
                         type="text"
                         value={shareAuthor}
                         onChange={(e) => setShareAuthor(e.target.value)}
                         placeholder="Commander"
                         className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
                       />
-                    </label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2459,7 +2501,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.48</div>
+                      <div className="opacity-30 text-[10px]">v0.2.49</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2720,7 +2762,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.48</div>
+          <div className="opacity-30 text-[10px]">v0.2.49</div>
         </footer>
       </div>
 
