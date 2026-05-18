@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { computePlanetScore, RESOURCE_SCORE_VALUES, SCORE_DIVISOR } from '../scoring';
+import {
+  computePlanetScore,
+  computeItemAssetScore,
+  RESOURCE_SCORE_VALUES,
+  POPULATION_SCORE_VALUES,
+  SCORE_DIVISOR,
+} from '../scoring';
+import type { ItemDefinition } from '../../sim/engine/types';
 import type { PlanetSummary } from '../selectors';
 
 const baseSummary: PlanetSummary = {
@@ -117,5 +124,78 @@ describe('computePlanetScore', () => {
     expect(RESOURCE_SCORE_VALUES.energy).toBe(2);
     expect(RESOURCE_SCORE_VALUES.research_points).toBeUndefined();
     expect(SCORE_DIVISOR).toBe(1000);
+  });
+
+  it('exports correct POPULATION_SCORE_VALUES', () => {
+    expect(POPULATION_SCORE_VALUES.worker).toBe(12);
+    expect(POPULATION_SCORE_VALUES.soldier).toBe(128);
+    expect(POPULATION_SCORE_VALUES.scientist).toBe(340);
+  });
+});
+
+// Minimal ItemDefinition stub for computeItemAssetScore tests
+function makeDef(
+  costs: Partial<{ metal: number; mineral: number; food: number; energy: number }>,
+  durationTurns: number,
+): ItemDefinition {
+  return {
+    id: 'test',
+    name: 'Test',
+    lane: 'building',
+    durationTurns,
+    costsPerUnit: {
+      metal: costs.metal ?? 0,
+      mineral: costs.mineral ?? 0,
+      food: costs.food ?? 0,
+      energy: costs.energy ?? 0,
+      research_points: 0,
+      workers: 0,
+      space: 0,
+      space_orbital: 0,
+    },
+    upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0, workers: 0, space: 0, space_orbital: 0 },
+    effectsOnComplete: {},
+    prerequisites: [],
+    isAbundanceScaled: false,
+  } as unknown as ItemDefinition;
+}
+
+describe('computeItemAssetScore', () => {
+  it('returns 0 for a zero-cost item', () => {
+    expect(computeItemAssetScore(makeDef({}, 4))).toBe(0);
+  });
+
+  it('applies metal weight ×1', () => {
+    // weightedCost = 4000×1 = 4000; round(4000×1.5/1000) = round(6) = 6; ×(4/4)=6
+    expect(computeItemAssetScore(makeDef({ metal: 4000 }, 4))).toBe(6);
+  });
+
+  it('applies mineral weight ×1.5', () => {
+    // weightedCost = 2000×1.5 = 3000; round(3000×1.5/1000) = round(4.5) = 5; ×(4/4)=5
+    expect(computeItemAssetScore(makeDef({ mineral: 2000 }, 4))).toBe(5);
+  });
+
+  it('applies food and energy weight ×2', () => {
+    // weightedCost = 1000×2 + 1000×2 = 4000; round(4000×1.5/1000) = 6; ×(8/4)=12
+    expect(computeItemAssetScore(makeDef({ food: 1000, energy: 1000 }, 8))).toBe(12);
+  });
+
+  it('scales linearly with duration', () => {
+    // Same costs, 8T vs 4T → score doubles
+    const half = computeItemAssetScore(makeDef({ metal: 4000 }, 4));
+    const full = computeItemAssetScore(makeDef({ metal: 4000 }, 8));
+    expect(full).toBe(half * 2);
+  });
+
+  it('matches PHP formula for a fighter-like item (6000 metal, 2000 mineral, 4T)', () => {
+    // metal=6000×1=6000, mineral=2000×1.5=3000 → weighted=9000
+    // round(9000×1.5/1000)=round(13.5)=14; ×(4/4)=14
+    expect(computeItemAssetScore(makeDef({ metal: 6000, mineral: 2000 }, 4))).toBe(14);
+  });
+
+  it('matches PHP formula for a slow heavy item (24000 metal, 16000 mineral, 16T)', () => {
+    // metal=24000×1=24000, mineral=16000×1.5=24000 → weighted=48000
+    // round(48000×1.5/1000)=round(72)=72; ×(16/4)=288
+    expect(computeItemAssetScore(makeDef({ metal: 24000, mineral: 16000 }, 16))).toBe(288);
   });
 });
