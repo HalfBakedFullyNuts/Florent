@@ -26,6 +26,7 @@ import {
   addPlanet,
   getLocalResearchGateForItem,
   refreshLocalResearchGates,
+  removePlanet,
   resetToHomeworld,
   updatePlanetConfig,
 } from './gameState';
@@ -201,7 +202,8 @@ type V2CommandType =
   | ['qr', number]                          // queue research: itemCode
   | ['qw', number]                          // queue research wait: turns
   | ['xa']                                  // reset all additional planets and home queue
-  | ['x', number];                          // reset: planetIdx
+  | ['x', number]                           // reset: planetIdx
+  | ['dp', number];                         // delete planet: planetIdx
 
 // Union used at runtime
 type CommandType = V1CommandType | V2CommandType;
@@ -392,6 +394,10 @@ export class CommandHistory {
 
   recordEditPlanet(planetIdx: number, config: PlanetConfig) {
     this.commands.push(['ep', planetIdx, compactPlanetConfigV2(config)]);
+  }
+
+  recordDeletePlanet(planetIdx: number) {
+    this.commands.push(['dp', planetIdx]);
   }
 
   recordSwitchPlanet(planetIdx: number) {
@@ -1568,6 +1574,15 @@ export function replayCommands(
 
         case 'xa': {
           gameState = resetToHomeworld(gameState);
+          break;
+        }
+
+        case 'dp': {
+          const planetIdx = cmd[1] as number;
+          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          if (planetId) {
+            try { gameState = removePlanet(gameState, planetId); } catch { /* skip invalid */ }
+          }
           break;
         }
 

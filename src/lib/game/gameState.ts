@@ -799,6 +799,49 @@ export function refreshLocalResearchGates(gameState: GameState): GameState {
   });
 }
 
+/**
+ * Returns a reason string if the planet cannot be removed, or null if it can.
+ */
+export function canRemovePlanet(gameState: GameState, planetId: string): string | null {
+  if (planetId === 'planet-1') return 'The homeworld cannot be removed.';
+  if (!gameState.planets.has(planetId)) return 'Planet not found.';
+
+  const planetKeys = Array.from(gameState.planets.keys());
+  const planetIdx = planetKeys.indexOf(planetId);
+
+  for (const [otherId, other] of gameState.planets.entries()) {
+    if (otherId === planetId) continue;
+    if (other.expansion?.sourcePlanetIndex === planetIdx) {
+      return `Cannot remove: ${other.name} was colonised from this planet.`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Remove a planet from the game. Automatically returns the outpost ship used
+ * to colonise it by rebuilding timelines without that expansion.
+ */
+export function removePlanet(gameState: GameState, planetId: string): GameState {
+  const blockReason = canRemovePlanet(gameState, planetId);
+  if (blockReason) throw new Error(blockReason);
+
+  const newPlanets = new Map(gameState.planets);
+  newPlanets.delete(planetId);
+
+  const currentPlanetId = gameState.currentPlanetId === planetId
+    ? 'planet-1'
+    : gameState.currentPlanetId;
+
+  // refreshLocalResearchGates rebuilds timelines and re-applies reapplyExpansionConsumptions
+  // only for surviving planets, which automatically returns the outpost ship.
+  return refreshLocalResearchGates({
+    ...gameState,
+    planets: newPlanets,
+    currentPlanetId,
+  });
+}
+
 export function resetToHomeworld(gameState: GameState): GameState {
   const homeworld = createStandardStart(itemDefinitions) as ExtendedPlanetState;
   homeworld.id = 'planet-1';

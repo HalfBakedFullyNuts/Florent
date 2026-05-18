@@ -12,6 +12,8 @@ import {
   createInitialGameState,
   addPlanet,
   updatePlanetConfig,
+  removePlanet,
+  canRemovePlanet,
   resetToHomeworld,
   switchPlanet,
   planPlanetExpansion,
@@ -91,6 +93,7 @@ import {
 } from "../components/AddPlanetModal";
 import { Card } from "@/components/ui/card";
 import { DependencyWarningModal } from "../components/DependencyWarningModal";
+import { PlanetActionsModal } from "../components/PlanetActionsModal";
 import { SavesModal } from "../components/SavesModal";
 import { BuildListSelector } from "../components/BuildListSelector";
 import { SharedBuildListView } from "../components/SharedBuildListView";
@@ -431,6 +434,7 @@ export default function Home() {
   const [showAddPlanetModal, setShowAddPlanetModal] = useState(false);
   const [planetModalTurn, setPlanetModalTurn] = useState(1);
   const [editingPlanetId, setEditingPlanetId] = useState<string | null>(null);
+  const [planetActionsId, setPlanetActionsId] = useState<string | null>(null);
   const [viewTurn, setViewTurn] = useState(1);
   const [isAutoJumpEnabled, setIsAutoJumpEnabled] = useState(true);
   const [waitCodeStage, setWaitCodeStage] = useState<0 | 1 | 2>(() => {
@@ -1220,11 +1224,37 @@ export default function Home() {
       const planet = gameState.planets.get(planetId);
       if (!planet) return;
       setError(null);
+      setPlanetActionsId(planetId);
+    },
+    [gameState.planets],
+  );
+
+  const handleOpenModifyPlanet = useCallback(
+    (planetId: string) => {
+      const planet = gameState.planets.get(planetId);
+      if (!planet) return;
+      setPlanetActionsId(null);
       setEditingPlanetId(planetId);
       setPlanetModalTurn(planet.startTurn);
       setShowAddPlanetModal(true);
     },
     [gameState.planets],
+  );
+
+  const handleDeletePlanet = useCallback(
+    (planetId: string) => {
+      try {
+        const planetIdx = Array.from(gameState.planets.keys()).indexOf(planetId);
+        const newGameState = removePlanet(gameState, planetId);
+        commandHistory.recordDeletePlanet(planetIdx);
+        setPlanetActionsId(null);
+        setGameState(newGameState);
+      } catch (e) {
+        setError((e as Error).message || "Failed to remove planet");
+        setPlanetActionsId(null);
+      }
+    },
+    [gameState, commandHistory],
   );
 
   const handleCreatePlanet = useCallback(
@@ -2429,7 +2459,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.46</div>
+                      <div className="opacity-30 text-[10px]">v0.2.47</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2690,7 +2720,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.46</div>
+          <div className="opacity-30 text-[10px]">v0.2.47</div>
         </footer>
       </div>
 
@@ -2711,6 +2741,24 @@ export default function Home() {
           multiPlanetData={exportSnapshot.multiPlanetData}
         />
       )}
+
+      {/* Planet Actions Modal — Modify or Delete an existing planet */}
+      {(() => {
+        const planet = planetActionsId ? gameState.planets.get(planetActionsId) : null;
+        const planetKeys = Array.from(gameState.planets.keys());
+        const idx = planetActionsId ? planetKeys.indexOf(planetActionsId) : -1;
+        return planet ? (
+          <PlanetActionsModal
+            isOpen={true}
+            planetName={planet.name}
+            planetLabel={`P${idx + 1}`}
+            blockReason={canRemovePlanet(gameState, planet.id)}
+            onModify={() => handleOpenModifyPlanet(planet.id)}
+            onDelete={() => handleDeletePlanet(planet.id)}
+            onClose={() => setPlanetActionsId(null)}
+          />
+        ) : null;
+      })()}
 
       {/* Add Planet Modal */}
       <AddPlanetModal
