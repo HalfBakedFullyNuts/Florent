@@ -351,14 +351,33 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
     addEntry(workItemToLaneEntry(completed, state.defs, 'completed'));
   }
 
-  // Build timeline for pending items
+  // Build timeline for pending items.
+  //
+  // Phase 2b activates the next item in the same turn a predecessor completes AND
+  // gives it a first tick — shortening its total span by 1 vs Phase 2a:
+  //   Normal item via Phase 2b:  starts at S, completes at S + D - 1
+  //   Normal item via Phase 2a:  starts at S, completes at S + D - 1  (same: Phase 2a also ticks on activation turn)
+  //
+  // Exception — Phase 2b explicitly skips the early tick for wait items:
+  //   Wait item via Phase 2a:  starts at S, completes at S + W - 1  (first tick on activation turn)
+  //   Wait item via Phase 2b:  starts at S, completes at S + W      (first tick on the NEXT turn)
+  //
+  // So displayEnd needs the extra +1 for wait items activated via Phase 2b.
+  // The first pending item activates via Phase 2b only when there is an active item
+  // (it will be released by Phase 2b when the active item completes).
+  // Every subsequent pending item always activates via Phase 2b.
   let scheduleStart = calculateScheduleStart(lane, state.currentTurn);
+  let phase2bActivation = lane.active !== null;
 
   for (const pending of lane.pendingQueue) {
     const def = state.defs[pending.itemId];
     const duration = pending.isWait ? pending.turnsRemaining : (def?.durationTurns || 4);
     const displayStart = Math.max(scheduleStart, pending.minStartTurn ?? scheduleStart);
-    const displayEnd = displayStart + duration - 1;
+    // Wait items activated via Phase 2b don't receive the early first-tick, so they
+    // need one extra turn compared to normal items in the same position.
+    const displayEnd = (pending.isWait && phase2bActivation)
+      ? displayStart + duration
+      : displayStart + duration - 1;
 
     addEntry(workItemToLaneEntry(pending, state.defs, 'pending', {
       eta: displayEnd,
@@ -367,6 +386,7 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
     }));
 
     scheduleStart = displayEnd;
+    phase2bActivation = true; // all items after the first always activate via Phase 2b
   }
 
   // Add active entry

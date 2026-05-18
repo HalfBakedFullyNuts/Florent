@@ -206,6 +206,99 @@ describe('Selectors', () => {
       expect(view.entries.map((entry) => entry.completionTurn ?? entry.eta)).toEqual([4, 8, 10, 13]);
     });
 
+    // -----------------------------------------------------------------------
+    // Wait item scheduling — Phase 2b does not give waits an early first tick
+    // -----------------------------------------------------------------------
+
+    it('wait item activated via Phase 2a (idle lane) completes at displayStart + W - 1', () => {
+      // No active item: wait activates via Phase 2a, gets first tick on activation turn.
+      state.lanes.building.pendingQueue = [{
+        id: 'wait_1',
+        itemId: '__wait__',
+        status: 'pending',
+        quantity: 1,
+        turnsRemaining: 5,
+        isWait: true,
+      }];
+
+      const view = getLaneView(state, 'building');
+      // Phase 2a: first tick at S=1, completes at 1+5-1=5
+      expect(view.entries[0].eta).toBe(5);
+    });
+
+    it('wait item activated via Phase 2b (after active item) completes at displayStart + W', () => {
+      // Active item present: wait activates via Phase 2b, which skips the early tick.
+      state.currentTurn = 5;
+      state.lanes.building.active = {
+        id: 'active_1',
+        itemId: 'metal_mine',
+        status: 'active',
+        quantity: 1,
+        turnsRemaining: 2,
+      };
+      state.lanes.building.pendingQueue = [{
+        id: 'wait_1',
+        itemId: '__wait__',
+        status: 'pending',
+        quantity: 1,
+        turnsRemaining: 5,
+        isWait: true,
+      }];
+
+      const view = getLaneView(state, 'building');
+      const activeEntry = view.entries.find(e => e.status === 'active')!;
+      const waitEntry = view.entries.find(e => e.id === 'wait_1')!;
+
+      // Active completes at: 5 + 2 - 1 = 6. Wait starts at 6.
+      // Phase 2b no early tick: completes at 6 + 5 = 11.
+      expect(activeEntry.eta).toBe(6);
+      expect(waitEntry.startTurn).toBe(6);
+      expect(waitEntry.eta).toBe(11);
+    });
+
+    it('normal item after a wait item starts at the wait completion turn', () => {
+      // Chain: active → wait (Phase 2b) → normal (Phase 2b)
+      state.currentTurn = 3;
+      state.lanes.building.active = {
+        id: 'active_1',
+        itemId: 'metal_mine',
+        status: 'active',
+        quantity: 1,
+        turnsRemaining: 1,  // completes at turn 3
+      };
+      state.lanes.building.pendingQueue = [
+        {
+          id: 'wait_1',
+          itemId: '__wait__',
+          status: 'pending',
+          quantity: 1,
+          turnsRemaining: 4,
+          isWait: true,
+        },
+        {
+          id: 'normal_1',
+          itemId: 'farm',  // durationTurns = 4
+          status: 'pending',
+          quantity: 1,
+          turnsRemaining: 4,
+        },
+      ];
+
+      const view = getLaneView(state, 'building');
+      const activeEntry  = view.entries.find(e => e.status === 'active')!;
+      const waitEntry    = view.entries.find(e => e.id === 'wait_1')!;
+      const normalEntry  = view.entries.find(e => e.id === 'normal_1')!;
+
+      // Active: ETA = 3 + 1 - 1 = 3
+      expect(activeEntry.eta).toBe(3);
+      // Wait: starts at 3, Phase 2b no early tick → ends at 3 + 4 = 7
+      expect(waitEntry.startTurn).toBe(3);
+      expect(waitEntry.eta).toBe(7);
+      // Normal: starts at 7, Phase 2b gives early tick → ends at 7 + 4 - 1 = 10
+      expect(normalEntry.startTurn).toBe(7);
+      expect(normalEntry.eta).toBe(10);
+    });
+
     it('should work for all lane types', () => {
       const buildingView = getLaneView(state, 'building');
       const shipView = getLaneView(state, 'ship');
