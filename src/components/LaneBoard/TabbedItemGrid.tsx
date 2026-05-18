@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { ItemDefinition, LaneId } from '../../lib/sim/engine/types';
 import { Card } from '@/components/ui/card';
 import { GlassQueueButton } from '@/components/ui/glass-queue-button';
@@ -242,6 +242,19 @@ export function TabbedItemGrid({
   // Define column order for costs (aligned across all items)
   const costColumns = ['metal', 'mineral', 'food', 'energy', 'research_points', 'workers', 'space'] as const;
 
+  // Hide +/++/+++ stepper buttons when the panel is too narrow to fit them
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [showSteppers, setShowSteppers] = useState(true);
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setShowSteppers(entry.contentRect.width >= 320);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
   // Track quantities for each batchable item (raw string so empty is allowed)
   const [itemQuantities, setItemQuantities] = useState<Record<string, string>>({});
   // Per-item inline error message
@@ -372,7 +385,7 @@ export function TabbedItemGrid({
       </div>
 
       {/* Active Tab Content */}
-      <Card className="scroll-nebula h-[60vh] overflow-y-auto p-3 pr-4 md:h-[600px] md:p-4 md:pr-5">
+      <Card ref={gridRef} className="scroll-nebula h-[60vh] overflow-y-auto p-3 pr-4 md:h-[600px] md:p-4 md:pr-5">
         <div className="mb-4 flex items-center gap-2 border-b border-white/10 pb-3">
           <span className="grid h-8 w-8 place-items-center rounded-xl border border-cyan-200/25 bg-cyan-300/10 text-base shadow-[0_0_18px_rgba(34,211,238,0.12)]" aria-hidden="true">
             {config.icon}
@@ -549,6 +562,7 @@ export function TabbedItemGrid({
                               `}
                               placeholder="qty"
                             />
+                            {showSteppers && (<>
                             <button
                               onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 1); }}
                               disabled={!queueable}
@@ -559,7 +573,7 @@ export function TabbedItemGrid({
                                   : 'bg-slate-800 text-slate-500 cursor-not-allowed'
                               }`}
                             >
-                              add
+                              +
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); incrementQty(item.id, 10); }}
@@ -585,6 +599,7 @@ export function TabbedItemGrid({
                             >
                               +++
                             </button>
+                            </>)}
                             <button
                               onClick={(e) => { e.stopPropagation(); tryQueue(item.id, activeTab); }}
                               disabled={!queueable}

@@ -1,5 +1,15 @@
 import '@testing-library/jest-dom';
 
+// jsdom doesn't ship ResizeObserver — stub it so components that use it render without errors.
+// The stub fires no callbacks; tests that depend on responsive behaviour should mock it directly.
+if (typeof globalThis.ResizeObserver === 'undefined') {
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
 type VitestGlobal = typeof globalThis & {
   jsdom?: {
     window?: Window;
