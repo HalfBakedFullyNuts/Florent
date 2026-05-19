@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/card';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
 import { LANE_MANUAL_TOPICS, MANUAL_LINKS } from '../../lib/constants/manualLinks';
 import { ManualLink } from '@/components/ui/ManualLink';
+import { formatTickTime } from '../../lib/utils/tickTime';
 
 export interface TabbedLaneDisplayProps {
   buildingLane: LaneView | null;
@@ -53,6 +54,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   onDropGridItem,
 }: TabbedLaneDisplayProps) {
   const [internalActiveTab, setInternalActiveTab] = useState<LaneId>('building');
+  const [showTimes, setShowTimes] = useState(false);
   const [draggedItem, setDraggedItem] = useState<{ laneId: LaneId; entryId: string } | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragOverExternal, setDragOverExternal] = useState(false);
@@ -188,7 +190,18 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
           {LANE_MANUAL_TOPICS[activeTab]?.slice(1).map((topic) => (
             <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
           ))}
-          <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
+          <button
+            onClick={() => setShowTimes(t => !t)}
+            title={showTimes ? 'Show tick numbers' : 'Show GMT wall-clock times'}
+            className={`ml-auto px-2 py-1 rounded text-xs font-mono border transition-colors ${
+              showTimes
+                ? 'border-pink-nebula-accent-primary/60 bg-pink-nebula-accent-primary/10 text-pink-nebula-accent-primary'
+                : 'border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-white/30 hover:text-pink-nebula-text'
+            }`}
+          >
+            {showTimes ? 'T#' : '⏰'}
+          </button>
+          <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
             {laneView && laneView.entries.length > 0 ? `${laneView.entries.length}` : '—'}
           </span>
         </div>
@@ -243,11 +256,12 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
 
               // Insert the "now" divider just before the first past entry
               if (dividerIndex === displayIndex) {
+                const nowLabel = showTimes ? formatTickTime(currentTurn) : `T${currentTurn}`;
                 elements.push(
                   <div key="__now-divider__" className="relative flex items-center gap-3 my-2 select-none pointer-events-none">
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-pink-nebula-accent-primary/40 to-transparent" />
                     <span className="text-[10px] font-semibold tracking-widest uppercase text-pink-nebula-accent-primary/60 whitespace-nowrap px-1">
-                      T{currentTurn}
+                      {nowLabel}
                     </span>
                     <div className="flex-1 h-px bg-gradient-to-l from-transparent via-pink-nebula-accent-primary/40 to-transparent" />
                   </div>
@@ -352,6 +366,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                       busyWorkers={busyWorkers}
                       onTurnClick={onTurnClick}
                       maxTurn={maxTurn}
+                      showTimes={showTimes}
                     />
                   </div>
                 </div>

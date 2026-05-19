@@ -7,6 +7,7 @@ import type { LaneView } from '../game/selectors';
 import type { LaneId } from '../sim/engine/types';
 import { getPlannedWaitTurns } from '../game/waitDuration';
 import { abbreviateName, abbreviateToFit } from './abbreviations';
+import { formatTickTime } from '../utils/tickTime';
 
 export const DISCORD_MESSAGE_LIMIT = 2000;
 
@@ -136,12 +137,10 @@ export function formatAsText(laneViews: LaneView[], maxTurn?: number): string {
   }
 
   return items.map(item => {
-    // Abbreviate building names to save space
     const abbreviatedName = abbreviateName(item.name);
-
     const itemText = formatQueueItemLabel(item, abbreviatedName);
-
-    return `[${item.turn}] - ${itemText}`;
+    const timeLabel = formatTickTime(item.turn);
+    return `[${item.turn}] ${timeLabel} - ${itemText}`;
   }).join('\n');
 }
 
@@ -333,7 +332,8 @@ export function formatMultiPlanetAsText(data: MultiPlanetExportData, maxTurn?: n
     }
 
     items.forEach((item) => {
-      lines.push(`[${item.turn}] ${laneLabel(item.lane)} - ${formatQueueItemLabel(item)}`);
+      const timeLabel = formatTickTime(item.turn);
+      lines.push(`[${item.turn}] ${timeLabel} ${laneLabel(item.lane)} - ${formatQueueItemLabel(item)}`);
     });
   });
 
@@ -343,7 +343,8 @@ export function formatMultiPlanetAsText(data: MultiPlanetExportData, maxTurn?: n
     lines.push('No research queued.');
   } else {
     researchItems.forEach((item) => {
-      lines.push(`[${item.turn}] ${formatQueueItemLabel(item)}`);
+      const timeLabel = formatTickTime(item.turn);
+      lines.push(`[${item.turn}] ${timeLabel} ${formatQueueItemLabel(item)}`);
     });
   }
 

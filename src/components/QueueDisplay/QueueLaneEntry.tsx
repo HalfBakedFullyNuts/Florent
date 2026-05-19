@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
 import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
 import { DEMOLISH_PREFIX } from '../../lib/game/demolish';
+import { formatTickTime, formatTickTimeFull } from '../../lib/utils/tickTime';
 
 export interface QueueLaneEntryProps {
   entry: LaneEntry;
@@ -18,6 +19,7 @@ export interface QueueLaneEntryProps {
   showQuantityInput?: boolean;
   onTurnClick?: (turn: number) => void;
   maxTurn?: number;
+  showTimes?: boolean;
 }
 
 /**
@@ -41,6 +43,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   showQuantityInput = false,
   onTurnClick,
   maxTurn = 199,
+  showTimes = false,
 }: QueueLaneEntryProps) {
   const [editingQuantity, setEditingQuantity] = useState(false);
   const [quantityValue, setQuantityValue] = useState(entry.quantity.toString());
@@ -87,27 +90,31 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     >
       {/* Structured table-like layout */}
       <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2 md:gap-x-4 items-center text-xs md:text-sm font-mono">
-        {/* Turn Range: Tx - Ty */}
-        <div className="text-pink-nebula-muted w-20 md:w-24 flex items-center gap-1">
+        {/* Turn Range: Tx - Ty (or wall-clock times when showTimes) */}
+        <div className={`text-pink-nebula-muted flex items-center gap-1 ${showTimes ? 'w-36 md:w-40' : 'w-20 md:w-24'}`}>
           {(() => {
             const startT = entry.startTurn ?? entry.queuedTurn ?? '?';
             const endT = entry.completionTurn ?? (entry.eta !== null ? entry.eta : '?');
+            const startLabel = showTimes && startT !== '?' ? formatTickTime(startT as number) : `T${startT}`;
+            const endLabel = showTimes && endT !== '?' ? formatTickTime(endT as number) : `T${endT}`;
+            const startTitle = showTimes && startT !== '?' ? `T${startT} · ${formatTickTimeFull(startT as number)}` : 'Jump to start turn';
+            const endTitle = showTimes && endT !== '?' ? `T${endT} · ${formatTickTimeFull(endT as number)}` : 'Jump to first turn where item is complete';
             return (
               <>
                 <button
                   className="hover:text-pink-nebula-accent-primary hover:underline"
                   onClick={(e) => { e.stopPropagation(); if (startT !== '?' && onTurnClick) onTurnClick(startT as number); }}
-                  title="Jump to start turn"
+                  title={startTitle}
                 >
-                  T{startT}
+                  {startLabel}
                 </button>
                 <span>-</span>
                 <button
                   className="hover:text-pink-nebula-accent-primary hover:underline"
                   onClick={(e) => { e.stopPropagation(); if (endT !== '?' && onTurnClick) onTurnClick(Math.min((endT as number) + 1, maxTurn)); }}
-                  title="Jump to first turn where item is complete"
+                  title={endTitle}
                 >
-                  T{endT}
+                  {endLabel}
                 </button>
               </>
             );
@@ -200,7 +207,8 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.showQuantityInput === nextProps.showQuantityInput &&
     prevProps.def?.durationTurns === nextProps.def?.durationTurns &&
     prevProps.def?.duration === nextProps.def?.duration &&
-    prevProps.maxTurn === nextProps.maxTurn
+    prevProps.maxTurn === nextProps.maxTurn &&
+    prevProps.showTimes === nextProps.showTimes
   );
 });
 
