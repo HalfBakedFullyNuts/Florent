@@ -32,7 +32,6 @@ export interface ExportModalProps {
   colonistLane: LaneView;
   researchLane: LaneView;
   currentTurn: number;
-  exportMode: 'full' | 'current'; // full = all items, current = queue actions up to current turn
   multiPlanetData?: MultiPlanetExportData;
 }
 
@@ -54,7 +53,6 @@ export function ExportModal({
   colonistLane,
   researchLane,
   currentTurn,
-  exportMode,
   multiPlanetData,
 }: ExportModalProps) {
   const [notification, setNotification] = useState<string | null>(null);
@@ -68,44 +66,27 @@ export function ExportModal({
   const hasMultiPlanetTarget = Boolean(multiPlanetData && multiPlanetData.planets.length > 1);
   const activeTarget = hasMultiPlanetTarget ? exportTarget : 'selected';
 
-  // Determine maxTurn based on export mode
-  const maxTurn = exportMode === 'current' ? currentTurn : undefined;
-  const scopedItemCount = countExportItems(activeTarget, laneViews, multiPlanetData, maxTurn);
-  const totalItemCount = countExportItems(activeTarget, laneViews, multiPlanetData);
-  const displayedItemCount = scopedItemCount > 0 || exportMode === 'full' ? scopedItemCount : totalItemCount;
-  const scopeLabel = exportMode === 'current' ? 'Current view' : 'Full queue';
+  // Default end turn = last turn a building is queued across all relevant planets
+  const defaultEndTurn = computeDefaultEndTurn(buildingLane, multiPlanetData);
+  const [exportStartTurn, setExportStartTurn] = useState(1);
+  const [exportEndTurn, setExportEndTurn] = useState(defaultEndTurn);
+
+  const rangeOpts = { minTurn: exportStartTurn, maxTurn: exportEndTurn };
+  const rangeItemCount = countExportItems(activeTarget, laneViews, multiPlanetData, exportEndTurn, exportStartTurn);
   const targetLabel = activeTarget === 'all' ? 'All planets' : 'Selected planet';
-  const fallbackHint = exportMode === 'current' && scopedItemCount === 0 && totalItemCount > 0
-    ? 'No queue actions at or before the current turn. Export falls back to the full queue.'
-    : null;
 
   const showNotification = (message: string) => {
     setNotification(message);
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const resolveExportScope = () => {
-    const scopedItems = countExportItems(activeTarget, laneViews, multiPlanetData, maxTurn);
-    if (scopedItems > 0 || maxTurn === undefined) {
-      return { effectiveMaxTurn: maxTurn, usedFullFallback: false };
-    }
-
-    const fullItems = countExportItems(activeTarget, laneViews, multiPlanetData);
-    if (fullItems > 0) {
-      return { effectiveMaxTurn: undefined, usedFullFallback: true };
-    }
-
-    return { effectiveMaxTurn: maxTurn, usedFullFallback: false };
-  };
-
   const handleExportText = async () => {
     clearDiscordCopyState();
     setImageFallback(null);
     setJsonFallback(null);
-    const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
     const text = activeTarget === 'all' && multiPlanetData
-      ? formatMultiPlanetAsText(multiPlanetData, effectiveMaxTurn)
-      : formatAsText(laneViews, effectiveMaxTurn);
+      ? formatMultiPlanetAsText(multiPlanetData, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn })
+      : formatAsText(laneViews, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn });
 
     if (!text) {
       showNotification('Queue is empty - nothing to export');
@@ -113,25 +94,18 @@ export function ExportModal({
     }
 
     const success = await copyToClipboard(text);
-    if (success) {
-      showNotification(usedFullFallback
-        ? 'Copied full queue because no queue actions are due by this turn.'
-        : 'Copied to clipboard!');
-    } else {
-      showNotification('Failed to copy to clipboard');
-    }
+    showNotification(success ? 'Copied to clipboard!' : 'Failed to copy to clipboard');
   };
 
   const handleExportDiscord = async () => {
     setImageFallback(null);
     setJsonFallback(null);
-    const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
     const messages = activeTarget === 'all' && multiPlanetData
-      ? formatMultiPlanetAsDiscordMessages(multiPlanetData, effectiveMaxTurn)
-      : formatAsDiscordMessages(laneViews, effectiveMaxTurn);
+      ? formatMultiPlanetAsDiscordMessages(multiPlanetData, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn })
+      : formatAsDiscordMessages(laneViews, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn });
     const firstMessage = messages[0] ?? '';
 
-    if (countExportItems(activeTarget, laneViews, multiPlanetData, effectiveMaxTurn) === 0) {
+    if (rangeItemCount === 0) {
       showNotification('Queue is empty - nothing to export');
       return;
     }
@@ -143,9 +117,7 @@ export function ExportModal({
       if (messages.length > 1) {
         showNotification(`Copied Discord message 1 of ${messages.length}. Paste it, then copy the next one.`);
       } else {
-        showNotification(usedFullFallback
-          ? 'Copied full queue because no queue actions are due by this turn.'
-          : 'Copied to clipboard!');
+        showNotification('Copied to clipboard!');
       }
     } else {
       showNotification('Failed to copy to clipboard');
@@ -175,16 +147,16 @@ export function ExportModal({
     clearDiscordCopyState();
     setImageFallback(null);
     setJsonFallback(null);
-    const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
-    const jsonScope = usedFullFallback || effectiveMaxTurn === undefined ? 'full' : exportMode;
     const json = activeTarget === 'all' && multiPlanetData
-      ? formatMultiPlanetAsBuildDataJson(multiPlanetData, effectiveMaxTurn, {
-          scope: jsonScope,
+      ? formatMultiPlanetAsBuildDataJson(multiPlanetData, rangeOpts.maxTurn, {
+          scope: 'full',
           currentTurn,
+          minTurn: rangeOpts.minTurn,
         })
-      : formatAsBuildDataJson(laneViews, effectiveMaxTurn, {
-          scope: jsonScope,
+      : formatAsBuildDataJson(laneViews, rangeOpts.maxTurn, {
+          scope: 'full',
           currentTurn,
+          minTurn: rangeOpts.minTurn,
         });
 
     if (!json) {
@@ -192,18 +164,12 @@ export function ExportModal({
       return;
     }
 
-    const filename = `florent-build-list-${activeTarget}-${jsonScope}-t${currentTurn}.json`;
+    const filename = `florent-build-list-${activeTarget}-t${exportStartTurn}-t${exportEndTurn}.json`;
     const blob = new Blob([json], { type: 'application/json' });
     setJsonFallback({ blob, filename });
 
     const success = await copyToClipboard(json);
-    if (success) {
-      showNotification(usedFullFallback
-        ? 'Copied full build JSON because no queue actions are due by this turn.'
-        : 'Game JSON copied to clipboard!');
-    } else {
-      showNotification('Clipboard blocked JSON copy. Use Download JSON instead.');
-    }
+    showNotification(success ? 'Game JSON copied to clipboard!' : 'Clipboard blocked JSON copy. Use Download JSON instead.');
   };
 
   const handleExportImage = async () => {
@@ -211,27 +177,19 @@ export function ExportModal({
     setImageFallback(null);
     setJsonFallback(null);
     try {
-      const { effectiveMaxTurn, usedFullFallback } = resolveExportScope();
       const items = activeTarget === 'all' && multiPlanetData
-        ? extractMultiPlanetItems(multiPlanetData, effectiveMaxTurn)
-        : extractQueueItems(laneViews, effectiveMaxTurn);
+        ? extractMultiPlanetItems(multiPlanetData, rangeOpts.maxTurn, rangeOpts.minTurn)
+        : extractQueueItems(laneViews, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn });
 
       if (items.length === 0) {
         showNotification('Queue is empty - nothing to export');
         return;
       }
 
+      const imageOpts = { currentTurn, exportMode: 'full' as const, usedFullFallback: false };
       const canvas = activeTarget === 'all' && multiPlanetData
-        ? createMultiPlanetBuildOrderImageCanvas(multiPlanetData, effectiveMaxTurn, {
-            currentTurn,
-            exportMode,
-            usedFullFallback,
-          })
-        : createBuildOrderImageCanvas(items, {
-            currentTurn,
-            exportMode,
-            usedFullFallback,
-          });
+        ? createMultiPlanetBuildOrderImageCanvas(multiPlanetData, rangeOpts.maxTurn, imageOpts)
+        : createBuildOrderImageCanvas(items, imageOpts);
 
       const blob = await canvasToPngBlob(canvas);
       if (!blob) {
@@ -239,16 +197,10 @@ export function ExportModal({
         return;
       }
 
-      const filename = `build-order-${activeTarget}-turn-${currentTurn}.png`;
+      const filename = `build-order-${activeTarget}-t${exportStartTurn}-t${exportEndTurn}.png`;
       const copied = await copyImageToClipboard(blob, canvas.toDataURL('image/png'));
       setImageFallback({ blob, filename });
-      if (copied) {
-        showNotification(usedFullFallback
-          ? 'Copied full queue image because no queue actions are due by this turn.'
-          : 'Image copied to clipboard!');
-      } else {
-        showNotification('Browser blocked image clipboard. Use Download image instead.');
-      }
+      showNotification(copied ? 'Image copied to clipboard!' : 'Browser blocked image clipboard. Use Download image instead.');
     } catch (error) {
       console.error('Image export error:', error);
       showNotification('Failed to export image');
@@ -276,17 +228,11 @@ export function ExportModal({
               Export Build Queue
             </h2>
             <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-pink-nebula-muted">
-              <span className="rounded-full border border-cyan-200/20 bg-cyan-300/10 px-3 py-1 text-cyan-50">
-                {scopeLabel}
-              </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
                 {targetLabel}
               </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                Current turn {currentTurn}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                {displayedItemCount} item{displayedItemCount === 1 ? '' : 's'}
+                {rangeItemCount} item{rangeItemCount === 1 ? '' : 's'}
               </span>
             </div>
           </div>
@@ -301,11 +247,44 @@ export function ExportModal({
         </header>
 
         <div className="space-y-4 px-5 py-5 md:px-6">
-          {fallbackHint && (
-            <div className="rounded-2xl border border-amber-200/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-50/85">
-              {fallbackHint}
+          {/* Turn range picker */}
+          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span className="font-semibold text-pink-nebula-muted">Turn range</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  max={exportEndTurn}
+                  value={exportStartTurn}
+                  onChange={(e) => {
+                    const v = Math.max(1, parseInt(e.target.value) || 1);
+                    setExportStartTurn(v);
+                    if (v > exportEndTurn) setExportEndTurn(v);
+                  }}
+                  className="w-20 rounded-lg border border-white/10 bg-pink-nebula-bg px-2 py-1 text-center font-mono text-pink-nebula-text focus:border-cyan-300/50 focus:outline-none"
+                />
+                <span className="text-pink-nebula-muted">to</span>
+                <input
+                  type="number"
+                  min={exportStartTurn}
+                  value={exportEndTurn}
+                  onChange={(e) => {
+                    const v = Math.max(exportStartTurn, parseInt(e.target.value) || exportStartTurn);
+                    setExportEndTurn(v);
+                  }}
+                  className="w-20 rounded-lg border border-white/10 bg-pink-nebula-bg px-2 py-1 text-center font-mono text-pink-nebula-text focus:border-cyan-300/50 focus:outline-none"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => { setExportStartTurn(1); setExportEndTurn(defaultEndTurn); }}
+                className="text-xs text-pink-nebula-muted hover:text-pink-nebula-text underline"
+              >
+                Reset
+              </button>
             </div>
-          )}
+          </div>
 
           {hasMultiPlanetTarget && (
             <div className="rounded-2xl border border-white/10 bg-white/[0.045] p-1">
@@ -463,17 +442,29 @@ function countExportItems(
   laneViews: LaneView[],
   multiPlanetData?: MultiPlanetExportData,
   maxTurn?: number,
+  minTurn?: number,
 ): number {
   if (target === 'all' && multiPlanetData) {
-    return extractMultiPlanetItems(multiPlanetData, maxTurn).length;
+    return extractMultiPlanetItems(multiPlanetData, maxTurn, minTurn).length;
   }
-  return extractQueueItems(laneViews, maxTurn).length;
+  return extractQueueItems(laneViews, maxTurn, { minTurn }).length;
 }
 
-function extractMultiPlanetItems(data: MultiPlanetExportData, maxTurn?: number): QueueItem[] {
-  const planetItems = data.planets.flatMap((planet) => extractQueueItems(planet.lanes, maxTurn));
-  const researchItems = data.researchLane ? extractQueueItems([data.researchLane], maxTurn) : [];
+function extractMultiPlanetItems(data: MultiPlanetExportData, maxTurn?: number, minTurn?: number): QueueItem[] {
+  const planetItems = data.planets.flatMap((planet) => extractQueueItems(planet.lanes, maxTurn, { minTurn }));
+  const researchItems = data.researchLane ? extractQueueItems([data.researchLane], maxTurn, { minTurn }) : [];
   return [...planetItems, ...researchItems].sort((a, b) => a.turn - b.turn);
+}
+
+function computeDefaultEndTurn(buildingLane: LaneView, multiPlanetData?: MultiPlanetExportData): number {
+  const buildingLanes: LaneView[] = multiPlanetData
+    ? multiPlanetData.planets
+        .map(p => p.lanes.find(l => l.laneId === 'building'))
+        .filter((l): l is LaneView => l != null)
+    : [buildingLane];
+  const items = extractQueueItems(buildingLanes);
+  const maxTurn = items.filter(i => !i.isWait).reduce((m, i) => Math.max(m, i.turn), 0);
+  return maxTurn > 0 ? maxTurn : 1;
 }
 
 type ExportImageColumnKey = 'turn' | LaneId;
@@ -493,7 +484,7 @@ interface ExportImageRow {
 
 interface ExportImageOptions {
   currentTurn: number;
-  exportMode: ExportModalProps['exportMode'];
+  exportMode: 'full' | 'current';
   usedFullFallback: boolean;
 }
 

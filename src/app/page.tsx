@@ -466,9 +466,7 @@ export default function Home() {
   const [queueValidation, setQueueValidation] = useState<
     Map<string, QueueValidationResult>
   >(new Map());
-  const [showExportModal, setShowExportModal] = useState<
-    "current" | "full" | null
-  >(null);
+  const [showExportModal, setShowExportModal] = useState(false);
   const [showSavesModal, setShowSavesModal] = useState(false);
   const [exportSnapshot, setExportSnapshot] = useState<{
     buildingLane: LaneView;
@@ -2121,7 +2119,7 @@ export default function Home() {
       setCascadeWarnings([]);
       setEditingPlanetId(null);
       setExportSnapshot(null);
-      setShowExportModal(null);
+      setShowExportModal(false);
 
       commandHistory.recordResetAllPlanets();
       setGameState(resetState);
@@ -2156,7 +2154,7 @@ export default function Home() {
   }, [gameState, viewTurn]);
 
   const openExportModal = useCallback(
-    (mode: "current" | "full") => {
+    () => {
       setExportSnapshot({
         buildingLane: enrichedBuildingLane || {
           laneId: "building" as const,
@@ -2174,7 +2172,7 @@ export default function Home() {
         currentTurn: viewTurn,
         multiPlanetData: buildMultiPlanetExportData(),
       });
-      setShowExportModal(mode);
+      setShowExportModal(true);
     },
     [
       enrichedBuildingLane,
@@ -2501,7 +2499,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.54</div>
+                      <div className="opacity-30 text-[10px]">v0.2.55</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2678,30 +2676,17 @@ export default function Home() {
                               <span className="truncate">Open Saves</span>
                             </button>
                             <button
-                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-amber-300/35 bg-amber-500/[0.14] px-3 text-sm font-bold text-amber-100 outline-none transition-colors duration-200 hover:border-amber-200/60 hover:bg-amber-500/[0.24] focus:ring-2 focus:ring-amber-300/35"
-                              onClick={() => openExportModal("current")}
-                              title="Export only the currently visible build order"
-                            >
-                              <span
-                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-amber-100/15 bg-amber-200/10 text-amber-100"
-                                aria-hidden="true"
-                              >
-                                <ActionGlyph name="export" />
-                              </span>
-                              <span className="truncate">Export Current</span>
-                            </button>
-                            <button
-                              onClick={() => openExportModal("full")}
+                              onClick={() => openExportModal()}
                               className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-violet-300/35 bg-violet-500/[0.16] px-3 text-sm font-bold text-violet-100 outline-none transition-colors duration-200 hover:border-violet-200/60 hover:bg-violet-500/[0.26] focus:ring-2 focus:ring-violet-300/35"
-                              title="Export the full build list across all future turns"
+                              title="Export build list"
                             >
                               <span
                                 className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-violet-100/15 bg-violet-200/10 text-violet-100"
                                 aria-hidden="true"
                               >
-                                <ActionGlyph name="full-list" />
+                                <ActionGlyph name="export" />
                               </span>
-                              <span className="truncate">Export Full List</span>
+                              <span className="truncate">Export</span>
                             </button>
                           </div>
                         </div>
@@ -2762,16 +2747,16 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.54</div>
+          <div className="opacity-30 text-[10px]">v0.2.55</div>
         </footer>
       </div>
 
       {/* Export Modal - TICKET-5 */}
-      {showExportModal !== null && exportSnapshot && (
+      {showExportModal && exportSnapshot && (
         <ExportModal
           isOpen={true}
           onClose={() => {
-            setShowExportModal(null);
+            setShowExportModal(false);
             setExportSnapshot(null);
           }}
           buildingLane={exportSnapshot.buildingLane}
@@ -2779,7 +2764,6 @@ export default function Home() {
           colonistLane={exportSnapshot.colonistLane}
           researchLane={exportSnapshot.researchLane}
           currentTurn={exportSnapshot.currentTurn}
-          exportMode={showExportModal}
           multiPlanetData={exportSnapshot.multiPlanetData}
         />
       )}

@@ -78,7 +78,7 @@ export interface MultiPlanetBuildDataJson {
 export function extractQueueItems(
   laneViews: LaneView[],
   maxTurn?: number,
-  options?: { currentTurn?: number },
+  options?: { currentTurn?: number; minTurn?: number },
 ): QueueItem[] {
   const items: QueueItem[] = [];
 
@@ -92,10 +92,8 @@ export function extractQueueItems(
         return;
       }
 
-      // Skip queue actions beyond maxTurn if specified (for "current view" export)
-      if (maxTurn !== undefined && turn > maxTurn) {
-        return;
-      }
+      if (options?.minTurn !== undefined && turn < options.minTurn) return;
+      if (maxTurn !== undefined && turn > maxTurn) return;
 
       items.push({
         turn,
@@ -129,8 +127,12 @@ function getQueueActionTurn(entry: LaneView['entries'][number]): number {
  * @param laneViews - Array of lane views to format
  * @param maxTurn - Optional maximum queue/start turn to include (for "current view" export)
  */
-export function formatAsText(laneViews: LaneView[], maxTurn?: number): string {
-  const items = extractQueueItems(laneViews, maxTurn);
+export function formatAsText(
+  laneViews: LaneView[],
+  maxTurn?: number,
+  options?: { minTurn?: number },
+): string {
+  const items = extractQueueItems(laneViews, maxTurn, { minTurn: options?.minTurn });
 
   if (items.length === 0) {
     return '';
@@ -139,8 +141,7 @@ export function formatAsText(laneViews: LaneView[], maxTurn?: number): string {
   return items.map(item => {
     const abbreviatedName = abbreviateName(item.name);
     const itemText = formatQueueItemLabel(item, abbreviatedName);
-    const timeLabel = formatTickTime(item.turn);
-    return `[${item.turn}] ${timeLabel} - ${itemText}`;
+    return `${formatTickTime(item.turn)} - ${itemText}`;
   }).join('\n');
 }
 
@@ -165,9 +166,9 @@ function formatQueueItemLabel(item: QueueItem, displayName: string = item.name):
 export function formatAsBuildDataJson(
   laneViews: LaneView[],
   maxTurn?: number,
-  options?: { scope?: 'current' | 'full'; currentTurn?: number },
+  options?: { scope?: 'current' | 'full'; currentTurn?: number; minTurn?: number },
 ): string {
-  const items = extractQueueItems(laneViews, maxTurn, { currentTurn: options?.currentTurn })
+  const items = extractQueueItems(laneViews, maxTurn, { currentTurn: options?.currentTurn, minTurn: options?.minTurn })
     .map(toBuildDataJsonItem);
 
   if (items.length === 0) {
@@ -191,17 +192,17 @@ export function formatAsBuildDataJson(
 export function formatMultiPlanetAsBuildDataJson(
   data: MultiPlanetExportData,
   maxTurn?: number,
-  options?: { scope?: 'current' | 'full'; currentTurn?: number },
+  options?: { scope?: 'current' | 'full'; currentTurn?: number; minTurn?: number },
 ): string {
   const planets = data.planets.map((planet) => ({
     id: planet.id,
     name: planet.name,
     startTurn: planet.startTurn,
     currentTurn: planet.currentTurn,
-    items: extractQueueItems(planet.lanes, maxTurn, { currentTurn: planet.currentTurn ?? options?.currentTurn }).map(toBuildDataJsonItem),
+    items: extractQueueItems(planet.lanes, maxTurn, { currentTurn: planet.currentTurn ?? options?.currentTurn, minTurn: options?.minTurn }).map(toBuildDataJsonItem),
   }));
   const research = data.researchLane
-    ? extractQueueItems([data.researchLane], maxTurn, { currentTurn: options?.currentTurn }).map(toBuildDataJsonItem)
+    ? extractQueueItems([data.researchLane], maxTurn, { currentTurn: options?.currentTurn, minTurn: options?.minTurn }).map(toBuildDataJsonItem)
     : [];
 
   if (planets.every((planet) => planet.items.length === 0) && research.length === 0) {
@@ -245,8 +246,12 @@ function toBuildDataJsonItem(item: QueueItem): BuildDataJsonItem {
  * @param laneViews - Array of lane views to format
  * @param maxTurn - Optional maximum queue/start turn to include (for "current view" export)
  */
-export function formatAsDiscordMessages(laneViews: LaneView[], maxTurn?: number): string[] {
-  const items = extractQueueItems(laneViews, maxTurn);
+export function formatAsDiscordMessages(
+  laneViews: LaneView[],
+  maxTurn?: number,
+  options?: { minTurn?: number },
+): string[] {
+  const items = extractQueueItems(laneViews, maxTurn, { minTurn: options?.minTurn });
 
   // Group items by turn
   const turnGroups = new Map<number, QueueItem[]>();
@@ -316,50 +321,54 @@ export function formatAsDiscordMessages(laneViews: LaneView[], maxTurn?: number)
  * Format queue as Discord text. If multiple messages are required, they are
  * returned separated by blank lines for backward-compatible callers.
  */
-export function formatAsDiscord(laneViews: LaneView[], maxTurn?: number): string {
-  return formatAsDiscordMessages(laneViews, maxTurn).join('\n\n');
+export function formatAsDiscord(laneViews: LaneView[], maxTurn?: number, options?: { minTurn?: number }): string {
+  return formatAsDiscordMessages(laneViews, maxTurn, options).join('\n\n');
 }
 
-export function formatMultiPlanetAsText(data: MultiPlanetExportData, maxTurn?: number): string {
+export function formatMultiPlanetAsText(
+  data: MultiPlanetExportData,
+  maxTurn?: number,
+  options?: { minTurn?: number },
+): string {
+  const extractOpts = { minTurn: options?.minTurn };
   const lines: string[] = ['=== Multi-Planet Build Order ==='];
 
   data.planets.forEach((planet) => {
-    const items = extractQueueItems(planet.lanes, maxTurn);
-    lines.push('', `--- ${planet.name} (starts T${planet.startTurn}) ---`);
+    const items = extractQueueItems(planet.lanes, maxTurn, extractOpts);
+    lines.push('', `--- ${planet.name} (starts ${formatTickTime(planet.startTurn)}) ---`);
     if (items.length === 0) {
       lines.push('No planet-local items queued.');
       return;
     }
 
     items.forEach((item) => {
-      const timeLabel = formatTickTime(item.turn);
-      lines.push(`[${item.turn}] ${timeLabel} ${laneLabel(item.lane)} - ${formatQueueItemLabel(item)}`);
+      lines.push(`${formatTickTime(item.turn)} ${laneLabel(item.lane)} - ${formatQueueItemLabel(item)}`);
     });
   });
 
-  const researchItems = data.researchLane ? extractQueueItems([data.researchLane], maxTurn) : [];
+  const researchItems = data.researchLane ? extractQueueItems([data.researchLane], maxTurn, extractOpts) : [];
   lines.push('', '--- Global Research ---');
   if (researchItems.length === 0) {
     lines.push('No research queued.');
   } else {
     researchItems.forEach((item) => {
-      const timeLabel = formatTickTime(item.turn);
-      lines.push(`[${item.turn}] ${timeLabel} ${formatQueueItemLabel(item)}`);
+      lines.push(`${formatTickTime(item.turn)} - ${formatQueueItemLabel(item)}`);
     });
   }
 
-  const hasAnyPlanetItems = data.planets.some((planet) => extractQueueItems(planet.lanes, maxTurn).length > 0);
+  const hasAnyPlanetItems = data.planets.some((planet) => extractQueueItems(planet.lanes, maxTurn, extractOpts).length > 0);
   return hasAnyPlanetItems || researchItems.length > 0 ? lines.join('\n') : '';
 }
 
-export function formatMultiPlanetAsDiscordMessages(data: MultiPlanetExportData, maxTurn?: number): string[] {
+export function formatMultiPlanetAsDiscordMessages(data: MultiPlanetExportData, maxTurn?: number, options?: { minTurn?: number }): string[] {
+  const extractOpts = { minTurn: options?.minTurn };
   const lines: string[] = [
     `Multi-Planet Build Order (${data.planets.length} planet${data.planets.length === 1 ? '' : 's'})`,
     '',
   ];
 
   data.planets.forEach((planet) => {
-    const items = extractQueueItems(planet.lanes, maxTurn);
+    const items = extractQueueItems(planet.lanes, maxTurn, extractOpts);
     lines.push(`${planet.name} (starts T${planet.startTurn})`);
     if (items.length === 0) {
       lines.push('No planet-local items queued.', '');
@@ -374,7 +383,7 @@ export function formatMultiPlanetAsDiscordMessages(data: MultiPlanetExportData, 
     lines.push('');
   });
 
-  const researchItems = data.researchLane ? extractQueueItems([data.researchLane], maxTurn) : [];
+  const researchItems = data.researchLane ? extractQueueItems([data.researchLane], maxTurn, extractOpts) : [];
   lines.push('Global Research');
   if (researchItems.length === 0) {
     lines.push('No research queued.');
@@ -386,7 +395,7 @@ export function formatMultiPlanetAsDiscordMessages(data: MultiPlanetExportData, 
     });
   }
 
-  const hasAnyPlanetItems = data.planets.some((planet) => extractQueueItems(planet.lanes, maxTurn).length > 0);
+  const hasAnyPlanetItems = data.planets.some((planet) => extractQueueItems(planet.lanes, maxTurn, extractOpts).length > 0);
   return hasAnyPlanetItems || researchItems.length > 0 ? splitDiscordLines(lines) : ['```\n```'];
 }
 
