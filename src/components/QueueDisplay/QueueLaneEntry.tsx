@@ -104,8 +104,8 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 <span>-</span>
                 <button
                   className="hover:text-pink-nebula-accent-primary hover:underline"
-                  onClick={(e) => { e.stopPropagation(); if (endT !== '?' && onTurnClick) onTurnClick(Math.min((endT as number), maxTurn)); }}
-                  title="Jump to completion turn"
+                  onClick={(e) => { e.stopPropagation(); if (endT !== '?' && onTurnClick) onTurnClick(Math.min((endT as number) + 1, maxTurn)); }}
+                  title="Jump to first turn where item is complete"
                 >
                   T{endT}
                 </button>
