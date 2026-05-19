@@ -78,30 +78,9 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
     tryActivateNext(state, laneId, projectedOutputs);
   }
 
-  // Give Phase 2b items their first tick in the same turn their prerequisite completed.
-  // Without this, the item activates but sits idle until the next turn — a wasted turn.
-  // Wait items are excluded: they represent explicit pauses and must run for their full
-  // declared duration — giving them an early tick would silently shorten the wait.
-  const phase2bCompletions: WorkItem[] = [];
-  for (const laneId of LANE_ORDER) {
-    if (idleBeforePhase2b.has(laneId) && state.lanes[laneId].active && !state.lanes[laneId].active!.isWait) {
-      const completedItem = progressActive(state, laneId);
-      if (completedItem) {
-        const def = state.defs[completedItem.itemId];
-        if (def && !def.colonistKind) {
-          phase2bCompletions.push(completedItem);
-        }
-      }
-    }
-  }
-  // Apply any structures that completed on their first Phase 2b tick, then give
-  // dependent items one more activation opportunity (handles chained prerequisites).
-  if (phase2bCompletions.length > 0) {
-    processCompletions(state, phase2bCompletions);
-    for (const laneId of LANE_ORDER) {
-      tryActivateNext(state, laneId, projectedOutputs);
-    }
-  }
+  // Phase 2b items activate in the same turn their predecessor completed but do NOT
+  // receive a first tick until Phase 2a of the following turn. startTurn is set to
+  // currentTurn+1 in lanes.ts so the displayed range matches the actual first-tick turn.
 
   // Phase 5: Process colonist conversions (same-turn completion)
   applyColonistConversions(state);

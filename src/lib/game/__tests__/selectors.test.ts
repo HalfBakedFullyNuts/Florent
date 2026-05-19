@@ -203,15 +203,17 @@ describe('Selectors', () => {
         'active_1',
         'pending_1',
       ]);
-      expect(view.entries.map((entry) => entry.completionTurn ?? entry.eta)).toEqual([4, 8, 10, 13]);
+      // active eta=9+2-1=10; pending scheduleStart=9+2=11, displayEnd=11+4-1=14
+      expect(view.entries.map((entry) => entry.completionTurn ?? entry.eta)).toEqual([4, 8, 10, 14]);
     });
 
     // -----------------------------------------------------------------------
-    // Wait item scheduling — Phase 2b does not give waits an early first tick
+    // Wait item scheduling — all items use the same +1 gap formula
     // -----------------------------------------------------------------------
 
-    it('wait item activated via Phase 2a (idle lane) completes at displayStart + W - 1', () => {
-      // No active item: wait activates via Phase 2a, gets first tick on activation turn.
+    it('wait item in idle lane: displayEnd = displayStart + W - 1', () => {
+      // No active item: wait activates via Phase 2a, first tick on activation turn.
+      // scheduleStart=1, displayEnd=1+5-1=5.
       state.lanes.building.pendingQueue = [{
         id: 'wait_1',
         itemId: '__wait__',
@@ -222,12 +224,12 @@ describe('Selectors', () => {
       }];
 
       const view = getLaneView(state, 'building');
-      // Phase 2a: first tick at S=1, completes at 1+5-1=5
       expect(view.entries[0].eta).toBe(5);
     });
 
-    it('wait item activated via Phase 2b (after active item) completes at displayStart + W', () => {
-      // Active item present: wait activates via Phase 2b, which skips the early tick.
+    it('wait item after active item: scheduleStart = active ETA + 1', () => {
+      // Active completes at ETA=6, wait starts at 7, ends at 7+5-1=11.
+      // Engine: Phase 2b activates wait with startTurn=7 (currentTurn+1), first tick T7.
       state.currentTurn = 5;
       state.lanes.building.active = {
         id: 'active_1',
@@ -247,24 +249,23 @@ describe('Selectors', () => {
 
       const view = getLaneView(state, 'building');
       const activeEntry = view.entries.find(e => e.status === 'active')!;
-      const waitEntry = view.entries.find(e => e.id === 'wait_1')!;
+      const waitEntry   = view.entries.find(e => e.id === 'wait_1')!;
 
-      // Active completes at: 5 + 2 - 1 = 6. Wait starts at 6.
-      // Phase 2b no early tick: completes at 6 + 5 = 11.
+      // active ETA: 5+2-1=6; calculateScheduleStart: 5+2=7
       expect(activeEntry.eta).toBe(6);
-      expect(waitEntry.startTurn).toBe(6);
-      expect(waitEntry.eta).toBe(11);
+      expect(waitEntry.startTurn).toBe(7);
+      expect(waitEntry.eta).toBe(11);  // 7+5-1=11
     });
 
-    it('normal item after a wait item starts at the wait completion turn', () => {
-      // Chain: active → wait (Phase 2b) → normal (Phase 2b)
+    it('normal item after a wait uses the same +1 gap', () => {
+      // Chain: active → wait → normal, all with +1 gaps
       state.currentTurn = 3;
       state.lanes.building.active = {
         id: 'active_1',
         itemId: 'metal_mine',
         status: 'active',
         quantity: 1,
-        turnsRemaining: 1,  // completes at turn 3
+        turnsRemaining: 1,  // ETA=3, scheduleStart=4
       };
       state.lanes.building.pendingQueue = [
         {
@@ -277,7 +278,7 @@ describe('Selectors', () => {
         },
         {
           id: 'normal_1',
-          itemId: 'farm',  // durationTurns = 4
+          itemId: 'farm',  // durationTurns=4
           status: 'pending',
           quantity: 1,
           turnsRemaining: 4,
@@ -289,14 +290,14 @@ describe('Selectors', () => {
       const waitEntry    = view.entries.find(e => e.id === 'wait_1')!;
       const normalEntry  = view.entries.find(e => e.id === 'normal_1')!;
 
-      // Active: ETA = 3 + 1 - 1 = 3
+      // active ETA=3+1-1=3; calculateScheduleStart=3+1=4
       expect(activeEntry.eta).toBe(3);
-      // Wait: starts at 3, Phase 2b no early tick → ends at 3 + 4 = 7
-      expect(waitEntry.startTurn).toBe(3);
+      // wait: displayStart=4, displayEnd=4+4-1=7; scheduleStart=8
+      expect(waitEntry.startTurn).toBe(4);
       expect(waitEntry.eta).toBe(7);
-      // Normal: starts at 7, Phase 2b gives early tick → ends at 7 + 4 - 1 = 10
-      expect(normalEntry.startTurn).toBe(7);
-      expect(normalEntry.eta).toBe(10);
+      // normal: displayStart=8, displayEnd=8+4-1=11
+      expect(normalEntry.startTurn).toBe(8);
+      expect(normalEntry.eta).toBe(11);
     });
 
     it('should work for all lane types', () => {

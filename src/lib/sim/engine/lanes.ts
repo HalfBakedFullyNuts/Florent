@@ -27,14 +27,14 @@ function activateWaitItem(
     return;
   }
 
-  // startTurn is always the activation turn so encoding (end - start) gives the correct
-  // planned duration. Phase 2b waits don't get a first tick, which is tracked separately
-  // via isPhase2bWait so the display formula can compensate.
+  // Phase 2b activations don't get a first tick in the activation turn — the first tick
+  // happens in Phase 2a of the next turn. Set startTurn to currentTurn+1 so the displayed
+  // turn range starts at the actual first-tick turn, keeping the range consistent with
+  // the pending prediction (T5-T9 for a 5T wait after a chain).
   lane.active = {
     ...pending,
     status: 'active',
-    startTurn: state.currentTurn,
-    isPhase2bWait: isPhase2b || undefined,
+    startTurn: isPhase2b ? state.currentTurn + 1 : state.currentTurn,
   };
 
   getLogger().logQueueOperation(
@@ -173,16 +173,16 @@ export function tryActivateNext(
   }
   reserveWorkersAndSpace(state, def, actualQty, laneId);
 
-  // Phase 2b items now get their first tick in the same runTurn call (turn.ts runs
-  // progressActive for them after this activation). startTurn is therefore always the
-  // current turn regardless of which phase triggered the activation.
+  // Phase 2b activations don't receive a first tick in the activation turn — the worker
+  // team just finished the previous project and won't start the new one until next turn.
+  // Set startTurn = currentTurn+1 so the displayed range matches the actual first-tick turn.
   const isPhase2b = projectedBonus !== undefined;
   lane.active = {
     ...pending,
     quantity: actualQty,
     status: 'active',
     turnsRemaining: def.durationTurns,
-    startTurn: state.currentTurn,
+    startTurn: isPhase2b ? state.currentTurn + 1 : state.currentTurn,
   };
 
   getLogger().logQueueOperation(

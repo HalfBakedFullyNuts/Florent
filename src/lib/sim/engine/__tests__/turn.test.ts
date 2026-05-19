@@ -245,10 +245,10 @@ describe('Turn Runner', () => {
       expect(state.completedCounts.metal_mine).toBe(1);
     });
 
-    it('Phase-2b activated item gets startTurn = currentTurn and its first tick immediately', () => {
+    it('Phase-2b activated item gets startTurn = currentTurn+1 and NO early tick', () => {
       // When the active item completes during this turn, Phase 2b activates the next
-      // pending item in the same turn AND gives it its first progressActive tick.
-      // This means no wasted turn between sequential builds.
+      // pending item in the same turn but does NOT give it an early first tick.
+      // Workers finish the old project this turn; the new project starts next turn.
       state.lanes.building.active = {
         id: 'active_1',
         itemId: 'metal_mine',
@@ -283,10 +283,10 @@ describe('Turn Runner', () => {
       const newActive = state.lanes.building.active;
       expect(newActive).not.toBeNull();
       expect(newActive?.itemId).toBe('metal_mine');
-      // startTurn is the same turn the prerequisite completed (not +1).
-      expect(newActive?.startTurn).toBe(turnBeforeRun);
-      // turnsRemaining is decremented once (the first Phase-2b tick).
-      expect(newActive?.turnsRemaining).toBe(3);
+      // startTurn is currentTurn+1: the item is activated this turn but first-tick next turn.
+      expect(newActive?.startTurn).toBe(turnBeforeRun + 1);
+      // turnsRemaining is still the full 4 (no early tick consumed).
+      expect(newActive?.turnsRemaining).toBe(4);
     });
   });
 });

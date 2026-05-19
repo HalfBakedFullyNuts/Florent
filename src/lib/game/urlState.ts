@@ -759,21 +759,20 @@ function getCompactWaitTurns(item: { turnsRemaining: number; status?: string; qu
   const start = item.startTurn ?? item.queuedTurn;
   const end = item.completionTurn ?? item.eta ?? undefined;
 
-  // Engine-completed waits finish on the first turn after the wait elapsed
-  // (a queued 3T wait from T1 completes at T4), so compact URLs use an
-  // exclusive end here to preserve the player's original command.
+  // startTurn is the first-tick turn (same for Phase 2a; currentTurn+1 for Phase 2b).
+  // completionTurn/eta is the last-tick turn. Both ends are inclusive, so duration = end - start + 1.
   if (item.status === 'completed' && start !== undefined && end !== undefined && end >= start) {
-    return Math.max(1, end - start);
+    return Math.max(1, end - start + 1);
   }
 
-  // Pending projected rows use inclusive display windows.
+  // Pending projected rows use inclusive display windows — same formula.
   if (item.status === 'pending' && start !== undefined && end !== undefined && end >= start) {
     return end - start + 1;
   }
 
-  // Active rows expose ETA as the first turn after completion.
-  if (item.status === 'active' && start !== undefined && end !== undefined && end > start) {
-    return end - start;
+  // Active rows: eta is the last-tick turn, startTurn is the first-tick turn.
+  if (item.status === 'active' && start !== undefined && end !== undefined && end >= start) {
+    return end - start + 1;
   }
 
   return item.turnsRemaining || 0;

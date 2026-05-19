@@ -6,8 +6,6 @@ type WaitDurationLike = {
   startTurn?: number;
   completionTurn?: number;
   eta?: number | null;
-  /** Set when the wait was activated in Phase 2b (no first-tick that turn). */
-  isPhase2bWait?: boolean;
 };
 
 /**
@@ -26,12 +24,9 @@ export function getPlannedWaitTurns(entry: WaitDurationLike, currentTurn?: numbe
 
   if (entry.status === 'active') {
     if (start !== undefined && currentTurn !== undefined && remaining > 0) {
-      // Phase 2b waits (isPhase2bWait=true) activate in the same turn a prerequisite
-      // completes but do not receive a first tick that turn. Their startTurn is the
-      // activation turn (correct for encoding), but the elapsed formula overcounts by 1.
-      // Subtracting 1 gives the correct planned duration throughout the wait's lifetime.
-      const phase2bOffset = entry.isPhase2bWait ? 1 : 0;
-      return Math.max(1, currentTurn - start + remaining - phase2bOffset);
+      // startTurn is set to the first-tick turn (Phase 2b activations use currentTurn+1
+      // in lanes.ts), so elapsed + remaining gives the correct planned duration directly.
+      return Math.max(1, currentTurn - start + remaining);
     }
     if (start !== undefined && end !== undefined && end >= start) {
       return Math.max(1, end - start);
