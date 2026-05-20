@@ -233,13 +233,14 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
 
             const elements: React.ReactNode[] = [];
 
-            // Count only pending entries (not active, not completed) to map display
-            // positions to pendingQueue indices. Using the full entries length would
-            // include the active item and completed items, causing off-by-one errors
-            // that prevent dragging to position 0 and shift items to wrong slots.
-            const pendingCount = laneView.entries.filter(
-              e => e.status !== 'completed' && e.status !== 'active'
-            ).length;
+            // Map reversed display positions to pendingQueue indices at planTurn.
+            // All entries (completed + active + pending) appear in the same order
+            // as the original pendingQueue at planTurn, EXCEPT the first entry is
+            // active at planTurn (not in pendingQueue there), shifting every index
+            // by 1. Formula: (entries.length - 1) - 1 - displayIndex.
+            // Using pendingCount instead of entries.length - 1 broke when completed
+            // items were visible, producing negative indices → INVALID_INDEX.
+            const planQueueCount = Math.max(0, laneView.entries.length - 1);
 
             reversed.forEach((entry, displayIndex) => {
               const isNewest = entry.id === newestId;
@@ -247,7 +248,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
               const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
               const showQuantityInput = activeTab === 'ship' || activeTab === 'colonist';
               const maxQuantity = getMaxQuantity ? getMaxQuantity(activeTab, entry) : undefined;
-              const actualIndex = pendingCount - 1 - displayIndex;
+              const actualIndex = planQueueCount - 1 - displayIndex;
               const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === activeTab;
               // Allow reorder for any plan entry except auto-generated waits (they reposition on their own).
               // Past entries are still part of the plan — reordering re-runs the timeline from T1.
@@ -280,7 +281,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                     }
                   }}
                   onDragOver={(e) => {
-                    if (draggedItem && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id) {
+                    if (draggedItem && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id && actualIndex >= 0) {
                       e.preventDefault();
                       e.stopPropagation();
                       setDragOverIndex(displayIndex);
@@ -294,7 +295,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                   onDrop={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
-                    if (draggedItem && onReorder && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id) {
+                    if (draggedItem && onReorder && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id && actualIndex >= 0) {
                       onReorder(activeTab, draggedItem.entryId, actualIndex);
                     }
                     setDraggedItem(null);
@@ -340,9 +341,9 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (actualIndex < pendingCount - 1) onReorder(activeTab, entry.id, actualIndex + 1);
+                          if (actualIndex < planQueueCount - 1) onReorder(activeTab, entry.id, actualIndex + 1);
                         }}
-                        disabled={actualIndex >= pendingCount - 1}
+                        disabled={actualIndex >= planQueueCount - 1}
                         aria-label="Move down"
                         className="w-7 h-7 flex items-center justify-center text-pink-nebula-muted bg-pink-nebula-bg/50 border border-pink-nebula-border rounded text-xs disabled:opacity-30 active:bg-pink-nebula-accent-primary/30"
                       >
