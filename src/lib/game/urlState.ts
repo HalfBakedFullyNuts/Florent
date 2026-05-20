@@ -1401,6 +1401,40 @@ export function replayCommands(
   // maps seqId → deterministic entry ID used on replay
   const seqToEntryId = new Map<number, string>();
 
+  // Per-planet batch management: open a batch on first queue command for each planet,
+  // flush it before any repackQueue call (r commands), close all at the end.
+  // This reduces N timeline recomputes per planet to 1.
+  const planetBatchOpen = new Map<string, boolean>();
+
+  const getPlanetId = (planetIdx: number): string | undefined =>
+    Array.from(gameState.planets.keys())[planetIdx];
+
+  const ensureBatch = (planetId: string): void => {
+    if (!planetBatchOpen.get(planetId)) {
+      const planet = gameState.planets.get(planetId);
+      if (planet?.timeline) {
+        planet.timeline.beginBatch();
+        planetBatchOpen.set(planetId, true);
+      }
+    }
+  };
+
+  const flushPlanetBatch = (planetId: string): void => {
+    if (planetBatchOpen.get(planetId)) {
+      const planet = gameState.planets.get(planetId);
+      if (planet?.timeline) {
+        planet.timeline.endBatch();
+        planetBatchOpen.set(planetId, false);
+      }
+    }
+  };
+
+  const flushAllBatches = (): void => {
+    for (const [planetId] of planetBatchOpen) {
+      flushPlanetBatch(planetId);
+    }
+  };
+
   for (let i = 0; i < commands.length; i++) {
     const cmd = commands[i];
     const type = cmd[0];
@@ -1425,9 +1459,11 @@ export function replayCommands(
           }
           if (!itemId) break;
 
-          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planetId = getPlanetId(planetIdx);
+          if (!planetId) break;
           const planet = gameState.planets.get(planetId);
           if (planet?.timeline) {
+            ensureBatch(planetId);
             const controller = new GameController(planet, planet.timeline);
             const researchGate = getLocalResearchGateForItem(gameState, itemId, planet.startTurn, planet.defs);
             controller.queueItem(planet.startTurn, itemId, qty, {
@@ -1448,9 +1484,11 @@ export function replayCommands(
           const planetIdx = cmd[1] as number;
           const laneId = V2_LANE_DEC[cmd[2] as string] ?? (cmd[2] as LaneId);
           const turns = cmd[3] as number;
-          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planetId = getPlanetId(planetIdx);
+          if (!planetId) break;
           const planet = gameState.planets.get(planetId);
           if (planet?.timeline && laneId !== 'research') {
+            ensureBatch(planetId);
             const controller = new GameController(planet, planet.timeline);
             controller.queueWaitItem(planet.startTurn, laneId, turns, false, {
               preserveId: deterministicId,
@@ -1478,9 +1516,11 @@ export function replayCommands(
             break;
           }
 
-          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planetId = getPlanetId(planetIdx);
+          if (!planetId) break;
           const planet = gameState.planets.get(planetId);
           if (planet?.timeline) {
+            ensureBatch(planetId);
             const controller = new GameController(planet, planet.timeline);
             controller.cancelPlannedItem(laneId, entryId);
           }
@@ -1502,11 +1542,16 @@ export function replayCommands(
             break;
           }
 
-          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planetId = getPlanetId(planetIdx);
+          if (!planetId) break;
           const planet = gameState.planets.get(planetId);
           if (planet?.timeline) {
+            // reorderQueueItem only reads planTurn — safe inside batch
+            ensureBatch(planetId);
             const controller = new GameController(planet, planet.timeline);
             controller.reorderQueueItem(planet.startTurn, laneId, entryId, newIdx);
+            // repackQueue reads future turns — flush the batch first so state is current
+            flushPlanetBatch(planetId);
             controller.repackQueue(planet.startTurn, laneId);
           }
           break;
@@ -1562,7 +1607,10 @@ export function replayCommands(
         case 'x':
         case 'reset': {
           const planetIdx = cmd[1] as number;
-          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planetId = getPlanetId(planetIdx);
+          if (!planetId) break;
+          // Flush batch before reset — resetQueue calls timeline.reset() which clears state
+          flushPlanetBatch(planetId);
           const planet = gameState.planets.get(planetId);
           if (planet?.timeline) {
             const controller = new GameController(planet, planet.timeline);
@@ -1572,14 +1620,19 @@ export function replayCommands(
         }
 
         case 'xa': {
+          // Reset all — flush all open batches first since timelines will be rebuilt
+          flushAllBatches();
+          planetBatchOpen.clear();
           gameState = resetToHomeworld(gameState);
           break;
         }
 
         case 'dp': {
           const planetIdx = cmd[1] as number;
-          const planetId = Array.from(gameState.planets.keys())[planetIdx];
+          const planetId = getPlanetId(planetIdx);
           if (planetId) {
+            flushPlanetBatch(planetId); // flush before timeline is discarded with the planet
+            planetBatchOpen.delete(planetId);
             try { gameState = removePlanet(gameState, planetId); } catch { /* skip invalid */ }
           }
           break;
@@ -1592,6 +1645,9 @@ export function replayCommands(
       console.error(`[URL State] Command ${i} (${type}) failed:`, err);
     }
   }
+
+  // Flush any open per-planet batches so all timelines are fully simulated before return
+  flushAllBatches();
 
   return gameState;
 }

@@ -22,6 +22,8 @@ export class Timeline {
   private completionBuffer: CompletionBuffer;
   private stableFromTurn: number = -1; // Cache for stable state optimization
   private highestComputedIndex: number = 0; // Track how far we've computed
+  private _batchDepth: number = 0; // Nesting depth for withBatch
+  private _batchMinIndex: number = Infinity; // Lowest dirty index seen during batch
 
   constructor(initialState: PlanetState, totalTurns: number = Timeline.DEFAULT_TURNS) {
     const sanitizedTotalTurns = Number.isFinite(totalTurns)
@@ -39,6 +41,57 @@ export class Timeline {
     // This makes initialization instant (0ms instead of 500-1000ms)
     // When a turn is requested, we compute that turn + 50 more as a buffer
     this.highestComputedIndex = 0;
+  }
+
+  /**
+   * Open a batch manually. Must be paired with endBatch().
+   * Prefer withBatch() for simpler call sites; use beginBatch/endBatch
+   * when you need to interleave batch-unsafe operations (e.g. repackQueue)
+   * between batched mutations.
+   */
+  beginBatch(): void {
+    this._batchDepth++;
+  }
+
+  /**
+   * Close a batch opened with beginBatch(). Fires the deferred recomputeAll
+   * if any mutations occurred since beginBatch was called.
+   */
+  endBatch(): void {
+    if (this._batchDepth > 0) {
+      this._batchDepth--;
+      if (this._batchDepth === 0) {
+        const idx = this._batchMinIndex;
+        this._batchMinIndex = Infinity;
+        if (idx < Infinity) {
+          this.recomputeAll(idx);
+        }
+      }
+    }
+  }
+
+  /**
+   * Batch multiple mutations into a single recomputeAll at the end.
+   * The callback may call mutateAtTurn freely; forward simulation is deferred until
+   * the outermost withBatch returns. Nested calls are safe (ref-counted).
+   *
+   * IMPORTANT: Do NOT call getStateAtTurn for FUTURE turns inside the callback.
+   * Reads of the mutation turn (planTurn) are safe — mutateAtTurn writes it immediately.
+   */
+  withBatch(fn: () => void): void {
+    this._batchDepth++;
+    try {
+      fn();
+    } finally {
+      this._batchDepth--;
+      if (this._batchDepth === 0) {
+        const idx = this._batchMinIndex;
+        this._batchMinIndex = Infinity; // reset before recomputeAll so a throw doesn't leave stale index
+        if (idx < Infinity) {
+          this.recomputeAll(idx);
+        }
+      }
+    }
   }
 
   /**
@@ -200,6 +253,12 @@ export class Timeline {
    * @param fromIndex - Starting index for recomputation
    */
   recomputeAll(fromIndex: number = 1): void {
+    // Defer when inside a withBatch — track the minimum dirty index for the final flush
+    if (this._batchDepth > 0) {
+      this._batchMinIndex = Math.min(this._batchMinIndex, fromIndex);
+      return;
+    }
+
     // Reset stable state detection when recomputing
     this.stableFromTurn = -1;
 

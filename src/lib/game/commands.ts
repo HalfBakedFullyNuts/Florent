@@ -911,6 +911,30 @@ export class GameController {
   }
 
   /**
+   * Batch multiple mutations so only one recomputeAll fires at the end.
+   * Use this when making N sequential mutations that don't need the forward
+   * simulation to be current between steps (e.g. cascade removals, replay).
+   *
+   * IMPORTANT: Do NOT call getStateAtTurn for turns beyond the mutation point
+   * inside the callback. Reads of the mutation turn itself are safe (the state
+   * array is written immediately). Future-turn reads will return stale data
+   * because the stableFromTurn optimisation has not been reset yet.
+   */
+  withBatch(fn: () => void): void {
+    this.timeline.withBatch(fn);
+  }
+
+  /** Open a batch manually. Must be paired with endBatch(). */
+  beginBatch(): void {
+    this.timeline.beginBatch();
+  }
+
+  /** Close a manual batch and fire the deferred recomputeAll. */
+  endBatch(): void {
+    this.timeline.endBatch();
+  }
+
+  /**
    * Get state at specific turn
    */
   getStateAtTurn(turn: number): PlanetState | undefined {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { LaneView, LaneEntry } from '../../lib/game/selectors';
 import type { LaneId } from '../../lib/sim/engine/types';
 import { QueueLaneEntry } from './QueueLaneEntry';
@@ -8,7 +8,7 @@ import { Card } from '@/components/ui/card';
 import { LANE_CONFIG, ALL_LANES } from '../../lib/constants/lanes';
 import { LANE_MANUAL_TOPICS, MANUAL_LINKS } from '../../lib/constants/manualLinks';
 import { ManualLink } from '@/components/ui/ManualLink';
-import { formatTickTime } from '../../lib/utils/tickTime';
+import { formatTickTime, getRoundStartMs, setRoundStartFromTick } from '../../lib/utils/tickTime';
 
 export interface TabbedLaneDisplayProps {
   buildingLane: LaneView | null;
@@ -58,6 +58,10 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   const [draggedItem, setDraggedItem] = useState<{ laneId: LaneId; entryId: string } | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const [dragOverExternal, setDragOverExternal] = useState(false);
+  // Calibrated round-start for wall-clock display. Persisted in localStorage.
+  const [roundStartMs, setRoundStartMs] = useState<number>(() => getRoundStartMs());
+  const [showCalibrate, setShowCalibrate] = useState(false);
+  const [tickInput, setTickInput] = useState('');
 
   // Ref for the scrollable card so we can drive edge-scroll during drag
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -98,11 +102,31 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   const config = LANE_CONFIG[activeTab];
   const laneView = laneViews[activeTab];
 
-  // Calculate newest item
-  const nonCompletedEntries = laneView?.entries.filter(e => e.status !== 'completed') || [];
+  // Stable reference across internal re-renders (drag state, showTimes toggle, etc.)
+  // so the maxQuantities memo below doesn't re-run on every drag event.
+  const nonCompletedEntries = useMemo(
+    () => laneView?.entries.filter(e => e.status !== 'completed') ?? [],
+    [laneView?.entries],
+  );
   const newestId = nonCompletedEntries.length > 0
     ? nonCompletedEntries[nonCompletedEntries.length - 1].id
     : null;
+
+  // Pre-compute maxQuantity for all entries that show stepper buttons.
+  // Only ship/colonist lanes show steppers. Keyed on entry ids so the result
+  // is stable when unrelated state changes (e.g. viewTurn) re-render this component.
+  const maxQuantities = useMemo<Record<string, number>>(() => {
+    if (!getMaxQuantity || (activeTab !== 'ship' && activeTab !== 'colonist')) return {};
+    const result: Record<string, number> = {};
+    for (const entry of nonCompletedEntries) {
+      if (entry.isWait || entry.isAutoWait) continue;
+      result[entry.id] = getMaxQuantity(activeTab, entry);
+    }
+    return result;
+    // nonCompletedEntries reference changes when entries change; getMaxQuantity
+    // is a stable useCallback keyed on controller + gameState in page.tsx.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nonCompletedEntries, getMaxQuantity, activeTab]);
 
   return (
     <div className="w-full">
@@ -191,7 +215,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
             <ManualLink key={topic} topic={topic} label={`IC manual: ${topic}`} />
           ))}
           <button
-            onClick={() => setShowTimes(t => !t)}
+            onClick={() => { setShowTimes(t => !t); if (showTimes) setShowCalibrate(false); }}
             title={showTimes ? 'Show tick numbers' : 'Show GMT wall-clock times'}
             className={`ml-auto px-2 py-1 rounded text-xs font-mono border transition-colors ${
               showTimes
@@ -201,10 +225,60 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
           >
             {showTimes ? 'T#' : '⏰'}
           </button>
+          {showTimes && (
+            <button
+              onClick={() => {
+                setShowCalibrate(v => !v);
+                setTickInput('');
+              }}
+              title="Calibrate clock: enter your current in-game tick to align displayed times"
+              className="px-2 py-1 rounded text-xs font-mono border border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-white/30 hover:text-pink-nebula-text transition-colors"
+            >
+              📍
+            </button>
+          )}
           <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
             {laneView && laneView.entries.length > 0 ? `${laneView.entries.length}` : '—'}
           </span>
         </div>
+
+        {showCalibrate && (
+          <form
+            className="flex items-center gap-2 py-1"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const tick = parseInt(tickInput, 10);
+              if (!Number.isFinite(tick) || tick < 1) return;
+              setRoundStartFromTick(tick);
+              setRoundStartMs(getRoundStartMs());
+              setShowCalibrate(false);
+            }}
+          >
+            <span className="text-xs text-pink-nebula-muted font-mono">Current in-game tick:</span>
+            <input
+              type="number"
+              min={1}
+              value={tickInput}
+              onChange={(e) => setTickInput(e.target.value)}
+              placeholder="e.g. 245"
+              className="w-24 rounded border border-white/20 bg-pink-nebula-bg px-2 py-0.5 text-xs font-mono text-pink-nebula-text focus:border-pink-nebula-accent-primary/60 focus:outline-none"
+              autoFocus
+            />
+            <button
+              type="submit"
+              className="rounded border border-pink-nebula-accent-primary/50 bg-pink-nebula-accent-primary/10 px-2 py-0.5 text-xs font-mono text-pink-nebula-accent-primary hover:bg-pink-nebula-accent-primary/20 transition-colors"
+            >
+              Set
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCalibrate(false)}
+              className="rounded border border-white/10 px-2 py-0.5 text-xs font-mono text-pink-nebula-muted hover:text-pink-nebula-text transition-colors"
+            >
+              Cancel
+            </button>
+          </form>
+        )}
 
         <div className="space-y-1">
           {!laneView || laneView.entries.length === 0 ? (
@@ -247,7 +321,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
               const def = defs[entry.itemId];
               const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
               const showQuantityInput = activeTab === 'ship' || activeTab === 'colonist';
-              const maxQuantity = getMaxQuantity ? getMaxQuantity(activeTab, entry) : undefined;
+              const maxQuantity = maxQuantities[entry.id];
               const actualIndex = planQueueCount - 1 - displayIndex;
               const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === activeTab;
               // Allow reorder for any plan entry except auto-generated waits (they reposition on their own).
@@ -257,7 +331,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
 
               // Insert the "now" divider just before the first past entry
               if (dividerIndex === displayIndex) {
-                const nowLabel = showTimes ? formatTickTime(currentTurn) : `T${currentTurn}`;
+                const nowLabel = showTimes ? formatTickTime(currentTurn, roundStartMs) : `T${currentTurn}`;
                 elements.push(
                   <div key="__now-divider__" className="relative flex items-center gap-3 my-2 select-none pointer-events-none">
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-pink-nebula-accent-primary/40 to-transparent" />
@@ -284,7 +358,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                     if (draggedItem && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id && actualIndex >= 0) {
                       e.preventDefault();
                       e.stopPropagation();
-                      setDragOverIndex(displayIndex);
+                      if (dragOverIndex !== displayIndex) setDragOverIndex(displayIndex);
                     }
                   }}
                   onDragLeave={(e) => {
@@ -293,13 +367,21 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                     }
                   }}
                   onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
                     if (draggedItem && onReorder && draggedItem.laneId === activeTab && draggedItem.entryId !== entry.id && actualIndex >= 0) {
+                      // Internal reorder — consume the event here
+                      e.preventDefault();
+                      e.stopPropagation();
                       onReorder(activeTab, draggedItem.entryId, actualIndex);
+                      setDraggedItem(null);
+                      setDragOverIndex(null);
+                    } else if (!draggedItem) {
+                      // External drop (e.g. from Add-to-Queue panel) — let it bubble to the Card handler
+                      setDraggedItem(null);
+                      setDragOverIndex(null);
+                    } else {
+                      setDraggedItem(null);
+                      setDragOverIndex(null);
                     }
-                    setDraggedItem(null);
-                    setDragOverIndex(null);
                   }}
                   onDragEnd={() => {
                     setDraggedItem(null);
@@ -368,6 +450,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                       onTurnClick={onTurnClick}
                       maxTurn={maxTurn}
                       showTimes={showTimes}
+                      roundStartMs={roundStartMs}
                     />
                   </div>
                 </div>

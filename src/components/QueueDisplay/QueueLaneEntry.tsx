@@ -20,6 +20,7 @@ export interface QueueLaneEntryProps {
   onTurnClick?: (turn: number) => void;
   maxTurn?: number;
   showTimes?: boolean;
+  roundStartMs?: number;
 }
 
 /**
@@ -44,6 +45,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   onTurnClick,
   maxTurn = 199,
   showTimes = false,
+  roundStartMs,
 }: QueueLaneEntryProps) {
   const isDemolish = entry.itemId?.startsWith(DEMOLISH_PREFIX) ?? false;
 
@@ -86,10 +88,10 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
           {(() => {
             const startT = entry.startTurn ?? entry.queuedTurn ?? '?';
             const endT = entry.completionTurn ?? (entry.eta !== null ? entry.eta : '?');
-            const startLabel = showTimes && startT !== '?' ? formatTickTime(startT as number) : `T${startT}`;
-            const endLabel = showTimes && endT !== '?' ? formatTickTime(endT as number) : `T${endT}`;
-            const startTitle = showTimes && startT !== '?' ? `T${startT} · ${formatTickTimeFull(startT as number)}` : 'Jump to start turn';
-            const endTitle = showTimes && endT !== '?' ? `T${endT} · ${formatTickTimeFull(endT as number)}` : 'Jump to first turn where item is complete';
+            const startLabel = showTimes && startT !== '?' ? formatTickTime(startT as number, roundStartMs) : `T${startT}`;
+            const endLabel = showTimes && endT !== '?' ? formatTickTime(endT as number, roundStartMs) : `T${endT}`;
+            const startTitle = showTimes && startT !== '?' ? `T${startT} · ${formatTickTimeFull(startT as number, roundStartMs)}` : 'Jump to start turn';
+            const endTitle = showTimes && endT !== '?' ? `T${endT} · ${formatTickTimeFull(endT as number, roundStartMs)}` : 'Jump to first turn where item is complete';
             return (
               <>
                 <button
@@ -214,6 +216,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.def?.duration === nextProps.def?.duration &&
     prevProps.maxTurn === nextProps.maxTurn &&
     prevProps.showTimes === nextProps.showTimes &&
+    prevProps.roundStartMs === nextProps.roundStartMs &&
     prevProps.entry.resourceDelayed === nextProps.entry.resourceDelayed &&
     prevProps.entry.resourceDelayReason === nextProps.entry.resourceDelayReason
   );

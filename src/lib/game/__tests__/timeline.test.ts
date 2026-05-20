@@ -364,4 +364,132 @@ describe('GameController - Fixed 200-Turn Architecture', () => {
       expect(controller.getTotalTurns()).toBe(200);
     });
   });
+
+  describe('withBatch', () => {
+    it('produces the same final state as sequential mutations without a batch', () => {
+      // Set up two controllers from the same state with energy so items queue
+      const base = cloneState(initialState);
+      base.stocks.energy = 100;
+      base.stocks.metal = 9999;
+      base.stocks.mineral = 9999;
+      const ctrlBatch = new GameController(cloneState(base));
+      const ctrlSeq = new GameController(cloneState(base));
+
+      // Sequential (no batch)
+      ctrlSeq.queueItem(1, 'metal_mine', 1);
+      ctrlSeq.queueItem(1, 'metal_mine', 1);
+      const seqState = ctrlSeq.getStateAtTurn(10);
+
+      // Batched
+      ctrlBatch.withBatch(() => {
+        ctrlBatch.queueItem(1, 'metal_mine', 1);
+        ctrlBatch.queueItem(1, 'metal_mine', 1);
+      });
+      const batchState = ctrlBatch.getStateAtTurn(10);
+
+      expect(batchState?.lanes.building.pendingQueue.length).toBe(
+        seqState?.lanes.building.pendingQueue.length,
+      );
+      expect(batchState?.lanes.building.active?.itemId).toBe(
+        seqState?.lanes.building.active?.itemId,
+      );
+    });
+
+    it('defers recomputeAll so intermediate turns are not recomputed between mutations', () => {
+      const base = cloneState(initialState);
+      base.stocks.energy = 100;
+      base.stocks.metal = 9999;
+      base.stocks.mineral = 9999;
+      const ctrl = new GameController(cloneState(base));
+
+      // Inside the batch, intermediate reads at T1 should still see mutations
+      let seenFirstItemInsideBatch = false;
+      ctrl.withBatch(() => {
+        ctrl.queueItem(1, 'metal_mine', 1);
+        // T1 read should see the queued item (mutateAtTurn writes immediately)
+        const mid = ctrl.getStateAtTurn(1);
+        if (mid?.lanes.building.pendingQueue.length === 1 || mid?.lanes.building.active?.itemId === 'metal_mine') {
+          seenFirstItemInsideBatch = true;
+        }
+        ctrl.queueItem(1, 'metal_mine', 1);
+      });
+
+      expect(seenFirstItemInsideBatch).toBe(true);
+      // After batch, state should have both items queued/active
+      const finalState = ctrl.getStateAtTurn(1);
+      const totalItems =
+        (finalState?.lanes.building.active ? 1 : 0) +
+        (finalState?.lanes.building.pendingQueue.length ?? 0);
+      expect(totalItems).toBe(2);
+    });
+
+    it('handles nested withBatch calls correctly (ref-counting)', () => {
+      const base = cloneState(initialState);
+      base.stocks.energy = 100;
+      base.stocks.metal = 9999;
+      base.stocks.mineral = 9999;
+      const ctrl = new GameController(cloneState(base));
+      const ctrlRef = new GameController(cloneState(base));
+
+      // Outer + inner batch should behave the same as no batch
+      ctrl.withBatch(() => {
+        ctrl.withBatch(() => {
+          ctrl.queueItem(1, 'metal_mine', 1);
+        });
+        // After inner batch closes, recompute should NOT have fired yet (outer still open)
+        ctrl.queueItem(1, 'metal_mine', 1);
+      });
+      // After outer closes, single recompute fires
+
+      ctrlRef.queueItem(1, 'metal_mine', 1);
+      ctrlRef.queueItem(1, 'metal_mine', 1);
+
+      const batchState = ctrl.getStateAtTurn(10);
+      const refState = ctrlRef.getStateAtTurn(10);
+      expect(batchState?.lanes.building.active?.itemId).toBe(
+        refState?.lanes.building.active?.itemId,
+      );
+    });
+
+    it('exception in fn() does not leave _batchDepth above zero', () => {
+      const base = cloneState(initialState);
+      const ctrl = new GameController(cloneState(base));
+
+      expect(() => {
+        ctrl.withBatch(() => {
+          throw new Error('test error');
+        });
+      }).toThrow('test error');
+
+      // After exception, a normal mutation should still work (depth back to 0)
+      base.stocks.energy = 100;
+      base.stocks.metal = 9999;
+      base.stocks.mineral = 9999;
+      const ctrl2 = new GameController(cloneState(base));
+      expect(() => {
+        ctrl2.withBatch(() => {
+          throw new Error('test');
+        });
+      }).toThrow();
+      // Normal queue after failed batch must succeed
+      const result = ctrl2.queueItem(1, 'metal_mine', 1);
+      expect(result.success).toBe(true);
+      const state = ctrl2.getStateAtTurn(5);
+      expect(state).toBeDefined();
+    });
+
+    it('zero-mutation batch skips recompute entirely', () => {
+      const base = cloneState(initialState);
+      const ctrl = new GameController(cloneState(base));
+      const stateBefore = ctrl.getStateAtTurn(10);
+
+      ctrl.withBatch(() => {
+        // no mutations
+      });
+
+      const stateAfter = ctrl.getStateAtTurn(10);
+      expect(stateAfter?.currentTurn).toBe(stateBefore?.currentTurn);
+      expect(stateAfter?.stocks.metal).toBe(stateBefore?.stocks.metal);
+    });
+  });
 });

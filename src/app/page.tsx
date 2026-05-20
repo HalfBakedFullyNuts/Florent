@@ -309,6 +309,7 @@ export default function Home() {
     createInitialGameState(),
   );
   const [isMounted, setIsMounted] = useState(false);
+  const [isReplaying, setIsReplaying] = useState(false);
   const [activeShareMetadata, setActiveShareMetadata] =
     useState<ShareMetadata | null>(null);
   const [isSharedBuildPreviewOpen, setSharedBuildPreviewOpen] = useState(false);
@@ -353,21 +354,31 @@ export default function Home() {
       encoded?: string | null,
       options?: RestoreOptions,
     ) => {
-      const replayedState = replayCommands(
-        createInitialGameState(),
-        snapshot.cmds,
-      );
-      commandHistory.loadFromSnapshot(snapshot.cmds);
-      if (encoded && options?.shared) {
-        rememberOpenedSharedLink(encoded, snapshot);
-      } else {
-        setActiveShareMetadata(null);
-        setSharedBuildPreviewOpen(false);
-      }
-      setGameState(() => ({
-        ...replayedState,
-        planets: new Map(replayedState.planets),
-      }));
+      // Show loading indicator first, then defer heavy replay work so the browser
+      // gets a chance to paint the indicator before JS blocks the thread.
+      setIsReplaying(true);
+      setTimeout(() => {
+        let replayedState: GameState = createInitialGameState();
+        try {
+          replayedState = replayCommands(
+            createInitialGameState(),
+            snapshot.cmds,
+          );
+        } finally {
+          setIsReplaying(false);
+        }
+        commandHistory.loadFromSnapshot(snapshot.cmds);
+        if (encoded && options?.shared) {
+          rememberOpenedSharedLink(encoded, snapshot);
+        } else {
+          setActiveShareMetadata(null);
+          setSharedBuildPreviewOpen(false);
+        }
+        setGameState(() => ({
+          ...replayedState,
+          planets: new Map(replayedState.planets),
+        }));
+      }, 0);
     },
     [commandHistory, rememberOpenedSharedLink],
   );
@@ -762,6 +773,9 @@ export default function Home() {
   const enrichEntriesWithDelay = useCallback(
     (entries: LaneEntry[]): LaneEntry[] => {
       if (!controller) return entries;
+      // Fast path: return original reference when no entries need enrichment.
+      // Preserves referential equality for downstream useMemos.
+      if (!entries.some(e => e.resourceDelayed)) return entries;
       return entries.map((entry, i) => {
         if (!entry.resourceDelayed) return entry;
         const prevEntry = entries[i - 1];
@@ -807,6 +821,8 @@ export default function Home() {
   // Helper: Enrich lane entries with validation state
   const enrichEntriesWithValidation = useCallback(
     (entries: any[]) => {
+      // Fast path: return original reference when there's nothing to enrich.
+      if (queueValidation.size === 0) return entries;
       return entries.map((entry) => {
         const validation = queueValidation.get(entry.id);
         if (!validation) {
@@ -1665,38 +1681,43 @@ export default function Home() {
         "research",
       ];
 
-      let moreFound = true;
-      while (moreFound) {
-        moreFound = false;
-        const scanState = controller!.getStateAtTurn(planTurn);
-        if (!scanState) break;
+      // Batch all cascade cancels so only one recomputeAll fires at the end.
+      // Safe because BFS only reads planTurn state (directly mutated by mutateAtTurn),
+      // not future-turn simulated state.
+      controller!.withBatch(() => {
+        let moreFound = true;
+        while (moreFound) {
+          moreFound = false;
+          const scanState = controller!.getStateAtTurn(planTurn);
+          if (!scanState) break;
 
-        for (const scanLaneId of allLaneIds) {
-          const entries = getLaneView(scanState, scanLaneId).entries;
-          for (const qEntry of entries) {
-            // Skip wait items and entries already scheduled for removal
-            if (qEntry.isWait || qEntry.isAutoWait) continue;
-            const qDef = scanState.defs[qEntry.itemId];
-            if (!qDef) continue;
+          for (const scanLaneId of allLaneIds) {
+            const entries = getLaneView(scanState, scanLaneId).entries;
+            for (const qEntry of entries) {
+              // Skip wait items and entries already scheduled for removal
+              if (qEntry.isWait || qEntry.isAutoWait) continue;
+              const qDef = scanState.defs[qEntry.itemId];
+              if (!qDef) continue;
 
-            // Only cascade if a prerequisite of this entry was directly cancelled
-            const hasCancelledPrereq = qDef.prerequisites?.some((p) =>
-              cancelledDefIds.has(p),
-            );
-            if (hasCancelledPrereq) {
-              // This entry is now broken — cascade it too
-              cancelledDefIds.add(qEntry.itemId);
-              newCascadeWarnings.push({
-                entryId: qEntry.id,
-                laneId: scanLaneId,
-                reason: `${qDef.name || qEntry.itemId} — prerequisite removed`,
-              });
-              controller!.cancelPlannedItem(scanLaneId, qEntry.id);
-              moreFound = true; // Another pass needed for transitive dependents
+              // Only cascade if a prerequisite of this entry was directly cancelled
+              const hasCancelledPrereq = qDef.prerequisites?.some((p) =>
+                cancelledDefIds.has(p),
+              );
+              if (hasCancelledPrereq) {
+                // This entry is now broken — cascade it too
+                cancelledDefIds.add(qEntry.itemId);
+                newCascadeWarnings.push({
+                  entryId: qEntry.id,
+                  laneId: scanLaneId,
+                  reason: `${qDef.name || qEntry.itemId} — prerequisite removed`,
+                });
+                controller!.cancelPlannedItem(scanLaneId, qEntry.id);
+                moreFound = true; // Another pass needed for transitive dependents
+              }
             }
           }
         }
-      }
+      });
 
       // Repack once after all cascade removals to close the resulting gaps
       if (newCascadeWarnings.length > 0) {
@@ -1879,52 +1900,57 @@ export default function Home() {
         reason: string;
       }> = [];
 
-      for (const entry of entries) {
-        const result = controller.cancelPlannedItem(laneId, entry.id);
-        if (!result.success) continue;
-        commandHistory.recordCancel(planetIdx, laneId, entry.id);
-        if (!entry.isWait && !entry.isAutoWait) {
-          cancelledDefIds.add(entry.itemId);
-        }
-      }
-
       const laneIds: Array<"building" | "ship" | "colonist"> = [
         "building",
         "ship",
         "colonist",
       ];
-      let moreFound = cancelledDefIds.size > 0;
-      while (moreFound) {
-        moreFound = false;
-        const scanState = controller.getStateAtTurn(planTurn);
-        if (!scanState) break;
 
-        for (const scanLaneId of laneIds) {
-          const scanEntries = getLaneView(scanState, scanLaneId).entries;
-          for (const qEntry of scanEntries) {
-            if (qEntry.isWait || qEntry.isAutoWait) continue;
-            const qDef = scanState.defs[qEntry.itemId];
-            if (!qDef) continue;
-
-            const hasCancelledPrereq = qDef.prerequisites?.some((prereq) =>
-              cancelledDefIds.has(prereq),
-            );
-            if (!hasCancelledPrereq) continue;
-
-            const result = controller.cancelPlannedItem(scanLaneId, qEntry.id);
-            if (!result.success) continue;
-
-            commandHistory.recordCancel(planetIdx, scanLaneId, qEntry.id);
-            cancelledDefIds.add(qEntry.itemId);
-            newCascadeWarnings.push({
-              entryId: qEntry.id,
-              laneId: scanLaneId,
-              reason: `${qDef.name || qEntry.itemId} - prerequisite removed`,
-            });
-            moreFound = true;
+      // Batch all cancels (initial lane + cascade BFS) — all reads are at planTurn,
+      // so future-turn simulation can be deferred until the batch closes.
+      controller.withBatch(() => {
+        for (const entry of entries) {
+          const result = controller.cancelPlannedItem(laneId, entry.id);
+          if (!result.success) continue;
+          commandHistory.recordCancel(planetIdx, laneId, entry.id);
+          if (!entry.isWait && !entry.isAutoWait) {
+            cancelledDefIds.add(entry.itemId);
           }
         }
-      }
+
+        let moreFound = cancelledDefIds.size > 0;
+        while (moreFound) {
+          moreFound = false;
+          const scanState = controller.getStateAtTurn(planTurn);
+          if (!scanState) break;
+
+          for (const scanLaneId of laneIds) {
+            const scanEntries = getLaneView(scanState, scanLaneId).entries;
+            for (const qEntry of scanEntries) {
+              if (qEntry.isWait || qEntry.isAutoWait) continue;
+              const qDef = scanState.defs[qEntry.itemId];
+              if (!qDef) continue;
+
+              const hasCancelledPrereq = qDef.prerequisites?.some((prereq) =>
+                cancelledDefIds.has(prereq),
+              );
+              if (!hasCancelledPrereq) continue;
+
+              const result = controller.cancelPlannedItem(scanLaneId, qEntry.id);
+              if (!result.success) continue;
+
+              commandHistory.recordCancel(planetIdx, scanLaneId, qEntry.id);
+              cancelledDefIds.add(qEntry.itemId);
+              newCascadeWarnings.push({
+                entryId: qEntry.id,
+                laneId: scanLaneId,
+                reason: `${qDef.name || qEntry.itemId} - prerequisite removed`,
+              });
+              moreFound = true;
+            }
+          }
+        }
+      });
 
       controller.repackAllLanes(planTurn);
       setCascadeWarnings(newCascadeWarnings);
@@ -2103,9 +2129,10 @@ export default function Home() {
       const def = state.defs[entry.itemId];
       if (!def) return entry.quantity;
 
-      // Binary search for maximum quantity
+      // Binary search for maximum quantity.
+      // Cap at 1000 — no ship/colonist batch exceeds this in game data.
       let low = 1;
-      let high = 10000;
+      let high = 1000;
       let maxValid = entry.quantity;
 
       while (low <= high) {
@@ -2336,6 +2363,15 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">
+      {/* BL loading indicator — shown while replayCommands is running on a shared link */}
+      {isMounted && isReplaying && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pink-nebula-bg/80">
+          <p className="font-mono text-lg text-pink-nebula-text animate-pulse">
+            Loading build list...
+          </p>
+        </div>
+      )}
+
       {/* Background Overlay */}
       <div
         className="fixed inset-0 z-0 bg-cover bg-no-repeat pointer-events-none"
@@ -2548,7 +2584,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.57</div>
+                      <div className="opacity-30 text-[10px]">v0.2.59</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2796,7 +2832,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.57</div>
+          <div className="opacity-30 text-[10px]">v0.2.59</div>
         </footer>
       </div>
 
