@@ -31,6 +31,7 @@ import {
   getFirstEmptyTurns,
   getFirstFreeTurnForLane,
   type LaneView,
+  type LaneEntry,
 } from "../lib/game/selectors";
 import {
   validateAllQueueItems,
@@ -756,6 +757,53 @@ export default function Home() {
     [globalResearch.planetLimit],
   );
 
+  // Helper: Enrich resource-delayed entries with the specific missing-resource text.
+  // Called after enrichEntriesWithValidation so both passes are independent.
+  const enrichEntriesWithDelay = useCallback(
+    (entries: LaneEntry[]): LaneEntry[] => {
+      if (!controller) return entries;
+      return entries.map((entry, i) => {
+        if (!entry.resourceDelayed) return entry;
+        const prevEntry = entries[i - 1];
+        if (!prevEntry?.isAutoWait) return entry;
+        const gapTurn = prevEntry.startTurn;
+        if (gapTurn === undefined) return entry;
+        const stateAtGap = controller.getStateAtTurn(gapTurn);
+        if (!stateAtGap) return entry;
+        const def = stateAtGap.defs[entry.itemId];
+        const costs = (def?.costsPerUnit ?? {}) as unknown as Record<string, number>;
+        const stocks = stateAtGap.stocks as unknown as Record<string, number>;
+        const qty = entry.quantity;
+
+        const resLabel: Record<string, string> = {
+          metal: 'Metal', mineral: 'Mineral', food: 'Food',
+          energy: 'Energy', research_points: 'Research',
+        };
+
+        const lacking: string[] = [];
+        for (const [res, costPerUnit] of Object.entries(costs)) {
+          if (res === 'workers' || typeof costPerUnit !== 'number' || costPerUnit <= 0) continue;
+          const needed = costPerUnit * qty;
+          const have = stocks[res] ?? 0;
+          if (have < needed) {
+            lacking.push(`${resLabel[res] ?? res}: need ${needed}, have ${Math.floor(have)}`);
+          }
+        }
+        if (typeof costs.workers === 'number' && costs.workers > 0) {
+          const needed = costs.workers * qty;
+          const have = stateAtGap.population?.workersIdle ?? 0;
+          if (have < needed) lacking.push(`Workers: need ${needed}, have ${have}`);
+        }
+
+        const reason = lacking.length > 0
+          ? `Can't start on time — ${lacking.join('; ')}`
+          : 'Waiting for resources to accumulate';
+        return { ...entry, resourceDelayReason: reason };
+      });
+    },
+    [controller],
+  );
+
   // Helper: Enrich lane entries with validation state
   const enrichEntriesWithValidation = useCallback(
     (entries: any[]) => {
@@ -910,25 +958,25 @@ export default function Home() {
       building: buildingLane
         ? {
             ...buildingLane,
-            entries: enrichEntriesWithValidation(buildingLane.entries),
+            entries: enrichEntriesWithDelay(enrichEntriesWithValidation(buildingLane.entries)),
           }
         : null,
       ship: shipLane
         ? {
             ...shipLane,
-            entries: enrichEntriesWithValidation(shipLane.entries),
+            entries: enrichEntriesWithDelay(enrichEntriesWithValidation(shipLane.entries)),
           }
         : null,
       colonist: colonistLane
         ? {
             ...colonistLane,
-            entries: enrichEntriesWithValidation(colonistLane.entries),
+            entries: enrichEntriesWithDelay(enrichEntriesWithValidation(colonistLane.entries)),
           }
         : null,
       research: globalResearchLane
         ? {
             ...globalResearchLane,
-            entries: enrichEntriesWithValidation(globalResearchLane.entries),
+            entries: enrichEntriesWithDelay(enrichEntriesWithValidation(globalResearchLane.entries)),
           }
         : null,
     }),
@@ -938,6 +986,7 @@ export default function Home() {
       colonistLane,
       globalResearchLane,
       enrichEntriesWithValidation,
+      enrichEntriesWithDelay,
     ],
   );
 
@@ -2499,7 +2548,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.56</div>
+                      <div className="opacity-30 text-[10px]">v0.2.57</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2747,7 +2796,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.56</div>
+          <div className="opacity-30 text-[10px]">v0.2.57</div>
         </footer>
       </div>
 

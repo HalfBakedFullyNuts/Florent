@@ -63,6 +63,8 @@ export interface LaneEntry {
   missingPrereqs?: string[]; // List of missing prerequisites
   isWait?: boolean; // True for wait items
   isAutoWait?: boolean; // True for auto-inserted wait items
+  resourceDelayed?: boolean; // True when an auto-wait precedes this item (resource gap)
+  resourceDelayReason?: string; // Populated by page.tsx enrichment: specific missing resources
 }
 
 export interface LaneView {
@@ -359,6 +361,7 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   // all pending items use the same formula: displayEnd = displayStart + duration - 1.
   // The gap to the next item is always +1 (scheduleStart = displayEnd + 1).
   let scheduleStart = calculateScheduleStart(lane, state.currentTurn);
+  let prevWasAutoWait = false;
 
   for (const pending of lane.pendingQueue) {
     const def = state.defs[pending.itemId];
@@ -366,12 +369,20 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
     const displayStart = Math.max(scheduleStart, pending.minStartTurn ?? scheduleStart);
     const displayEnd = displayStart + duration - 1;
 
-    addEntry(workItemToLaneEntry(pending, state.defs, 'pending', {
+    const entry = workItemToLaneEntry(pending, state.defs, 'pending', {
       eta: displayEnd,
       startTurn: displayStart,
       completionTurn: displayEnd,
-    }));
+    });
 
+    // A real item immediately following an auto-wait was delayed by a resource gap.
+    if (!pending.isAutoWait && prevWasAutoWait) {
+      addEntry({ ...entry, resourceDelayed: true });
+    } else {
+      addEntry(entry);
+    }
+
+    prevWasAutoWait = Boolean(pending.isAutoWait);
     scheduleStart = displayEnd + 1;
   }
 

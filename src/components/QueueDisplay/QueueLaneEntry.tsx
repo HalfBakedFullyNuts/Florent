@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import type { LaneEntry } from '../../lib/game/selectors';
 import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
 import { DEMOLISH_PREFIX } from '../../lib/game/demolish';
@@ -45,29 +45,6 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   maxTurn = 199,
   showTimes = false,
 }: QueueLaneEntryProps) {
-  const [editingQuantity, setEditingQuantity] = useState(false);
-  const [quantityValue, setQuantityValue] = useState(entry.quantity.toString());
-
-  const handleQuantityBlur = () => {
-    setEditingQuantity(false);
-    const newQty = parseInt(quantityValue) || 1;
-    const clampedQty = maxQuantity ? Math.min(Math.max(1, newQty), maxQuantity) : Math.max(1, newQty);
-
-    if (clampedQty !== entry.quantity && onQuantityChange) {
-      onQuantityChange(clampedQty);
-    }
-    setQuantityValue(clampedQty.toString());
-  };
-
-  const handleQuantityKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleQuantityBlur();
-    } else if (e.key === 'Escape') {
-      setEditingQuantity(false);
-      setQuantityValue(entry.quantity.toString());
-    }
-  };
-
   const isDemolish = entry.itemId?.startsWith(DEMOLISH_PREFIX) ?? false;
 
   // Determine status color
@@ -79,14 +56,28 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   const waitTurns = getDisplayWaitTurns(entry, currentTurn);
   const durationTurns = getDisplayDurationTurns(entry, def, currentTurn);
 
+  // Determine border/background override from validation state
+  const outerBorder = entry.invalid
+    ? 'border-red-500/60'
+    : entry.resourceDelayed
+      ? 'border-yellow-500/50'
+      : isDemolish
+        ? 'border-red-800/40'
+        : 'border-pink-nebula-border';
+
+  const outerBg = entry.invalid
+    ? 'bg-red-900/10'
+    : entry.resourceDelayed
+      ? 'bg-yellow-900/5'
+      : isAutoWait
+        ? 'bg-pink-nebula-panel/20 opacity-60 italic'
+        : isDemolish
+          ? 'bg-red-950/30'
+          : 'bg-pink-nebula-panel/50';
+
   return (
     <div
-      className={`
-        w-full text-left px-3 py-2 ${isAutoWait ? 'bg-pink-nebula-panel/20 opacity-60 italic' : isDemolish ? 'bg-red-950/30' : 'bg-pink-nebula-panel/50'} border ${isDemolish ? 'border-red-800/40' : 'border-pink-nebula-border'} rounded
-        transition-colors group
-        ${statusColor}
-        ${entry.invalid ? 'border-orange-500/50 bg-orange-900/10' : ''}
-      `}
+      className={`w-full text-left px-3 py-2 ${outerBg} border ${outerBorder} rounded transition-colors group ${statusColor}`}
     >
       {/* Structured table-like layout */}
       <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2 md:gap-x-4 items-center text-xs md:text-sm font-mono">
@@ -133,23 +124,31 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
         </div>
 
         {/* Quantity */}
-        <div className="text-pink-nebula-text text-right w-12">
+        <div className="text-pink-nebula-text">
           {showQuantityInput && !disabled ? (
-            <input
-              type="number"
-              min="1"
-              max={maxQuantity}
-              value={quantityValue}
-              onChange={(e) => setQuantityValue(e.target.value)}
-              onFocus={() => setEditingQuantity(true)}
-              onBlur={handleQuantityBlur}
-              onKeyDown={handleQuantityKeyDown}
-              onClick={(e) => e.stopPropagation()}
-              className="w-12 px-1 py-0 bg-pink-nebula-bg border border-pink-nebula-border rounded text-pink-nebula-text text-sm text-center focus:outline-none focus:border-pink-nebula-accent-primary font-mono"
-              disabled={disabled}
-            />
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); if (onQuantityChange && entry.quantity > 1) onQuantityChange(entry.quantity - 1); }}
+                disabled={entry.quantity <= 1}
+                title="Decrease quantity"
+                className="w-5 h-5 flex items-center justify-center bg-pink-nebula-bg/70 border border-pink-nebula-border rounded text-pink-nebula-muted hover:border-pink-nebula-accent-primary hover:text-pink-nebula-text disabled:opacity-25 disabled:cursor-not-allowed transition-colors leading-none text-base"
+              >
+                −
+              </button>
+              <span className="w-7 text-center font-mono text-sm tabular-nums select-none">{entry.quantity}</span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); if (onQuantityChange) onQuantityChange(entry.quantity + 1); }}
+                disabled={maxQuantity !== undefined && entry.quantity >= maxQuantity}
+                title={maxQuantity !== undefined && entry.quantity >= maxQuantity ? `Maximum: ${maxQuantity}` : 'Increase quantity'}
+                className="w-5 h-5 flex items-center justify-center bg-pink-nebula-bg/70 border border-pink-nebula-border rounded text-pink-nebula-muted hover:border-pink-nebula-accent-primary hover:text-pink-nebula-text disabled:opacity-25 disabled:cursor-not-allowed transition-colors leading-none text-base"
+              >
+                +
+              </button>
+            </div>
           ) : (
-            <span>×{entry.quantity}</span>
+            <span className="w-12 text-right block">×{entry.quantity}</span>
           )}
         </div>
 
@@ -176,10 +175,16 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
         </div>
       </div>
 
-      {/* Invalid warning */}
+      {/* Hard-block warning (missing prerequisite or constraint) */}
       {entry.invalid && entry.invalidReason && (
-        <div className="mt-1 text-xs text-orange-400">
+        <div className="mt-1 text-xs text-red-400">
           ⚠️ {entry.invalidReason}
+        </div>
+      )}
+      {/* Resource-delay info (soft: waiting for resources to accumulate) */}
+      {!entry.invalid && entry.resourceDelayed && (
+        <div className="mt-1 text-xs text-yellow-400/80">
+          ⏳ {entry.resourceDelayReason ?? 'Waiting for resources to accumulate'}
         </div>
       )}
     </div>
@@ -208,7 +213,9 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.def?.durationTurns === nextProps.def?.durationTurns &&
     prevProps.def?.duration === nextProps.def?.duration &&
     prevProps.maxTurn === nextProps.maxTurn &&
-    prevProps.showTimes === nextProps.showTimes
+    prevProps.showTimes === nextProps.showTimes &&
+    prevProps.entry.resourceDelayed === nextProps.entry.resourceDelayed &&
+    prevProps.entry.resourceDelayReason === nextProps.entry.resourceDelayReason
   );
 });
 
