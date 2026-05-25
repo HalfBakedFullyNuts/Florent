@@ -216,7 +216,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
           ))}
           <button
             onClick={() => { setShowTimes(t => !t); if (showTimes) setShowCalibrate(false); }}
-            title={showTimes ? 'Show tick numbers' : 'Show GMT wall-clock times'}
+            title={showTimes ? 'Show tick numbers' : 'Show wall-clock times (your local timezone)'}
             className={`ml-auto px-2 py-1 rounded text-xs font-mono border transition-colors ${
               showTimes
                 ? 'border-pink-nebula-accent-primary/60 bg-pink-nebula-accent-primary/10 text-pink-nebula-accent-primary'
@@ -307,14 +307,24 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
 
             const elements: React.ReactNode[] = [];
 
-            // Map reversed display positions to pendingQueue indices at planTurn.
-            // All entries (completed + active + pending) appear in the same order
-            // as the original pendingQueue at planTurn, EXCEPT the first entry is
-            // active at planTurn (not in pendingQueue there), shifting every index
-            // by 1. Formula: (entries.length - 1) - 1 - displayIndex.
-            // Using pendingCount instead of entries.length - 1 broke when completed
-            // items were visible, producing negative indices → INVALID_INDEX.
-            const planQueueCount = Math.max(0, laneView.entries.length - 1);
+            // Map reversed display positions to pendingQueue indices.
+            // entries may contain completed (history) + active + pending; only pending
+            // items appear in lane.pendingQueue. Index newIndex must be a valid
+            // pendingQueue position for the controller — anything else returns INVALID_INDEX.
+            // - dropIndex: where a dragged item lands if dropped on this target (-1 = block).
+            // - sourceIndex: where this entry currently sits (for arrow buttons reordering itself).
+            const pendingEntries = laneView.entries.filter(e => e.status === 'pending');
+            const pendingCount = pendingEntries.length;
+            const pendingIndexById = new Map<string, number>(
+              pendingEntries.map((e, i): [string, number] => [e.id, i])
+            );
+            const dropIndexFor = (e: LaneEntry): number =>
+              e.status === 'pending' ? (pendingIndexById.get(e.id) ?? -1) : -1;
+            const sourceIndexFor = (e: LaneEntry): number => {
+              if (e.status === 'pending') return pendingIndexById.get(e.id) ?? -1;
+              if (e.status === 'active') return pendingCount;
+              return -1;
+            };
 
             reversed.forEach((entry, displayIndex) => {
               const isNewest = entry.id === newestId;
@@ -322,7 +332,10 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
               const busyWorkers = def?.costsPerUnit?.workers ? def.costsPerUnit.workers * entry.quantity : 0;
               const showQuantityInput = activeTab === 'ship' || activeTab === 'colonist';
               const maxQuantity = maxQuantities[entry.id];
-              const actualIndex = planQueueCount - 1 - displayIndex;
+              const dropIndex = dropIndexFor(entry);
+              const sourceIndex = sourceIndexFor(entry);
+              const downBoundExclusive = entry.status === 'active' ? pendingCount : pendingCount - 1;
+              const actualIndex = dropIndex;
               const isDragging = draggedItem?.entryId === entry.id && draggedItem?.laneId === activeTab;
               // Allow reorder for any plan entry except auto-generated waits (they reposition on their own).
               // Past entries are still part of the plan — reordering re-runs the timeline from T1.
@@ -412,9 +425,9 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (actualIndex > 0) onReorder(activeTab, entry.id, actualIndex - 1);
+                          if (sourceIndex > 0) onReorder(activeTab, entry.id, sourceIndex - 1);
                         }}
-                        disabled={actualIndex <= 0}
+                        disabled={sourceIndex <= 0}
                         aria-label="Move up"
                         className="w-7 h-7 flex items-center justify-center text-pink-nebula-muted bg-pink-nebula-bg/50 border border-pink-nebula-border rounded text-xs disabled:opacity-30 active:bg-pink-nebula-accent-primary/30"
                       >
@@ -423,9 +436,9 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (actualIndex < planQueueCount - 1) onReorder(activeTab, entry.id, actualIndex + 1);
+                          if (sourceIndex >= 0 && sourceIndex < downBoundExclusive) onReorder(activeTab, entry.id, sourceIndex + 1);
                         }}
-                        disabled={actualIndex >= planQueueCount - 1}
+                        disabled={sourceIndex < 0 || sourceIndex >= downBoundExclusive}
                         aria-label="Move down"
                         className="w-7 h-7 flex items-center justify-center text-pink-nebula-muted bg-pink-nebula-bg/50 border border-pink-nebula-border rounded text-xs disabled:opacity-30 active:bg-pink-nebula-accent-primary/30"
                       >
@@ -451,6 +464,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                       maxTurn={maxTurn}
                       showTimes={showTimes}
                       roundStartMs={roundStartMs}
+                      laneId={activeTab}
                     />
                   </div>
                 </div>

@@ -141,7 +141,7 @@ export function formatAsText(
   return items.map(item => {
     const abbreviatedName = abbreviateName(item.name);
     const itemText = formatQueueItemLabel(item, abbreviatedName);
-    return `${formatTickTime(item.turn)} - ${itemText}`;
+    return `[${item.turn}] - ${itemText}`;
   }).join('\n');
 }
 
@@ -335,14 +335,14 @@ export function formatMultiPlanetAsText(
 
   data.planets.forEach((planet) => {
     const items = extractQueueItems(planet.lanes, maxTurn, extractOpts);
-    lines.push('', `--- ${planet.name} (starts ${formatTickTime(planet.startTurn)}) ---`);
+    lines.push('', `--- ${planet.name} (starts [${planet.startTurn}]) ---`);
     if (items.length === 0) {
       lines.push('No planet-local items queued.');
       return;
     }
 
     items.forEach((item) => {
-      lines.push(`${formatTickTime(item.turn)} ${laneLabel(item.lane)} - ${formatQueueItemLabel(item)}`);
+      lines.push(`[${item.turn}] ${laneLabel(item.lane)} - ${formatQueueItemLabel(item)}`);
     });
   });
 
@@ -352,7 +352,7 @@ export function formatMultiPlanetAsText(
     lines.push('No research queued.');
   } else {
     researchItems.forEach((item) => {
-      lines.push(`${formatTickTime(item.turn)} - ${formatQueueItemLabel(item)}`);
+      lines.push(`[${item.turn}] - ${formatQueueItemLabel(item)}`);
     });
   }
 

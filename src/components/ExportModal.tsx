@@ -33,6 +33,7 @@ export interface ExportModalProps {
   researchLane: LaneView;
   currentTurn: number;
   multiPlanetData?: MultiPlanetExportData;
+  exportMode?: 'current' | 'full';
 }
 
 /**
@@ -54,6 +55,7 @@ export function ExportModal({
   researchLane,
   currentTurn,
   multiPlanetData,
+  exportMode,
 }: ExportModalProps) {
   const [notification, setNotification] = useState<string | null>(null);
   const [discordMessages, setDiscordMessages] = useState<string[]>([]);
@@ -66,8 +68,8 @@ export function ExportModal({
   const hasMultiPlanetTarget = Boolean(multiPlanetData && multiPlanetData.planets.length > 1);
   const activeTarget = hasMultiPlanetTarget ? exportTarget : 'selected';
 
-  // Default end turn = last turn a building is queued across all relevant planets
-  const defaultEndTurn = computeDefaultEndTurn(buildingLane, multiPlanetData);
+  // Default end turn = last queued item across all lanes (so ships/colonists aren't cut off).
+  const defaultEndTurn = computeDefaultEndTurn([buildingLane, shipLane, colonistLane, researchLane], multiPlanetData);
   const [exportStartTurn, setExportStartTurn] = useState(1);
   const [exportEndTurn, setExportEndTurn] = useState(defaultEndTurn);
 
@@ -84,9 +86,22 @@ export function ExportModal({
     clearDiscordCopyState();
     setImageFallback(null);
     setJsonFallback(null);
-    const text = activeTarget === 'all' && multiPlanetData
-      ? formatMultiPlanetAsText(multiPlanetData, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn })
-      : formatAsText(laneViews, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn });
+
+    let text: string;
+    let usedFullFallback = false;
+
+    if (exportMode === 'current' && activeTarget !== 'all') {
+      // Try current-turn only; if empty, fall back to full queue.
+      text = formatAsText(laneViews, currentTurn, { minTurn: rangeOpts.minTurn });
+      if (!text) {
+        text = formatAsText(laneViews, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn });
+        usedFullFallback = true;
+      }
+    } else {
+      text = activeTarget === 'all' && multiPlanetData
+        ? formatMultiPlanetAsText(multiPlanetData, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn })
+        : formatAsText(laneViews, rangeOpts.maxTurn, { minTurn: rangeOpts.minTurn });
+    }
 
     if (!text) {
       showNotification('Queue is empty - nothing to export');
@@ -94,7 +109,11 @@ export function ExportModal({
     }
 
     const success = await copyToClipboard(text);
-    showNotification(success ? 'Copied to clipboard!' : 'Failed to copy to clipboard');
+    if (success) {
+      showNotification(usedFullFallback ? 'Copied full queue' : 'Copied to clipboard!');
+    } else {
+      showNotification('Failed to copy to clipboard');
+    }
   };
 
   const handleExportDiscord = async () => {
@@ -456,13 +475,11 @@ function extractMultiPlanetItems(data: MultiPlanetExportData, maxTurn?: number, 
   return [...planetItems, ...researchItems].sort((a, b) => a.turn - b.turn);
 }
 
-function computeDefaultEndTurn(buildingLane: LaneView, multiPlanetData?: MultiPlanetExportData): number {
-  const buildingLanes: LaneView[] = multiPlanetData
-    ? multiPlanetData.planets
-        .map(p => p.lanes.find(l => l.laneId === 'building'))
-        .filter((l): l is LaneView => l != null)
-    : [buildingLane];
-  const items = extractQueueItems(buildingLanes);
+function computeDefaultEndTurn(allLanes: LaneView[], multiPlanetData?: MultiPlanetExportData): number {
+  const lanesToCheck: LaneView[] = multiPlanetData
+    ? multiPlanetData.planets.flatMap(p => p.lanes)
+    : allLanes;
+  const items = extractQueueItems(lanesToCheck);
   const maxTurn = items.filter(i => !i.isWait).reduce((m, i) => Math.max(m, i.turn), 0);
   return maxTurn > 0 ? maxTurn : 1;
 }

@@ -607,6 +607,7 @@ export class GameController {
     // Validate new index (after removal, length will be one less)
     const queueLengthAfterRemoval = lane.pendingQueue.length - 1;
     if (newIndex < 0 || newIndex > queueLengthAfterRemoval) {
+      console.warn('[reorder] INVALID_INDEX pending', { laneId, entryId, newIndex, oldIndex, pendingLength: lane.pendingQueue.length, turn });
       return { success: false, reason: 'INVALID_INDEX' };
     }
 
@@ -663,6 +664,7 @@ export class GameController {
     if (active.isWait) {
       const newQueueLength = lane.pendingQueue.length + 1;
       if (newIndex < 0 || newIndex >= newQueueLength) {
+        console.warn('[reorder] INVALID_INDEX active-wait', { laneId, entryId, newIndex, pendingLength: lane.pendingQueue.length, turn });
         return { success: false, reason: 'INVALID_INDEX' };
       }
       const plannedWaitTurns = getPlannedWaitTurns(active, turn) ?? active.turnsRemaining;
@@ -706,6 +708,7 @@ export class GameController {
     // Validate new index (active will become pending, so queue grows by 1)
     const newQueueLength = lane.pendingQueue.length + 1;
     if (newIndex < 0 || newIndex >= newQueueLength) {
+      console.warn('[reorder] INVALID_INDEX active', { laneId, entryId, newIndex, pendingLength: lane.pendingQueue.length, turn });
       return { success: false, reason: 'INVALID_INDEX' };
     }
 

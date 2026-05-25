@@ -75,10 +75,13 @@ const itemDefinitions: Record<string, ItemDefinition> = loadGameData(gameDataJso
 const PLANET_LANES: LaneId[] = ['building', 'ship', 'colonist', 'research'];
 const BASE_PLANET_LIMIT = 4;
 const OUTPOST_SHIP_ID = 'outpost_ship';
-const RESERVED_OUTPOST_SHIPS = 1; // HW keeps 1 reserved; non-HW planets reserve 0
+// The starter outpost ship on HW is intended for the first colonisation mission
+// (see createStandardStart in seed.ts). Reserving it blocked that use case and
+// forced expansion to wait for a constructed ship, so no ships are held back.
+const RESERVED_OUTPOST_SHIPS = 0;
 
-function getReservedOutpostShipCount(planet: ExtendedPlanetState): number {
-  return planet.id === 'planet-1' ? RESERVED_OUTPOST_SHIPS : 0;
+function getReservedOutpostShipCount(_planet: ExtendedPlanetState): number {
+  return RESERVED_OUTPOST_SHIPS;
 }
 
 export interface LocalResearchGateOptions {
@@ -402,7 +405,7 @@ export function planPlanetExpansion(
 
   if (departureTurn === null) {
     throw new Error(
-      'No usable outpost ship is available. Build an Outpost Ship first; the starter ship is reserved.'
+      'No usable outpost ship is available. Build an Outpost Ship first.'
     );
   }
 

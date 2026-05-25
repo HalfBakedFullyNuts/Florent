@@ -36,18 +36,32 @@ export function tickToWallTime(turn: number, roundStartMs?: number): Date {
   return new Date((roundStartMs ?? getRoundStartMs()) + turn * 3_600_000);
 }
 
-/** "Sun 23:00" compact GMT label for use in UI and exports. */
-export function formatTickTime(turn: number, roundStartMs?: number): string {
-  const d = tickToWallTime(turn, roundStartMs);
-  const h = String(d.getUTCHours()).padStart(2, '0');
-  const m = String(d.getUTCMinutes()).padStart(2, '0');
-  return `${DAY[d.getUTCDay()]} ${h}:${m}`;
+/** Local timezone label, e.g. "GMT+10" or "GMT-5". Falls back to "local" if unavailable. */
+function getLocalTzLabel(): string {
+  try {
+    const offsetMin = -new Date().getTimezoneOffset();
+    const sign = offsetMin >= 0 ? '+' : '-';
+    const abs = Math.abs(offsetMin);
+    const hh = Math.floor(abs / 60);
+    const mm = abs % 60;
+    return mm === 0 ? `GMT${sign}${hh}` : `GMT${sign}${hh}:${String(mm).padStart(2, '0')}`;
+  } catch {
+    return 'local';
+  }
 }
 
-/** "Sun 10 May 23:00 GMT" verbose label for tooltips. */
+/** "Sun 23:00" compact local-time label for use in UI and exports. */
+export function formatTickTime(turn: number, roundStartMs?: number): string {
+  const d = tickToWallTime(turn, roundStartMs);
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${DAY[d.getDay()]} ${h}:${m}`;
+}
+
+/** "Sun 10 May 23:00 GMT+10" verbose local-time label for tooltips. */
 export function formatTickTimeFull(turn: number, roundStartMs?: number): string {
   const d = tickToWallTime(turn, roundStartMs);
-  const h = String(d.getUTCHours()).padStart(2, '0');
-  const m = String(d.getUTCMinutes()).padStart(2, '0');
-  return `${DAY[d.getUTCDay()]} ${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${h}:${m} GMT`;
+  const h = String(d.getHours()).padStart(2, '0');
+  const m = String(d.getMinutes()).padStart(2, '0');
+  return `${DAY[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]} ${h}:${m} ${getLocalTzLabel()}`;
 }

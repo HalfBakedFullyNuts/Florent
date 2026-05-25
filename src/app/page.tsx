@@ -167,8 +167,8 @@ function withPlanetMetadata(
 }
 
 // Scan all planets to find the earliest possible outpost-ship arrival at a new planet.
-// HW (planet-1) reserves 1 ship and uses 26T galaxy_to_galaxy travel.
-// Non-HW planets reserve 0 ships and use 16T inside_galaxy travel.
+// HW uses 26T galaxy_to_galaxy travel; non-HW planets use 16T inside_galaxy travel.
+// Reservation rule lives in gameState.ts (no ships reserved); keep this scanner in sync.
 function getBestExpansionSource(
   gameState: GameState,
   upToTurn: number = 200,
@@ -179,7 +179,7 @@ function getBestExpansionSource(
   for (let idx = 0; idx < planetEntries.length; idx++) {
     const [, planet] = planetEntries[idx];
     const isHomeworld = planet.id === 'planet-1';
-    const reserved = isHomeworld ? 1 : 0;
+    const reserved = 0;
     const travelChoice: ExpansionTravelChoice = isHomeworld
       ? 'galaxy_to_galaxy'
       : 'inside_galaxy';
@@ -2584,7 +2584,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.59</div>
+                      <div className="opacity-30 text-[10px]">v0.2.65</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2832,7 +2832,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.59</div>
+          <div className="opacity-30 text-[10px]">v0.2.65</div>
         </footer>
       </div>
 

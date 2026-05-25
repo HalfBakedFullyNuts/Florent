@@ -29,12 +29,17 @@ describe('Multi-Planet State Management', () => {
     expect(firstPlanet!.name).toBe('Homeworld');
     expect(firstPlanet!.startTurn).toBe(1);
     expect(firstPlanet!.completedCounts.outpost_ship).toBe(1);
-    expect(getFirstUsableOutpostShipTurn(gameState, 'planet-1')).toBeNull();
+    // Starter outpost ship is usable for the first colonisation mission.
+    expect(getFirstUsableOutpostShipTurn(gameState, 'planet-1')).toBe(1);
   });
 
   test('plans expansion from the first usable outpost ship plus inside-galaxy travel time', () => {
     let gameState = createInitialGameState();
+    // Clear the starter ship to exercise the scan-for-first-usable-turn path.
     const homeworld = gameState.planets.get('planet-1')!;
+    homeworld.timeline!.mutateAtTurn(1, (state) => {
+      delete state.completedCounts.outpost_ship;
+    });
     homeworld.timeline!.mutateAtTurn(20, (state) => {
       state.completedCounts.outpost_ship = 2;
     });
@@ -71,7 +76,11 @@ describe('Multi-Planet State Management', () => {
 
   test('uses galaxy-to-galaxy travel time when selected', () => {
     let gameState = createInitialGameState();
+    // Clear the starter ship so the test verifies the scan picks up the T10 ship.
     const homeworld = gameState.planets.get('planet-1')!;
+    homeworld.timeline!.mutateAtTurn(1, (state) => {
+      delete state.completedCounts.outpost_ship;
+    });
     homeworld.timeline!.mutateAtTurn(10, (state) => {
       state.completedCounts.outpost_ship = 2;
     });
@@ -87,8 +96,29 @@ describe('Multi-Planet State Management', () => {
     expect(gameState.planets.get('planet-2')!.startTurn).toBe(36);
   });
 
-  test('blocks expansion when only the reserved starter outpost ship exists', () => {
+  test('first colonisation uses the starter outpost ship from T1', () => {
+    let gameState = createInitialGameState();
+
+    gameState = addPlanet(gameState, {
+      name: 'First Colony',
+      startTurn: 27,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 30, orbitalCap: 20 },
+      expansion: { travelChoice: 'galaxy_to_galaxy' },
+    });
+
+    const colony = gameState.planets.get('planet-2')!;
+    expect(colony.startTurn).toBe(27);
+    expect(colony.expansion?.departureTurn).toBe(1);
+  });
+
+  test('blocks expansion when no outpost ship is available', () => {
     const gameState = createInitialGameState();
+    // Remove the starter outpost ship to simulate "no ships available".
+    const homeworld = gameState.planets.get('planet-1')!;
+    homeworld.timeline!.mutateAtTurn(1, (state) => {
+      delete state.completedCounts.outpost_ship;
+    });
 
     expect(() => addPlanet(gameState, {
       name: 'Blocked Colony',

@@ -141,7 +141,7 @@
           "type": "unit",
           "id": "worker",
           "amount": 1,
-          "is_consumed": true
+          "is_consumed": false
         }
       ],
       "build_requirements": {

@@ -65,6 +65,8 @@ export interface LaneEntry {
   isAutoWait?: boolean; // True for auto-inserted wait items
   resourceDelayed?: boolean; // True when an auto-wait precedes this item (resource gap)
   resourceDelayReason?: string; // Populated by page.tsx enrichment: specific missing resources
+  scheduledResearch?: string[]; // Research prereqs the engine has scheduled to complete before activation
+  blockedResearch?: string[]; // Research prereqs that the engine has flagged as no longer scheduled/completed
 }
 
 export interface LaneView {
@@ -293,6 +295,8 @@ function workItemToLaneEntry(
     minStartTurn: item.minStartTurn,
     isWait: item.isWait,
     isAutoWait: item.isAutoWait,
+    scheduledResearch: item.scheduledResearch,
+    blockedResearch: item.blockedResearch,
   };
 }
 

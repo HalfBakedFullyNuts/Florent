@@ -70,6 +70,12 @@ export function validateQueueEntry(
   laneId: LaneId
 ): { valid: boolean; reason?: string; missingPrereqs?: string[] } {
 
+  // Wait entries are synthetic (itemId '__wait__') and have no game-data def.
+  // They carry no prerequisites, costs, or workers — never report invalid.
+  if (entry.isWait) {
+    return { valid: true };
+  }
+
   const def = state.defs[entry.itemId];
   if (!def) {
     return { valid: false, reason: 'UNKNOWN_ITEM' };
@@ -82,6 +88,18 @@ export function validateQueueEntry(
   // Prerequisite check
   if (def.prerequisites && def.prerequisites.length > 0) {
     const missing: string[] = [];
+    // Research is tracked outside the per-lane queues: completed research lives
+    // on PlanetState.completedResearch, and the engine records research that is
+    // expected to complete before activation in entry.scheduledResearch. Either
+    // counts as satisfying a research prerequisite, unless the engine has
+    // explicitly flagged it as blocked.
+    const blockedSet = new Set(entry.blockedResearch || []);
+    const researchSatisfiedSet = new Set(
+      [
+        ...(state.completedResearch || []),
+        ...(entry.scheduledResearch || []),
+      ].filter((id) => !blockedSet.has(id))
+    );
 
     for (const prereqId of def.prerequisites) {
       // Check if this prerequisite will exist at the item's start turn
@@ -90,7 +108,7 @@ export function validateQueueEntry(
 
       // Also check if the prerequisite is in the queue before this item
       // (items earlier in the queue will complete before this one)
-      let willExist = count > 0;
+      let willExist = count > 0 || researchSatisfiedSet.has(prereqId);
 
       if (!willExist && entry.startTurn) {
         // Check if prerequisite is queued earlier and will complete before this item starts

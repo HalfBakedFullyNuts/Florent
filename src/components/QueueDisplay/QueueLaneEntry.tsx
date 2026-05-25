@@ -5,6 +5,8 @@ import type { LaneEntry } from '../../lib/game/selectors';
 import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
 import { DEMOLISH_PREFIX } from '../../lib/game/demolish';
 import { formatTickTime, formatTickTimeFull } from '../../lib/utils/tickTime';
+import { LANE_CONFIG } from '../../lib/constants/lanes';
+import type { LaneId } from '../../lib/sim/engine/types';
 
 export interface QueueLaneEntryProps {
   entry: LaneEntry;
@@ -21,6 +23,7 @@ export interface QueueLaneEntryProps {
   maxTurn?: number;
   showTimes?: boolean;
   roundStartMs?: number;
+  laneId?: LaneId;
 }
 
 /**
@@ -46,8 +49,10 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   maxTurn = 199,
   showTimes = false,
   roundStartMs,
+  laneId,
 }: QueueLaneEntryProps) {
   const isDemolish = entry.itemId?.startsWith(DEMOLISH_PREFIX) ?? false;
+  const laneSuffix = laneId ? ` [${LANE_CONFIG[laneId].title}]` : '';
 
   // Determine status color
   const statusColor = entry.status === 'active' ? 'border-l-4 border-l-yellow-500' :
@@ -117,9 +122,9 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
         {/* Item Name */}
         <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : isDemolish ? 'text-red-300' : 'text-pink-nebula-text'}`}>
           {isAutoWait
-            ? `⏳ Auto-wait: ${waitTurns}t (resource gap)`
+            ? `⏳ Auto-wait${laneSuffix}: ${waitTurns}t (resource gap)`
             : entry.isWait
-              ? `⏳ Manual wait: ${waitTurns}t`
+              ? `⏳ Manual wait${laneSuffix}: ${waitTurns}t`
               : isDemolish
                 ? `🔨 ${entry.itemName}`
                 : entry.itemName}
@@ -217,6 +222,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.maxTurn === nextProps.maxTurn &&
     prevProps.showTimes === nextProps.showTimes &&
     prevProps.roundStartMs === nextProps.roundStartMs &&
+    prevProps.laneId === nextProps.laneId &&
     prevProps.entry.resourceDelayed === nextProps.entry.resourceDelayed &&
     prevProps.entry.resourceDelayReason === nextProps.entry.resourceDelayReason
   );
