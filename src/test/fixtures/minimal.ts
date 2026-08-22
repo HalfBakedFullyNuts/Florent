@@ -4,6 +4,7 @@
 
 import type { ItemDefinition } from '../../lib/sim/engine/types';
 import { createMinimalStart } from '../../lib/sim/defs/seed';
+import { setDefsCatalog } from '../../lib/sim/engine/defsRegistry';
 
 // Minimal set of definitions for testing
 export const minimalDefs: Record<string, ItemDefinition> = {
@@ -164,3 +165,7 @@ export const minimalDefs: Record<string, ItemDefinition> = {
 
 // Create minimal initial state
 export const minimalState = createMinimalStart(minimalDefs);
+
+// Engine def lookups resolve through the catalog — keep it in sync for consumers
+// of this fixture (each vitest file gets an isolated module registry).
+setDefsCatalog(minimalDefs);

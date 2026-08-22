@@ -3,14 +3,15 @@
  */
 
 import type { PlanetState, NetOutputs } from './types';
+import { getDefs } from './defsRegistry';
 import { RESOURCE_TYPES, FOOD_PER_WORKER } from '../rules/constants';
 
 /**
- * Compute net outputs per turn
- * Σ(baseOutputsPerUnit × abundance × count) − Σ(upkeeps) − populationUpkeep
- * Food upkeep is now subtracted from production, not stocks
+ * Compute per-turn production minus structure upkeep for all completed items.
+ * Does NOT include population food upkeep — callers add that separately
+ * (see computeNetOutputsPerTurn) so it always reflects the CURRENT population.
  */
-export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
+export function computeProductionPerTurn(state: PlanetState): NetOutputs {
   const netOutputs: NetOutputs = {
     metal: 0,
     mineral: 0,
@@ -19,11 +20,16 @@ export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
     research_points: 0,
   };
 
-  // Iterate through all completed items
-  for (const [itemId, count] of Object.entries(state.completedCounts)) {
+  // Iterate through all completed items in CANONICAL (sorted) order.
+  // Iteration order must not depend on key insertion history (demolish deletes
+  // zero-count entries; rebuilds re-append them), otherwise float summation
+  // order changes and logically identical planets diverge over time.
+  const completedIds = Object.keys(state.completedCounts).sort();
+  for (const itemId of completedIds) {
+    const count = state.completedCounts[itemId];
     if (count === 0) continue;
 
-    const def = state.defs[itemId];
+    const def = getDefs()[itemId];
     if (!def) continue;
 
     // Get production from effects
@@ -53,10 +59,20 @@ export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
     }
   }
 
+  return netOutputs;
+}
+
+/**
+ * Compute net outputs per turn
+ * Σ(baseOutputsPerUnit × abundance × count) − Σ(upkeeps) − populationUpkeep
+ * Food upkeep is now subtracted from production, not stocks
+ */
+export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
+  const netOutputs = computeProductionPerTurn(state);
+
   // CRITICAL: Subtract population food upkeep from PRODUCTION, not stocks
   // This makes upkeep visible in net production calculations
-  const populationFoodUpkeep = calculatePopulationFoodUpkeep(state);
-  netOutputs.food -= populationFoodUpkeep;
+  netOutputs.food -= calculatePopulationFoodUpkeep(state);
 
   return netOutputs;
 }
@@ -94,7 +110,7 @@ export function computeProjectedNetOutputsPerTurn(state: PlanetState): NetOutput
     ...buildingLane.pendingQueue,
   ];
   for (const item of queuedBuildings) {
-    const def = state.defs[item.itemId];
+    const def = getDefs()[item.itemId];
     const effects = def?.effectsOnComplete;
     if (!effects) continue;
     for (const resourceId of RESOURCE_TYPES) {

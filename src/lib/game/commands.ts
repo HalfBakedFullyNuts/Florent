@@ -6,7 +6,8 @@
 import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
 import { canQueue } from '../sim/engine/validation';
 import { tryActivateNext } from '../sim/engine/lanes';
-import { generateWorkItemId, refundActivationCosts } from '../sim/engine/helpers';
+import { generateWorkItemId, refundActivationCosts, seedWorkItemIdCounterFromState } from '../sim/engine/helpers';
+import { getDefs, registerDef } from '../sim/engine/defsRegistry';
 import { createStandardStart } from '../sim/defs/seed';
 import { Timeline } from './state';
 import { getLogger } from './logger';
@@ -44,6 +45,8 @@ export class GameController {
   private timeline: Timeline;
 
   constructor(initialState: PlanetState, existingTimeline?: Timeline) {
+    // Keep generated work-item ids collision-free with ids from restored saves
+    seedWorkItemIdCounterFromState(initialState);
     // Use existing timeline if provided (for multi-planet support), otherwise create new one
     this.timeline = existingTimeline || new Timeline(initialState);
   }
@@ -63,7 +66,7 @@ export class GameController {
       return { success: false, reason: 'INVALID_LANE' };
     }
 
-    const def = state.defs[itemId];
+    const def = getDefs()[itemId];
     if (!def) {
       return { success: false, reason: 'INVALID_LANE' };
     }
@@ -207,14 +210,12 @@ export class GameController {
   }
 
   /**
-   * Inject a synthetic ItemDefinition into the state at `turn` so the engine
-   * can look it up by id during validation and completion handling.
-   * The mutation propagates to all recomputed future states.
+   * Register a synthetic ItemDefinition (e.g. demolish placeholders) in the
+   * engine-wide catalog so the engine can look it up by id during validation
+   * and completion handling.
    */
-  injectDef(turn: number, def: import('../sim/engine/types').ItemDefinition): void {
-    this.timeline.mutateAtTurn(turn, (state) => {
-      state.defs[def.id] = def;
-    });
+  injectDef(_turn: number, def: import('../sim/engine/types').ItemDefinition): void {
+    registerDef(def);
   }
 
   /**
@@ -238,7 +239,7 @@ export class GameController {
       });
 
       // Log the cancel operation
-      const def = state.defs[lane.pendingQueue[0]?.itemId];
+      const def = getDefs()[lane.pendingQueue[0]?.itemId];
       if (def) {
         getLogger().logQueueOperation(
           turn,
@@ -267,7 +268,7 @@ export class GameController {
           return;
         }
 
-        const def = s.defs[active.itemId];
+        const def = getDefs()[active.itemId];
         if (!def) return;
 
         // Refund resources, workers, and space
@@ -279,7 +280,7 @@ export class GameController {
       });
 
       // Log the cancel operation
-      const def = state.defs[lane.active?.itemId || ''];
+      const def = getDefs()[lane.active?.itemId || ''];
       if (def) {
         getLogger().logQueueOperation(
           turn,
@@ -333,7 +334,7 @@ export class GameController {
           return;
         }
 
-        const def = s.defs[active.itemId];
+        const def = getDefs()[active.itemId];
         if (!def) return;
 
         // Refund resources, workers, and space
@@ -389,7 +390,7 @@ export class GameController {
         if (!active) return;
 
         if (!active.isWait) {
-          const def = s.defs[active.itemId];
+          const def = getDefs()[active.itemId];
           if (def) {
             refundActivationCosts(s, def, active.quantity, laneId);
           }
@@ -546,7 +547,7 @@ export class GameController {
       this.timeline.mutateAtTurn(turn, (s) => {
         const active = s.lanes[laneId].active;
         if (!active) return;
-        const def = s.defs[active.itemId];
+        const def = getDefs()[active.itemId];
         if (!def) return;
 
         // Refund old costs
@@ -621,7 +622,7 @@ export class GameController {
     // Log the reorder operation
     const item = lane.pendingQueue[newIndex];
     if (item) {
-      const def = state.defs[item.itemId];
+      const def = getDefs()[item.itemId];
       if (def) {
         getLogger().logQueueOperation(
           turn,
@@ -700,7 +701,7 @@ export class GameController {
       return { success: true };
     }
 
-    const def = state.defs[active.itemId];
+    const def = getDefs()[active.itemId];
     if (!def) {
       return { success: false, reason: 'INVALID_ITEM' };
     }
@@ -718,7 +719,7 @@ export class GameController {
       const active = lane.active;
       if (!active) return;
 
-      const def = s.defs[active.itemId];
+      const def = getDefs()[active.itemId];
       if (!def) return;
 
       // Refund resources, workers, and space
@@ -812,7 +813,7 @@ export class GameController {
 
       // It's a normal item. Find the earliest turn it's valid.
       let validTurn = -1;
-      const def = startState.defs[item.itemId];
+      const def = getDefs()[item.itemId];
       if (!def) continue;
 
       // Search forward from cursorTurn up to the computed limit
@@ -875,7 +876,7 @@ export class GameController {
     }
 
     for (const item of lane.pendingQueue) {
-      const def = s.defs[item.itemId];
+      const def = getDefs()[item.itemId];
       lastTurn += item.isWait ? item.turnsRemaining : (def?.durationTurns || 0);
     }
 
@@ -891,8 +892,8 @@ export class GameController {
     const state = this.timeline.getStateAtTurn(this.timeline.getInitialTurn());
     if (!state) return false;
 
-    // Build a fresh starting state using the same item definitions
-    const freshState = createStandardStart(state.defs);
+    // Build a fresh starting state using the engine-wide item catalog
+    const freshState = createStandardStart(getDefs());
     freshState.currentTurn = state.currentTurn;
 
     // Replace the timeline entirely — all queued items are gone

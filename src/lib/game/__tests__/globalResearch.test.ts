@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, afterEach } from 'vitest';
 import {
   createInitialGameState,
   addPlanet,
@@ -21,7 +21,10 @@ import { GameController } from '../commands';
 import { Timeline } from '../state';
 import { CommandHistory, replayCommands } from '../urlState';
 import { createStandardStart } from '../../sim/defs/seed';
+import { loadGameData } from '../../sim/defs/adapter';
+import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import type { ItemDefinition } from '../../sim/engine/types';
+import gameDataRaw from '../game_data.json';
 
 function refreshTimeline(gameState: ReturnType<typeof createInitialGameState>, planetId: string) {
   const planet = gameState.planets.get(planetId)!;
@@ -87,6 +90,12 @@ function createLocalResearchGateDefs(): Record<string, ItemDefinition> {
 }
 
 describe('global research', () => {
+  // Tests may swap the catalog for custom defs — always restore the real one
+  // afterwards so later tests see the production data.
+  afterEach(() => {
+    setDefsCatalog(loadGameData(gameDataRaw as any));
+  });
+
   test('banks RP globally from scientists without changing local planet RP', () => {
     const gameState = createInitialGameState();
     const planet = gameState.planets.get('planet-1')!;
@@ -301,7 +310,13 @@ describe('global research', () => {
   });
 
   test('local queued items revalidate scheduled research after global research is cancelled', () => {
-    const defs = createLocalResearchGateDefs();
+    // Merge custom defs into a copy of the real catalog WITHOUT shadowing
+    // real entries (engine lookups resolve through the shared registry).
+    const defs = { ...loadGameData(gameDataRaw as any) };
+    for (const [id, def] of Object.entries(createLocalResearchGateDefs())) {
+      if (!defs[id]) defs[id] = def;
+    }
+    setDefsCatalog(defs);
     let gameState = createInitialGameState();
     const planet = createStandardStart(defs) as ExtendedPlanetState;
     planet.id = 'planet-1';

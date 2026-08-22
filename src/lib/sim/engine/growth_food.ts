@@ -52,24 +52,3 @@ export function applyWorkerGrowth(state: PlanetState): GrowthCalculation {
 
   return { baseRate, bonusRate, totalRate, growthAmount: actualGrowth };
 }
-
-/**
- * Compute food upkeep for all workers
- * 0.002 per worker (200 per 100k workers)
- */
-export function computeFoodUpkeep(state: PlanetState): number {
-  return state.population.workersTotal * FOOD_PER_WORKER;
-}
-
-/**
- * Apply food upkeep (clamped at 0)
- */
-export function applyFoodUpkeep(state: PlanetState): void {
-  const upkeep = computeFoodUpkeep(state);
-  state.stocks.food -= upkeep;
-
-  // Clamp food at 0 (no negative food)
-  if (state.stocks.food < 0) {
-    state.stocks.food = 0;
-  }
-}

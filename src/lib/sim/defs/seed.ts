@@ -162,7 +162,6 @@ export function createInitialState(
     },
     completedCounts,
     pendingColonistConversions: [],
-    defs,
   };
 
   return initialState;

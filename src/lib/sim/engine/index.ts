@@ -37,7 +37,7 @@ export { CompletionBuffer } from './buffers';
 export { computeNetOutputsPerTurn, addOutputsToStocks } from './outputs';
 
 // Growth and food upkeep
-export { computeGrowthBonus, applyWorkerGrowth, computeFoodUpkeep, applyFoodUpkeep } from './growth_food';
+export { computeGrowthBonus, applyWorkerGrowth } from './growth_food';
 
 // Turn execution
 export { runTurn, simulate } from './turn';

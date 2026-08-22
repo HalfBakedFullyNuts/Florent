@@ -32,3 +32,26 @@ export function buildSaveSummary(encoded: string): SaveSummary {
     return fallback;
   }
 }
+
+/**
+ * Build a SaveSummary directly from the in-memory snapshot inputs, WITHOUT
+ * decoding the encoded payload. Used on the autosave hot path where the full
+ * decode would be wasted work.
+ */
+export function buildSaveSummaryFromConfigs(
+  planets: Array<{ n?: string; name?: string }>,
+  commands: unknown[],
+  share?: { name?: string; author?: string } | null
+): SaveSummary {
+  const names = planets
+    .map((p) => p.n || p.name || 'Unnamed')
+    .join(', ');
+  return {
+    planetCount: planets.length,
+    commandCount: commands.length,
+    maxTurn: 0,
+    planetNames: names.length > 80 ? `${names.slice(0, 77)}...` : names,
+    shareName: share?.name,
+    shareAuthor: share?.author,
+  };
+}

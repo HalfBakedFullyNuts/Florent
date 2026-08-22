@@ -1,21 +1,22 @@
 "use client";
 
 import React from "react";
-import { GameController } from "../../lib/game/commands";
-import { createInitialGameState } from "../../lib/game/gameState";
-import { getGlobalResearchLaneView } from "../../lib/game/globalResearch";
-import { getLaneView, type LaneView } from "../../lib/game/selectors";
+import { GameController } from "../../src/lib/game/commands";
+import { createInitialGameState } from "../../src/lib/game/gameState";
+import { getGlobalResearchLaneView } from "../../src/lib/game/globalResearch";
+import { getLaneView, type LaneView } from "../../src/lib/game/selectors";
 import {
   decodeGameState,
   getShareMetadataFromSnapshot,
   replayCommands,
-} from "../../lib/game/urlState";
-import type { LaneId } from "../../lib/sim/engine/types";
-import type { MultiPlanetExportData } from "../../lib/export/formatters";
+} from "../../src/lib/game/urlState";
+import { getDefs } from "../../src/lib/sim/engine/defsRegistry";
+import type { LaneId } from "../../src/lib/sim/engine/types";
+import type { MultiPlanetExportData } from "../../src/lib/export/formatters";
 import {
   buildSharedBuildListSummary,
   SharedBuildListView,
-} from "../../components/SharedBuildListView";
+} from "../../src/components/SharedBuildListView";
 
 interface DecodedPreview {
   name: string;
@@ -113,7 +114,7 @@ export default function ShareSummaryTestPage() {
       gameState,
       lanes,
       multiPlanetData,
-      defs: exportState.defs,
+      defs: getDefs(),
     });
     setError(null);
   }, [input]);

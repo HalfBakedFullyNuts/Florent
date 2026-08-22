@@ -3,6 +3,7 @@
  */
 
 import type { PlanetState, WorkItem } from '../types';
+import { getDefs } from '../defsRegistry';
 
 let itemIdCounter = 0;
 
@@ -11,7 +12,7 @@ export function generateItemId(): string {
 }
 
 export function queueItem(state: PlanetState, itemId: string, quantity: number): void {
-  const def = state.defs[itemId];
+  const def = getDefs()[itemId];
   if (!def) {
     throw new Error(`Definition not found: ${itemId}`);
   }

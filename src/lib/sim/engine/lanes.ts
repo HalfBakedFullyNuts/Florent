@@ -4,8 +4,9 @@
  */
 
 import type { PlanetState, LaneId, WorkItem, ItemDefinition, ResourceId } from './types';
+import { getDefs } from './defsRegistry';
 import { clampBatchAtActivation } from './validation';
-import { getLogger } from '../../game/logger';
+import { getEngineTelemetry } from './telemetry';
 
 /**
  * Activate a wait item in the lane.
@@ -37,15 +38,7 @@ function activateWaitItem(
     startTurn: isPhase2b ? state.currentTurn + 1 : state.currentTurn,
   };
 
-  getLogger().logQueueOperation(
-    state.currentTurn,
-    'activate',
-    laneId,
-    '__wait__',
-    'Wait',
-    pending.quantity,
-    `Wait activated for ${pending.turnsRemaining} turns`
-  );
+  getEngineTelemetry().logQueueOperation({ turn: state.currentTurn, op: 'activate', laneId: laneId, itemId: '__wait__', itemName: 'Wait', quantity: pending.quantity, note: `Wait activated for ${pending.turnsRemaining} turns` });
 
   lane.pendingQueue.shift();
 }
@@ -139,7 +132,7 @@ export function tryActivateNext(
     return;
   }
 
-  const def = state.defs[pending.itemId];
+  const def = getDefs()[pending.itemId];
   if (!def) {
     console.error(`Definition not found for item: ${pending.itemId}`);
     return;
@@ -185,15 +178,7 @@ export function tryActivateNext(
     startTurn: isPhase2b ? state.currentTurn + 1 : state.currentTurn,
   };
 
-  getLogger().logQueueOperation(
-    state.currentTurn,
-    'activate',
-    laneId,
-    def.id,
-    def.name,
-    actualQty,
-    `Activated with ${actualQty} quantity (requested: ${pending.quantity})`
-  );
+  getEngineTelemetry().logQueueOperation({ turn: state.currentTurn, op: 'activate', laneId: laneId, itemId: def.id, itemName: def.name, quantity: actualQty, note: `Activated with ${actualQty} quantity (requested: ${pending.quantity})` });
 
   lane.pendingQueue.shift();
 }
@@ -212,15 +197,7 @@ function completeWaitItem(
   active.completionTurn = state.currentTurn;
   const completedItem = { ...active };
 
-  getLogger().logQueueOperation(
-    state.currentTurn,
-    'complete',
-    laneId,
-    '__wait__',
-    'Wait',
-    active.quantity,
-    `Wait completed at turn ${state.currentTurn}`
-  );
+  getEngineTelemetry().logQueueOperation({ turn: state.currentTurn, op: 'complete', laneId: laneId, itemId: '__wait__', itemName: 'Wait', quantity: active.quantity, note: `Wait completed at turn ${state.currentTurn}` });
 
   lane.completionHistory.push(completedItem);
   lane.active = null;
@@ -259,7 +236,7 @@ function completeNormalItem(
   laneId: LaneId,
   active: WorkItem
 ): WorkItem | null {
-  const def = state.defs[active.itemId];
+  const def = getDefs()[active.itemId];
   if (!def) {
     console.error(`Definition not found for item: ${active.itemId}`);
     return null;
@@ -271,15 +248,7 @@ function completeNormalItem(
   active.completionTurn = state.currentTurn;
   const completedItem = { ...active };
 
-  getLogger().logQueueOperation(
-    state.currentTurn,
-    'complete',
-    laneId,
-    def.id,
-    def.name,
-    active.quantity,
-    `Completed at turn ${state.currentTurn}`
-  );
+  getEngineTelemetry().logQueueOperation({ turn: state.currentTurn, op: 'complete', laneId: laneId, itemId: def.id, itemName: def.name, quantity: active.quantity, note: `Completed at turn ${state.currentTurn}` });
 
   lane.completionHistory.push(completedItem);
   lane.active = null;

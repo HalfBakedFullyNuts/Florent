@@ -23,18 +23,14 @@
  */
 
 import type { PlanetState, ItemDefinition, LaneId, UnitType } from '../sim/engine/types';
+import { DEMOLISH_PREFIX, demolishTarget } from '../sim/engine/demolish';
 
-export const DEMOLISH_PREFIX = '__demolish__:';
-
-/** Return the target structure id from a demolish item id, or null. */
-export function demolishTarget(itemId: string): string | null {
-  return itemId.startsWith(DEMOLISH_PREFIX) ? itemId.slice(DEMOLISH_PREFIX.length) : null;
-}
+export { DEMOLISH_PREFIX, demolishTarget };
 
 /**
  * Create the synthetic ItemDefinition for demolishing `structureId`.
- * The def is injected into state.defs at queue time so the engine can
- * look it up normally (validation, worker reservation, completion).
+ * The def is registered in the engine defs catalog at queue time so the engine
+ * can look it up normally (validation, worker reservation, completion).
  */
 export function createDemolishDef(
   structureId: string,

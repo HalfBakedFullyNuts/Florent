@@ -96,7 +96,9 @@ describe('TabbedItemGrid batch controls', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Queue maximum Fighter' }));
 
-    expect(onQueueItem).toHaveBeenCalledWith('fighter', 99999);
+    // The ∞ button routes through getMaxQueueableQuantity: the eventual cap (100)
+    // is used, not the immediate-allowed cap (5) and not a blind 99999.
+    expect(onQueueItem).toHaveBeenCalledWith('fighter', 100);
   });
 
   test('item-count badge can clear the active lane', () => {

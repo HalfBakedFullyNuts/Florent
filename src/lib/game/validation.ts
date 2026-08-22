@@ -6,6 +6,8 @@
  */
 
 import type { PlanetState, LaneId, ItemDefinition } from '../sim/engine/types';
+import { getDefs } from '../sim/engine/defsRegistry';
+import { estimateItemCompletionTurn } from '../sim/engine/queueValidation';
 import { cloneState } from '../sim/engine/helpers';
 import type { LaneEntry } from './selectors';
 
@@ -76,7 +78,7 @@ export function validateQueueEntry(
     return { valid: true };
   }
 
-  const def = state.defs[entry.itemId];
+  const def = getDefs()[entry.itemId];
   if (!def) {
     return { valid: false, reason: 'UNKNOWN_ITEM' };
   }
@@ -112,7 +114,7 @@ export function validateQueueEntry(
 
       if (!willExist && entry.startTurn) {
         // Check if prerequisite is queued earlier and will complete before this item starts
-        const prereqDef = state.defs[prereqId];
+        const prereqDef = getDefs()[prereqId];
         if (prereqDef) {
           const prereqLane = state.lanes[prereqDef.lane];
 
@@ -124,34 +126,11 @@ export function validateQueueEntry(
             }
           }
 
-          // Check pending queue
-          for (const pending of prereqLane.pendingQueue) {
-            if (pending.itemId === prereqId) {
-              // Calculate when this pending item will complete
-              // This is a simplified check - actual completion depends on queue position
-              const pendingDef = state.defs[pending.itemId];
-              if (pendingDef) {
-                // Estimate completion turn (this is approximate)
-                let estimatedCompletion = state.currentTurn;
-                if (prereqLane.active) {
-                  estimatedCompletion += prereqLane.active.turnsRemaining;
-                }
-                // Add duration of all items before this one in queue
-                const pendingIndex = prereqLane.pendingQueue.indexOf(pending);
-                for (let i = 0; i < pendingIndex; i++) {
-                  const priorDef = state.defs[prereqLane.pendingQueue[i].itemId];
-                  if (priorDef) {
-                    estimatedCompletion += priorDef.durationTurns;
-                  }
-                }
-                estimatedCompletion += pendingDef.durationTurns;
-
-                if (estimatedCompletion < entry.startTurn) {
-                  willExist = true;
-                  break;
-                }
-              }
-            }
+          // Check pending queue — shared engine estimator decides when the
+          // first queued copy of this prereq completes.
+          const estimatedCompletion = estimateItemCompletionTurn(state, prereqDef.lane, prereqId);
+          if (estimatedCompletion !== null && estimatedCompletion < entry.startTurn) {
+            willExist = true;
           }
         }
       }
@@ -224,12 +203,18 @@ export function getValidationMessage(result: QueueValidationResult): string {
  * @param getLaneEntries The selector to get formatted lane entries.
  * @returns An array of LaneEntry objects that definitively require the cancelled item.
  */
+/** A queue entry that depends on a cancelled item, together with its lane. */
+export interface DependentQueueItem {
+  laneId: LaneId;
+  entry: LaneEntry;
+}
+
 export function getDependentQueueItems(
   state: PlanetState,
   entryToCancel: LaneEntry,
   cancelLaneId: LaneId,
   getLaneEntries: (state: PlanetState, laneId: LaneId) => LaneEntry[]
-): LaneEntry[] {
+): DependentQueueItem[] {
   // 1. Clone the state to avoid mutating real timeline
   const cloned = cloneState(state);
 
@@ -245,21 +230,21 @@ export function getDependentQueueItems(
 
   // 3. Re-validate all remaining queue items against this new timeline
   const results = validateAllQueueItems(cloned, getLaneEntries);
-  const brokenItems: LaneEntry[] = [];
+  const brokenItems: DependentQueueItem[] = [];
 
   // 4. Identify items that specifically broke due to missing this prerequisite
   // (We check REQ_MISSING precisely)
   for (const validation of results) {
     if (!validation.valid && validation.reason?.startsWith('REQ_MISSING') && validation.missingPrereqs) {
       // It broke. But did it break because of OUR cancelled item?
-      const cancelledDef = state.defs[entryToCancel.itemId];
+      const cancelledDef = getDefs()[entryToCancel.itemId];
       if (cancelledDef && validation.missingPrereqs.includes(cancelledDef.id)) {
         // Find the canonical entry from the original state to return (all 4 lanes)
         for (const targetLaneId of ['building', 'ship', 'colonist', 'research'] as LaneId[]) {
           const origEntries = getLaneEntries(state, targetLaneId);
           const found = origEntries.find(e => e.id === validation.entryId);
           if (found) {
-            brokenItems.push(found);
+            brokenItems.push({ laneId: targetLaneId, entry: found });
             break;
           }
         }

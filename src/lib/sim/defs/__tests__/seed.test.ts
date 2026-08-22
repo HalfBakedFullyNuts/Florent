@@ -25,7 +25,6 @@ describe('Seed Functions', () => {
 
       expect(state).toBeDefined();
       expect(state.currentTurn).toBe(1); // Initial state starts at turn 1
-      expect(state.defs).toBe(defs);
     });
 
     it('should use default starting resources', () => {
@@ -331,7 +330,6 @@ describe('Seed Functions', () => {
       expect(state.lanes).toBeDefined();
       expect(state.completedCounts).toBeDefined();
       expect(state.pendingColonistConversions).toBeDefined();
-      expect(state.defs).toBeDefined();
     });
 
     it('should have consistent worker count (total = idle + busy)', () => {

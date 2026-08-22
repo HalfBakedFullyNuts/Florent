@@ -37,7 +37,7 @@ npm run test -- -t "enqueueItem"                         # Pattern match
 - `outputs.ts` — production / consumption math
 - `turn.ts` — deterministic turn sequencing
 
-**Orchestration** (`src/lib/game/`) — Commands API, timeline/snapshots, selectors. React-free **except** `GameStateContext.tsx`.
+**Orchestration** (`src/lib/game/`) — Commands API, timeline/snapshots, selectors. Fully React-free (the former `GameStateContext.tsx` was removed as dead code — see ADRs).
 
 **UI** (`src/components/`, `src/app/`) — Next.js 14 App Router. Client components must start with `"use client"`.
 
@@ -65,7 +65,7 @@ Costs, workers, and space are reserved when an item moves from `pendingQueue` �
 All entities live in `src/lib/game/game_data.json`. Use `GameData.getStructureById(id)` / `getUnitById(id)`. Never hardcode unit/structure definitions in components or agent functions. Reference items by canonical `id` (e.g. `"army_barracks"`).
 
 ### 5. No React in `src/lib/game/`
-Keep game logic framework-agnostic for testability. Only exception is the orchestrator `GameStateContext.tsx`.
+Keep game logic framework-agnostic for testability. No exceptions.
 
 ## Testing
 

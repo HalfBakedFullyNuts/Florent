@@ -8,7 +8,8 @@ import { describe, it, expect } from 'vitest';
 import { GameController } from '../../game/commands';
 import { getLaneView } from '../../game/selectors';
 import { createStandardStart } from '../../sim/defs/seed';
-import { loadGameData } from '../../sim/defs/adapter.client';
+import { loadGameData } from '../../sim/defs/adapter';
+import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../../game/game_data.json';
 import { extractQueueItems, formatAsText, formatAsDiscord } from '../formatters';
 import type { LaneView } from '../../game/selectors';
@@ -17,6 +18,7 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
   // Helper to create a controller with test data
   function createTestController() {
     const defs = loadGameData(gameDataRaw as any);
+    setDefsCatalog(defs);
     const initialState = createStandardStart(defs);
     return new GameController(initialState);
   }

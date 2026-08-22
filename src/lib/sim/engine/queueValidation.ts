@@ -4,6 +4,7 @@
  */
 
 import type { PlanetState, ItemDefinition, LaneId, WorkItem, ResourceId } from './types';
+import { getDefs } from './defsRegistry';
 import { hasPrereqs, isUniqueLimitReached, energyNonNegativeAfterCompletion } from './validation';
 import { computeProjectedNetOutputsPerTurn } from './outputs';
 
@@ -20,6 +21,51 @@ export interface QueueBlocker {
   prereqId?: string; // For prerequisite blockers
   turnsUntilReady?: number; // Estimated turns until blocker is resolved
   message: string;
+}
+
+/**
+ * Single shared estimator: when would the FIRST pending occurrence of
+ * `itemId` in `laneId` complete, counting the active item's remaining turns
+ * plus every earlier queue entry (wait entries by turnsRemaining, others by
+ * def duration). Returns null if the item is not queued in that lane.
+ *
+ * All completion-turn predictions (UI hints included) must delegate here so
+ * they can never disagree with each other or with the engine.
+ */
+export function estimateItemCompletionTurn(
+  state: PlanetState,
+  laneId: LaneId,
+  itemId: string
+): number | null {
+  const lane = state.lanes[laneId];
+  if (!lane) return null;
+
+  let cursor = state.currentTurn;
+  if (lane.active) cursor += lane.active.turnsRemaining;
+
+  for (const entry of lane.pendingQueue) {
+    const duration = entry.isWait ? entry.turnsRemaining : (getDefs()[entry.itemId]?.durationTurns || 0);
+    cursor += duration;
+    if (entry.itemId === itemId) return cursor;
+  }
+  return null;
+}
+
+/**
+ * Turn when the lane becomes fully free: active remaining plus every pending
+ * entry. Returns currentTurn for an already-empty lane.
+ */
+export function estimateLaneFreeTurn(state: PlanetState, laneId: LaneId): number {
+  const lane = state.lanes[laneId];
+  if (!lane) return state.currentTurn;
+  if (!lane.active && lane.pendingQueue.length === 0) return state.currentTurn;
+
+  let cursor = state.currentTurn;
+  if (lane.active) cursor += lane.active.turnsRemaining;
+  for (const entry of lane.pendingQueue) {
+    cursor += entry.isWait ? entry.turnsRemaining : (getDefs()[entry.itemId]?.durationTurns || 0);
+  }
+  return cursor;
 }
 
 /**
@@ -41,39 +87,18 @@ function calculatePrereqCompletionTurn(
   // Check all lanes for the prerequisite
   const allLanes: LaneId[] = ['building', 'ship', 'colonist', 'research'];
 
+  // Active item completes at currentTurn + turnsRemaining
   for (const laneId of allLanes) {
     const lane = state.lanes[laneId];
-
-    // Check active item
     if (lane.active?.itemId === prereqId) {
-      // Calculate when it will complete
       return state.currentTurn + lane.active.turnsRemaining;
     }
+  }
 
-    // Check pending queue
-    const pendingIndex = lane.pendingQueue.findIndex(item => item.itemId === prereqId);
-    if (pendingIndex !== -1) {
-      // Calculate when it will complete
-      // Need to sum up duration of all items before it + its own duration
-      let turnsUntilStart = 0;
-
-      // Add active item duration if exists
-      if (lane.active) {
-        turnsUntilStart += lane.active.turnsRemaining;
-      }
-
-      // Add duration of all pending items before this one
-      for (let i = 0; i < pendingIndex; i++) {
-        const item = lane.pendingQueue[i];
-        const def = state.defs[item.itemId];
-        turnsUntilStart += item.isWait ? item.turnsRemaining : (def?.durationTurns || 0);
-      }
-
-      // Add duration of the prerequisite itself
-      const prereqDef = state.defs[prereqId];
-      const prereqDuration = prereqDef?.durationTurns || 0;
-
-      return state.currentTurn + turnsUntilStart + prereqDuration;
+  // Otherwise find the first pending occurrence across lanes
+  for (const laneId of allLanes) {
+    if (state.lanes[laneId].pendingQueue.some((item) => item.itemId === prereqId)) {
+      return estimateItemCompletionTurn(state, laneId, prereqId);
     }
   }
 
@@ -113,7 +138,7 @@ function calculateHousingWaitTurns(
 
   // Check active building
   if (buildingLane.active) {
-    const activeDef = state.defs[buildingLane.active.itemId];
+    const activeDef = getDefs()[buildingLane.active.itemId];
     if (activeDef?.effectsOnComplete) {
       const capIncrease = housingType === 'soldier'
         ? (activeDef.effectsOnComplete.housing_soldier_cap || 0)
@@ -128,7 +153,7 @@ function calculateHousingWaitTurns(
   // Check pending buildings
   let cumulativeTurns = buildingLane.active?.turnsRemaining || 0;
   for (const pending of buildingLane.pendingQueue) {
-    const pendingDef = state.defs[pending.itemId];
+    const pendingDef = getDefs()[pending.itemId];
     if (pendingDef?.effectsOnComplete) {
       const capIncrease = housingType === 'soldier'
         ? (pendingDef.effectsOnComplete.housing_soldier_cap || 0)
@@ -229,7 +254,7 @@ export function validateQueueWithWait(
 
       if (completionTurn === null) {
         // Prerequisite not in queue at all - hard blocker
-        const prereqDef = state.defs[prereqId];
+        const prereqDef = getDefs()[prereqId];
         return {
           canQueueNow: false,
           canQueueEventually: false,
@@ -247,7 +272,7 @@ export function validateQueueWithWait(
         // Prerequisite in queue, will be ready in future
         const turnsUntilReady = completionTurn - state.currentTurn;
         maxWaitTurns = Math.max(maxWaitTurns, turnsUntilReady);
-        const prereqDef = state.defs[prereqId];
+        const prereqDef = getDefs()[prereqId];
         blockers.push({
           type: 'PREREQUISITE',
           prereqId,

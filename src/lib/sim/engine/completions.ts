@@ -4,7 +4,8 @@
  */
 
 import type { PlanetState, WorkItem } from './types';
-import { DEMOLISH_PREFIX, demolishTarget } from '../../game/demolish';
+import { getDefs } from './defsRegistry';
+import { DEMOLISH_PREFIX, demolishTarget } from './demolish';
 
 /**
  * Reverse the effects of a completed building when a demolish item finishes.
@@ -16,7 +17,7 @@ function applyDemolishCompletion(state: PlanetState, item: WorkItem): void {
   const targetId = demolishTarget(item.itemId);
   if (!targetId) return;
 
-  const def = state.defs[targetId];
+  const def = getDefs()[targetId];
   if (!def) {
     console.error(`applyDemolishCompletion: no def for "${targetId}"`);
     return;
@@ -58,7 +59,7 @@ export function applyStructureCompletion(state: PlanetState, item: WorkItem): vo
     return;
   }
 
-  const def = state.defs[item.itemId];
+  const def = getDefs()[item.itemId];
   if (!def) {
     console.error(`Definition not found for item: ${item.itemId}`);
     return;
@@ -117,7 +118,7 @@ export function applyStructureCompletion(state: PlanetState, item: WorkItem): vo
  * Happens in same turn - refund (n-1) workers, convert 1 to colonist
  */
 export function applyColonistConversion(state: PlanetState, item: WorkItem): void {
-  const def = state.defs[item.itemId];
+  const def = getDefs()[item.itemId];
   if (!def) {
     console.error(`Definition not found for item: ${item.itemId}`);
     return;

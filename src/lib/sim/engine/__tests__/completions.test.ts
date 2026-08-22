@@ -11,6 +11,7 @@ import {
   processCompletions,
 } from '../completions';
 import type { PlanetState, WorkItem, ItemDefinition } from '../types';
+import { getDefs } from '../defsRegistry';
 
 function createTestState(): PlanetState {
   return {
@@ -67,7 +68,7 @@ describe('Structure Completion', () => {
     state = createTestState();
 
     // Add metal mine definition
-    state.defs['metal_mine'] = {
+    getDefs()['metal_mine'] = {
       id: 'metal_mine',
       name: 'Metal Mine',
       lane: 'building',
@@ -94,7 +95,7 @@ describe('Structure Completion', () => {
     };
 
     // Add barracks definition with housing effect
-    state.defs['army_barracks'] = {
+    getDefs()['army_barracks'] = {
       id: 'army_barracks',
       name: 'Army Barracks',
       lane: 'building',
@@ -177,7 +178,7 @@ describe('Structure Completion', () => {
       prerequisites: [],
     };
 
-    state.defs['orbital_platform'] = spaceDef;
+    getDefs()['orbital_platform'] = spaceDef;
 
     const item: WorkItem = {
       id: 'item1',
@@ -228,7 +229,7 @@ describe('Colonist Conversion', () => {
     state = createTestState();
 
     // Add soldier definition
-    state.defs['soldier'] = {
+    getDefs()['soldier'] = {
       id: 'soldier',
       name: 'Soldier',
       lane: 'colonist',
@@ -254,7 +255,7 @@ describe('Colonist Conversion', () => {
     };
 
     // Add scientist definition
-    state.defs['scientist'] = {
+    getDefs()['scientist'] = {
       id: 'scientist',
       name: 'Scientist',
       lane: 'colonist',
@@ -383,7 +384,7 @@ describe('Colonist Conversion', () => {
   });
 
   it('should handle non-colonist item gracefully', () => {
-    state.defs['metal_mine'] = {
+    getDefs()['metal_mine'] = {
       id: 'metal_mine',
       name: 'Metal Mine',
       lane: 'building',
@@ -425,7 +426,7 @@ describe('Batch Colonist Conversions', () => {
   beforeEach(() => {
     state = createTestState();
 
-    state.defs['soldier'] = {
+    getDefs()['soldier'] = {
       id: 'soldier',
       name: 'Soldier',
       lane: 'colonist',
@@ -450,7 +451,7 @@ describe('Batch Colonist Conversions', () => {
       prerequisites: [],
     };
 
-    state.defs['scientist'] = {
+    getDefs()['scientist'] = {
       id: 'scientist',
       name: 'Scientist',
       lane: 'colonist',
@@ -540,7 +541,7 @@ describe('Process Completions', () => {
   beforeEach(() => {
     state = createTestState();
 
-    state.defs['metal_mine'] = {
+    getDefs()['metal_mine'] = {
       id: 'metal_mine',
       name: 'Metal Mine',
       lane: 'building',

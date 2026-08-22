@@ -14,10 +14,45 @@ export function cloneState(state: PlanetState): PlanetState {
 }
 
 /**
- * Generate unique ID for work items
+ * Monotonic counter for work-item IDs. Deterministic within a session and
+ * seeded past restored ids so saves never collide after a reload.
+ */
+let workItemIdSeq = 0;
+
+const WORK_ITEM_ID_PREFIX = 'wi_';
+
+function extractWorkItemSeq(id: string | undefined): number {
+  if (!id || !id.startsWith(WORK_ITEM_ID_PREFIX)) return 0;
+  const n = Number(id.slice(WORK_ITEM_ID_PREFIX.length));
+  return Number.isSafeInteger(n) && n > 0 ? n : 0;
+}
+
+/**
+ * Advance the counter past every id already present in a (restored) state.
+ * Safe to call with undefined — resets nothing, just skips scanning.
+ */
+export function seedWorkItemIdCounterFromState(state: PlanetState | undefined): void {
+  if (!state) return;
+  let max = 0;
+  const consider = (id: string | undefined): void => {
+    const n = extractWorkItemSeq(id);
+    if (n > max) max = n;
+  };
+  for (const lane of Object.values(state.lanes || {})) {
+    consider(lane.active?.id);
+    for (const pending of lane.pendingQueue) consider(pending.id);
+    for (const done of lane.completionHistory) consider(done.id);
+  }
+  for (const conv of state.pendingColonistConversions) consider(conv.id);
+  if (max >= workItemIdSeq) workItemIdSeq = max + 1;
+}
+
+/**
+ * Generate unique ID for work items (strictly increasing, no clock/random).
  */
 export function generateWorkItemId(): string {
-  return `wi_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  workItemIdSeq += 1;
+  return `${WORK_ITEM_ID_PREFIX}${workItemIdSeq}`;
 }
 
 /**

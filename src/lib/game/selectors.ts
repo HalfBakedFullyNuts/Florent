@@ -3,11 +3,14 @@
  * Pure functions that derive views from game state
  */
 
-import type { PlanetState, LaneId, NetOutputs, ResourceId, WorkItem } from '../sim/engine/types';
+
+import { getDefs } from '../sim/engine/defsRegistry';
+import type { PlanetState, LaneId, NetOutputs, ResourceId, WorkItem, ItemDefinition } from '../sim/engine/types';
 import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep, computeProjectedNetOutputsPerTurn } from '../sim/engine/outputs';
 import { computeGrowthBonus } from '../sim/engine/growth_food';
 import { WORKER_GROWTH_BASE } from '../sim/rules/constants';
 import { canQueue } from '../sim/engine/validation';
+import { estimateLaneFreeTurn } from '../sim/engine/queueValidation';
 import { validateQueueWithWait, type QueueBlocker } from '../sim/engine/queueValidation';
 
 export interface PlanetSummary {
@@ -144,14 +147,9 @@ function extractCompletedByType(
   if (!state.completedCounts) {
     return {};
   }
-  if (!state.defs) {
-    console.error('extractCompletedByType: missing defs');
-    return {};
-  }
-
   const result: Record<string, number> = {};
   Object.entries(state.completedCounts).forEach(([itemId, count]) => {
-    const def = state.defs[itemId];
+    const def = getDefs()[itemId];
     if (def && def.type === type && count > 0) {
       result[itemId] = count;
     }
@@ -261,7 +259,7 @@ export function getTurnsUntilHousingCap(
  */
 function workItemToLaneEntry(
   item: WorkItem,
-  defs: PlanetState['defs'],
+  defs: Record<string, ItemDefinition>,
   status: 'pending' | 'active' | 'completed',
   overrides?: Partial<LaneEntry>
 ): LaneEntry {
@@ -354,7 +352,7 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   // Add completed items in history order. The final sort below keeps the
   // selector contract chronological even when callers pass simulated snapshots.
   for (const completed of lane.completionHistory) {
-    addEntry(workItemToLaneEntry(completed, state.defs, 'completed'));
+    addEntry(workItemToLaneEntry(completed, getDefs(), 'completed'));
   }
 
   // Build timeline for pending items.
@@ -368,12 +366,12 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   let prevWasAutoWait = false;
 
   for (const pending of lane.pendingQueue) {
-    const def = state.defs[pending.itemId];
+    const def = getDefs()[pending.itemId];
     const duration = pending.isWait ? pending.turnsRemaining : (def?.durationTurns || 4);
     const displayStart = Math.max(scheduleStart, pending.minStartTurn ?? scheduleStart);
     const displayEnd = displayStart + duration - 1;
 
-    const entry = workItemToLaneEntry(pending, state.defs, 'pending', {
+    const entry = workItemToLaneEntry(pending, getDefs(), 'pending', {
       eta: displayEnd,
       startTurn: displayStart,
       completionTurn: displayEnd,
@@ -393,7 +391,7 @@ export function getLaneView(state: PlanetState, laneId: LaneId): LaneView {
   // Add active entry
   if (lane.active) {
     const eta = state.currentTurn + lane.active.turnsRemaining - 1;
-    addEntry(workItemToLaneEntry(lane.active, state.defs, 'active', { eta }));
+    addEntry(workItemToLaneEntry(lane.active, getDefs(), 'active', { eta }));
   }
 
   entries.sort((a, b) => {
@@ -513,7 +511,7 @@ export function getWarnings(state: PlanetState): Warning[] {
  * Get all available item definitions that can be queued
  */
 export function getAvailableItems(state: PlanetState): Record<string, any> {
-  return state.defs;
+  return getDefs();
 }
 
 /**
@@ -522,27 +520,7 @@ export function getAvailableItems(state: PlanetState): Record<string, any> {
  * Returns currentTurn if the lane is already empty.
  */
 export function getFirstFreeTurnForLane(state: PlanetState, laneId: LaneId): number {
-  const lane = state.lanes[laneId];
-  if (!lane) return state.currentTurn;
-
-  // Empty lane: free immediately
-  if (!lane.active && lane.pendingQueue.length === 0) {
-    return state.currentTurn;
-  }
-
-  // Walk forward: active remaining + pending durations
-  let turnCursor = state.currentTurn;
-
-  if (lane.active) {
-    turnCursor += lane.active.turnsRemaining;
-  }
-
-  for (const item of lane.pendingQueue) {
-    const def = state.defs[item.itemId];
-    turnCursor += item.isWait ? item.turnsRemaining : (def?.durationTurns || 0);
-  }
-
-  return turnCursor;
+  return estimateLaneFreeTurn(state, laneId);
 }
 
 /**
@@ -566,7 +544,7 @@ export function getFirstFreeTurnForResearch(state: PlanetState): number {
 
   let turnCursor = state.currentTurn;
   for (const item of queuedItems) {
-    const def = state.defs[item.itemId];
+    const def = getDefs()[item.itemId];
     if (def?.colonistKind === 'scientist') {
       // Scientists will produce RP one turn after they complete conversion
       const conversionTurn = turnCursor + (item.isWait ? item.turnsRemaining : (def?.durationTurns || 0));
@@ -606,7 +584,7 @@ export function canQueueItem(
   itemId: string,
   quantity: number
 ): SmartQueueCheck {
-  const def = state.defs[itemId];
+  const def = getDefs()[itemId];
   if (!def) {
     return { allowed: false, canQueueEventually: false, waitTurnsNeeded: 0, blockers: [], reason: 'Item not found' };
   }

@@ -155,8 +155,8 @@ export interface PlanetState {
   // Pending colonist conversions (handled in same turn)
   pendingColonistConversions: WorkItem[];
 
-  // Item definitions catalog
-  defs: Record<string, ItemDefinition>;
+  // NOTE: item definitions intentionally do NOT live on PlanetState.
+  // They are static game data resolved via defsRegistry.getDefs().
 
   // Set to true when Phase 2b activated a building by checking stocks + this turn's
   // projected production. Stocks may have been temporarily negative mid-turn; by the

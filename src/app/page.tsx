@@ -38,14 +38,15 @@ import {
   type QueueValidationResult,
   getValidationMessage,
   getDependentQueueItems,
+  type DependentQueueItem,
 } from "../lib/game/validation";
 import { Timeline } from "../lib/game/state";
-import { loadGameData } from "../lib/sim/defs/adapter.client";
+import { getDefs } from "../lib/sim/engine/defsRegistry";
 import { computePlanetScore } from "../lib/game/scoring";
 import type { LaneId, PlanetState } from "../lib/sim/engine/types";
-import gameDataRaw from "../lib/game/game_data.json";
 import { canDemolish, createDemolishDef, DEMOLISH_PREFIX } from "../lib/game/demolish";
 import { setupLogging } from "../lib/game/logging-utils";
+import { getLogger } from "../lib/game/logger";
 import {
   CommandHistory,
   buildCompactShareURL,
@@ -58,7 +59,6 @@ import {
   getEncodedStateFromURL,
   getPlanetIndex,
   getShareMetadataFromSnapshot,
-  estimateEncodedSize,
   loadStateFromLocalStorage,
   loadStateFromURL,
   normaliseShareMetadata,
@@ -117,7 +117,7 @@ import {
   migrateLegacyLocalStorage,
   saveSharedLink,
 } from "../lib/persistence/savesDb";
-import { buildSaveSummary } from "../lib/persistence/saveSummary";
+import { buildSaveSummary, buildSaveSummaryFromConfigs } from "../lib/persistence/saveSummary";
 
 type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
 type RestoreOptions = { shared?: boolean };
@@ -503,8 +503,8 @@ export default function Home() {
   const [toast, setToast] = useState<string | null>(null);
   const [pendingCancellation, setPendingCancellation] = useState<{
     laneId: "building" | "ship" | "colonist" | "research";
-    entry: any;
-    brokenDependencies: any[];
+    entry: LaneEntry;
+    brokenDependencies: DependentQueueItem[];
   } | null>(null);
   // Items auto-removed due to cascade dependency failure after a cancel
   const [cascadeWarnings, setCascadeWarnings] = useState<
@@ -630,19 +630,22 @@ export default function Home() {
           saveEncodedStateToURL(encoded);
           lastAppliedShareRef.current = encoded;
 
-          // Log size information
-          const sizeInfo = estimateEncodedSize(planetConfigs, commands);
-          console.log("[URL State] Saved:", {
-            planets: planetConfigs.length,
-            commands: commands.length,
-            urlLength: window.location.href.length,
-            jsonSize: sizeInfo.json,
-            compressedSize: sizeInfo.encoded,
-          });
+          if (getLogger().isEnabled()) {
+            console.log("[URL State] Saved:", {
+              planets: planetConfigs.length,
+              commands: commands.length,
+              urlLength: window.location.href.length,
+              encodedLength: encoded.length,
+            });
+          }
 
           // Push to IndexedDB ring buffer so the user can revert auto-saves.
           // pushHistory dedupes against the most-recent identical encoded payload.
-          const summary = buildSaveSummary(encoded);
+          const summary = buildSaveSummaryFromConfigs(
+            planetConfigs as Array<{ n?: string }>,
+            commands,
+            activeShareMetadata
+          );
           pushHistory(encoded, summary).catch((e) =>
             console.warn("[saves] history push failed:", e),
           );
@@ -719,6 +722,13 @@ export default function Home() {
     if (!currentPlanet) return 0;
     return getPlanetLimitAtTurn(gameState, currentPlanet.startTurn);
   }, [gameState, currentPlanet]);
+
+  // Expensive scan (all planets × timeline) — only recompute when the planet
+  // set changes, not on every keystroke/slider tick.
+  const expansionSource = useMemo(
+    () => getBestExpansionSource(gameState),
+    [gameState],
+  );
   const planetUnavailableReason = useMemo(() => {
     if (!currentPlanet) return "No planet selected.";
     if (currentPlanetNumber > 4 && currentPlanetNumber > planetLimitAtStart) {
@@ -740,7 +750,7 @@ export default function Home() {
   ]);
   const isPlanetViewAvailable = planetUnavailableReason === null;
 
-  const defs = currentState?.defs || loadGameData(gameDataRaw as any);
+  const defs = getDefs();
 
   // Global score across all planets (structures + ships + colonists)
   const globalScore = useMemo(() => {
@@ -784,7 +794,7 @@ export default function Home() {
         if (gapTurn === undefined) return entry;
         const stateAtGap = controller.getStateAtTurn(gapTurn);
         if (!stateAtGap) return entry;
-        const def = stateAtGap.defs[entry.itemId];
+        const def = getDefs()[entry.itemId];
         const costs = (def?.costsPerUnit ?? {}) as unknown as Record<string, number>;
         const stocks = stateAtGap.stocks as unknown as Record<string, number>;
         const qty = entry.quantity;
@@ -877,22 +887,25 @@ export default function Home() {
       if (!fullPlanState) return null;
       const view = getLaneView(fullPlanState, laneId);
 
-      view.entries = view.entries.map((entry) => {
-        let status = entry.status;
-        const start = entry.startTurn ?? entry.queuedTurn ?? 0;
-        const finish = entry.completionTurn ?? entry.eta ?? 999;
+      // Return a NEW view — mutating the selector result would corrupt any
+      // other consumer holding the same object.
+      return {
+        ...view,
+        entries: view.entries.map((entry) => {
+          let status = entry.status;
+          const start = entry.startTurn ?? entry.queuedTurn ?? 0;
+          const finish = entry.completionTurn ?? entry.eta ?? 999;
 
-        if (finish <= viewTurn) {
-          status = "completed";
-        } else if (start <= viewTurn && viewTurn < finish) {
-          status = "active";
-        } else {
-          status = "pending";
-        }
-        return { ...entry, status };
-      });
-
-      return view;
+          if (finish <= viewTurn) {
+            status = "completed";
+          } else if (start <= viewTurn && viewTurn < finish) {
+            status = "active";
+          } else {
+            status = "pending";
+          }
+          return { ...entry, status };
+        }),
+      };
     },
     [fullPlanState, viewTurn],
   );
@@ -928,7 +941,7 @@ export default function Home() {
       const shortName = name.length > 18 ? `${name.slice(0, 16)}...` : name;
       return item.quantity > 1 ? `${shortName} x${item.quantity}` : shortName;
     };
-    const planetDefs = currentState?.defs ?? {};
+    const planetDefs = getDefs();
     const researchActive = globalResearchLane?.entries.find(
       (entry) => entry.status === "active",
     );
@@ -1503,8 +1516,8 @@ export default function Home() {
       const def = defs[structureId];
       if (!def) return;
 
-      // Inject the synthetic demolish def into state.defs so the engine can
-      // look it up for worker reservation, validation, and completion handling.
+      // Register the synthetic demolish def so the engine can look it up for
+      // worker reservation, validation, and completion handling.
       const demolishDef = createDemolishDef(structureId, defs);
 
       controller.injectDef(planTurn, demolishDef);
@@ -1696,7 +1709,7 @@ export default function Home() {
             for (const qEntry of entries) {
               // Skip wait items and entries already scheduled for removal
               if (qEntry.isWait || qEntry.isAutoWait) continue;
-              const qDef = scanState.defs[qEntry.itemId];
+              const qDef = getDefs()[qEntry.itemId];
               if (!qDef) continue;
 
               // Only cascade if a prerequisite of this entry was directly cancelled
@@ -1794,13 +1807,13 @@ export default function Home() {
 
     // Cancel all broken dependencies (most recent future ones first is safest to avoid weird chronological cascading bugs, though GameController handles it robustly)
     const sortedBroken = [...pendingCancellation.brokenDependencies].sort(
-      (a, b) => (b.queuedTurn || 0) - (a.queuedTurn || 0),
+      (a, b) => (b.entry.queuedTurn || 0) - (a.entry.queuedTurn || 0),
     );
 
     for (const dep of sortedBroken) {
       controller.cancelPlannedItem(
         dep.laneId as "building" | "ship" | "colonist" | "research",
-        dep.id,
+        dep.entry.id,
       );
     }
 
@@ -1824,9 +1837,10 @@ export default function Home() {
       }
 
       try {
-        // 1. Dependency Analysis for prerequisites
-        // Need to validate the full timeline to catch future breakages
-        const state = controller.getStateAtTurn(planetTimelineEndTurn);
+        // 1. Dependency Analysis for prerequisites — run against the VIEW turn's
+        // state, i.e. exactly the queue the user sees and is mutating. (The old
+        // end-of-timeline scan saw completed rows where dependents can never break.)
+        const state = controller.getStateAtTurn(viewTurn);
         if (state) {
           const getLaneEntries = (
             s: any,
@@ -1856,7 +1870,7 @@ export default function Home() {
         setError((e as Error).message || "Unknown error");
       }
     },
-    [controller, executeCancellation, planetTimelineEndTurn],
+    [controller, executeCancellation, viewTurn],
   );
 
   const handleClearLane = useCallback(
@@ -1928,7 +1942,7 @@ export default function Home() {
             const scanEntries = getLaneView(scanState, scanLaneId).entries;
             for (const qEntry of scanEntries) {
               if (qEntry.isWait || qEntry.isAutoWait) continue;
-              const qDef = scanState.defs[qEntry.itemId];
+              const qDef = getDefs()[qEntry.itemId];
               if (!qDef) continue;
 
               const hasCancelledPrereq = qDef.prerequisites?.some((prereq) =>
@@ -2126,7 +2140,7 @@ export default function Home() {
       const state = controller.getStateAtTurn(planetTimelineEndTurn);
       if (!state) return entry.quantity;
 
-      const def = state.defs[entry.itemId];
+      const def = getDefs()[entry.itemId];
       if (!def) return entry.quantity;
 
       // Binary search for maximum quantity.
@@ -2260,6 +2274,14 @@ export default function Home() {
     ],
   );
 
+  // Rebuilt only when the underlying game state or view turn changes — the
+  // shared preview previously re-ran this on every render.
+  const multiPlanetExportData = useMemo(
+    () => buildMultiPlanetExportData(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [gameState, viewTurn],
+  );
+
   // Snapshot the current encoded state for the saves modal — encapsulates the
   // same encode-once-then-summarise pattern used by the auto-save effect.
   const getCurrentSnapshot = useCallback(() => {
@@ -2376,7 +2398,7 @@ export default function Home() {
       <div
         className="fixed inset-0 z-0 bg-cover bg-no-repeat pointer-events-none"
         style={{
-          backgroundImage: "url(/BG_Nebula.png)",
+          backgroundImage: "url(/BG_Nebula.webp)",
           backgroundPosition: "33% center",
           opacity: 0.2,
         }}
@@ -2449,7 +2471,7 @@ export default function Home() {
             currentPlanetId={gameState.currentPlanetId}
             currentTurn={viewTurn}
             lanes={enrichedLanes}
-            multiPlanetData={buildMultiPlanetExportData()}
+            multiPlanetData={multiPlanetExportData}
             defs={defs}
             onPlanetSelect={handlePlanetSwitch}
             onExit={() => {
@@ -2584,7 +2606,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.65</div>
+                      <div className="opacity-30 text-[10px]">v0.2.66</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2781,18 +2803,10 @@ export default function Home() {
                           colonistLane={enrichedColonistLane}
                           researchLane={enrichedResearchLane}
                           currentTurn={viewTurn}
-                          onCancel={(laneId, entry) =>
-                            handleCancelItem(laneId, entry)
-                          }
-                          onQuantityChange={(laneId, entry, newQty) =>
-                            handleQuantityChange(laneId, entry, newQty)
-                          }
-                          getMaxQuantity={(laneId, entry) =>
-                            getMaxQuantity(laneId, entry)
-                          }
-                          onReorder={(laneId, entryId, newIndex) =>
-                            handleReorder(laneId, entryId, newIndex)
-                          }
+                          onCancel={handleCancelItem}
+                          onQuantityChange={handleQuantityChange}
+                          getMaxQuantity={getMaxQuantity}
+                          onReorder={handleReorder}
                           disabled={false}
                           defs={defs}
                           activeTab={activeTab}
@@ -2832,9 +2846,19 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.65</div>
+          <div className="opacity-30 text-[10px]">v0.2.66</div>
         </footer>
       </div>
+
+      {/* Dependency warning — cancelling an item other queue entries rely on */}
+      {pendingCancellation && (
+        <DependencyWarningModal
+          onConfirm={confirmPendingCancellation}
+          onCancel={() => setPendingCancellation(null)}
+          cancelledItemName={pendingCancellation.entry.itemName}
+          brokenDependencies={pendingCancellation.brokenDependencies.map((d) => d.entry)}
+        />
+      )}
 
       {/* Export Modal - TICKET-5 */}
       {showExportModal && exportSnapshot && (
@@ -2882,7 +2906,7 @@ export default function Home() {
         currentTurn={planetModalTurn}
         mode={editingPlanetId ? "edit" : "add"}
         initialConfig={editingPlanetConfig}
-        expansionSource={editingPlanetId ? undefined : getBestExpansionSource(gameState) ?? undefined}
+        expansionSource={editingPlanetId ? undefined : expansionSource ?? undefined}
       />
 
       {/* Saves Modal — IndexedDB-backed named saves, auto-save history, and JSON import */}

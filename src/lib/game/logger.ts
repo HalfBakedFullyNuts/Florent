@@ -4,12 +4,16 @@
  */
 
 import type { PlanetState, LaneId, WorkItem } from '../sim/engine/types';
+import { setEngineTelemetry } from '../sim/engine/telemetry';
 
 export interface LoggerConfig {
   enabled: boolean;
   sessionId: string;
   logDir: string;
 }
+
+/** Max bytes kept per session log file in localStorage (quota protection). */
+export const LOGGER_STORAGE_CAP_BYTES = 256 * 1024;
 
 export interface QueueOperation {
   timestamp: string;
@@ -59,7 +63,6 @@ class GameLogger {
   private timelineEvents: TimelineEvent[] = [];
   private flushInterval: number = 50; // Flush every 50 operations
   private opCount: number = 0;
-
   constructor(config: LoggerConfig) {
     this.config = config;
   }
@@ -269,7 +272,12 @@ class GameLogger {
       try {
         const key = `${this.config.sessionId}_${filename}`;
         const existing = localStorage.getItem(key) || '';
-        localStorage.setItem(key, existing + data + '\n');
+        let combined = existing + data + '\n';
+        // Cap stored size so long sessions can't exhaust the ~5 MB quota.
+        if (combined.length > LOGGER_STORAGE_CAP_BYTES) {
+          combined = combined.slice(combined.length - LOGGER_STORAGE_CAP_BYTES);
+        }
+        localStorage.setItem(key, combined);
       } catch (error) {
         // localStorage may be full or unavailable
         console.warn('[Logger] Failed to write to localStorage:', error);
@@ -391,3 +399,18 @@ export function enableLogging(): void {
 export function disableLogging(): void {
   getLogger().setEnabled(false);
 }
+
+// Bridge engine telemetry into the game logger (orchestration → engine
+// dependency only; the engine itself stays decoupled from this layer).
+setEngineTelemetry({
+  logQueueOperation: (event) =>
+    getLogger().logQueueOperation(
+      event.turn,
+      event.op as QueueOperation['operation'],
+      event.laneId as LaneId,
+      event.itemId,
+      event.itemName,
+      event.quantity,
+      event.note
+    ),
+});

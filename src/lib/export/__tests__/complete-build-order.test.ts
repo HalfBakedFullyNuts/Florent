@@ -7,7 +7,8 @@ import { describe, it, expect } from 'vitest';
 import { GameController } from '../../game/commands';
 import { getLaneView } from '../../game/selectors';
 import { createStandardStart } from '../../sim/defs/seed';
-import { loadGameData } from '../../sim/defs/adapter.client';
+import { loadGameData } from '../../sim/defs/adapter';
+import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../../game/game_data.json';
 import { extractQueueItems, formatAsText, formatAsDiscord } from '../formatters';
 
@@ -15,6 +16,7 @@ describe('Complete Build Order Export', () => {
   it('should export complete build order with all item statuses', () => {
     // Setup: Create a scenario with completed, active, and pending items
     const defs = loadGameData(gameDataRaw as any);
+    setDefsCatalog(defs);
     const initialState = createStandardStart(defs);
     const controller = new GameController(initialState);
 
@@ -85,6 +87,7 @@ describe('Complete Build Order Export', () => {
   it('should export build order with current view filter', () => {
     // Test "Export Current View" mode (maxTurn filter)
     const defs = loadGameData(gameDataRaw as any);
+    setDefsCatalog(defs);
     const initialState = createStandardStart(defs);
     const controller = new GameController(initialState);
 

@@ -4,6 +4,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep } from '../outputs';
+import { setDefsCatalog, getDefs } from '../defsRegistry';
 import { minimalState } from '../../../../test/fixtures/minimal';
 import { cloneState } from '../helpers';
 import type { PlanetState } from '../types';
@@ -32,7 +33,7 @@ describe('Food Economy with Population Upkeep', () => {
     state.completedCounts = {};
 
     // Add a farm that produces 100 food
-    state.defs['farm'] = {
+    getDefs()['farm'] = {
       id: 'farm',
       name: 'Farm',
       type: 'structure',
@@ -70,7 +71,7 @@ describe('Food Economy with Population Upkeep', () => {
     state.completedCounts = {};
 
     // Add a farm that produces 50 food
-    state.defs['farm'] = {
+    getDefs()['farm'] = {
       id: 'farm',
       name: 'Farm',
       type: 'structure',
@@ -119,7 +120,7 @@ describe('Food Economy with Population Upkeep', () => {
     state.completedCounts = {};
 
     // Add farms that produce exactly enough for upkeep
-    state.defs['farm'] = {
+    getDefs()['farm'] = {
       id: 'farm',
       name: 'Farm',
       type: 'structure',
@@ -151,7 +152,7 @@ describe('Food Economy with Population Upkeep', () => {
     state.completedCounts = {};
 
     // Add abundance-scaled farm
-    state.defs['farm'] = {
+    getDefs()['farm'] = {
       id: 'farm',
       name: 'Farm',
       type: 'structure',
@@ -190,7 +191,7 @@ describe('Food Economy with Population Upkeep', () => {
     state.completedCounts = {};
 
     // Add structures that produce metal and mineral
-    state.defs['metal_mine'] = {
+    getDefs()['metal_mine'] = {
       id: 'metal_mine',
       name: 'Metal Mine',
       type: 'structure',
@@ -228,7 +229,7 @@ describe('Integration: Food Upkeep Not Double-Deducted', () => {
     state.completedCounts = {};
 
     // Setup: 100 food production, 50 food upkeep, 1000 initial stocks
-    state.defs['farm'] = {
+    getDefs()['farm'] = {
       id: 'farm',
       name: 'Farm',
       type: 'structure',
@@ -257,5 +258,34 @@ describe('Integration: Food Upkeep Not Double-Deducted', () => {
 
     // Food should increase by net amount (no second upkeep deduction)
     expect(state.stocks.food).toBe(initialFood + 50); // 1000 + 50 = 1050
+  });
+});
+describe('Determinism: summation order independence', () => {
+  function makeFractionalState(keyOrder: string[]): PlanetState {
+    const state = cloneState(minimalState);
+    state.completedCounts = {};
+    for (const id of keyOrder) {
+      state.completedCounts[id] = 1;
+    }
+    return state;
+  }
+
+  it('produces bit-identical outputs regardless of completedCounts key order', () => {
+    setDefsCatalog({
+      frac_w: { ...getDefs().metal_mine, id: 'frac_w', name: 'W', effectsOnComplete: { production_metal: 0.1 }, upkeepPerUnit: { ...getDefs().metal_mine.upkeepPerUnit, energy: 0 } },
+      frac_x: { ...getDefs().metal_mine, id: 'frac_x', name: 'X', effectsOnComplete: { production_metal: 0.2 }, upkeepPerUnit: { ...getDefs().metal_mine.upkeepPerUnit, energy: 0 } },
+      frac_y: { ...getDefs().metal_mine, id: 'frac_y', name: 'Y', effectsOnComplete: { production_metal: 0.3 }, upkeepPerUnit: { ...getDefs().metal_mine.upkeepPerUnit, energy: 0 } },
+      frac_z: { ...getDefs().metal_mine, id: 'frac_z', name: 'Z', effectsOnComplete: { production_metal: 0.4 }, upkeepPerUnit: { ...getDefs().metal_mine.upkeepPerUnit, energy: 0 } },
+    });
+
+    // Same entries, different insertion orders (as happens after demolish
+    // deletes a zero-count key and a rebuild re-inserts it at the end).
+    const stateA = makeFractionalState(['frac_w', 'frac_x', 'frac_y', 'frac_z']);
+    const stateB = makeFractionalState(['frac_x', 'frac_z', 'frac_y', 'frac_w']);
+
+    const outputsA = computeNetOutputsPerTurn(stateA);
+    const outputsB = computeNetOutputsPerTurn(stateB);
+
+    expect(outputsA.metal).toBe(outputsB.metal);
   });
 });

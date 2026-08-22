@@ -10,6 +10,7 @@ import { GameController } from '../commands';
 import { getPlanetSummary, getLaneView } from '../selectors';
 import { createStandardStart } from '../../sim/defs/seed';
 import { loadGameData } from '../../sim/defs/adapter';
+import { getDefs, setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../game_data.json';
 
 /**
@@ -17,6 +18,7 @@ import gameDataRaw from '../game_data.json';
  */
 function createTestController(): GameController {
   const defs = loadGameData(gameDataRaw as any);
+  setDefsCatalog(defs);
   const initialState = createStandardStart(defs);
   return new GameController(initialState);
 }
@@ -136,7 +138,7 @@ describe('Queue Integrity Tests', () => {
       controller.queueItem(turn, 'farm', 1);
 
       // Simulate completion by advancing turns
-      const farmDef = controller.getCurrentState().defs['farm'];
+      const farmDef = getDefs()['farm'];
       const buildDuration = farmDef.durationTurns;
 
       // Advance enough turns to complete both farms
@@ -248,7 +250,7 @@ describe('Queue Integrity Tests', () => {
       // Queue and complete a farm
       controller.queueItem(turn, 'farm', 1);
 
-      const farmDef = controller.getCurrentState().defs['farm'];
+      const farmDef = getDefs()['farm'];
       const buildDuration = farmDef.durationTurns;
 
       // Advance to completion

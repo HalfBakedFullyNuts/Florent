@@ -16,7 +16,7 @@ interface PlanetTabsProps {
 /**
  * PlanetTabs - Tab navigation for multiple planets, with optional Reset Queue button on the far right.
  */
-export function PlanetTabs({
+function PlanetTabsInner({
   planets,
   currentPlanetId,
   onPlanetSwitch,
@@ -44,18 +44,12 @@ export function PlanetTabs({
         const isActive = planet.id === currentPlanetId;
         const planetLabel = `P${index + 1}`;
         return (
-          <div
-            role="button"
-            tabIndex={0}
+          <button
+            type="button"
             key={planet.id}
             aria-label={isActive && planet.id !== 'planet-1' ? `Edit ${planetLabel}` : `Switch to ${planetLabel}`}
+            {...(isActive ? { 'aria-current': 'true' as const } : {})}
             onClick={() => handlePlanetClick(planet)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handlePlanetClick(planet);
-              }
-            }}
             suppressHydrationWarning
             title={isActive && planet.id !== 'planet-1' ? `Edit ${planetLabel}` : `Switch to ${planetLabel}`}
             className={`
@@ -69,20 +63,13 @@ export function PlanetTabs({
           >
             <span className="text-sm font-black uppercase tracking-wide">{planetLabel}</span>
             <span className="text-xs opacity-70" suppressHydrationWarning>T{planet.currentTurn}</span>
-          </div>
+          </button>
         );
       })}
 
-      <div
-        role="button"
-        tabIndex={0}
+      <button
+        type="button"
         onClick={onAddPlanet}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' || e.key === ' ') {
-            e.preventDefault();
-            onAddPlanet();
-          }
-        }}
         className="
           min-h-[48px] justify-center rounded-xl px-3 py-2 font-semibold transition-all duration-200 sm:min-h-0 sm:px-4
           border border-dashed border-pink-nebula-accent-primary/45 bg-pink-nebula-accent-primary/10
@@ -93,19 +80,12 @@ export function PlanetTabs({
         <span className="text-sm">+</span>
         <span className="text-sm">Add Planet</span>
         <span className="text-xs opacity-70">{planets.size}/{maxPlanets}</span>
-      </div>
+      </button>
 
       {onResetQueue && (
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           onClick={onResetQueue}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              onResetQueue();
-            }
-          }}
           className="
             col-span-2 min-h-[44px] justify-center rounded-xl px-3 py-2 font-semibold transition-all duration-200 sm:col-span-1 sm:ml-auto sm:min-h-0
             bg-red-950/35 text-red-200 hover:bg-red-700/70 hover:text-white
@@ -115,8 +95,10 @@ export function PlanetTabs({
           title="Reset current planet queue to starting state"
         >
           <span>Reset Queue</span>
-        </div>
+        </button>
       )}
     </div>
   );
 }
+
+export const PlanetTabs = React.memo(PlanetTabsInner);

@@ -11,6 +11,7 @@ import { GameController } from '../commands';
 import { getPlanetSummary, getLaneView, canQueueItem } from '../selectors';
 import { createStandardStart } from '../../sim/defs/seed';
 import { loadGameData } from '../../sim/defs/adapter';
+import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../game_data.json';
 
 /**
@@ -19,6 +20,7 @@ import gameDataRaw from '../game_data.json';
  */
 function createTestController(): GameController {
   const defs = loadGameData(gameDataRaw as any);
+  setDefsCatalog(defs);
   const initialState = createStandardStart(defs);
   // Increase resources to support ship prerequisites
   // - launch_site: 25,000 workers, 15,000 metal, 10,000 mineral

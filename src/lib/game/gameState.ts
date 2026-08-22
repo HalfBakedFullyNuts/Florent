@@ -3,8 +3,9 @@
  */
 
 import { PlanetState, LaneState, ItemDefinition, LaneId, WorkItem } from '../sim/engine/types';
+import { setDefsCatalog, getDefs } from '../sim/engine/defsRegistry';
 import { createStandardStart, createInitialState } from '../sim/defs/seed';
-import { loadGameData } from '../sim/defs/adapter.client';
+import { loadGameData } from '../sim/defs/adapter';
 import gameDataJson from './game_data.json';
 import { Timeline } from './state';
 import { getPlanetLimitAtTurn, getResearchCompletionTurns } from './globalResearch';
@@ -70,8 +71,9 @@ export interface ExtendedPlanetState extends PlanetState {
   timeline?: Timeline;  // Each planet has its own timeline
 }
 
-// Load definitions once
+// Load definitions once and install them as the engine-wide catalog
 const itemDefinitions: Record<string, ItemDefinition> = loadGameData(gameDataJson as any);
+setDefsCatalog(itemDefinitions);
 const PLANET_LANES: LaneId[] = ['building', 'ship', 'colonist', 'research'];
 const BASE_PLANET_LIMIT = 4;
 const OUTPOST_SHIP_ID = 'outpost_ship';
@@ -295,7 +297,7 @@ function getPlanetConfigFromInitialState(planet: ExtendedPlanetState): PlanetCon
 }
 
 function createCleanPlanetBase(planet: ExtendedPlanetState): ExtendedPlanetState {
-  const defs = planet.defs || itemDefinitions;
+  const defs = itemDefinitions;
   const base = planet.id === 'planet-1'
     ? createStandardStart(defs)
     : createInitialState(defs, createStarterConfig(getPlanetConfigFromInitialState(planet)));
@@ -555,7 +557,7 @@ function applyLanePlans(
     lane.completionHistory = [];
 
     for (const item of lanePlans[laneId]) {
-      lane.pendingQueue.push(resetWorkItemForStart(item, startTurn, planet.defs));
+      lane.pendingQueue.push(resetWorkItemForStart(item, startTurn, getDefs()));
       tryActivateNext(planet, laneId);
     }
   }
@@ -741,7 +743,7 @@ export function updatePlanetConfig(
   updatedPlanet.completedResearch = getCompletedResearchAtTurnFromPlan(gameState, completionTurns, config.startTurn);
   applyLanePlans(
     updatedPlanet,
-    refreshLanePlansResearchGates(gameState, lanePlans, config.startTurn, updatedPlanet.defs, completionTurns),
+    refreshLanePlansResearchGates(gameState, lanePlans, config.startTurn, getDefs(), completionTurns),
     config.startTurn
   );
   updatedPlanet.timeline = new Timeline(updatedPlanet);
@@ -774,7 +776,7 @@ export function refreshLocalResearchGates(gameState: GameState): GameState {
         gameState,
         lanePlans,
         planet.startTurn,
-        refreshedStart.defs,
+        getDefs(),
         completionTurns
       ),
       planet.startTurn

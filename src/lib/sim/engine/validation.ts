@@ -4,6 +4,7 @@
  */
 
 import type { PlanetState, ItemDefinition, CanQueueResult, ResourceId } from './types';
+import { getDefs } from './defsRegistry';
 import { computeNetOutputsPerTurn, computeProjectedNetOutputsPerTurn } from './outputs';
 
 /**
@@ -62,7 +63,7 @@ export function hasPrereqs(state: PlanetState, def: ItemDefinition): boolean {
 }
 
 function isResearchPrereq(state: PlanetState, prereqId: string): boolean {
-  return state.defs[prereqId]?.lane === 'research';
+  return getDefs()[prereqId]?.lane === 'research';
 }
 
 /**
@@ -88,7 +89,7 @@ export function housingExistsForColonist(
   ];
 
   for (const item of queuedBuildings) {
-    const itemDef = state.defs[item.itemId];
+    const itemDef = getDefs()[item.itemId];
     const effects = itemDef?.effectsOnComplete;
     if (effects) {
       if (effects.housing_soldier_cap) {
@@ -110,7 +111,7 @@ export function housingExistsForColonist(
   ];
 
   for (const item of queuedColonists) {
-    const itemDef = state.defs[item.itemId];
+    const itemDef = getDefs()[item.itemId];
     if (itemDef?.colonistKind === 'soldier') futureSoldiers += item.quantity;
     if (itemDef?.colonistKind === 'scientist') futureScientists += item.quantity;
   }
@@ -168,12 +169,6 @@ export function isUniqueLimitReached(
 }
 
 /**
- * @deprecated Use isUniqueLimitReached instead.
- * Kept as alias to avoid breaking test files that reference old name.
- */
-export const isPlanetLimitReached = isUniqueLimitReached;
-
-/**
  * Forward check: ensure energy output per turn won't go negative after completion
  * Projects future energy output by scanning the queue
  */
@@ -206,7 +201,7 @@ export function energyNonNegativeAfterCompletion(
     ];
 
     for (const item of queuedItems) {
-      const itemDef = state.defs[item.itemId];
+      const itemDef = getDefs()[item.itemId];
       if (!itemDef) continue;
       
       // Add future production

@@ -97,7 +97,7 @@ export function getMaxQueueableQuantity(
  * TabbedItemGrid - Tabbed interface for queue items
  * Shows only the active tab's items
  */
-export function TabbedItemGrid({
+function TabbedItemGridInner({
   availableItems,
   onQueueItem,
   onQueueWait,
@@ -114,44 +114,6 @@ export function TabbedItemGrid({
   const activeTab = externalActiveTab ?? internalActiveTab;
   const setActiveTab = onTabChange ?? setInternalActiveTab;
 
-  // Group items by lane
-  const itemsByLane: Record<string, any[]> = {
-    building: [],
-    ship: [],
-    colonist: [],
-    research: [],
-  };
-
-  Object.values(availableItems).forEach((item: any) => {
-    // Filter out outpost and worker - they cannot be built manually
-    if (item.id === 'outpost' || item.id === 'worker') {
-      return;
-    }
-    if (item.lane && itemsByLane[item.lane]) {
-      itemsByLane[item.lane].push(item);
-    }
-  });
-
-  /**
-   * Calculate the prerequisite chain depth for a research item.
-   * Items with no prerequisites have depth 0; each link in the chain adds 1.
-   * Capped at 20 to avoid infinite loops in case of circular data.
-   */
-  const getPrereqDepth = (itemId: string, visited = new Set<string>()): number => {
-    if (visited.has(itemId)) return 0; // Cycle guard
-    visited.add(itemId);
-    const item = availableItems[itemId];
-    if (!item?.prerequisites || item.prerequisites.length === 0) return 0;
-    const MAX_DEPTH = 20;
-    let maxParentDepth = 0;
-    for (const prereqId of item.prerequisites) {
-      if (visited.size < MAX_DEPTH) {
-        maxParentDepth = Math.max(maxParentDepth, getPrereqDepth(prereqId, new Set(visited)));
-      }
-    }
-    return maxParentDepth + 1;
-  };
-
   // Pre-compute canQueueItem(id, 1) for all items once per render to avoid
   // O(N log N) redundant calls inside the sort comparator.
   const queueChecks = useMemo(() => {
@@ -162,36 +124,83 @@ export function TabbedItemGrid({
     return map;
   }, [availableItems, canQueueItem]);
 
-  // Sort items: available first (including those with wait), hard-blocked last.
-  // For research specifically, use prerequisite chain depth as secondary sort so the
-  // full tech tree always reads top-to-bottom regardless of lock state.
-  Object.keys(itemsByLane).forEach(laneId => {
-    itemsByLane[laneId].sort((a, b) => {
-      const aCheck = queueChecks.get(a.id) ?? canQueueItem(a.id, 1);
-      const bCheck = queueChecks.get(b.id) ?? canQueueItem(b.id, 1);
-      // Use canQueueEventually (false = hard block, grey out). Fallback to allowed for compatibility.
-      const aQueueable = aCheck.canQueueEventually ?? aCheck.allowed;
-      const bQueueable = bCheck.canQueueEventually ?? bCheck.allowed;
-
-      if (aQueueable !== bQueueable) {
-        return bQueueable ? 1 : -1;
+  /**
+   * Precompute the prerequisite chain depth for every item once (iterative,
+   * cycle-guarded, memoised per id). Research uses this as its secondary sort
+   * so the tech tree reads top-to-bottom regardless of lock state.
+   */
+  const prereqDepths = useMemo(() => {
+    const depths = new Map<string, number>();
+    const MAX_DEPTH = 20;
+    const resolve = (id: string, path: Set<string>): number => {
+      const cached = depths.get(id);
+      if (cached !== undefined) return cached;
+      if (path.has(id)) return 0; // Cycle guard
+      path.add(id);
+      const item = availableItems[id];
+      let depth = 0;
+      if (item?.prerequisites?.length) {
+        let maxParent = 0;
+        for (let i = 0; i < item.prerequisites.length && path.size < MAX_DEPTH; i++) {
+          maxParent = Math.max(maxParent, resolve(item.prerequisites[i], path));
+        }
+        depth = maxParent + 1;
       }
+      depths.set(id, depth);
+      return depth;
+    };
+    Object.keys(availableItems).forEach((id) => resolve(id, new Set()));
+    return depths;
+  }, [availableItems]);
 
-      // For the research lane, sort within each group by prerequisite chain depth
-      // so the tech tree always shows in natural tier order.
-      if (laneId === 'research') {
-        const aDepth = getPrereqDepth(a.id);
-        const bDepth = getPrereqDepth(b.id);
-        if (aDepth !== bDepth) return aDepth - bDepth;
+  // Group by lane AND sort (queueable first, then depth/duration/name) — all
+  // memoized so dragging the turn slider doesn't regroup the grid per tick.
+  const itemsByLane = useMemo(() => {
+    const grouped: Record<string, any[]> = {
+      building: [],
+      ship: [],
+      colonist: [],
+      research: [],
+    };
+
+    Object.values(availableItems).forEach((item: any) => {
+      // Filter out outpost and worker - they cannot be built manually
+      if (item.id === 'outpost' || item.id === 'worker') {
+        return;
       }
-
-      if (a.durationTurns !== b.durationTurns) {
-        return a.durationTurns - b.durationTurns;
+      if (item.lane && grouped[item.lane]) {
+        grouped[item.lane].push(item);
       }
-
-      return a.name.localeCompare(b.name);
     });
-  });
+
+    Object.keys(grouped).forEach((laneId) => {
+      grouped[laneId].sort((a, b) => {
+        const aCheck = queueChecks.get(a.id) ?? canQueueItem(a.id, 1);
+        const bCheck = queueChecks.get(b.id) ?? canQueueItem(b.id, 1);
+        // Use canQueueEventually (false = hard block, grey out). Fallback to allowed for compatibility.
+        const aQueueable = aCheck.canQueueEventually ?? aCheck.allowed;
+        const bQueueable = bCheck.canQueueEventually ?? bCheck.allowed;
+
+        if (aQueueable !== bQueueable) {
+          return bQueueable ? 1 : -1;
+        }
+
+        if (laneId === 'research') {
+          const aDepth = prereqDepths.get(a.id) ?? 0;
+          const bDepth = prereqDepths.get(b.id) ?? 0;
+          if (aDepth !== bDepth) return aDepth - bDepth;
+        }
+
+        if (a.durationTurns !== b.durationTurns) {
+          return a.durationTurns - b.durationTurns;
+        }
+
+        return a.name.localeCompare(b.name);
+      });
+    });
+
+    return grouped;
+  }, [availableItems, queueChecks, canQueueItem, prereqDepths]);
 
   const handleQueueWait = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -613,7 +622,14 @@ export function TabbedItemGrid({
                               add
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); onQueueItem(item.id, 99999); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Route through the validated max-quantity helper
+                                // instead of a blind 99999 so the same clamping
+                                // and error surfacing applies as everywhere else.
+                                const max = getMaxQueueableQuantity(item.id, canQueueItem);
+                                if (max > 0) onQueueItem(item.id, max);
+                              }}
                               disabled={!queueable}
                               title={queueable ? 'Queue maximum available' : humanizeReason(queueCheck.reason, item.id)}
                               aria-label={`Queue maximum ${item.name}`}
@@ -687,6 +703,8 @@ export function TabbedItemGrid({
     </div>
   );
 }
+
+export const TabbedItemGrid = React.memo(TabbedItemGridInner);
 
 function laneTabClass(isActive: boolean): string {
   const base = 'inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-none transition-colors duration-200 sm:text-base';

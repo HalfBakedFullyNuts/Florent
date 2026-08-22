@@ -32,7 +32,8 @@ export function serialiseSaveFile(input: { name?: string; encoded: string; summa
     metadata: input.summary,
     encoded: input.encoded,
   };
-  return JSON.stringify(file, null, 2);
+  // Compact JSON: the payload is an opaque string anyway; indentation doubles size.
+  return JSON.stringify(file);
 }
 
 /** Trigger a browser download of the given JSON content. */

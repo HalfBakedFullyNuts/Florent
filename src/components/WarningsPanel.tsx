@@ -15,7 +15,7 @@ export interface WarningsPanelProps {
  *
  * Ticket 19: Warnings & errors surfacing
  */
-export function WarningsPanel({ warnings }: WarningsPanelProps) {
+function WarningsPanelInner({ warnings }: WarningsPanelProps) {
   if (warnings.length === 0) {
     return null;
   }
@@ -48,9 +48,9 @@ export function WarningsPanel({ warnings }: WarningsPanelProps) {
 
   return (
     <div className="w-full space-y-2">
-      {warnings.map((warning, index) => (
+      {warnings.map((warning) => (
         <div
-          key={index}
+          key={`${warning.type}:${warning.message}`}
           className={`flex items-start gap-3 p-3 rounded border-l-4 ${getWarningColor(
             warning.severity
           )}`}
@@ -64,3 +64,5 @@ export function WarningsPanel({ warnings }: WarningsPanelProps) {
     </div>
   );
 }
+
+export const WarningsPanel = React.memo(WarningsPanelInner);

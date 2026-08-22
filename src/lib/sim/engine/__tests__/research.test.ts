@@ -9,6 +9,7 @@ import { canQueue } from '../validation';
 import { CompletionBuffer } from '../buffers';
 import { applyStructureCompletion } from '../completions';
 import type { PlanetState, ItemDefinition, WorkItem } from '../types';
+import { setDefsCatalog } from '../defsRegistry';
 import { cloneState } from '../helpers';
 import { queueItem, generateItemId } from './test-helpers';
 
@@ -128,6 +129,11 @@ describe('Research System', () => {
   };
 
   beforeEach(() => {
+    setDefsCatalog({
+      test_research_1: testResearch1,
+      test_research_2: testResearch2,
+      scientist: scientistDef,
+    });
     state = {
       currentTurn: 0,
       stocks: {
@@ -179,11 +185,6 @@ describe('Research System', () => {
       completedResearch: [],
       planetLimit: 4, // Default planet limit
       pendingColonistConversions: [],
-      defs: {
-        test_research_1: testResearch1,
-        test_research_2: testResearch2,
-        scientist: scientistDef,
-      },
     };
     buffer = new CompletionBuffer();
   });

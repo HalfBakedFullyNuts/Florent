@@ -10,6 +10,7 @@ import { GameController } from '../commands';
 import { getPlanetSummary, getLaneView, getWarnings } from '../selectors';
 import { createStandardStart } from '../../sim/defs/seed';
 import { loadGameData } from '../../sim/defs/adapter';
+import { getDefs, setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../game_data.json';
 
 /**
@@ -18,6 +19,7 @@ import gameDataRaw from '../game_data.json';
  */
 function createTestController(): GameController {
   const defs = loadGameData(gameDataRaw as any);
+  setDefsCatalog(defs);
   const initialState = createStandardStart(defs);
   // No need to modify energy - standard start has positive net energy output
   return new GameController(initialState);
@@ -51,7 +53,7 @@ describe('E2E Gameplay Tests', () => {
       expect(afterActivation.entries[0].status).toBe('active');
 
       // Get build duration
-      const metalMineDef = controller.getCurrentState().defs.metal_mine;
+      const metalMineDef = getDefs().metal_mine;
       const buildDuration = metalMineDef.durationTurns;
 
       // Advance through build duration
@@ -164,7 +166,7 @@ describe('E2E Gameplay Tests', () => {
       const metalOutput = beforeQueue.outputsPerTurn.metal;
 
       // Queue metal mine — costs deducted immediately via eager activation
-      const metalMineCost = controller.getCurrentState().defs.metal_mine.costsPerUnit;
+      const metalMineCost = getDefs().metal_mine.costsPerUnit;
       controller.queueItem(1, 'metal_mine', 1);
 
       const afterQueue = getPlanetSummary(controller.getCurrentState());
@@ -286,7 +288,7 @@ describe('E2E Gameplay Tests', () => {
       const idleWorkersBefore = beforeQueue.population.workersIdle;
 
       // Queue something that requires workers
-      const metalMineDef = controller.getCurrentState().defs.metal_mine;
+      const metalMineDef = getDefs().metal_mine;
       const workersNeeded = metalMineDef.costsPerUnit.workers;
 
       if (workersNeeded > 0) {

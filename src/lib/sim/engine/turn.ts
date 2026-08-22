@@ -4,10 +4,11 @@
  */
 
 import type { PlanetState, WorkItem } from './types';
+import { getDefs } from './defsRegistry';
 import { LANE_ORDER, RESOURCE_TYPES } from '../rules/constants';
 import { tryActivateNext, progressActive } from './lanes';
 import { processCompletions, applyColonistConversions } from './completions';
-import { computeNetOutputsPerTurn, addOutputsToStocks } from './outputs';
+import { computeProductionPerTurn, calculatePopulationFoodUpkeep, addOutputsToStocks } from './outputs';
 import { applyWorkerGrowth } from './growth_food';
 import { CompletionBuffer } from './buffers';
 import { cloneState } from './helpers';
@@ -44,7 +45,7 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
 
     // If item completed
     if (completedItem) {
-      const def = state.defs[completedItem.itemId];
+      const def = getDefs()[completedItem.itemId];
       if (def && !def.colonistKind) {
         // All non-colonist completions (structures and ships) apply same-turn so
         // completedCounts reflects the correct turn for both queue scheduling and UI.
@@ -66,7 +67,14 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
   // stocks can still start this turn — matching the actual game's turn-atomic behaviour.
   // If the bonus was the deciding factor, state.activationUsedProjectedProduction is set
   // and the UI will render stocks in italic with a tooltip explaining the situation.
-  const projectedOutputs = computeNetOutputsPerTurn(state);
+  // Production is computed ONCE per turn (the expensive completedCounts loop).
+  // Colonist conversions (Phase 5) only change population, so the Phase 6 net
+  // outputs reuse this result with a fresh upkeep subtraction — bit-identical
+  // to recomputing, at half the cost.
+  const production = computeProductionPerTurn(state);
+
+  const projectedOutputs = { ...production };
+  projectedOutputs.food -= calculatePopulationFoodUpkeep(state);
 
   // Track which lanes are idle so we know which ones Phase 2b newly activates.
   const idleBeforePhase2b = new Set<string>();
@@ -86,7 +94,8 @@ export function runTurn(state: PlanetState, completionBuffer: CompletionBuffer):
   applyColonistConversions(state);
 
   // Phase 6: Resource production (includes population food upkeep)
-  const outputs = computeNetOutputsPerTurn(state);
+  const outputs = { ...production };
+  outputs.food -= calculatePopulationFoodUpkeep(state);
   addOutputsToStocks(state, outputs);
 
   // Phase 7: Clamp stocks to 0 minimum (cannot go negative)

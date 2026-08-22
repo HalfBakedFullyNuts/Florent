@@ -2,14 +2,11 @@ import type { GameState } from './gameState';
 import type { ItemDefinition, LaneState, WorkItem } from '../sim/engine/types';
 import type { LaneView } from './selectors';
 import { generateWorkItemId } from '../sim/engine/helpers';
-import { loadGameData } from '../sim/defs/adapter.client';
-import gameDataRaw from './game_data.json';
+import { getDefs } from '../sim/engine/defsRegistry';
 
 const TOTAL_TURNS = 200;
 const RESEARCH_PLAN_MAX_TURN = 1_000_000;
 const BASE_PLANET_LIMIT = 4;
-const defs: Record<string, ItemDefinition> = loadGameData(gameDataRaw as any);
-
 export interface GlobalResearchSnapshot {
   turn: number;
   stock: number;
@@ -72,7 +69,7 @@ function canResearchOrderProgress(items: WorkItem[], completed: string[]): boole
   const available = new Set(completed);
   for (const item of items) {
     if (item.isWait) continue;
-    const def = defs[item.itemId];
+    const def = getDefs()[item.itemId];
     if (!def) return false;
     for (const prereqId of def.prerequisites || []) {
       if (!available.has(prereqId)) return false;
@@ -86,7 +83,7 @@ function isBlockedByUnmetFrontPrereq(snapshot: GlobalResearchSnapshot): boolean 
   if (snapshot.lane.active || snapshot.lane.pendingQueue.length === 0) return false;
   const pending = snapshot.lane.pendingQueue[0];
   if (pending.isWait) return false;
-  const def = defs[pending.itemId];
+  const def = getDefs()[pending.itemId];
   return !def || !prereqsMet(snapshot.completed, def);
 }
 
@@ -119,7 +116,7 @@ function runGlobalResearchTurn(
       };
       lane.pendingQueue.shift();
     } else {
-      const def = defs[pending.itemId];
+      const def = getDefs()[pending.itemId];
       const cost = def?.costsPerUnit.research_points || 0;
       if (def && prereqsMet(completed, def) && stock >= cost) {
         stock -= cost;
@@ -145,7 +142,7 @@ function runGlobalResearchTurn(
       lane.completionHistory.push(completedItem);
       if (!completedItem.isWait && !completed.includes(completedItem.itemId)) {
         completed.push(completedItem.itemId);
-        const def = defs[completedItem.itemId];
+        const def = getDefs()[completedItem.itemId];
         if (def) {
           planetLimit = applyPlanetLimit(planetLimit, def);
         }
@@ -178,7 +175,7 @@ function createInitialSnapshot(gameState: GameState): GlobalResearchSnapshot {
   };
 
   for (const researchId of snapshot.completed) {
-    const def = defs[researchId];
+    const def = getDefs()[researchId];
     if (def) snapshot.planetLimit = applyPlanetLimit(snapshot.planetLimit, def);
   }
 
@@ -195,7 +192,7 @@ function getPendingResearchStockCost(snapshot: GlobalResearchSnapshot): number |
     return null;
   }
 
-  const def = defs[pending.itemId];
+  const def = getDefs()[pending.itemId];
   if (!def || !prereqsMet(snapshot.completed, def)) {
     return null;
   }
@@ -330,7 +327,7 @@ function buildPlanView(gameState: GameState): GlobalResearchPlanView {
   let order = 0;
 
   for (const researchId of gameState.globalResearch.completed || []) {
-    const def = defs[researchId];
+    const def = getDefs()[researchId];
     const limit = def?.effectsOnComplete?.planet_limit;
     if (limit) {
       planetLimitMilestones.push({ turn: 1, limit, researchId, order: order++ });
@@ -344,7 +341,7 @@ function buildPlanView(gameState: GameState): GlobalResearchPlanView {
 
     completionTurns.set(item.itemId, item.completionTurn);
 
-    const def = defs[item.itemId];
+    const def = getDefs()[item.itemId];
     const limit = def?.effectsOnComplete?.planet_limit;
     if (limit) {
       planetLimitMilestones.push({
@@ -450,7 +447,7 @@ export function getGlobalResearchLaneView(gameState: GameState, turn: number): L
       entry: {
         id: item.id,
         itemId: item.itemId,
-        itemName: item.isWait ? 'Wait' : defs[item.itemId]?.name || item.itemId,
+        itemName: item.isWait ? 'Wait' : getDefs()[item.itemId]?.name || item.itemId,
         status,
         quantity: item.quantity,
         turnsRemaining: item.turnsRemaining,
@@ -492,7 +489,7 @@ export function getGlobalResearchLaneView(gameState: GameState, turn: number): L
 }
 
 export function canQueueGlobalResearch(gameState: GameState, itemId: string): { allowed: boolean; reason?: string } {
-  const def = defs[itemId];
+  const def = getDefs()[itemId];
   if (!def || def.lane !== 'research') return { allowed: false, reason: 'Unknown research' };
   const lane = gameState.globalResearch.lane;
   const completed = gameState.globalResearch.completed || [];
@@ -510,7 +507,7 @@ export function canQueueGlobalResearch(gameState: GameState, itemId: string): { 
 export function queueGlobalResearch(gameState: GameState, itemId: string, preserveId?: string): GameState {
   const check = canQueueGlobalResearch(gameState, itemId);
   if (!check.allowed) throw new Error(check.reason || 'Cannot queue research');
-  const def = defs[itemId];
+  const def = getDefs()[itemId];
   const item: WorkItem = {
     id: preserveId ?? generateWorkItemId(),
     itemId,

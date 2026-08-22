@@ -17,6 +17,7 @@ import type { PlanetState, ItemDefinition } from '../types';
 import { GameController } from '../../../game/commands';
 import { createInitialState } from '../../defs/seed';
 import { minimalDefs } from '../../../../test/fixtures/minimal';
+import { setDefsCatalog } from '../defsRegistry';
 
 /**
  * Extended defs adding research_lab + barracks + solar_generator + mineral_extractor
@@ -137,6 +138,7 @@ describe('Research Lab queue (the original bug)', () => {
 
   beforeEach(() => {
     defs = buildContractDefs();
+    setDefsCatalog(defs);
   });
 
   it('queues a research lab on a fresh standard start', () => {
@@ -177,6 +179,7 @@ describe('Activation-time pricing', () => {
 
   beforeEach(() => {
     defs = buildContractDefs();
+    setDefsCatalog(defs);
   });
 
   it('queueing a building deducts costs from T1 stocks immediately', () => {
@@ -241,6 +244,7 @@ describe('Lane priority on activation turn', () => {
 
   beforeEach(() => {
     defs = buildContractDefs();
+    setDefsCatalog(defs);
   });
 
   it('building gets workers first, colonist clamps to remainder', () => {
@@ -304,6 +308,7 @@ describe('Auto-wait injection', () => {
 
   beforeEach(() => {
     defs = buildContractDefs();
+    setDefsCatalog(defs);
   });
 
   it('queues soldier without auto-wait when prereq is queued but not yet built', () => {
@@ -345,6 +350,7 @@ describe('Cancel refund semantics', () => {
 
   beforeEach(() => {
     defs = buildContractDefs();
+    setDefsCatalog(defs);
   });
 
   it('cancelling a PENDING item does not change stocks', () => {
@@ -396,6 +402,7 @@ describe('Intended batch size preserved until activation', () => {
 
   beforeEach(() => {
     defs = buildContractDefs();
+    setDefsCatalog(defs);
   });
 
   it('colonist activates immediately with clamped quantity on T1', () => {
@@ -440,6 +447,7 @@ describe('Energy hard block (per planet)', () => {
 
   beforeEach(() => {
     defs = buildContractDefs();
+    setDefsCatalog(defs);
   });
 
   it('rejects buildings whose upkeep would push net energy below zero', () => {
@@ -455,7 +463,7 @@ describe('Energy hard block (per planet)', () => {
       ...defs.outpost,
       effectsOnComplete: { ...defs.outpost.effectsOnComplete, production_energy: 0 },
     };
-    state.defs = { ...defs, outpost: noEnergyOutpost };
+    setDefsCatalog({ ...defs, outpost: noEnergyOutpost });
     const ctl = new GameController(state);
     const r = ctl.queueItem(1, 'metal_mine', 1);
     expect(r.success).toBe(false);
@@ -468,7 +476,7 @@ describe('Energy hard block (per planet)', () => {
       ...defs.outpost,
       effectsOnComplete: { ...defs.outpost.effectsOnComplete, production_energy: 0 },
     };
-    state.defs = { ...defs, outpost: noEnergyOutpost };
+    setDefsCatalog({ ...defs, outpost: noEnergyOutpost });
     const ctl = new GameController(state);
     const r = ctl.queueItem(1, 'solar_generator', 1);
     expect(r.success).toBe(true);

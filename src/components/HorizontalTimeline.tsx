@@ -29,7 +29,7 @@ export interface HorizontalTimelineProps {
  * - First empty turn buttons for each lane
  * - Fits between Population and Space Remaining sections width-wise
  */
-export function HorizontalTimeline({ 
+function HorizontalTimelineInner({ 
   currentTurn, 
   totalTurns, 
   onTurnChange, 
@@ -298,3 +298,5 @@ export function HorizontalTimeline({
     </div>
   );
 }
+
+export const HorizontalTimeline = React.memo(HorizontalTimelineInner);

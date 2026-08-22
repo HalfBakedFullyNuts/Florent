@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { GameController } from '../commands';
 import { createInitialState } from '../../sim/defs/seed';
+import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import type { ItemDefinition } from '../../sim/engine/types';
 
 const zeroCosts = {
@@ -54,6 +55,7 @@ function createResearchGateController() {
       prerequisites: ['future_research'],
     }),
   };
+  setDefsCatalog(defs);
   const initialState = createInitialState(defs, {
     structures: {},
     stocks: { metal: 1000, mineral: 1000, food: 1000, energy: 1000 },

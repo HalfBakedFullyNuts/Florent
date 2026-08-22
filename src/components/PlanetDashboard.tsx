@@ -30,6 +30,27 @@ const SHIP_SORT_ORDER: Record<string, number> = {
   battleship: 7,
 };
 
+function formatNumber(num: number): string {
+  return Math.floor(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+function formatWithK(num: number): string {
+  return num >= 1000 ? `${Math.floor(num / 1000)}k` : num.toString();
+}
+
+function formatOutput(output: number): string {
+  const rounded = Math.round(output * 10) / 10;
+  const sign = rounded < 0 ? '-' : '+';
+  const [intStr, decStr] = Math.abs(rounded).toFixed(1).split('.');
+  const intWithSep = intStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const isInteger = decStr === '0';
+  return `${sign}${intWithSep}${isInteger ? '' : `,${decStr}`}`;
+}
+
+function formatAbundance(abundance: number): string {
+  return `${(abundance * 100).toFixed(0)}%`;
+}
+
 export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, defs, turnsToHousingCap, stocksEstimated, onDemolish, demolishableIds }: PlanetDashboardProps) {
   const resources = [
     { id: 'metal', label: 'Metal', color: 'text-gray-300' },
@@ -39,36 +60,6 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
     { id: 'research_points', label: 'RP', color: 'text-yellow-400' },
   ] as const;
 
-  const formatNumber = useMemo(() => {
-    return (num: number) => {
-      const str = Math.floor(num).toString();
-      return str.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    };
-  }, []);
-
-  const formatWithK = useMemo(() => {
-    return (num: number) => {
-      if (num >= 1000) {
-        return `${Math.floor(num / 1000)}k`;
-      }
-      return num.toString();
-    };
-  }, []);
-
-  const formatOutput = useMemo(() => {
-    return (output: number) => {
-      const rounded = Math.round(output * 10) / 10;
-      const sign = rounded < 0 ? '-' : '+';
-      const [intStr, decStr] = Math.abs(rounded).toFixed(1).split('.');
-      const intWithSep = intStr.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-      const isInteger = decStr === '0';
-      return `${sign}${intWithSep}${isInteger ? '' : `,${decStr}`}`;
-    };
-  }, []);
-
-  const formatAbundance = (abundance: number) => {
-    return `${(abundance * 100).toFixed(0)}%`;
-  };
 
   const shipsList = useMemo(() => {
     return Object.entries(summary.ships)

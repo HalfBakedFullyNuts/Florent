@@ -175,6 +175,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
               }}
               className="text-red-400 bg-red-900/30 rounded px-2 py-0.5 hover:bg-red-500 hover:text-white transition-all cursor-pointer text-base font-bold leading-none"
               title="Remove from queue"
+              aria-label={`Remove ${entry.itemName} from queue`}
             >
               ✕
             </button>
@@ -197,7 +198,8 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     </div>
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison to optimize re-renders
+  // Custom comparison to optimize re-renders — compares every field the
+  // render body reads (deduped; keep in sync with the JSX below).
   return (
     prevProps.entry.id === nextProps.entry.id &&
     prevProps.entry.status === nextProps.entry.status &&
@@ -206,11 +208,9 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
     prevProps.entry.turnsRemaining === nextProps.entry.turnsRemaining &&
     prevProps.entry.invalid === nextProps.entry.invalid &&
     prevProps.entry.isAutoWait === nextProps.entry.isAutoWait &&
-    prevProps.currentTurn === nextProps.currentTurn &&
     prevProps.entry.startTurn === nextProps.entry.startTurn &&
     prevProps.entry.queuedTurn === nextProps.entry.queuedTurn &&
     prevProps.entry.completionTurn === nextProps.entry.completionTurn &&
-    prevProps.entry.invalid === nextProps.entry.invalid &&
     prevProps.currentTurn === nextProps.currentTurn &&
     prevProps.maxQuantity === nextProps.maxQuantity &&
     prevProps.disabled === nextProps.disabled &&

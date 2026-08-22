@@ -1,6 +1,7 @@
 /**
- * Data adapter - Converts game_data.json format to engine ItemDefinition format
- * Maintains game_data.json as authoritative source without modification
+ * Data adapter - THE single converter from game_data.json format to engine
+ * ItemDefinition format. Maintains game_data.json as authoritative source.
+ * (Formerly split across adapter.ts / adapter.client.ts with drift.)
  */
 
 import type { ItemDefinition, Costs, Upkeep, Effects, LaneId, UnitType } from '../engine/types';
@@ -68,6 +69,7 @@ interface RawStructure {
     consumption?: RawConsumption[];
     effects?: RawEffect[];
   };
+  max_per_planet?: number | null;
   score_value?: number;
 }
 
@@ -155,6 +157,7 @@ function convertUnit(raw: RawUnit): ItemDefinition {
     colonistKind,
     isAbundanceScaled: false, // Units don't have abundance-scaled production
     prerequisites,
+    unique: false, // Units are never unique per planet
     ...(raw.score_value !== undefined && { scoreValue: raw.score_value }),
   };
 
@@ -271,6 +274,7 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     upkeepPerUnit: upkeep,
     isAbundanceScaled: hasAbundanceScaledProduction,
     prerequisites,
+    unique: raw.max_per_planet === 1,
     ...(raw.score_value !== undefined && { scoreValue: raw.score_value }),
   };
 
@@ -342,13 +346,18 @@ function convertResearch(raw: RawResearch): ItemDefinition {
     }, // Research has no upkeep
     isAbundanceScaled: false,
     prerequisites,
+    unique: true, // Each research can only be completed once per planet
+    ...(raw.score_value !== undefined && { scoreValue: raw.score_value }),
   };
 
   return def;
 }
 
 /**
- * Load and convert game data JSON to ItemDefinition map
+ * Load and convert game data JSON to ItemDefinition map.
+ * After converting all items, wire up research-unlock reverse dependencies:
+ * if research X has operation unlock_structure/unlock_unit for item Y,
+ * then X is added to Y's prerequisites so the engine enforces it.
  */
 export function loadGameData(gameData: RawGameData): Record<string, ItemDefinition> {
   const defs: Record<string, ItemDefinition> = {};
@@ -373,15 +382,25 @@ export function loadGameData(gameData: RawGameData): Record<string, ItemDefiniti
     }
   }
 
-  return defs;
-}
+  // Build reverse map: unlockedItemId -> researchId that unlocks it.
+  // Derived from research operations of type unlock_structure / unlock_unit.
+  const unlockedByResearch: Record<string, string> = {};
+  for (const raw of gameData.research ?? []) {
+    for (const op of raw.operations ?? []) {
+      if ((op.effect === 'unlock_structure' || op.effect === 'unlock_unit') && op.item) {
+        unlockedByResearch[op.item] = raw.id;
+      }
+    }
+  }
 
-/**
- * Load game data from JSON file path (for Node.js environments)
- */
-export async function loadGameDataFromFile(filePath: string): Promise<Record<string, ItemDefinition>> {
-  const fs = await import('fs/promises');
-  const rawData = await fs.readFile(filePath, 'utf-8');
-  const gameData: RawGameData = JSON.parse(rawData);
-  return loadGameData(gameData);
+  // Inject research prerequisites into buildings and units that are unlocked by research.
+  // This enforces the requirement at queue time (hasPrereqs checks completedResearch).
+  for (const [itemId, researchId] of Object.entries(unlockedByResearch)) {
+    const def = defs[itemId];
+    if (def && !def.prerequisites.includes(researchId)) {
+      def.prerequisites = [...def.prerequisites, researchId];
+    }
+  }
+
+  return defs;
 }

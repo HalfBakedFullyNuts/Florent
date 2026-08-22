@@ -31,6 +31,7 @@ import {
   updatePlanetConfig,
 } from './gameState';
 import { GameController } from './commands';
+import { getDefs } from '../sim/engine/defsRegistry';
 import { cancelGlobalResearch, getGlobalResearchPlanView, queueGlobalResearch, queueGlobalResearchWait, reorderGlobalResearch } from './globalResearch';
 import { getLaneView } from './selectors';
 import { LaneId } from '../sim/engine/types';
@@ -1465,7 +1466,7 @@ export function replayCommands(
           if (planet?.timeline) {
             ensureBatch(planetId);
             const controller = new GameController(planet, planet.timeline);
-            const researchGate = getLocalResearchGateForItem(gameState, itemId, planet.startTurn, planet.defs);
+            const researchGate = getLocalResearchGateForItem(gameState, itemId, planet.startTurn, getDefs());
             controller.queueItem(planet.startTurn, itemId, qty, {
               preserveId: deterministicId,
               completedResearch: researchGate.completedResearch,
