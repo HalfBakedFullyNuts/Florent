@@ -4,7 +4,7 @@
  */
 
 import type { PlanetState, ItemDefinition } from '../engine/types';
-import { STARTING_STATE } from '../rules/constants';
+import { STARTING_STATE, HOMEWORLD_STARTING_SCIENTISTS } from '../rules/constants';
 
 export interface SeedConfig {
   stocks?: {
@@ -187,7 +187,7 @@ export function createStandardStart(defs: Record<string, ItemDefinition>): Plane
     population: {
       workersTotal: 20000,
       soldiers: 0,
-      scientists: 0,
+      scientists: HOMEWORLD_STARTING_SCIENTISTS,
     },
     structures: {
       outpost: 1,
@@ -195,6 +195,8 @@ export function createStandardStart(defs: Record<string, ItemDefinition>): Plane
       mineral_extractor: 3,
       farm: 1,
       solar_generator: 1,
+      // Houses the homeworld's starting scientists
+      research_lab: 1,
       // Homeworld starts with one outpost ship for the first colonisation mission
       outpost_ship: 1,
     },

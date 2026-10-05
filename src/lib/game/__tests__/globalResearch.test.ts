@@ -96,8 +96,29 @@ describe('global research', () => {
     setDefsCatalog(loadGameData(gameDataRaw as any));
   });
 
+  test('homeworld starts with 250 scientists and the research pool with 100 RP', () => {
+    const gameState = createInitialGameState();
+
+    expect(gameState.planets.get('planet-1')!.population.scientists).toBe(250);
+    expect(gameState.globalResearch.stock).toBe(100);
+    expect(getGlobalResearchAtTurn(gameState, 1).stock).toBe(350);
+    expect(getGlobalResearchAtTurn(gameState, 2).stock).toBe(600);
+  });
+
+  test('colonies start without scientists', () => {
+    const gameState = addPlanet(createInitialGameState(), {
+      name: 'Colony',
+      startTurn: 1,
+      abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+      space: { groundCap: 60, orbitalCap: 40 },
+    });
+
+    expect(gameState.planets.get('planet-2')!.population.scientists).toBe(0);
+  });
+
   test('banks RP globally from scientists without changing local planet RP', () => {
     const gameState = createInitialGameState();
+    gameState.globalResearch.stock = 0; // isolate scientist accrual from the starting RP
     const planet = gameState.planets.get('planet-1')!;
     planet.population.scientists = 10;
     refreshTimeline(gameState, 'planet-1');
@@ -111,6 +132,7 @@ describe('global research', () => {
 
   test('ignores scientists on planets before their start turn', () => {
     let gameState = createInitialGameState();
+    gameState.globalResearch.stock = 0; // isolate scientist accrual from the starting RP
     const homeworld = gameState.planets.get('planet-1')!;
     homeworld.population.scientists = 10;
     refreshTimeline(gameState, 'planet-1');
@@ -148,6 +170,7 @@ describe('global research', () => {
 
   test('research lane view uses actual RP-gated start turns before navigation catches up', () => {
     let gameState = createInitialGameState();
+    gameState.globalResearch.stock = 0; // isolate scientist accrual from the starting RP
     const planet = gameState.planets.get('planet-1')!;
     planet.population.scientists = 1;
     refreshTimeline(gameState, 'planet-1');
@@ -174,6 +197,7 @@ describe('global research', () => {
 
   test('research completion planning can project beyond the visible simulator limit', () => {
     let gameState = createInitialGameState();
+    gameState.globalResearch.stock = 0; // isolate scientist accrual from the starting RP
     const planet = gameState.planets.get('planet-1')!;
     planet.population.scientists = 1;
     refreshTimeline(gameState, 'planet-1');
@@ -288,6 +312,7 @@ describe('global research', () => {
 
   test('blocked front research stalls the lane while global RP keeps accruing', () => {
     let gameState = createInitialGameState();
+    gameState.globalResearch.stock = 0; // isolate scientist accrual from the starting RP
     const planet = gameState.planets.get('planet-1')!;
     planet.population.scientists = 10;
     refreshTimeline(gameState, 'planet-1');

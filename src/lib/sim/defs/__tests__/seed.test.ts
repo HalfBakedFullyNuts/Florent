@@ -239,7 +239,7 @@ describe('Seed Functions', () => {
 
       expect(state.population.workersTotal).toBe(20000);
       expect(state.population.soldiers).toBe(0);
-      expect(state.population.scientists).toBe(0);
+      expect(state.population.scientists).toBe(250);
     });
 
     it('should have standard starting structures', () => {
@@ -251,6 +251,8 @@ describe('Seed Functions', () => {
       expect(state.completedCounts.farm).toBe(1);
       expect(state.completedCounts.solar_generator).toBe(1);
       expect(state.completedCounts.outpost_ship).toBe(1);
+      expect(state.completedCounts.research_lab).toBe(1);
+      expect(state.housing.scientistCap).toBe(25000);
     });
 
     it('should have standard space limits', () => {

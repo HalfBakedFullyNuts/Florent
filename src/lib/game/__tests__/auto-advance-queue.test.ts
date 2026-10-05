@@ -13,15 +13,17 @@ import { createStandardStart } from '../../sim/defs/seed';
 import { loadGameData } from '../../sim/defs/adapter';
 import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../game_data.json';
+import type { PlanetState, ItemDefinition } from '../../sim/engine/types';
 
 /**
  * Helper: Create controller with standard start
  * Increased resources to support ship building (shipyard requires 60,000 workers and 48,000 metal)
  */
-function createTestController(): GameController {
+function createTestController(options: { withoutResearchLab?: boolean } = {}): GameController {
   const defs = loadGameData(gameDataRaw as any);
   setDefsCatalog(defs);
   const initialState = createStandardStart(defs);
+  if (options.withoutResearchLab) removeStartingResearchLab(initialState, defs);
   // Increase resources to support ship prerequisites
   // - launch_site: 25,000 workers, 15,000 metal, 10,000 mineral
   // - shipyard: 60,000 workers, 48,000 metal, 32,000 mineral
@@ -31,6 +33,18 @@ function createTestController(): GameController {
   initialState.stocks.metal = 100000;
   initialState.stocks.mineral = 50000;
   return new GameController(initialState);
+}
+
+/**
+ * Helper: Undo the homeworld's starting Research Lab (and its scientists) so
+ * tests can exercise the "scientists wait for a queued lab" path.
+ */
+function removeStartingResearchLab(state: PlanetState, defs: Record<string, ItemDefinition>): void {
+  const lab = defs['research_lab'];
+  state.completedCounts['research_lab'] = 0;
+  state.housing.scientistCap -= lab.effectsOnComplete.housing_scientist_cap || 0;
+  state.space.groundUsed -= lab.costsPerUnit.space || 0;
+  state.population.scientists = 0;
 }
 
 /**
@@ -120,7 +134,7 @@ describe('Auto-Advance Queue Validation Tests', () => {
     });
 
     it('should display scientists at their delayed start when research lab is queued first', () => {
-      const controller = createTestController();
+      const controller = createTestController({ withoutResearchLab: true });
 
       const labResult = controller.queueItem(1, 'research_lab', 1);
       expect(labResult.success).toBe(true);
@@ -144,7 +158,7 @@ describe('Auto-Advance Queue Validation Tests', () => {
     });
 
     it('should use the simulated lane view for delayed scientist auto-advance targets', () => {
-      const controller = createTestController();
+      const controller = createTestController({ withoutResearchLab: true });
 
       const labResult = controller.queueItem(1, 'research_lab', 1);
       expect(labResult.success).toBe(true);

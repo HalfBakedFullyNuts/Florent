@@ -6,6 +6,7 @@ import { PlanetState, LaneState, ItemDefinition, LaneId, WorkItem } from '../sim
 import { setDefsCatalog, getDefs } from '../sim/engine/defsRegistry';
 import { createStandardStart, createInitialState } from '../sim/defs/seed';
 import { loadGameData } from '../sim/defs/adapter';
+import { STARTING_RESEARCH_POINTS } from '../sim/rules/constants';
 import gameDataJson from './game_data.json';
 import { Timeline } from './state';
 import { getPlanetLimitAtTurn, getResearchCompletionTurns } from './globalResearch';
@@ -95,7 +96,7 @@ export interface LocalResearchGateOptions {
 
 export function createInitialGlobalResearchState(): GameState['globalResearch'] {
   return {
-    stock: 0,
+    stock: STARTING_RESEARCH_POINTS,
     lane: {
       pendingQueue: [],
       active: null,

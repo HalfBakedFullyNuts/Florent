@@ -52,6 +52,10 @@ export const STARTING_STATE = {
   },
 } as const;
 
+// Homeworld-only starting bonus (colonies start with 0 scientists)
+export const HOMEWORLD_STARTING_SCIENTISTS = 250;
+export const STARTING_RESEARCH_POINTS = 100; // seeds the empire-wide research pool
+
 // Colonist worker occupation rules
 export const SOLDIER_WORKERS_OCCUPIED = 10; // Reserves 10 workers during training, converts 1 at completion
 export const SCIENTIST_WORKERS_OCCUPIED = 20; // Reserves 20 workers during training, converts 1 at completion

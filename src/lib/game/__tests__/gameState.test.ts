@@ -17,7 +17,7 @@ describe('Multi-Planet State Management', () => {
 
     expect(gameState.planets.size).toBe(1);
     expect(gameState.currentPlanetId).toBe('planet-1');
-    expect(gameState.globalResearch.stock).toBe(0);
+    expect(gameState.globalResearch.stock).toBe(100);
     expect(gameState.globalResearch.lane.pendingQueue).toEqual([]);
     expect(gameState.globalResearch.completed).toEqual([]);
     expect(gameState.nextPlanetId).toBe(2);
@@ -341,7 +341,7 @@ describe('Multi-Planet State Management', () => {
     expect(reset.nextPlanetId).toBe(2);
     expect(reset.planets.has('planet-2')).toBe(false);
     expect(reset.planets.get('planet-1')!.lanes.building.pendingQueue).toEqual([]);
-    expect(reset.globalResearch.stock).toBe(0);
+    expect(reset.globalResearch.stock).toBe(100);
     expect(reset.globalResearch.completed).toEqual([]);
     expect(reset.globalResearch.lane.pendingQueue).toEqual([]);
     expect(reset.globalResearch.lane.completionHistory).toEqual([]);

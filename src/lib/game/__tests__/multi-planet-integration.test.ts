@@ -139,7 +139,8 @@ describe('Multi-Planet Integration', () => {
       space: { groundCap: 25, orbitalCap: 15 },
     });
 
-    // No planet has lab initially
+    // Remove the homeworld's starting lab so no planet has one initially
+    gameState.planets.get('planet-1')!.completedCounts['research_lab'] = 0;
     const canResearch1 = hasResearchPrerequisites(gameState);
     expect(canResearch1).toBe(false);
 
