@@ -4,7 +4,7 @@
     "name": "Planet Management",
     "tier": 1,
     "rpCost": 100,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [],
     "effects": {
       "unlocksResearch": [
@@ -17,7 +17,7 @@
     "name": "Resource Collection",
     "tier": 1,
     "rpCost": 100,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [],
     "effects": {
       "unlocksResearch": [
@@ -35,7 +35,7 @@
     "name": "Fleet Technology",
     "tier": 1,
     "rpCost": 100,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [],
     "effects": {
       "unlocksResearch": [
@@ -51,7 +51,7 @@
     "name": "PL 6",
     "tier": 1.5,
     "rpCost": 500,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "planet_management"
     ],
@@ -64,7 +64,7 @@
     "name": "PL 8",
     "tier": 1.5,
     "rpCost": 1000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "pl_6"
     ],
@@ -77,7 +77,7 @@
     "name": "PL 10",
     "tier": 1.5,
     "rpCost": 2000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "pl_8"
     ],
@@ -90,7 +90,7 @@
     "name": "PL 12",
     "tier": 1.5,
     "rpCost": 5000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "pl_10"
     ],
@@ -103,7 +103,7 @@
     "name": "PL 14",
     "tier": 1.5,
     "rpCost": 5000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "pl_12"
     ],
@@ -116,7 +116,7 @@
     "name": "PL 16",
     "tier": 1.5,
     "rpCost": 10000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "pl_14"
     ],
@@ -129,7 +129,7 @@
     "name": "PL 18",
     "tier": 1.5,
     "rpCost": 10000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "pl_16"
     ],
@@ -142,7 +142,7 @@
     "name": "PL 20",
     "tier": 1.5,
     "rpCost": 25000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "pl_18"
     ],
@@ -155,7 +155,7 @@
     "name": "PL 22",
     "tier": 1.5,
     "rpCost": 25000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "pl_20"
     ],
@@ -168,7 +168,7 @@
     "name": "PL 24",
     "tier": 1.5,
     "rpCost": 25000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "pl_22"
     ],
@@ -181,7 +181,7 @@
     "name": "Merchant Research",
     "tier": 1.5,
     "rpCost": 10000,
-    "turnsToComplete": 48,
+    "turnsToComplete": 28,
     "prerequisites": [
       "fleet_technology"
     ],
@@ -194,7 +194,7 @@
     "name": "Trader Research",
     "tier": 1.5,
     "rpCost": 50000,
-    "turnsToComplete": 72,
+    "turnsToComplete": 40,
     "prerequisites": [
       "fleet_technology"
     ],
@@ -207,7 +207,7 @@
     "name": "War Ship Design",
     "tier": 1.5,
     "rpCost": 2000,
-    "turnsToComplete": 48,
+    "turnsToComplete": 28,
     "prerequisites": [
       "fleet_technology"
     ],
@@ -224,7 +224,7 @@
     "name": "Warp Theory",
     "tier": 1.5,
     "rpCost": 5000,
-    "turnsToComplete": 48,
+    "turnsToComplete": 28,
     "prerequisites": [
       "fleet_technology"
     ],
@@ -240,7 +240,7 @@
     "name": "Destroyer Research",
     "tier": 2,
     "rpCost": 20000,
-    "turnsToComplete": 96,
+    "turnsToComplete": 52,
     "prerequisites": [
       "war_ship_design"
     ],
@@ -253,7 +253,7 @@
     "name": "Cruiser Research",
     "tier": 2,
     "rpCost": 100000,
-    "turnsToComplete": 96,
+    "turnsToComplete": 52,
     "prerequisites": [
       "war_ship_design"
     ],
@@ -266,7 +266,7 @@
     "name": "Battleship Research",
     "tier": 2,
     "rpCost": 500000,
-    "turnsToComplete": 144,
+    "turnsToComplete": 72,
     "prerequisites": [
       "war_ship_design"
     ],
@@ -279,7 +279,7 @@
     "name": "Hyperspace Beacon Research",
     "tier": 2,
     "rpCost": 50000,
-    "turnsToComplete": 96,
+    "turnsToComplete": 52,
     "prerequisites": [
       "warp_theory"
     ],
@@ -292,7 +292,7 @@
     "name": "Jump Gate Research",
     "tier": 2,
     "rpCost": 50000,
-    "turnsToComplete": 96,
+    "turnsToComplete": 52,
     "prerequisites": [
       "warp_theory"
     ],
@@ -305,7 +305,7 @@
     "name": "Core Metal Mine Research",
     "tier": 1.5,
     "rpCost": 5000,
-    "turnsToComplete": 48,
+    "turnsToComplete": 28,
     "prerequisites": [
       "resource_collection"
     ],
@@ -318,7 +318,7 @@
     "name": "Core Mineral Extractor Research",
     "tier": 1.5,
     "rpCost": 5000,
-    "turnsToComplete": 48,
+    "turnsToComplete": 28,
     "prerequisites": [
       "resource_collection"
     ],
@@ -331,7 +331,7 @@
     "name": "Hydroponics Lab Research",
     "tier": 1.5,
     "rpCost": 5000,
-    "turnsToComplete": 48,
+    "turnsToComplete": 28,
     "prerequisites": [
       "resource_collection"
     ],
@@ -344,7 +344,7 @@
     "name": "Solar Array Research",
     "tier": 1.5,
     "rpCost": 5000,
-    "turnsToComplete": 48,
+    "turnsToComplete": 28,
     "prerequisites": [
       "resource_collection"
     ],
@@ -357,7 +357,7 @@
     "name": "Mass Production",
     "tier": 1.5,
     "rpCost": 12000,
-    "turnsToComplete": 48,
+    "turnsToComplete": 28,
     "prerequisites": [
       "resource_collection"
     ],
@@ -375,7 +375,7 @@
     "name": "Land Enhancement",
     "tier": 1.5,
     "rpCost": 25000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "resource_collection"
     ],
@@ -393,7 +393,7 @@
     "name": "Metal Refinery Research",
     "tier": 2,
     "rpCost": 50000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "land_enhancement"
     ],
@@ -406,7 +406,7 @@
     "name": "Mineral Processor Research",
     "tier": 2,
     "rpCost": 50000,
-    "turnsToComplete": 24,
+    "turnsToComplete": 14,
     "prerequisites": [
       "land_enhancement"
     ],
@@ -418,8 +418,8 @@
     "id": "food_purifier_research",
     "name": "Food Purifier Research",
     "tier": 2,
-    "rpCost": 50000,
-    "turnsToComplete": 24,
+    "rpCost": 40000,
+    "turnsToComplete": 14,
     "prerequisites": [
       "land_enhancement"
     ],
@@ -431,8 +431,8 @@
     "id": "energy_booster_research",
     "name": "Energy Booster Research",
     "tier": 2,
-    "rpCost": 50000,
-    "turnsToComplete": 24,
+    "rpCost": 40000,
+    "turnsToComplete": 14,
     "prerequisites": [
       "land_enhancement"
     ],
@@ -445,7 +445,7 @@
     "name": "Strip Metal Mine Research",
     "tier": 2,
     "rpCost": 50000,
-    "turnsToComplete": 96,
+    "turnsToComplete": 52,
     "prerequisites": [
       "mass_production"
     ],
@@ -458,7 +458,7 @@
     "name": "Strip Mineral Extractor Research",
     "tier": 2,
     "rpCost": 50000,
-    "turnsToComplete": 96,
+    "turnsToComplete": 52,
     "prerequisites": [
       "mass_production"
     ],
@@ -471,7 +471,7 @@
     "name": "Hydroponics Dome Research",
     "tier": 2,
     "rpCost": 50000,
-    "turnsToComplete": 96,
+    "turnsToComplete": 52,
     "prerequisites": [
       "mass_production"
     ],
@@ -484,7 +484,7 @@
     "name": "Solar Station Research",
     "tier": 2,
     "rpCost": 50000,
-    "turnsToComplete": 96,
+    "turnsToComplete": 52,
     "prerequisites": [
       "mass_production"
     ],

@@ -3,7 +3,7 @@
     "version": "3.1.0",
     "description": "Complete game definition from Infinite Conflict Units CSV. All unit and structure data sourced from official game manual. Research system added with 36 research items.",
     "generated_at": "2025-10-25T17:00:00Z",
-    "updated_at": "2025-11-11T19:09:37.077Z"
+    "updated_at": "2026-10-06T00:00:00.000Z"
   },
   "resources": [
     {
@@ -2374,7 +2374,7 @@
       "name": "Planet Management",
       "category": "research",
       "tier": 1,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2403,7 +2403,7 @@
       "name": "Resource Collection",
       "category": "research",
       "tier": 1,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2437,7 +2437,7 @@
       "name": "Fleet Technology",
       "category": "research",
       "tier": 1,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2469,7 +2469,7 @@
       "name": "PL 6",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2498,12 +2498,12 @@
       "name": "PL 8",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
           "id": "research_points",
-          "amount": 100
+          "amount": 1000
         }
       ],
       "build_requirements": {
@@ -2527,7 +2527,7 @@
       "name": "PL 10",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2556,7 +2556,7 @@
       "name": "PL 12",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2585,7 +2585,7 @@
       "name": "PL 14",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2614,7 +2614,7 @@
       "name": "PL 16",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2643,7 +2643,7 @@
       "name": "PL 18",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2672,7 +2672,7 @@
       "name": "PL 20",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2701,7 +2701,7 @@
       "name": "PL 22",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2730,7 +2730,7 @@
       "name": "PL 24",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -2759,7 +2759,7 @@
       "name": "Merchant Research",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 48,
+      "build_time_turns": 28,
       "cost": [
         {
           "type": "resource",
@@ -2788,7 +2788,7 @@
       "name": "Trader Research",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 72,
+      "build_time_turns": 40,
       "cost": [
         {
           "type": "resource",
@@ -2817,7 +2817,7 @@
       "name": "War Ship Design",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 48,
+      "build_time_turns": 28,
       "cost": [
         {
           "type": "resource",
@@ -2850,7 +2850,7 @@
       "name": "Warp Theory",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 48,
+      "build_time_turns": 28,
       "cost": [
         {
           "type": "resource",
@@ -2882,7 +2882,7 @@
       "name": "Destroyer Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 96,
+      "build_time_turns": 52,
       "cost": [
         {
           "type": "resource",
@@ -2911,7 +2911,7 @@
       "name": "Cruiser Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 96,
+      "build_time_turns": 52,
       "cost": [
         {
           "type": "resource",
@@ -2940,7 +2940,7 @@
       "name": "Battleship Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 144,
+      "build_time_turns": 72,
       "cost": [
         {
           "type": "resource",
@@ -2969,7 +2969,7 @@
       "name": "Hyperspace Beacon Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 96,
+      "build_time_turns": 52,
       "cost": [
         {
           "type": "resource",
@@ -2998,7 +2998,7 @@
       "name": "Jump Gate Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 96,
+      "build_time_turns": 52,
       "cost": [
         {
           "type": "resource",
@@ -3027,7 +3027,7 @@
       "name": "Core Metal Mine Research",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 48,
+      "build_time_turns": 28,
       "cost": [
         {
           "type": "resource",
@@ -3056,7 +3056,7 @@
       "name": "Core Mineral Extractor Research",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 48,
+      "build_time_turns": 28,
       "cost": [
         {
           "type": "resource",
@@ -3085,7 +3085,7 @@
       "name": "Hydroponics Lab Research",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 48,
+      "build_time_turns": 28,
       "cost": [
         {
           "type": "resource",
@@ -3114,7 +3114,7 @@
       "name": "Solar Array Research",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 48,
+      "build_time_turns": 28,
       "cost": [
         {
           "type": "resource",
@@ -3143,7 +3143,7 @@
       "name": "Mass Production",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 48,
+      "build_time_turns": 28,
       "cost": [
         {
           "type": "resource",
@@ -3177,7 +3177,7 @@
       "name": "Land Enhancement",
       "category": "research",
       "tier": 1.5,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -3211,7 +3211,7 @@
       "name": "Metal Refinery Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -3240,7 +3240,7 @@
       "name": "Mineral Processor Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
@@ -3269,12 +3269,12 @@
       "name": "Food Purifier Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
           "id": "research_points",
-          "amount": 50000
+          "amount": 40000
         }
       ],
       "build_requirements": {
@@ -3298,12 +3298,12 @@
       "name": "Energy Booster Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 24,
+      "build_time_turns": 14,
       "cost": [
         {
           "type": "resource",
           "id": "research_points",
-          "amount": 50000
+          "amount": 40000
         }
       ],
       "build_requirements": {
@@ -3327,7 +3327,7 @@
       "name": "Strip Metal Mine Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 96,
+      "build_time_turns": 52,
       "cost": [
         {
           "type": "resource",
@@ -3356,7 +3356,7 @@
       "name": "Strip Mineral Extractor Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 96,
+      "build_time_turns": 52,
       "cost": [
         {
           "type": "resource",
@@ -3385,7 +3385,7 @@
       "name": "Hydroponics Dome Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 96,
+      "build_time_turns": 52,
       "cost": [
         {
           "type": "resource",
@@ -3414,7 +3414,7 @@
       "name": "Solar Station Research",
       "category": "research",
       "tier": 2,
-      "build_time_turns": 96,
+      "build_time_turns": 52,
       "cost": [
         {
           "type": "resource",

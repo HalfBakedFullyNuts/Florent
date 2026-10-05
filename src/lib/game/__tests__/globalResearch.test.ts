@@ -165,7 +165,7 @@ describe('global research', () => {
     )!;
 
     expect(earlyEntry.startTurn).toBe(101);
-    expect(earlyEntry.completionTurn).toBe(124);
+    expect(earlyEntry.completionTurn).toBe(114);
     expect(laterEntry.startTurn).toBe(earlyEntry.startTurn);
     expect(laterEntry.completionTurn).toBe(earlyEntry.completionTurn);
     expect(clickedEntry.startTurn).toBe(earlyEntry.startTurn);
@@ -187,9 +187,9 @@ describe('global research', () => {
     const completions = getResearchCompletionTurns(gameState);
 
     expect(entry.startTurn).toBe(10001);
-    expect(entry.completionTurn).toBe(10048);
+    expect(entry.completionTurn).toBe(10028);
     expect(entry.completionTurn).toBeGreaterThan(200);
-    expect(completions.get('merchant_research')).toBe(10048);
+    expect(completions.get('merchant_research')).toBe(10028);
   });
 
   test('PL research raises the planet limit on its completion turn', () => {
@@ -207,18 +207,18 @@ describe('global research', () => {
     gameState.globalResearch.stock = 1000;
     gameState = queueGlobalResearch(gameState, 'pl_6');
 
-    expect(getPlanetLimitAtTurn(gameState, 23)).toBe(4);
+    expect(getPlanetLimitAtTurn(gameState, 13)).toBe(4);
     expect(() => addPlanet(gameState, {
       name: 'Too Early',
-      startTurn: 23,
+      startTurn: 13,
       abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
       space: { groundCap: 60, orbitalCap: 40 },
     })).toThrow('Maximum planet limit reached');
 
-    expect(getPlanetLimitAtTurn(gameState, 24)).toBe(6);
+    expect(getPlanetLimitAtTurn(gameState, 14)).toBe(6);
     const expanded = addPlanet(gameState, {
       name: 'Allowed',
-      startTurn: 24,
+      startTurn: 14,
       abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
       space: { groundCap: 60, orbitalCap: 40 },
     });
@@ -239,9 +239,9 @@ describe('global research', () => {
     gameState.globalResearch.stock = 1000;
     gameState = queueGlobalResearch(gameState, 'pl_6');
 
-    expect(getPlanetLimitAtTurn(gameState, 23)).toBe(4);
-    expect(getPlanetLimitAtTurn(gameState, 24)).toBe(6);
-    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBe(24);
+    expect(getPlanetLimitAtTurn(gameState, 13)).toBe(4);
+    expect(getPlanetLimitAtTurn(gameState, 14)).toBe(6);
+    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBe(14);
     expect(getEarliestPlanetStartTurn(gameState, 6, 25)).toBe(25);
   });
 
