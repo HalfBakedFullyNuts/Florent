@@ -39,7 +39,7 @@
     "jsdom": "^27.0.0",
     "postcss": "^8",
     "rimraf": "^6.1.2",
-    "sharp": "^0.34.5",
+    "sharp": "^0.35.5",
     "tailwindcss": "^3.3.0",
     "typescript": "^5",
     "vitest": "^3.2.4"
