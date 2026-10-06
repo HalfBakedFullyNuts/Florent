@@ -2,6 +2,9 @@
 
 One- to two-sentence entries, newest first, per CLAUDE.md.
 
+## 2026-10-06 — Next 16 + React 19, ESLint 9 flat config
+Upgraded to Next 16 (Turbopack build, static export unchanged) and React 19; `next lint` is gone, so linting runs `eslint .` from `eslint.config.mjs` on ESLint 9 (ESLint 10 is blocked until eslint-plugin-react/jsx-a11y/import support it). `react-hooks/set-state-in-effect` is disabled because existing effects are valid without the React Compiler, and test files must now type-check because the Next 16 build checks them.
+
 ## 2026-08-22 — Static defs catalog hoisted out of PlanetState (`defsRegistry`)
 `PlanetState` no longer embeds the item-definition catalog; engine/game code resolves defs via `sim/engine/defsRegistry.ts` (`setDefsCatalog`/`getDefs`/`registerDef`, bootstrapped once in `game/gameState.ts`). This removes ~31 KB of duplicated static data from every timeline snapshot and turns JSON cloning from the hot-path bottleneck into a non-issue.
 

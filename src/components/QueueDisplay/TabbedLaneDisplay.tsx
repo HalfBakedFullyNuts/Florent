@@ -125,7 +125,6 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
     return result;
     // nonCompletedEntries reference changes when entries change; getMaxQuantity
     // is a stable useCallback keyed on controller + gameState in page.tsx.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nonCompletedEntries, getMaxQuantity, activeTab]);
 
   return (
