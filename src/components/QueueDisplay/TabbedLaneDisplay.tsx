@@ -219,7 +219,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
             className={`ml-auto px-2 py-1 rounded text-xs font-mono border transition-colors ${
               showTimes
                 ? 'border-pink-nebula-accent-primary/60 bg-pink-nebula-accent-primary/10 text-pink-nebula-accent-primary'
-                : 'border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-white/30 hover:text-pink-nebula-text'
+                : 'border-white/10 bg-white/4 text-pink-nebula-muted hover:border-white/30 hover:text-pink-nebula-text'
             }`}
           >
             {showTimes ? 'T#' : '⏰'}
@@ -231,12 +231,12 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                 setTickInput('');
               }}
               title="Calibrate clock: enter your current in-game tick to align displayed times"
-              className="px-2 py-1 rounded text-xs font-mono border border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-white/30 hover:text-pink-nebula-text transition-colors"
+              className="px-2 py-1 rounded-sm text-xs font-mono border border-white/10 bg-white/4 text-pink-nebula-muted hover:border-white/30 hover:text-pink-nebula-text transition-colors"
             >
               📍
             </button>
           )}
-          <span className="rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
+          <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-pink-nebula-muted">
             {laneView && laneView.entries.length > 0 ? `${laneView.entries.length}` : '—'}
           </span>
         </div>
@@ -260,19 +260,19 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
               value={tickInput}
               onChange={(e) => setTickInput(e.target.value)}
               placeholder="e.g. 245"
-              className="w-24 rounded border border-white/20 bg-pink-nebula-bg px-2 py-0.5 text-xs font-mono text-pink-nebula-text focus:border-pink-nebula-accent-primary/60 focus:outline-none"
+              className="w-24 rounded-sm border border-white/20 bg-pink-nebula-bg px-2 py-0.5 text-xs font-mono text-pink-nebula-text focus:border-pink-nebula-accent-primary/60 focus:outline-hidden"
               autoFocus
             />
             <button
               type="submit"
-              className="rounded border border-pink-nebula-accent-primary/50 bg-pink-nebula-accent-primary/10 px-2 py-0.5 text-xs font-mono text-pink-nebula-accent-primary hover:bg-pink-nebula-accent-primary/20 transition-colors"
+              className="rounded-sm border border-pink-nebula-accent-primary/50 bg-pink-nebula-accent-primary/10 px-2 py-0.5 text-xs font-mono text-pink-nebula-accent-primary hover:bg-pink-nebula-accent-primary/20 transition-colors"
             >
               Set
             </button>
             <button
               type="button"
               onClick={() => setShowCalibrate(false)}
-              className="rounded border border-white/10 px-2 py-0.5 text-xs font-mono text-pink-nebula-muted hover:text-pink-nebula-text transition-colors"
+              className="rounded-sm border border-white/10 px-2 py-0.5 text-xs font-mono text-pink-nebula-muted hover:text-pink-nebula-text transition-colors"
             >
               Cancel
             </button>
@@ -346,11 +346,11 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                 const nowLabel = showTimes ? formatTickTime(currentTurn, roundStartMs) : `T${currentTurn}`;
                 elements.push(
                   <div key="__now-divider__" className="relative flex items-center gap-3 my-2 select-none pointer-events-none">
-                    <div className="flex-1 h-px bg-gradient-to-r from-transparent via-pink-nebula-accent-primary/40 to-transparent" />
+                    <div className="flex-1 h-px bg-linear-to-r from-transparent via-pink-nebula-accent-primary/40 to-transparent" />
                     <span className="text-[10px] font-semibold tracking-widest uppercase text-pink-nebula-accent-primary/60 whitespace-nowrap px-1">
                       {nowLabel}
                     </span>
-                    <div className="flex-1 h-px bg-gradient-to-l from-transparent via-pink-nebula-accent-primary/40 to-transparent" />
+                    <div className="flex-1 h-px bg-linear-to-l from-transparent via-pink-nebula-accent-primary/40 to-transparent" />
                   </div>
                 );
               }
@@ -413,14 +413,14 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
 
                   {/* Drag handle (desktop only — touch devices use the arrow buttons below) */}
                   {canDrag && (
-                    <div className="hidden md:flex flex-shrink-0 w-6 flex-col items-center justify-center text-pink-nebula-muted hover:text-pink-nebula-text opacity-50 hover:opacity-100 transition-opacity">
+                    <div className="hidden md:flex shrink-0 w-6 flex-col items-center justify-center text-pink-nebula-muted hover:text-pink-nebula-text opacity-50 hover:opacity-100 transition-opacity">
                       <span className="text-xs leading-none">⋮⋮</span>
                     </div>
                   )}
 
                   {/* Mobile touch reorder buttons (replaces drag handle on small screens) */}
                   {canDrag && onReorder && (
-                    <div className="md:hidden flex-shrink-0 flex flex-col gap-0.5">
+                    <div className="md:hidden shrink-0 flex flex-col gap-0.5">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -428,7 +428,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                         }}
                         disabled={sourceIndex <= 0}
                         aria-label="Move up"
-                        className="w-7 h-7 flex items-center justify-center text-pink-nebula-muted bg-pink-nebula-bg/50 border border-pink-nebula-border rounded text-xs disabled:opacity-30 active:bg-pink-nebula-accent-primary/30"
+                        className="w-7 h-7 flex items-center justify-center text-pink-nebula-muted bg-pink-nebula-bg/50 border border-pink-nebula-border rounded-sm text-xs disabled:opacity-30 active:bg-pink-nebula-accent-primary/30"
                       >
                         ▲
                       </button>
@@ -439,7 +439,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
                         }}
                         disabled={sourceIndex < 0 || sourceIndex >= downBoundExclusive}
                         aria-label="Move down"
-                        className="w-7 h-7 flex items-center justify-center text-pink-nebula-muted bg-pink-nebula-bg/50 border border-pink-nebula-border rounded text-xs disabled:opacity-30 active:bg-pink-nebula-accent-primary/30"
+                        className="w-7 h-7 flex items-center justify-center text-pink-nebula-muted bg-pink-nebula-bg/50 border border-pink-nebula-border rounded-sm text-xs disabled:opacity-30 active:bg-pink-nebula-accent-primary/30"
                       >
                         ▼
                       </button>
@@ -492,17 +492,17 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
 });
 
 function laneTabClass(isActive: boolean): string {
-  const base = 'inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-none transition-colors duration-200 sm:text-base';
+  const base = 'inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-hidden transition-colors duration-200 sm:text-base';
   if (isActive) {
-    return `${base} border-cyan-200/65 bg-gradient-to-r from-cyan-400/30 via-sky-400/[0.22] to-blue-500/[0.18] text-cyan-50 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-100/15`;
+    return `${base} border-cyan-200/65 bg-linear-to-r from-cyan-400/30 via-sky-400/22 to-blue-500/18 text-cyan-50 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-100/15`;
   }
-  return `${base} border-white/10 bg-white/[0.055] text-pink-nebula-muted hover:border-cyan-300/40 hover:bg-cyan-300/[0.08] hover:text-pink-nebula-text`;
+  return `${base} border-white/10 bg-white/5.5 text-pink-nebula-muted hover:border-cyan-300/40 hover:bg-cyan-300/8 hover:text-pink-nebula-text`;
 }
 
 function laneIconClass(isActive: boolean): string {
   return `grid h-7 w-7 shrink-0 place-items-center rounded-xl border text-sm ${
     isActive
-      ? 'border-cyan-100/25 bg-cyan-50/[0.12] text-white shadow-[0_0_14px_rgba(34,211,238,0.24)]'
-      : 'border-white/10 bg-white/[0.05] opacity-80'
+      ? 'border-cyan-100/25 bg-cyan-50/12 text-white shadow-[0_0_14px_rgba(34,211,238,0.24)]'
+      : 'border-white/10 bg-white/5 opacity-80'
   }`;
 }

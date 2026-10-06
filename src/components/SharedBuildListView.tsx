@@ -137,8 +137,8 @@ export function SharedBuildListView({
   return (
     <main className="flex-1 px-3 py-3 md:px-6 md:py-5">
       <div className="mx-auto w-full max-w-[1500px] space-y-3">
-        <section className="overflow-hidden rounded-3xl border border-cyan-200/20 bg-gradient-to-br from-slate-950/90 via-[#15132d]/95 to-[#082234]/90 shadow-2xl shadow-cyan-950/25 ring-1 ring-white/10">
-          <div className="border-b border-white/10 bg-cyan-300/[0.04] px-4 py-3 md:px-5">
+        <section className="overflow-hidden rounded-3xl border border-cyan-200/20 bg-linear-to-br from-slate-950/90 via-[#15132d]/95 to-[#082234]/90 shadow-2xl shadow-cyan-950/25 ring-1 ring-white/10">
+          <div className="border-b border-white/10 bg-cyan-300/4 px-4 py-3 md:px-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0">
                 <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200/70">
@@ -168,7 +168,7 @@ export function SharedBuildListView({
                 <button
                   type="button"
                   onClick={onExit}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/[0.06] px-4 text-sm font-black text-cyan-50 shadow-lg shadow-black/15 outline-none transition hover:border-cyan-200/35 hover:bg-white/[0.1] focus:ring-2 focus:ring-cyan-200/30"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/6 px-4 text-sm font-black text-cyan-50 shadow-lg shadow-black/15 outline-hidden transition hover:border-cyan-200/35 hover:bg-white/10 focus:ring-2 focus:ring-cyan-200/30"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -188,7 +188,7 @@ export function SharedBuildListView({
                 <button
                   type="button"
                   onClick={onEdit}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-gradient-to-r from-emerald-500/95 to-teal-400/90 px-4 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-none transition hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-linear-to-r from-emerald-500/95 to-teal-400/90 px-4 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-hidden transition hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
                 >
                   <svg
                     viewBox="0 0 24 24"
@@ -252,7 +252,7 @@ export function SharedBuildListView({
                         className={`rounded-2xl border px-4 py-2 text-left text-sm font-bold transition ${
                           active
                             ? "border-cyan-200/60 bg-cyan-300/18 text-cyan-50 shadow-lg shadow-cyan-500/10"
-                            : "border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-cyan-200/35 hover:text-pink-nebula-text"
+                            : "border-white/10 bg-white/4 text-pink-nebula-muted hover:border-cyan-200/35 hover:text-pink-nebula-text"
                         }`}
                       >
                         <span className="mr-2 text-[10px] uppercase tracking-[0.18em] opacity-65">
@@ -269,7 +269,7 @@ export function SharedBuildListView({
             )}
 
             {totalItems === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-8 text-center text-pink-nebula-muted">
+              <div className="rounded-2xl border border-white/10 bg-white/4 p-8 text-center text-pink-nebula-muted">
                 This shared build list has no queued items yet.
               </div>
             ) : (
@@ -478,7 +478,7 @@ function SharedLaneCard({
   return (
     <section
       aria-label={`${config.title} shared lane`}
-      className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.07] via-white/[0.04] to-slate-950/25 p-2 shadow-xl shadow-black/15 md:p-2.5"
+      className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-linear-to-br from-white/[0.07] via-white/4 to-slate-950/25 p-2 shadow-xl shadow-black/15 md:p-2.5"
     >
       <div className="mb-1.5 flex items-center gap-2 border-b border-white/10 pb-1.5">
         <span
@@ -544,12 +544,12 @@ function SharedLaneRow({
         </div>
         <div className="flex shrink-0 items-center justify-end gap-1 text-right">
           {entry.quantity > 1 && (
-            <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] text-pink-nebula-text">
+            <span className="rounded-md bg-white/6 px-1.5 py-0.5 text-[11px] text-pink-nebula-text">
               x{entry.quantity}
             </span>
           )}
           {duration !== null && (
-            <span className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-pink-nebula-muted">
+            <span className="rounded-md border border-white/10 bg-white/4 px-1.5 py-0.5 text-[11px] text-pink-nebula-muted">
               {duration}T
             </span>
           )}
@@ -627,7 +627,7 @@ function getDurationTurns(
 function rowClass(status: LaneEntry["status"], invalid?: boolean): string {
   if (invalid) return "border-orange-300/35 bg-orange-500/10";
   if (status === "completed")
-    return "border-emerald-300/20 bg-emerald-500/[0.08]";
-  if (status === "active") return "border-yellow-200/35 bg-yellow-400/[0.10]";
+    return "border-emerald-300/20 bg-emerald-500/8";
+  if (status === "active") return "border-yellow-200/35 bg-yellow-400/10";
   return "border-blue-200/15 bg-slate-950/28";
 }

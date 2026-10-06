@@ -2,6 +2,9 @@
 
 One- to two-sentence entries, newest first, per CLAUDE.md.
 
+## 2026-10-06 — Tailwind CSS v4 with CSS-first config
+`tailwind.config.js` is gone: theme tokens live in `@theme` and plugins in `@plugin` inside `src/app/globals.css`, built via `@tailwindcss/postcss`. Utilities now sit in real CSS cascade layers, so a utility always beats base/plugin styles regardless of specificity — state-dependent styling (e.g. a checked checkbox) must be expressed with variants like `checked:` rather than relying on plugin selectors.
+
 ## 2026-10-06 — Build runtime moved to Node 24 LTS
 StaticHost (`statichost.yaml`) and Docker images now use Node 24 because Node 20 reached end-of-life on 2026-04-30; `@types/node` tracks Node 22, the lowest version still used for local development, so typed APIs exist on every runtime.
 

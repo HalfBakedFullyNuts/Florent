@@ -210,11 +210,11 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-sm sm:items-center md:p-6"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-xs sm:items-center md:p-6"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-200/20 bg-gradient-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
+        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-200/20 bg-linear-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 md:px-6">
@@ -228,7 +228,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/30"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-hidden focus:ring-2 focus:ring-cyan-300/30"
             aria-label="Close"
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -276,7 +276,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
                     value={newSaveName}
                     onChange={(e) => setNewSaveName(e.target.value)}
                     placeholder="Save name, e.g. Tech rush"
-                    className="min-h-[44px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-pink-nebula-text outline-none transition-all placeholder:text-pink-nebula-muted/60 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                    className="min-h-[44px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-pink-nebula-text outline-hidden transition-all placeholder:text-pink-nebula-muted/60 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
                   />
                   <ActionButton tone="success" onClick={handleSaveCurrent}>
                     <Save className="h-4 w-4" aria-hidden="true" />
@@ -298,7 +298,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
                 {saves.map((s) => (
                   <li
                     key={s.id}
-                    className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/15 transition-colors hover:border-cyan-200/25 hover:bg-white/[0.065]"
+                    className="rounded-2xl border border-white/10 bg-white/4.5 p-4 shadow-lg shadow-black/15 transition-colors hover:border-cyan-200/25 hover:bg-white/6.5"
                   >
                     {renamingId === s.id ? (
                       <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
@@ -307,7 +307,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
                           value={renameValue}
                           onChange={(e) => setRenameValue(e.target.value)}
                           autoFocus
-                          className="min-h-[42px] rounded-xl border border-cyan-200/50 bg-slate-950/75 px-3 py-2 text-sm text-pink-nebula-text outline-none focus:ring-2 focus:ring-cyan-300/20"
+                          className="min-h-[42px] rounded-xl border border-cyan-200/50 bg-slate-950/75 px-3 py-2 text-sm text-pink-nebula-text outline-hidden focus:ring-2 focus:ring-cyan-300/20"
                         />
                         <ActionButton tone="success" onClick={handleRename}>
                           Save name
@@ -320,7 +320,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
                       <>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0">
-                            <div className="break-words text-base font-black text-pink-nebula-text">{s.name}</div>
+                            <div className="wrap-break-word text-base font-black text-pink-nebula-text">{s.name}</div>
                             <SummaryLine summary={s.summary} />
                           </div>
                           <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-pink-nebula-muted">
@@ -376,7 +376,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
                   >
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0">
-                        <div className="break-words text-base font-black text-pink-nebula-text">{s.name}</div>
+                        <div className="wrap-break-word text-base font-black text-pink-nebula-text">{s.name}</div>
                         <div className="mt-1 text-xs font-semibold text-sky-100/80">Shared by {s.author}</div>
                         <SummaryLine summary={s.summary} />
                       </div>
@@ -420,7 +420,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
                 {history.map((h) => (
                   <li
                     key={h.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/15 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/4.5 p-4 shadow-lg shadow-black/15 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-bold text-pink-nebula-text">{new Date(h.savedAt).toLocaleString()}</div>
@@ -467,7 +467,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
                 onChange={(e) => setImportText(e.target.value)}
                 aria-label="Paste save or shared link"
                 placeholder="Paste a Florent JSON save, shared URL, #state=..., or encoded payload here"
-                className="h-44 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-xs text-pink-nebula-text outline-none transition-all placeholder:text-pink-nebula-muted/55 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                className="h-44 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-xs text-pink-nebula-text outline-hidden transition-all placeholder:text-pink-nebula-muted/55 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
               />
               <div className="grid gap-2 sm:grid-cols-2">
                 <ActionButton
@@ -517,7 +517,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-black transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-300/25 ${
+      className={`inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-black transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-cyan-300/25 ${
         active
           ? 'border-cyan-100/50 bg-cyan-300/20 text-cyan-50 shadow-lg shadow-cyan-500/15'
           : 'border-transparent text-pink-nebula-muted hover:border-white/10 hover:bg-white/[0.07] hover:text-pink-nebula-text'
@@ -537,7 +537,7 @@ function ActionButton({ tone = 'secondary', className = '', children, type = 'bu
     <button
       type={type}
       {...props}
-      className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition-all duration-200 focus:outline-none focus:ring-2 disabled:cursor-not-allowed disabled:opacity-45 ${ACTION_TONES[tone]} ${className}`}
+      className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition-all duration-200 focus:outline-hidden focus:ring-2 disabled:cursor-not-allowed disabled:opacity-45 ${ACTION_TONES[tone]} ${className}`}
     >
       {children}
     </button>
@@ -546,16 +546,16 @@ function ActionButton({ tone = 'secondary', className = '', children, type = 'bu
 
 const ACTION_TONES: Record<ActionTone, string> = {
   primary: 'border-cyan-100/45 bg-cyan-300/20 text-cyan-50 shadow-lg shadow-cyan-500/10 hover:bg-cyan-300/30 focus:ring-cyan-300/30',
-  secondary: 'border-white/10 bg-white/[0.07] text-pink-nebula-text hover:border-cyan-200/30 hover:bg-white/[0.11] focus:ring-cyan-300/20',
+  secondary: 'border-white/10 bg-white/[0.07] text-pink-nebula-text hover:border-cyan-200/30 hover:bg-white/11 focus:ring-cyan-300/20',
   success: 'border-emerald-200/35 bg-emerald-400/15 text-emerald-50 shadow-lg shadow-emerald-500/10 hover:bg-emerald-400/25 focus:ring-emerald-300/25',
   warning: 'border-amber-200/35 bg-amber-400/15 text-amber-50 shadow-lg shadow-amber-500/10 hover:bg-amber-400/25 focus:ring-amber-300/25',
   danger: 'border-red-300/30 bg-red-500/15 text-red-100 hover:border-red-200/50 hover:bg-red-500/25 focus:ring-red-300/25',
-  quiet: 'border-white/10 bg-white/[0.04] text-pink-nebula-muted hover:border-white/20 hover:bg-white/[0.08] hover:text-pink-nebula-text focus:ring-cyan-300/20',
+  quiet: 'border-white/10 bg-white/4 text-pink-nebula-muted hover:border-white/20 hover:bg-white/8 hover:text-pink-nebula-text focus:ring-cyan-300/20',
 };
 
 function LoadingLine() {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-pink-nebula-muted">
+    <div className="rounded-2xl border border-white/10 bg-white/4 px-4 py-3 text-sm text-pink-nebula-muted">
       Loading saves...
     </div>
   );

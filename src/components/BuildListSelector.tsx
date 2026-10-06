@@ -184,7 +184,7 @@ export function BuildListSelector({ onRestore, className }: BuildListSelectorPro
   }, [refresh, selected]);
 
   return (
-      <div className={`relative overflow-visible rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/90 via-slate-950/55 to-pink-nebula-panel/80 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl ${isMenuOpen ? 'z-40' : 'z-20'} ${className ?? ''}`}>
+      <div className={`relative overflow-visible rounded-2xl border border-white/10 bg-linear-to-r from-pink-nebula-panel/90 via-slate-950/55 to-pink-nebula-panel/80 p-3 shadow-2xl shadow-black/25 backdrop-blur-xl ${isMenuOpen ? 'z-40' : 'z-20'} ${className ?? ''}`}>
         <div className="flex flex-col gap-2 xl:flex-row xl:items-center">
           <div className="min-w-0 shrink-0">
             <div className="text-sm font-bold uppercase tracking-[0.18em] text-pink-nebula-text">Build lists</div>
@@ -196,7 +196,7 @@ export function BuildListSelector({ onRestore, className }: BuildListSelectorPro
               type="button"
               onClick={handleToggleMenu}
               disabled={!hasLists}
-              className="group flex min-h-[44px] w-full items-center justify-between gap-3 rounded-2xl border border-pink-nebula-border/80 bg-slate-950/60 px-4 py-2 text-left shadow-inner shadow-black/30 outline-none transition-all duration-200 hover:border-pink-nebula-accent-primary/70 hover:bg-slate-900/80 focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25 disabled:cursor-not-allowed disabled:opacity-55"
+              className="group flex min-h-[44px] w-full items-center justify-between gap-3 rounded-2xl border border-pink-nebula-border/80 bg-slate-950/60 px-4 py-2 text-left shadow-inner shadow-black/30 outline-hidden transition-all duration-200 hover:border-pink-nebula-accent-primary/70 hover:bg-slate-900/80 focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25 disabled:cursor-not-allowed disabled:opacity-55"
               aria-label="Select build list"
               aria-haspopup="listbox"
               aria-expanded={isMenuOpen}
@@ -221,7 +221,7 @@ export function BuildListSelector({ onRestore, className }: BuildListSelectorPro
               <div
                 role="listbox"
                 aria-label="Build lists"
-                className="scroll-nebula absolute left-0 right-0 top-full z-[90] mt-2 max-h-[420px] overflow-y-auto rounded-2xl border border-pink-nebula-accent-primary/30 bg-[#160d20]/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-2xl"
+                className="scroll-nebula absolute left-0 right-0 top-full z-90 mt-2 max-h-[420px] overflow-y-auto rounded-2xl border border-pink-nebula-accent-primary/30 bg-[#160d20]/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-2xl"
               >
                 <BuildListGroup
                   label="Your lists"
@@ -245,7 +245,7 @@ export function BuildListSelector({ onRestore, className }: BuildListSelectorPro
             <button
               onClick={handleLoad}
               disabled={!selected}
-              className="min-h-[38px] rounded-xl border border-pink-nebula-accent-secondary/40 bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-pink-nebula-accent-primary/20 transition-colors duration-200 hover:from-pink-nebula-accent-secondary hover:to-pink-nebula-accent-primary disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-none disabled:bg-white/5 disabled:text-pink-nebula-muted disabled:shadow-none"
+              className="min-h-[38px] rounded-xl border border-pink-nebula-accent-secondary/40 bg-linear-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary px-4 py-2 text-sm font-bold text-white shadow-lg shadow-pink-nebula-accent-primary/20 transition-colors duration-200 hover:from-pink-nebula-accent-secondary hover:to-pink-nebula-accent-primary disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-none disabled:bg-white/5 disabled:text-pink-nebula-muted disabled:shadow-none"
             >
               Load
             </button>
@@ -311,7 +311,7 @@ function BuildListGroup({ label, count, options, selectedKey, onSelect }: BuildL
               className={`w-full rounded-xl border px-3 py-3 text-left transition-all duration-150 ${
                 isSelected
                   ? 'border-pink-nebula-accent-secondary/70 bg-pink-nebula-accent-primary/20 shadow-lg shadow-pink-nebula-accent-primary/10'
-                  : 'border-white/5 bg-white/[0.03] hover:border-pink-nebula-accent-primary/40 hover:bg-white/[0.07]'
+                  : 'border-white/5 bg-white/3 hover:border-pink-nebula-accent-primary/40 hover:bg-white/[0.07]'
               }`}
             >
               <div className="flex items-start justify-between gap-3">

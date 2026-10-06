@@ -56,7 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div id="stars3" />
 
         {/* Vibrant gradient background to show blur effect */}
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-purple-900 via-pink-900 to-blue-900" />
+        <div className="fixed inset-0 -z-10 bg-linear-to-br from-purple-900 via-pink-900 to-blue-900" />
 
         <div className="min-h-screen text-pink-nebula-text relative">{children}</div>
 

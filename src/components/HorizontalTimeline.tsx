@@ -79,7 +79,7 @@ function HorizontalTimelineInner({
     : [];
 
   return (
-    <div className="w-full rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/75 via-slate-950/45 to-pink-nebula-panel/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl md:p-4">
+    <div className="w-full rounded-2xl border border-white/10 bg-linear-to-r from-pink-nebula-panel/75 via-slate-950/45 to-pink-nebula-panel/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl md:p-4">
       {buildStatus.length > 0 && (
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-pink-nebula-muted">
           <span className="uppercase tracking-wide text-pink-nebula-accent-secondary">Now</span>
@@ -110,7 +110,7 @@ function HorizontalTimelineInner({
             min={1}
             max={totalTurns}
             aria-label="Turn"
-            className="w-full rounded-xl border border-pink-nebula-border/80 bg-slate-950/60 px-2 py-1 text-center font-bold text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25 md:w-16"
+            className="w-full rounded-xl border border-pink-nebula-border/80 bg-slate-950/60 px-2 py-1 text-center font-bold text-pink-nebula-text outline-hidden transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25 md:w-16"
           />
           <button
             onClick={() => handleButtonClick(Math.min(totalTurns, localTurn + 1))}
@@ -130,7 +130,7 @@ function HorizontalTimelineInner({
             id="autoJump"
             checked={isAutoJumpEnabled ?? true}
             onChange={(e) => onAutoJumpToggle?.(e.target.checked)}
-            className="rounded bg-pink-nebula-bg border-pink-nebula-border text-pink-nebula-accent-primary focus:ring-pink-nebula-accent-primary/50"
+            className="rounded-sm bg-pink-nebula-bg border-pink-nebula-border text-pink-nebula-accent-primary checked:bg-current checked:border-transparent focus:ring-pink-nebula-accent-primary/50"
           />
           <label htmlFor="autoJump" className="text-pink-nebula-muted text-xs cursor-pointer select-none">
             <span className="md:hidden">auto-jump to next free turn</span>
@@ -185,7 +185,7 @@ function HorizontalTimelineInner({
 
             {/* Current position indicator */}
             <div
-              className="absolute top-[-6px] w-[3px] h-3 bg-pink-nebula-accent-primary rounded pointer-events-none"
+              className="absolute top-[-6px] w-[3px] h-3 bg-pink-nebula-accent-primary rounded-sm pointer-events-none"
               style={{
                 left: `${((localTurn - 1) / (totalTurns - 1)) * 100}%`,
                 transform: 'translateX(-50%)'
@@ -214,7 +214,7 @@ function HorizontalTimelineInner({
           {/* Hover Tooltip */}
           {hoveredTurn !== null && hoveredTurn !== currentTurn && (
             <div
-              className="absolute bottom-full mb-2 px-2 py-1 bg-pink-nebula-bg border border-pink-nebula-border rounded text-xs text-pink-nebula-text pointer-events-none whitespace-nowrap"
+              className="absolute bottom-full mb-2 px-2 py-1 bg-pink-nebula-bg border border-pink-nebula-border rounded-sm text-xs text-pink-nebula-text pointer-events-none whitespace-nowrap"
               style={{
                 left: `${((hoveredTurn - 1) / (totalTurns - 1)) * 100}%`,
                 transform: 'translateX(-50%)'

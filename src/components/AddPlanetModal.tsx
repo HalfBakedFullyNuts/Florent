@@ -45,12 +45,12 @@ const STARTING_STRUCTURE_FIELDS: Array<{
   { id: 'solar_generator', label: 'Solar Gens' },
 ];
 
-const PANEL_CLASS = 'rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/15';
-const INPUT_CLASS = 'w-full min-h-[42px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-pink-nebula-text outline-none transition-all placeholder:text-pink-nebula-muted/60 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20';
-const COMPACT_INPUT_CLASS = 'w-20 min-h-[36px] rounded-xl border border-white/10 bg-slate-950/70 px-2 py-1 text-right text-sm text-pink-nebula-text outline-none transition-all focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20';
-const SECONDARY_BUTTON_CLASS = 'inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-pink-nebula-text transition-all hover:border-cyan-200/35 hover:bg-white/[0.1] focus:outline-none focus:ring-2 focus:ring-cyan-300/20';
-const PRIMARY_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-emerald-200/35 bg-emerald-400/15 px-4 py-2 text-sm font-black text-emerald-50 shadow-lg shadow-emerald-500/10 transition-all hover:bg-emerald-400/25 focus:outline-none focus:ring-2 focus:ring-emerald-300/25';
-const QUIET_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-black text-pink-nebula-muted transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/20';
+const PANEL_CLASS = 'rounded-2xl border border-white/10 bg-white/4.5 p-4 shadow-lg shadow-black/15';
+const INPUT_CLASS = 'w-full min-h-[42px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-pink-nebula-text outline-hidden transition-all placeholder:text-pink-nebula-muted/60 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20';
+const COMPACT_INPUT_CLASS = 'w-20 min-h-[36px] rounded-xl border border-white/10 bg-slate-950/70 px-2 py-1 text-right text-sm text-pink-nebula-text outline-hidden transition-all focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20';
+const SECONDARY_BUTTON_CLASS = 'inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/6 px-3 py-2 text-xs font-black text-pink-nebula-text transition-all hover:border-cyan-200/35 hover:bg-white/10 focus:outline-hidden focus:ring-2 focus:ring-cyan-300/20';
+const PRIMARY_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-emerald-200/35 bg-emerald-400/15 px-4 py-2 text-sm font-black text-emerald-50 shadow-lg shadow-emerald-500/10 transition-all hover:bg-emerald-400/25 focus:outline-hidden focus:ring-2 focus:ring-emerald-300/25';
+const QUIET_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/10 bg-white/4 px-4 py-2 text-sm font-black text-pink-nebula-muted transition-all hover:border-white/20 hover:bg-white/8 hover:text-pink-nebula-text focus:outline-hidden focus:ring-2 focus:ring-cyan-300/20';
 const LABEL_CLASS = 'mb-1 block text-xs font-bold uppercase tracking-[0.16em] text-pink-nebula-muted';
 
 export interface BestExpansionSource {
@@ -286,14 +286,14 @@ export function AddPlanetModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-sm sm:items-center md:p-6"
+      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-xs sm:items-center md:p-6"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="planet-modal-title"
-        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-200/20 bg-gradient-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
+        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-200/20 bg-linear-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
         onClick={(event) => event.stopPropagation()}
       >
         <header className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 md:px-6">
@@ -316,7 +316,7 @@ export function AddPlanetModal({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/30"
+            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-hidden focus:ring-2 focus:ring-cyan-300/30"
             aria-label="Close"
           >
             <X className="h-5 w-5" aria-hidden="true" />
@@ -366,10 +366,10 @@ export function AddPlanetModal({
                     key={choice}
                     type="button"
                     onClick={() => setTravelChoice(choice)}
-                    className={`rounded-xl border px-3 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-cyan-300/25 ${
+                    className={`rounded-xl border px-3 py-3 text-left transition-all focus:outline-hidden focus:ring-2 focus:ring-cyan-300/25 ${
                       selected
                         ? 'border-cyan-200/55 bg-cyan-300/15 text-cyan-50 shadow-lg shadow-cyan-500/10'
-                        : 'border-white/10 bg-white/[0.04] text-pink-nebula-text hover:border-cyan-200/35 hover:bg-white/[0.08]'
+                        : 'border-white/10 bg-white/4 text-pink-nebula-text hover:border-cyan-200/35 hover:bg-white/8'
                     }`}
                     aria-pressed={selected}
                   >
@@ -425,7 +425,7 @@ export function AddPlanetModal({
               <button
                 type="button"
                 onClick={() => applyPreset('homeworld')}
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border border-cyan-200/35 bg-cyan-300/15 px-3 py-2 text-xs font-black text-cyan-50 shadow-lg shadow-cyan-500/10 transition-all hover:bg-cyan-300/25 focus:outline-none focus:ring-2 focus:ring-cyan-300/25"
+                className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border border-cyan-200/35 bg-cyan-300/15 px-3 py-2 text-xs font-black text-cyan-50 shadow-lg shadow-cyan-500/10 transition-all hover:bg-cyan-300/25 focus:outline-hidden focus:ring-2 focus:ring-cyan-300/25"
               >
                 <Home className="h-4 w-4" aria-hidden="true" />
                 Homeworld (100%)
@@ -599,7 +599,7 @@ export function AddPlanetModal({
       {/* Import Modal */}
       {importModalOpen && (
         <div
-          className="absolute inset-0 z-10 flex items-start justify-center overflow-y-auto bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center md:p-4"
+          className="absolute inset-0 z-10 flex items-start justify-center overflow-y-auto bg-slate-950/80 p-3 backdrop-blur-xs sm:items-center md:p-4"
           onClick={(event) => {
             event.stopPropagation();
             setImportModalOpen(false);
@@ -610,7 +610,7 @@ export function AddPlanetModal({
             role="dialog"
             aria-modal="true"
             aria-labelledby="planet-import-title"
-            className="my-auto w-full max-w-3xl overflow-hidden rounded-3xl border border-cyan-200/20 bg-gradient-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
+            className="my-auto w-full max-w-3xl overflow-hidden rounded-3xl border border-cyan-200/20 bg-linear-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
             onClick={(event) => event.stopPropagation()}
           >
             <header className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 md:px-6">
@@ -634,7 +634,7 @@ export function AddPlanetModal({
                   setImportModalOpen(false);
                   setImportText('');
                 }}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/30"
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-hidden focus:ring-2 focus:ring-cyan-300/30"
                 aria-label="Close import"
               >
                 <X className="h-5 w-5" aria-hidden="true" />
@@ -650,7 +650,7 @@ export function AddPlanetModal({
               value={importText}
               onChange={(e) => setImportText(e.target.value)}
               placeholder="Paste planet data here..."
-              className="h-64 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-sm text-pink-nebula-text outline-none transition-all placeholder:text-pink-nebula-muted/55 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+              className="h-64 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-sm text-pink-nebula-text outline-hidden transition-all placeholder:text-pink-nebula-muted/55 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
               autoFocus
             />
 

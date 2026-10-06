@@ -418,7 +418,7 @@ function TabbedItemGridInner({
             <button
               type="button"
               onClick={() => onClearLane(activeTab)}
-              className="group ml-auto inline-flex min-w-[5.75rem] items-center justify-center rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted transition-colors hover:border-red-300/45 hover:bg-red-500/12 hover:text-red-200 focus:outline-none focus:ring-2 focus:ring-red-300/30"
+              className="group ml-auto inline-flex min-w-23 items-center justify-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-pink-nebula-muted transition-colors hover:border-red-300/45 hover:bg-red-500/12 hover:text-red-200 focus:outline-hidden focus:ring-2 focus:ring-red-300/30"
               aria-label={`Clear ${config.title} lane`}
               title={`Clear ${config.title} lane`}
             >
@@ -430,7 +430,7 @@ function TabbedItemGridInner({
               </span>
             </button>
           ) : (
-            <span className="ml-auto rounded-full border border-white/10 bg-white/[0.05] px-3 py-1 text-sm text-pink-nebula-muted">
+            <span className="ml-auto rounded-full border border-white/10 bg-white/5 px-3 py-1 text-sm text-pink-nebula-muted">
               {items.length} items
             </span>
           )}
@@ -453,7 +453,7 @@ function TabbedItemGridInner({
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
-                  className="h-10 w-16 rounded-xl border border-pink-nebula-border/80 bg-slate-950/70 px-2 text-center text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25"
+                  className="h-10 w-16 rounded-xl border border-pink-nebula-border/80 bg-slate-950/70 px-2 text-center text-pink-nebula-text outline-hidden transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25"
                   value={waitTurnsInput}
                   onChange={(e) => {
                     const v = e.target.value;
@@ -463,7 +463,7 @@ function TabbedItemGridInner({
                 <span className="mr-1 text-sm text-pink-nebula-muted">turns</span>
                 <button
                   onClick={handleQueueWait}
-                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-cyan-300/35 bg-cyan-400/15 px-4 text-sm font-bold text-cyan-100 transition-colors hover:border-cyan-200/60 hover:bg-cyan-400/25 focus:outline-none focus:ring-2 focus:ring-cyan-300/35"
+                  className="inline-flex h-10 items-center gap-2 rounded-xl border border-cyan-300/35 bg-cyan-400/15 px-4 text-sm font-bold text-cyan-100 transition-colors hover:border-cyan-200/60 hover:bg-cyan-400/25 focus:outline-hidden focus:ring-2 focus:ring-cyan-300/35"
                 >
                   <span aria-hidden="true">⏸</span>
                   Inject Wait
@@ -565,7 +565,7 @@ function TabbedItemGridInner({
                               className={`
                                 w-12 px-1 py-0.5 bg-pink-nebula-bg border rounded
                                 text-pink-nebula-text text-xs text-center font-mono
-                                focus:outline-none focus:border-pink-nebula-accent-primary
+                                focus:outline-hidden focus:border-pink-nebula-accent-primary
                                 ${itemErrors[item.id] ? 'border-red-500' : 'border-pink-nebula-border'}
                                 ${!queueable ? 'opacity-50 cursor-not-allowed' : ''}
                               `}
@@ -707,17 +707,17 @@ function TabbedItemGridInner({
 export const TabbedItemGrid = React.memo(TabbedItemGridInner);
 
 function laneTabClass(isActive: boolean): string {
-  const base = 'inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-none transition-colors duration-200 sm:text-base';
+  const base = 'inline-flex h-11 min-w-0 items-center justify-center gap-2 rounded-2xl border px-3 text-sm font-bold outline-hidden transition-colors duration-200 sm:text-base';
   if (isActive) {
-    return `${base} border-cyan-200/65 bg-gradient-to-r from-cyan-400/30 via-sky-400/[0.22] to-blue-500/[0.18] text-cyan-50 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-100/15`;
+    return `${base} border-cyan-200/65 bg-linear-to-r from-cyan-400/30 via-sky-400/22 to-blue-500/18 text-cyan-50 shadow-lg shadow-cyan-500/15 ring-1 ring-cyan-100/15`;
   }
-  return `${base} border-white/10 bg-white/[0.055] text-pink-nebula-muted hover:border-cyan-300/40 hover:bg-cyan-300/[0.08] hover:text-pink-nebula-text`;
+  return `${base} border-white/10 bg-white/5.5 text-pink-nebula-muted hover:border-cyan-300/40 hover:bg-cyan-300/8 hover:text-pink-nebula-text`;
 }
 
 function laneIconClass(isActive: boolean): string {
   return `grid h-7 w-7 shrink-0 place-items-center rounded-xl border text-sm ${
     isActive
-      ? 'border-cyan-100/25 bg-cyan-50/[0.12] text-white shadow-[0_0_14px_rgba(34,211,238,0.24)]'
-      : 'border-white/10 bg-white/[0.05] opacity-80'
+      ? 'border-cyan-100/25 bg-cyan-50/12 text-white shadow-[0_0_14px_rgba(34,211,238,0.24)]'
+      : 'border-white/10 bg-white/5 opacity-80'
   }`;
 }

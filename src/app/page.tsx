@@ -2407,7 +2407,7 @@ export default function Home() {
       {/* Main Content Container */}
       <div className="flex flex-col flex-1 relative z-10">
         {/* Header */}
-        <header className="border-b border-white/10 bg-gradient-to-r from-pink-nebula-panel/95 via-[#190f22]/95 to-pink-nebula-panel/85 px-3 py-2 shadow-2xl shadow-black/20 md:px-6 md:py-3">
+        <header className="border-b border-white/10 bg-linear-to-r from-pink-nebula-panel/95 via-[#190f22]/95 to-pink-nebula-panel/85 px-3 py-2 shadow-2xl shadow-black/20 md:px-6 md:py-3">
           <div className="mx-auto flex max-w-[1800px] items-center gap-4">
             {/* Title */}
             <div className="shrink-0">
@@ -2441,7 +2441,7 @@ export default function Home() {
                         value={shareListName}
                         onChange={(e) => setShareListName(e.target.value)}
                         placeholder="Build list"
-                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-hidden transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
                       />
                     </label>
                     <label className="block min-w-0">
@@ -2453,7 +2453,7 @@ export default function Home() {
                         value={shareAuthor}
                         onChange={(e) => setShareAuthor(e.target.value)}
                         placeholder="Commander"
-                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-hidden transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
                       />
                     </label>
                   </div>
@@ -2503,7 +2503,7 @@ export default function Home() {
                         value={shareListName}
                         onChange={(e) => setShareListName(e.target.value)}
                         placeholder="Build list"
-                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-hidden transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
                       />
                     </div>
                     <div className="block min-w-0">
@@ -2517,7 +2517,7 @@ export default function Home() {
                         value={shareAuthor}
                         onChange={(e) => setShareAuthor(e.target.value)}
                         placeholder="Commander"
-                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-none transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-hidden transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
                       />
                     </div>
                   </div>
@@ -2668,7 +2668,7 @@ export default function Home() {
                         onClick={() => setMobileView("build")}
                         className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
                           mobileView === "build"
-                            ? "bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow"
+                            ? "bg-linear-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow-sm"
                             : "text-pink-nebula-text hover:bg-white/10"
                         }`}
                       >
@@ -2678,7 +2678,7 @@ export default function Home() {
                         onClick={() => setMobileView("queue")}
                         className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
                           mobileView === "queue"
-                            ? "bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow"
+                            ? "bg-linear-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow-sm"
                             : "text-pink-nebula-text hover:bg-white/10"
                         }`}
                       >
@@ -2758,11 +2758,11 @@ export default function Home() {
                                   setTimeout(() => setToast(null), 3000);
                                 }
                               }}
-                              className="group inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-gradient-to-r from-emerald-500/95 to-teal-400/90 px-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-none transition duration-200 hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
+                              className="group inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-linear-to-r from-emerald-500/95 to-teal-400/90 px-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-hidden transition duration-200 hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
                               title="Copy a share link that opens this build list"
                             >
                               <span
-                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-950/10 bg-slate-950/[0.12] text-slate-950"
+                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-950/10 bg-slate-950/12 text-slate-950"
                                 aria-hidden="true"
                               >
                                 <ActionGlyph name="link" />
@@ -2771,7 +2771,7 @@ export default function Home() {
                             </button>
                             <button
                               onClick={() => setShowSavesModal(true)}
-                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-sky-300/35 bg-sky-500/[0.14] px-3 text-sm font-bold text-sky-100 outline-none transition-colors duration-200 hover:border-sky-200/60 hover:bg-sky-500/[0.24] focus:ring-2 focus:ring-sky-300/35"
+                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-sky-300/35 bg-sky-500/[0.14] px-3 text-sm font-bold text-sky-100 outline-hidden transition-colors duration-200 hover:border-sky-200/60 hover:bg-sky-500/24 focus:ring-2 focus:ring-sky-300/35"
                               title="Save, load, and import plans (stored on this device)"
                             >
                               <span
@@ -2784,7 +2784,7 @@ export default function Home() {
                             </button>
                             <button
                               onClick={() => openExportModal()}
-                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-violet-300/35 bg-violet-500/[0.16] px-3 text-sm font-bold text-violet-100 outline-none transition-colors duration-200 hover:border-violet-200/60 hover:bg-violet-500/[0.26] focus:ring-2 focus:ring-violet-300/35"
+                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-violet-300/35 bg-violet-500/16 px-3 text-sm font-bold text-violet-100 outline-hidden transition-colors duration-200 hover:border-violet-200/60 hover:bg-violet-500/26 focus:ring-2 focus:ring-violet-300/35"
                               title="Export build list"
                             >
                               <span
@@ -2925,7 +2925,7 @@ export default function Home() {
           aria-modal="true"
           aria-labelledby="wait-code-title"
         >
-          <div className="wait-code-shell relative w-full max-w-md overflow-hidden rounded-3xl border border-cyan-200/30 bg-gradient-to-br from-slate-950 via-[#231538] to-[#091827] p-6 text-center shadow-2xl shadow-cyan-500/20">
+          <div className="wait-code-shell relative w-full max-w-md overflow-hidden rounded-3xl border border-cyan-200/30 bg-linear-to-br from-slate-950 via-[#231538] to-[#091827] p-6 text-center shadow-2xl shadow-cyan-500/20">
             <div className="wait-code-spark wait-code-spark-a" />
             <div className="wait-code-spark wait-code-spark-b" />
             <div className="wait-code-spark wait-code-spark-c" />
@@ -2949,7 +2949,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => handleWaitCodeChoice("awoo")}
-                  className="wait-code-button rounded-2xl border border-fuchsia-200/35 bg-fuchsia-400/15 px-4 py-4 text-lg font-black text-fuchsia-50 transition hover:bg-fuchsia-400/25 focus:outline-none focus:ring-2 focus:ring-fuchsia-200/50"
+                  className="wait-code-button rounded-2xl border border-fuchsia-200/35 bg-fuchsia-400/15 px-4 py-4 text-lg font-black text-fuchsia-50 transition hover:bg-fuchsia-400/25 focus:outline-hidden focus:ring-2 focus:ring-fuchsia-200/50"
                 >
                   <span>awoo!</span>
                   <span className="mt-2 block font-mono text-sm text-fuchsia-100/75">
@@ -2959,7 +2959,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={() => handleWaitCodeChoice("aroo")}
-                  className="wait-code-button rounded-2xl border border-cyan-200/35 bg-cyan-400/15 px-4 py-4 text-lg font-black text-cyan-50 transition hover:bg-cyan-400/25 focus:outline-none focus:ring-2 focus:ring-cyan-200/50"
+                  className="wait-code-button rounded-2xl border border-cyan-200/35 bg-cyan-400/15 px-4 py-4 text-lg font-black text-cyan-50 transition hover:bg-cyan-400/25 focus:outline-hidden focus:ring-2 focus:ring-cyan-200/50"
                 >
                   <span>aroo!</span>
                   <span className="mt-2 block font-mono text-sm text-cyan-100/75">

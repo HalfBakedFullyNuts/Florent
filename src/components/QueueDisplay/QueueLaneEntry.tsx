@@ -84,7 +84,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
 
   return (
     <div
-      className={`w-full text-left px-3 py-2 ${outerBg} border ${outerBorder} rounded transition-colors group ${statusColor}`}
+      className={`w-full text-left px-3 py-2 ${outerBg} border ${outerBorder} rounded-sm transition-colors group ${statusColor}`}
     >
       {/* Structured table-like layout */}
       <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2 md:gap-x-4 items-center text-xs md:text-sm font-mono">
@@ -139,7 +139,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 onClick={(e) => { e.stopPropagation(); if (onQuantityChange && entry.quantity > 1) onQuantityChange(entry.quantity - 1); }}
                 disabled={entry.quantity <= 1}
                 title="Decrease quantity"
-                className="w-5 h-5 flex items-center justify-center bg-pink-nebula-bg/70 border border-pink-nebula-border rounded text-pink-nebula-muted hover:border-pink-nebula-accent-primary hover:text-pink-nebula-text disabled:opacity-25 disabled:cursor-not-allowed transition-colors leading-none text-base"
+                className="w-5 h-5 flex items-center justify-center bg-pink-nebula-bg/70 border border-pink-nebula-border rounded-sm text-pink-nebula-muted hover:border-pink-nebula-accent-primary hover:text-pink-nebula-text disabled:opacity-25 disabled:cursor-not-allowed transition-colors leading-none text-base"
               >
                 −
               </button>
@@ -149,7 +149,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 onClick={(e) => { e.stopPropagation(); if (onQuantityChange) onQuantityChange(entry.quantity + 1); }}
                 disabled={maxQuantity !== undefined && entry.quantity >= maxQuantity}
                 title={maxQuantity !== undefined && entry.quantity >= maxQuantity ? `Maximum: ${maxQuantity}` : 'Increase quantity'}
-                className="w-5 h-5 flex items-center justify-center bg-pink-nebula-bg/70 border border-pink-nebula-border rounded text-pink-nebula-muted hover:border-pink-nebula-accent-primary hover:text-pink-nebula-text disabled:opacity-25 disabled:cursor-not-allowed transition-colors leading-none text-base"
+                className="w-5 h-5 flex items-center justify-center bg-pink-nebula-bg/70 border border-pink-nebula-border rounded-sm text-pink-nebula-muted hover:border-pink-nebula-accent-primary hover:text-pink-nebula-text disabled:opacity-25 disabled:cursor-not-allowed transition-colors leading-none text-base"
               >
                 +
               </button>
@@ -173,7 +173,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 e.stopPropagation();
                 onCancel();
               }}
-              className="text-red-400 bg-red-900/30 rounded px-2 py-0.5 hover:bg-red-500 hover:text-white transition-all cursor-pointer text-base font-bold leading-none"
+              className="text-red-400 bg-red-900/30 rounded-sm px-2 py-0.5 hover:bg-red-500 hover:text-white transition-all cursor-pointer text-base font-bold leading-none"
               title="Remove from queue"
               aria-label={`Remove ${entry.itemName} from queue`}
             >

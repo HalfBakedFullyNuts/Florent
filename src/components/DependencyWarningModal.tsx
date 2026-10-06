@@ -21,14 +21,14 @@ export function DependencyWarningModal({
 }: DependencyWarningModalProps) {
     return (
         <div
-            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-sm sm:items-center md:p-6 animate-fade-in"
+            className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-xs sm:items-center md:p-6 animate-fade-in"
             onClick={onCancel}
         >
             <div
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby="dependency-warning-title"
-                className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-red-300/25 bg-gradient-to-br from-[#2b1420]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-red-100/10"
+                className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-red-300/25 bg-linear-to-br from-[#2b1420]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-red-100/10"
                 onClick={(event) => event.stopPropagation()}
             >
                 <div className="pointer-events-none absolute left-1/2 top-0 h-36 w-[150%] -translate-x-1/2 bg-red-500/10 blur-[60px]" />
@@ -51,7 +51,7 @@ export function DependencyWarningModal({
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-red-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-red-300/30"
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-red-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-hidden focus:ring-2 focus:ring-red-300/30"
                         aria-label="Close"
                     >
                         <X className="h-5 w-5" aria-hidden="true" />
@@ -62,7 +62,7 @@ export function DependencyWarningModal({
                     <div className="scroll-nebula max-h-56 overflow-y-auto rounded-2xl border border-red-200/20 bg-slate-950/35 p-3">
                     <ul className="space-y-2 text-left">
                         {brokenDependencies.map((dep, index) => (
-                            <li key={index} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2 text-sm">
+                            <li key={index} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/4.5 px-3 py-2 text-sm">
                                 <span className="min-w-0 truncate font-mono text-pink-nebula-text">
                                     {dep.itemName} <span className="text-pink-nebula-muted">x{dep.quantity}</span>
                                 </span>
@@ -79,7 +79,7 @@ export function DependencyWarningModal({
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-emerald-200/35 bg-emerald-400/15 px-4 py-2 text-sm font-black text-emerald-50 shadow-lg shadow-emerald-500/10 transition-all hover:bg-emerald-400/25 focus:outline-none focus:ring-2 focus:ring-emerald-300/25"
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-emerald-200/35 bg-emerald-400/15 px-4 py-2 text-sm font-black text-emerald-50 shadow-lg shadow-emerald-500/10 transition-all hover:bg-emerald-400/25 focus:outline-hidden focus:ring-2 focus:ring-emerald-300/25"
                     >
                         <Shield className="h-4 w-4" aria-hidden="true" />
                         Keep {cancelledItemName}
@@ -87,7 +87,7 @@ export function DependencyWarningModal({
                     <button
                         type="button"
                         onClick={onConfirm}
-                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-red-200/40 bg-red-500/20 px-4 py-2 text-sm font-black text-red-50 shadow-lg shadow-red-500/15 transition-all hover:bg-red-500/30 focus:outline-none focus:ring-2 focus:ring-red-300/30"
+                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-red-200/40 bg-red-500/20 px-4 py-2 text-sm font-black text-red-50 shadow-lg shadow-red-500/15 transition-all hover:bg-red-500/30 focus:outline-hidden focus:ring-2 focus:ring-red-300/30"
                     >
                         <Trash2 className="h-4 w-4" aria-hidden="true" />
                         Cancel All

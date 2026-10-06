@@ -198,7 +198,7 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
                     <button
                       type="button"
                       tabIndex={0}
-                      className="text-orange-400 font-semibold cursor-help underline decoration-dotted underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-orange-400/50 rounded"
+                      className="text-orange-400 font-semibold cursor-help underline decoration-dotted underline-offset-2 outline-hidden focus-visible:ring-2 focus-visible:ring-orange-400/50 rounded-sm"
                       aria-label="Worker growth details"
                     >
                       Workers
@@ -346,7 +346,7 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
                         <td className={`py-1.5 pr-1 text-right ${spaceColor} font-semibold md:w-8 md:pr-2`}>
                           {spaceDisplay}
                         </td>
-                        <td className="break-words py-1.5 pr-1 leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
+                        <td className="wrap-break-word py-1.5 pr-1 leading-tight md:w-32 md:break-normal md:pr-2 md:leading-normal">
                           <span className="inline-flex items-center gap-1 text-pink-nebula-text font-semibold">
                             <ItemIcon itemId={structure.id} size={16} className="opacity-85" />
                             {structure.name}
