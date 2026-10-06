@@ -149,15 +149,6 @@ body {
     box-shadow: 0 0 30px rgba(96, 165, 250, 0.6), 0 0 60px rgba(96, 165, 250, 0.3);
   }
 
-  /* Hover glow transitions */
-  .hover\:glow-primary:hover {
-    box-shadow: 0 0 20px rgba(232, 121, 249, 0.3);
-  }
-
-  .hover\:glow-accent:hover {
-    box-shadow: 0 0 20px rgba(124, 58, 237, 0.3);
-  }
-
   /* Resource-specific text glows */
   .text-glow-metal {
     color: rgb(192, 192, 192);
