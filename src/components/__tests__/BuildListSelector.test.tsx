@@ -95,7 +95,8 @@ const sharedHistory = {
 
 describe('BuildListSelector', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // reset (not clear) so queued *Once values can't leak into the next test
+    vi.resetAllMocks();
     Object.defineProperty(window, 'indexedDB', {
       configurable: true,
       value: {},
@@ -140,6 +141,7 @@ describe('BuildListSelector', () => {
 
     render(<BuildListSelector onRestore={vi.fn()} />);
 
+    await waitForListsLoaded();
     const trigger = await screen.findByRole('button', { name: /select build list/i });
     act(() => {
       fireEvent.click(trigger);
@@ -219,7 +221,13 @@ describe('BuildListSelector', () => {
   });
 });
 
+// The lists load asynchronously; interacting mid-load races the mocked data
+async function waitForListsLoaded() {
+  await waitFor(() => expect(screen.queryByText(/scanning local build cache/i)).not.toBeInTheDocument());
+}
+
 async function openBuildListDropdown() {
+  await waitForListsLoaded();
   const trigger = await screen.findByRole('button', { name: /select build list/i });
   await act(async () => {
     fireEvent.click(trigger);

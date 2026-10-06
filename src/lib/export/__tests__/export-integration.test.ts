@@ -12,7 +12,8 @@ import { loadGameData } from '../../sim/defs/adapter';
 import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../../game/game_data.json';
 import { extractQueueItems, formatAsText, formatAsDiscord } from '../formatters';
-import type { LaneView } from '../../game/selectors';
+import type { LaneView } from '../../game/selectors';
+import { requireDefined } from '../../../test/requireDefined';
 
 describe('Export Integration - Queue Display Match (TICKET-6)', () => {
   // Helper to create a controller with test data
@@ -44,7 +45,7 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
     expect(soldierResult.reason).toBe('REQ_MISSING');
 
     // Get the state at turn 1 (what the UI would show)
-    const state = controller.getStateAtTurn(1);
+    const state = requireDefined(controller.getStateAtTurn(1), 'state at turn 1');
 
     // Get lane views (this is what the UI displays)
     const buildingLane = getLaneView(state, 'building');
@@ -149,7 +150,7 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
     expect(mineralExtractorResult.success).toBe(true);
 
     // Get the state and export
-    const state = controller.getStateAtTurn(1);
+    const state = requireDefined(controller.getStateAtTurn(1), 'state at turn 1');
     const buildingLane = getLaneView(state, 'building');
 
     const laneViews: LaneView[] = [buildingLane];
@@ -182,7 +183,7 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
     controller.queueItem(1, 'farm', 1);
 
     // Advance to turn 2 (farm should now be active)
-    const state = controller.getStateAtTurn(2);
+    const state = requireDefined(controller.getStateAtTurn(2), 'state at turn 2');
     const buildingLane = getLaneView(state, 'building');
 
     console.log('Turn 2 building lane:', buildingLane.entries.map(e => ({
@@ -221,7 +222,7 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
     controller.queueItem(1, 'metal_mine', 1);
     controller.queueItem(1, 'mineral_extractor', 1);
 
-    const state = controller.getStateAtTurn(1);
+    const state = requireDefined(controller.getStateAtTurn(1), 'state at turn 1');
     const buildingLane = getLaneView(state, 'building');
 
     console.log('Building lane with pending items:', buildingLane.entries.map(e => ({
@@ -257,7 +258,7 @@ describe('Export Integration - Queue Display Match (TICKET-6)', () => {
     controller.queueItem(1, 'habitat', 1);
 
     // Get state at turn 5
-    const state = controller.getStateAtTurn(5);
+    const state = requireDefined(controller.getStateAtTurn(5), 'state at turn 5');
     const buildingLane = getLaneView(state, 'building');
 
     console.log('Turn 5 building lane:', buildingLane.entries.map(e => ({

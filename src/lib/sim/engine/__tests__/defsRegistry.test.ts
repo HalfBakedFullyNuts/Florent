@@ -34,7 +34,7 @@ describe('defsRegistry', () => {
   });
 
   it('resolves definitions through the catalog instead of state.defs', () => {
-    const def = makeDef('test_mine', { outputsPerUnit: { metal: 5 } });
+    const def = makeDef('test_mine', { effectsOnComplete: { production_metal: 5 } });
     setDefsCatalog({ test_mine: def });
 
     expect(getDefs()['test_mine']).toBe(def);

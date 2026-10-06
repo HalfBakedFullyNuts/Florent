@@ -61,16 +61,17 @@ describe('Validation Primitives', () => {
         scientistCap: 0,
       },
       lanes: {
-        building: { pendingQueue: [], active: null, maxQueueDepth: 10 },
-        ship: { pendingQueue: [], active: null, maxQueueDepth: 10 },
-        colonist: { pendingQueue: [], active: null, maxQueueDepth: 10 },
-        research: { pendingQueue: [], active: null, maxQueueDepth: 1 },
+        building: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
+        ship: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
+        colonist: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
+        research: { pendingQueue: [], active: null, maxQueueDepth: 1, completionHistory: [] },
       },
       completedCounts: {
         outpost: 1,
       },
       pendingColonistConversions: [],
-      defs: minimalDefs,
+      planetLimit: 4,
+      completedResearch: [],
     };
 
     metalMineDef = minimalDefs.metal_mine;
@@ -125,7 +126,7 @@ describe('Validation Primitives', () => {
     it('should return true when no energy upkeep', () => {
       const noUpkeepDef: ItemDefinition = {
         ...metalMineDef,
-        upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0 },
+        upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
       };
       expect(energyNonNegativeAfterCompletion(state, noUpkeepDef, 10)).toBe(true);
     });

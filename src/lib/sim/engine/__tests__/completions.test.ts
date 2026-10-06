@@ -21,12 +21,14 @@ function createTestState(): PlanetState {
       mineral: 5000,
       food: 1000,
       energy: 500,
+      research_points: 0,
     },
     abundance: {
       metal: 1.0,
       mineral: 1.0,
       food: 1.0,
       energy: 1.0,
+      research_points: 1,
     },
     population: {
       workersTotal: 10000,
@@ -37,6 +39,7 @@ function createTestState(): PlanetState {
         building: 0,
         ship: 0,
         colonist: 0,
+        research: 0,
       },
     },
     space: {
@@ -51,13 +54,15 @@ function createTestState(): PlanetState {
       scientistCap: 50,
     },
     lanes: {
-      building: { pendingQueue: [], active: null, maxQueueDepth: 10 },
-      ship: { pendingQueue: [], active: null, maxQueueDepth: 10 },
-      colonist: { pendingQueue: [], active: null, maxQueueDepth: 10 },
+      building: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
+      ship: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
+      colonist: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
+      research: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
     },
     completedCounts: {},
     pendingColonistConversions: [],
-    defs: {},
+    planetLimit: 4,
+    completedResearch: [],
   };
 }
 
@@ -81,6 +86,8 @@ describe('Structure Completion', () => {
         energy: 0,
         workers: 500,
         space: 1,
+        research_points: 0,
+        space_orbital: 0,
       },
       effectsOnComplete: {
         production_metal: 300,
@@ -90,8 +97,10 @@ describe('Structure Completion', () => {
         mineral: 0,
         food: 0,
         energy: 10,
+        research_points: 0,
       },
       prerequisites: [],
+      tier: 1,
     };
 
     // Add barracks definition with housing effect
@@ -108,6 +117,8 @@ describe('Structure Completion', () => {
         energy: 0,
         workers: 1000,
         space: 2,
+        research_points: 0,
+        space_orbital: 0,
       },
       effectsOnComplete: {
         housing_soldier_cap: 50,
@@ -117,8 +128,10 @@ describe('Structure Completion', () => {
         mineral: 0,
         food: 0,
         energy: 5,
+        research_points: 0,
       },
       prerequisites: [],
+      tier: 1,
     };
   });
 
@@ -165,6 +178,8 @@ describe('Structure Completion', () => {
         energy: 0,
         workers: 2000,
         space: 3,
+        research_points: 0,
+        space_orbital: 0,
       },
       effectsOnComplete: {
         space_orbital_cap: 20,
@@ -174,8 +189,10 @@ describe('Structure Completion', () => {
         mineral: 0,
         food: 0,
         energy: 15,
+        research_points: 0,
       },
       prerequisites: [],
+      tier: 1,
     };
 
     getDefs()['orbital_platform'] = spaceDef;
@@ -242,6 +259,8 @@ describe('Colonist Conversion', () => {
         energy: 0,
         workers: 10, // Reserves 10 workers during training
         space: 0,
+        research_points: 0,
+        space_orbital: 0,
       },
       effectsOnComplete: {},
       upkeepPerUnit: {
@@ -249,9 +268,11 @@ describe('Colonist Conversion', () => {
         mineral: 0,
         food: 0,
         energy: 0,
+        research_points: 0,
       },
       colonistKind: 'soldier',
       prerequisites: ['army_barracks'],
+      tier: 1,
     };
 
     // Add scientist definition
@@ -268,6 +289,8 @@ describe('Colonist Conversion', () => {
         energy: 0,
         workers: 20, // Reserves 20 workers during training
         space: 0,
+        research_points: 0,
+        space_orbital: 0,
       },
       effectsOnComplete: {},
       upkeepPerUnit: {
@@ -275,9 +298,11 @@ describe('Colonist Conversion', () => {
         mineral: 0,
         food: 0,
         energy: 0,
+        research_points: 0,
       },
       colonistKind: 'scientist',
       prerequisites: ['research_lab'],
+      tier: 1,
     };
   });
 
@@ -397,6 +422,8 @@ describe('Colonist Conversion', () => {
         energy: 0,
         workers: 500,
         space: 1,
+        research_points: 0,
+        space_orbital: 0,
       },
       effectsOnComplete: {},
       upkeepPerUnit: {
@@ -404,8 +431,10 @@ describe('Colonist Conversion', () => {
         mineral: 0,
         food: 0,
         energy: 0,
+        research_points: 0,
       },
       prerequisites: [],
+      tier: 1,
     };
 
     const item: WorkItem = {
@@ -439,6 +468,8 @@ describe('Batch Colonist Conversions', () => {
         energy: 0,
         workers: 10,
         space: 0,
+        research_points: 0,
+        space_orbital: 0,
       },
       effectsOnComplete: {},
       upkeepPerUnit: {
@@ -446,9 +477,11 @@ describe('Batch Colonist Conversions', () => {
         mineral: 0,
         food: 0,
         energy: 0,
+        research_points: 0,
       },
       colonistKind: 'soldier',
       prerequisites: [],
+      tier: 1,
     };
 
     getDefs()['scientist'] = {
@@ -464,6 +497,8 @@ describe('Batch Colonist Conversions', () => {
         energy: 0,
         workers: 20,
         space: 0,
+        research_points: 0,
+        space_orbital: 0,
       },
       effectsOnComplete: {},
       upkeepPerUnit: {
@@ -471,9 +506,11 @@ describe('Batch Colonist Conversions', () => {
         mineral: 0,
         food: 0,
         energy: 0,
+        research_points: 0,
       },
       colonistKind: 'scientist',
       prerequisites: [],
+      tier: 1,
     };
   });
 
@@ -554,6 +591,8 @@ describe('Process Completions', () => {
         energy: 0,
         workers: 500,
         space: 1,
+        research_points: 0,
+        space_orbital: 0,
       },
       effectsOnComplete: {
         production_metal: 300,
@@ -563,8 +602,10 @@ describe('Process Completions', () => {
         mineral: 0,
         food: 0,
         energy: 10,
+        research_points: 0,
       },
       prerequisites: [],
+      tier: 1,
     };
   });
 

@@ -40,7 +40,7 @@ describe('Queue Validation UI Tests', () => {
 
   describe('canQueueItem validation', () => {
     it('should reject queueing with no item selected', () => {
-      const defs = {};
+      const defs: Record<string, { id: string; lane: string }> = {};
       const viewTurn = 10;
       const totalTurns = 20;
 
@@ -62,7 +62,7 @@ describe('Queue Validation UI Tests', () => {
     });
 
     it('should reject unknown items', () => {
-      const defs = { 'metal_mine': { id: 'metal_mine', lane: 'building' } };
+      const defs: Record<string, { id: string; lane: string }> = { 'metal_mine': { id: 'metal_mine', lane: 'building' } };
       const viewTurn = 10;
       const totalTurns = 20;
 
@@ -83,7 +83,7 @@ describe('Queue Validation UI Tests', () => {
     });
 
     it('BEFORE FIX: should block queueing when viewing past turn', () => {
-      const defs = { 'metal_mine': { id: 'metal_mine', lane: 'building' } };
+      const defs: Record<string, { id: string; lane: string }> = { 'metal_mine': { id: 'metal_mine', lane: 'building' } };
       const viewTurn = 10;
       const totalTurns = 20;
 
@@ -109,7 +109,7 @@ describe('Queue Validation UI Tests', () => {
     });
 
     it('AFTER FIX: should allow queueing when lane is idle at viewed turn', () => {
-      const defs = { 'metal_mine': { id: 'metal_mine', lane: 'building' } };
+      const defs: Record<string, { id: string; lane: string }> = { 'metal_mine': { id: 'metal_mine', lane: 'building' } };
       const viewTurn = 10;
       const controller = mockController;
 
@@ -188,7 +188,7 @@ describe('Queue Validation UI Tests', () => {
     it('should simulate turns when queueing long-duration items', () => {
       const controller = mockController;
       const viewTurn = 10;
-      const defs = {
+      const defs: Record<string, { id: string; lane: string; durationTurns: number }> = {
         'outpost_ship': {
           id: 'outpost_ship',
           lane: 'ship',

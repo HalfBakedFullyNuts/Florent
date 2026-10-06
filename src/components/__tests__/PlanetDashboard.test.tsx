@@ -19,18 +19,21 @@ describe('PlanetDashboard', () => {
       mineral: 20456.789,
       food: 1635.96,
       energy: 520.123,
+      research_points: 0,
     },
     abundance: {
       metal: 1.0,
       mineral: 0.8,
       food: 1.2,
       energy: 1.0,
+      research_points: 1,
     },
     outputsPerTurn: {
       metal: 1200.5,
       mineral: -50.2,
       food: 100.0,
       energy: 30.7,
+      research_points: 0,
     },
     space: {
       groundUsed: 15,

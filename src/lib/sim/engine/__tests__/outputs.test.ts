@@ -39,14 +39,14 @@ describe('Food Economy with Population Upkeep', () => {
       type: 'structure',
       lane: 'building',
       durationTurns: 4,
+      tier: 1,
+      costsPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0, workers: 0, space: 0, space_orbital: 0 },
       effectsOnComplete: {
-        space_ground: 1,
         production_food: 100,
       },
       isAbundanceScaled: true,
-      upkeepPerUnit: {},
-      requirements: [],
-      productionPerTurn: {}
+      upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
+      prerequisites: [],
     };
 
     // Set food abundance to 1.0 (normal)
@@ -77,14 +77,14 @@ describe('Food Economy with Population Upkeep', () => {
       type: 'structure',
       lane: 'building',
       durationTurns: 4,
+      tier: 1,
+      costsPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0, workers: 0, space: 0, space_orbital: 0 },
       effectsOnComplete: {
-        space_ground: 1,
         production_food: 50,
       },
       isAbundanceScaled: false,
-      upkeepPerUnit: {},
-      requirements: [],
-      productionPerTurn: {}
+      upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
+      prerequisites: [],
     };
 
     state.completedCounts['farm'] = 1;
@@ -126,14 +126,14 @@ describe('Food Economy with Population Upkeep', () => {
       type: 'structure',
       lane: 'building',
       durationTurns: 4,
+      tier: 1,
+      costsPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0, workers: 0, space: 0, space_orbital: 0 },
       effectsOnComplete: {
-        space_ground: 1,
         production_food: 100,
       },
       isAbundanceScaled: false,
-      upkeepPerUnit: {},
-      requirements: [],
-      productionPerTurn: {}
+      upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
+      prerequisites: [],
     };
 
     state.completedCounts['farm'] = 2; // 200 food production
@@ -158,14 +158,14 @@ describe('Food Economy with Population Upkeep', () => {
       type: 'structure',
       lane: 'building',
       durationTurns: 4,
+      tier: 1,
+      costsPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0, workers: 0, space: 0, space_orbital: 0 },
       effectsOnComplete: {
-        space_ground: 1,
         production_food: 100,
       },
       isAbundanceScaled: true,
-      upkeepPerUnit: {},
-      requirements: [],
-      productionPerTurn: {}
+      upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
+      prerequisites: [],
     };
 
     state.completedCounts['farm'] = 1;
@@ -197,13 +197,14 @@ describe('Food Economy with Population Upkeep', () => {
       type: 'structure',
       lane: 'building',
       durationTurns: 4,
+      tier: 1,
+      costsPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0, workers: 0, space: 0, space_orbital: 0 },
       effectsOnComplete: {
         production_metal: 50,
       },
       isAbundanceScaled: false,
-      upkeepPerUnit: {},
-      requirements: [],
-      productionPerTurn: {}
+      upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
+      prerequisites: [],
     };
 
     state.completedCounts['metal_mine'] = 2; // 100 metal production
@@ -235,13 +236,14 @@ describe('Integration: Food Upkeep Not Double-Deducted', () => {
       type: 'structure',
       lane: 'building',
       durationTurns: 4,
+      tier: 1,
+      costsPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0, workers: 0, space: 0, space_orbital: 0 },
       effectsOnComplete: {
         production_food: 100,
       },
       isAbundanceScaled: false,
-      upkeepPerUnit: {},
-      requirements: [],
-      productionPerTurn: {}
+      upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
+      prerequisites: [],
     };
 
     state.completedCounts['farm'] = 1;

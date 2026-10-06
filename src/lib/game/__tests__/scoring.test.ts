@@ -11,9 +11,9 @@ import type { PlanetSummary } from '../selectors';
 
 const baseSummary: PlanetSummary = {
   turn: 1,
-  stocks: { metal: 0, mineral: 0, food: 0, energy: 0 },
-  abundance: { metal: 1, mineral: 1, food: 1, energy: 1 },
-  outputsPerTurn: { metal: 0, mineral: 0, food: 0, energy: 0 },
+  stocks: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
+  abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+  outputsPerTurn: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
   space: { groundUsed: 0, groundCap: 60, orbitalUsed: 0, orbitalCap: 40 },
   housing: { workerCap: 1000, soldierCap: 1000, scientistCap: 1000 },
   population: { workersTotal: 0, workersIdle: 0, workersBusy: 0, soldiers: 0, scientists: 0 },
@@ -78,7 +78,7 @@ describe('computePlanetScore', () => {
   it('accumulates all categories together', () => {
     const summary = {
       ...baseSummary,
-      stocks: { metal: 100, mineral: 100, food: 100, energy: 100 },
+      stocks: { metal: 100, mineral: 100, food: 100, energy: 100, research_points: 0 },
       population: { ...baseSummary.population, workersTotal: 500, soldiers: 50, scientists: 5 },
       ships: { battleship: 2, fighter: 10 },
       structures: { metal_mine: 3 },
@@ -100,7 +100,7 @@ describe('computePlanetScore', () => {
   it('scores resources from stocks correctly', () => {
     const summary = {
       ...baseSummary,
-      stocks: { metal: 1000, mineral: 500, food: 200, energy: 100 },
+      stocks: { metal: 1000, mineral: 500, food: 200, energy: 100, research_points: 0 },
     };
     const D = SCORE_DIVISOR;
     // (1000/D)*1 + (500/D)*1.5 + (200/D)*2 + (100/D)*2 = 1 + 0.75 + 0.4 + 0.2 = 2.35

@@ -14,6 +14,7 @@ import { loadGameData } from '../../sim/defs/adapter';
 import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../game_data.json';
 import type { PlanetState, ItemDefinition } from '../../sim/engine/types';
+import { requireDefined } from '../../../test/requireDefined';
 
 /**
  * Helper: Create controller with standard start
@@ -101,7 +102,7 @@ describe('Auto-Advance Queue Validation Tests', () => {
       const t5 = controller.getCurrentTurn();
 
       // At T5, building lane should be idle
-      const t5State = controller.getStateAtTurn(t5);
+      const t5State = requireDefined(controller.getStateAtTurn(t5), 'state at turn t5');
       const buildingLane = t5State.lanes.building;
       expect(buildingLane.active).toBeNull();
 
@@ -121,14 +122,14 @@ describe('Auto-Advance Queue Validation Tests', () => {
       controller.simulateTurns(10);
 
       // Go back to turn 5
-      const t5State = controller.getStateAtTurn(5);
+      const t5State = requireDefined(controller.getStateAtTurn(5), 'state at turn 5');
 
       // Queue at turn 5
       const result = controller.queueItem(5, 'metal_mine', 1);
       expect(result.success).toBe(true);
 
       // Verify the queue was modified at turn 5
-      const updatedT5State = controller.getStateAtTurn(5);
+      const updatedT5State = requireDefined(controller.getStateAtTurn(5), 'state at turn 5');
       const lane = updatedT5State.lanes.building;
       expect(lane.pendingQueue.length + (lane.active ? 1 : 0)).toBeGreaterThan(0);
     });
@@ -166,7 +167,7 @@ describe('Auto-Advance Queue Validation Tests', () => {
       const scientistResult = controller.queueItem(1, 'scientist', 1);
       expect(scientistResult.success).toBe(true);
 
-      const planState = controller.getStateAtTurn(1);
+      const planState = requireDefined(controller.getStateAtTurn(1), 'state at turn 1');
       const displayState = controller.getStateAtTurn(controller.getTotalTurns() - 1);
       expect(planState).toBeTruthy();
       expect(displayState).toBeTruthy();
@@ -214,7 +215,7 @@ describe('Auto-Advance Queue Validation Tests', () => {
 
       // Verify we can access the completion turn without error
       // (should work as long as expectedCompletionTurn <= 200)
-      const completionState = controller.getStateAtTurn(expectedCompletionTurn);
+      const completionState = requireDefined(controller.getStateAtTurn(expectedCompletionTurn), 'state at turn expectedCompletionTurn');
       expect(completionState).toBeTruthy();
     });
 
@@ -325,10 +326,10 @@ describe('Auto-Advance Queue Validation Tests', () => {
       // Queue a freighter ship (only requires shipyard)
       const result = controller.queueItem(queueTurn, 'freighter', 1);
       expect(result.success).toBe(true);
-      const freighterId = result.itemId;
+      const freighterId = requireDefined(result.itemId, 'freighterId');
 
       // Verify ship is queued (active or pending via eager activation)
-      const state = controller.getStateAtTurn(queueTurn);
+      const state = requireDefined(controller.getStateAtTurn(queueTurn), 'state at turn queueTurn');
       const shipLane = state.lanes.ship;
       const isQueued = shipLane.active?.id === freighterId ||
         shipLane.pendingQueue.some(item => item.id === freighterId);
@@ -339,7 +340,7 @@ describe('Auto-Advance Queue Validation Tests', () => {
       expect(cancelResult.success).toBe(true);
 
       // Verify ship is removed from queue (neither active nor pending)
-      const updatedState = controller.getStateAtTurn(queueTurn);
+      const updatedState = requireDefined(controller.getStateAtTurn(queueTurn), 'state at turn queueTurn');
       const updatedLane = updatedState.lanes.ship;
       expect(updatedLane.active?.id !== freighterId).toBe(true);
       expect(updatedLane.pendingQueue.some(item => item.id === freighterId)).toBe(false);
@@ -363,14 +364,14 @@ describe('Auto-Advance Queue Validation Tests', () => {
       // Queue a freighter ship (15 turns)
       const result = controller.queueItem(queueTurn, 'freighter', 1);
       expect(result.success).toBe(true);
-      const freighterId = result.itemId;
+      const freighterId = requireDefined(result.itemId, 'freighterId');
 
       // Advance several turns so ship becomes active
       controller.simulateTurns(5);
       const laterTurn = controller.getCurrentTurn();
 
       // Verify ship is now active
-      const laterState = controller.getStateAtTurn(laterTurn);
+      const laterState = requireDefined(controller.getStateAtTurn(laterTurn), 'state at turn laterTurn');
       const shipLane = laterState.lanes.ship;
       expect(shipLane.active?.id).toBe(freighterId);
 
@@ -379,7 +380,7 @@ describe('Auto-Advance Queue Validation Tests', () => {
       expect(cancelResult.success).toBe(true);
 
       // After timeline recomputation, the item should be gone
-      const finalState = controller.getStateAtTurn(laterTurn);
+      const finalState = requireDefined(controller.getStateAtTurn(laterTurn), 'state at turn laterTurn');
       const finalLane = finalState.lanes.ship;
       expect(finalLane.active).toBeNull();
     });
@@ -404,7 +405,7 @@ describe('Auto-Advance Queue Validation Tests', () => {
       // Queue a soldier (4 turns)
       const result = controller.queueItem(queueTurn, 'soldier', 1);
       expect(result.success).toBe(true);
-      const soldierId = result.itemId;
+      const soldierId = requireDefined(result.itemId, 'soldierId');
 
       // Simulate enough turns for soldier to complete
       controller.simulateTurns(10);
@@ -439,10 +440,10 @@ describe('Auto-Advance Queue Validation Tests', () => {
       // Immediately queue second freighter (will be pending)
       const secondResult = controller.queueItem(queueTurn, 'freighter', 1);
       expect(secondResult.success).toBe(true);
-      const secondFreighterId = secondResult.itemId;
+      const secondFreighterId = requireDefined(secondResult.itemId, 'secondFreighterId');
 
       // Verify second freighter is in pending queue at queue turn
-      const state = controller.getStateAtTurn(queueTurn);
+      const state = requireDefined(controller.getStateAtTurn(queueTurn), 'state at turn queueTurn');
       const shipLane = state.lanes.ship;
       const inPending = shipLane.pendingQueue.some(item => item.id === secondFreighterId);
       const isActive = shipLane.active?.id === secondFreighterId;
@@ -464,7 +465,7 @@ describe('Auto-Advance Queue Validation Tests', () => {
       // Queue a scientist (30 turns)
       const result = controller.queueItem(queueTurn, 'scientist', 1);
       expect(result.success).toBe(true);
-      const scientistId = result.itemId;
+      const scientistId = requireDefined(result.itemId, 'scientistId');
 
       // Advance a few turns
       controller.simulateTurns(5);

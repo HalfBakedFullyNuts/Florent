@@ -11,9 +11,9 @@ import { MANUAL_LINKS } from '../../lib/constants/manualLinks';
 
 const baseSummary: PlanetSummaryType = {
   turn: 1,
-  stocks: { metal: 0, mineral: 0, food: 100, energy: 0 },
-  abundance: { metal: 1, mineral: 1, food: 1, energy: 1 },
-  outputsPerTurn: { metal: 0, mineral: 0, food: 0, energy: 0 },
+  stocks: { metal: 0, mineral: 0, food: 100, energy: 0, research_points: 0 },
+  abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
+  outputsPerTurn: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0 },
   space: { groundUsed: 0, groundCap: 60, orbitalUsed: 0, orbitalCap: 40 },
   housing: { workerCap: 1000, soldierCap: 1000, scientistCap: 1000 },
   population: { workersTotal: 100, workersIdle: 100, workersBusy: 0, soldiers: 0, scientists: 0 },

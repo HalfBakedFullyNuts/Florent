@@ -56,6 +56,7 @@ describe('Research System', () => {
       research_points: 100,
       workers: 0,
       space: 0,
+      space_orbital: 0,
     },
     effectsOnComplete: {
       planet_limit: 5,
@@ -65,6 +66,7 @@ describe('Research System', () => {
       mineral: 0,
       food: 0,
       energy: 0,
+      research_points: 0,
     },
     isAbundanceScaled: false,
     prerequisites: [],
@@ -85,6 +87,7 @@ describe('Research System', () => {
       research_points: 500,
       workers: 0,
       space: 0,
+      space_orbital: 0,
     },
     effectsOnComplete: {
       planet_limit: 6,
@@ -95,6 +98,7 @@ describe('Research System', () => {
       mineral: 0,
       food: 0,
       energy: 0,
+      research_points: 0,
     },
     isAbundanceScaled: false,
     prerequisites: ['test_research_1'],
@@ -115,6 +119,7 @@ describe('Research System', () => {
       research_points: 0,
       workers: 20, // Scientists reserve 20 workers
       space: 0,
+      space_orbital: 0,
     },
     effectsOnComplete: {},
     upkeepPerUnit: {
@@ -122,6 +127,7 @@ describe('Research System', () => {
       mineral: 0,
       food: 0,
       energy: 0,
+      research_points: 0,
     },
     colonistKind: 'scientist',
     isAbundanceScaled: false,
@@ -174,10 +180,10 @@ describe('Research System', () => {
         scientistCap: 100, // Housing for 100 scientists
       },
       lanes: {
-        building: { pendingQueue: [], active: null, maxQueueDepth: 10 },
-        ship: { pendingQueue: [], active: null, maxQueueDepth: 10 },
-        colonist: { pendingQueue: [], active: null, maxQueueDepth: 10 },
-        research: { pendingQueue: [], active: null, maxQueueDepth: 10 },
+        building: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
+        ship: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
+        colonist: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
+        research: { pendingQueue: [], active: null, maxQueueDepth: 10, completionHistory: [] },
       },
       completedCounts: {
         outpost: 1,
@@ -325,6 +331,8 @@ describe('Research System', () => {
       // Note: Can't actually queue it due to maxQueueDepth, but validation should pass prereqs
       state.lanes.research.pendingQueue = []; // Clear queue to test prereq logic only
       state.lanes.research.active = {
+        id: 'test_research_1-active',
+        status: 'active',
         itemId: 'test_research_1',
         quantity: 1,
         turnsRemaining: 3,

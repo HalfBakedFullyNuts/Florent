@@ -10,7 +10,8 @@ import { createStandardStart } from '../../sim/defs/seed';
 import { loadGameData } from '../../sim/defs/adapter';
 import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../../game/game_data.json';
-import { extractQueueItems, formatAsText, formatAsDiscord } from '../formatters';
+import { extractQueueItems, formatAsText, formatAsDiscord } from '../formatters';
+import { requireDefined } from '../../../test/requireDefined';
 
 describe('Complete Build Order Export', () => {
   it('should export complete build order with all item statuses', () => {
@@ -29,7 +30,7 @@ describe('Complete Build Order Export', () => {
     // - Farm is completed (T4)
     // - Metal Mine is completed (T8)
     // - Mineral Extractor is active (completing at T12)
-    const state = controller.getStateAtTurn(10);
+    const state = requireDefined(controller.getStateAtTurn(10), 'state at turn 10');
 
     const buildingLane = getLaneView(state, 'building');
     const shipLane = getLaneView(state, 'ship');
@@ -96,7 +97,7 @@ describe('Complete Build Order Export', () => {
     controller.queueItem(1, 'mineral_extractor', 1); // Completes at T12
 
     // At turn 6, current view includes queue actions whose start turn is <= 6.
-    const state = controller.getStateAtTurn(6);
+    const state = requireDefined(controller.getStateAtTurn(6), 'state at turn 6');
     const buildingLane = getLaneView(state, 'building');
 
     // Export with maxTurn = 6 (current view mode)

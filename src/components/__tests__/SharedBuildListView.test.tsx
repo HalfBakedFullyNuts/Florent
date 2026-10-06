@@ -6,7 +6,6 @@ import type { LaneId } from '../../lib/sim/engine/types';
 function entry(overrides: Partial<LaneEntry> & Pick<LaneEntry, 'itemId'>): LaneEntry {
   return {
     id: `${overrides.itemId}-${overrides.startTurn ?? overrides.queuedTurn ?? 1}`,
-    itemId: overrides.itemId,
     itemName: overrides.itemId,
     status: 'pending',
     quantity: 1,
