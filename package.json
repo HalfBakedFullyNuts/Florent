@@ -1,6 +1,6 @@
 {
   "name": "infinite-conflict-planner",
-  "version": "0.2.70",
+  "version": "0.2.71",
   "private": true,
   "scripts": {
     "dev": "rimraf .next && next dev",
@@ -28,7 +28,6 @@
     "@tailwindcss/typography": "^0.5.19",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
-    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
@@ -37,7 +36,6 @@
     "baseline-browser-mapping": "^2.10.25",
     "eslint": "^8",
     "eslint-config-next": "^14.2.35",
-    "jest": "^30.2.0",
     "jsdom": "^27.0.0",
     "postcss": "^8",
     "rimraf": "^6.1.2",

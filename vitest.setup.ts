@@ -1,4 +1,4 @@
-import '@testing-library/jest-dom';
+import '@testing-library/jest-dom/vitest';
 
 // jsdom doesn't ship ResizeObserver — stub it so components that use it render without errors.
 // The stub fires no callbacks; tests that depend on responsive behaviour should mock it directly.
