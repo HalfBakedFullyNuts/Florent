@@ -43,6 +43,7 @@ import {
 import { Timeline } from "../lib/game/state";
 import { getDefs } from "../lib/sim/engine/defsRegistry";
 import { computePlanetScore } from "../lib/game/scoring";
+import { formatDecimal } from "../lib/utils/formatting";
 import type { LaneId, PlanetState } from "../lib/sim/engine/types";
 import { canDemolish, createDemolishDef, DEMOLISH_PREFIX } from "../lib/game/demolish";
 import { setupLogging } from "../lib/game/logging-utils";
@@ -2581,7 +2582,7 @@ export default function Home() {
             <div className="px-3 md:px-6">
               <div className="mx-auto flex max-w-[1800px] items-center gap-2 text-sm text-pink-nebula-muted">
                 <span className="font-semibold text-yellow-400">Score:</span>
-                <span className="font-mono text-pink-nebula-text">{globalScore.toLocaleString()}</span>
+                <span className="font-mono text-pink-nebula-text">{formatDecimal(globalScore)}</span>
               </div>
             </div>
 
