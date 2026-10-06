@@ -1,5 +1,5 @@
 # Docker image to use for building
-image: node:20
+image: node:24
 
 # Build command
 command: npm ci && npm run build

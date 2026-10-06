@@ -2,6 +2,9 @@
 
 One- to two-sentence entries, newest first, per CLAUDE.md.
 
+## 2026-10-06 — Build runtime moved to Node 24 LTS
+StaticHost (`statichost.yaml`) and Docker images now use Node 24 because Node 20 reached end-of-life on 2026-04-30; `@types/node` tracks Node 22, the lowest version still used for local development, so typed APIs exist on every runtime.
+
 ## 2026-10-06 — Next 16 + React 19, ESLint 9 flat config
 Upgraded to Next 16 (Turbopack build, static export unchanged) and React 19; `next lint` is gone, so linting runs `eslint .` from `eslint.config.mjs` on ESLint 9 (ESLint 10 is blocked until eslint-plugin-react/jsx-a11y/import support it). `react-hooks/set-state-in-effect` is disabled because existing effects are valid without the React Compiler, and test files must now type-check because the Next 16 build checks them.
 
