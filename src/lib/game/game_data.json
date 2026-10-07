@@ -607,7 +607,7 @@
           },
           {
             "type": "energy",
-            "base_amount": 100,
+            "base_amount": 150,
             "is_abundance_scaled": false
           }
         ],
@@ -627,6 +627,32 @@
       },
       "max_per_planet": 1,
       "description": "Starting structure; provides housing and basic production."
+    },
+    {
+      "id": "spy_centre",
+      "name": "Spy Centre",
+      "tier": 1,
+      "is_advanced": false,
+      "build_time_turns": 0,
+      "cost": [],
+      "build_requirements": {
+        "workers_occupied": 0,
+        "space_cost": []
+      },
+      "requirements": [],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 100
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": 1,
+      "description": "Homeworld starting structure for espionage; modelled for its energy upkeep only (not buildable)."
     },
     {
       "id": "farm",
@@ -1033,7 +1059,7 @@
           {
             "type": "PROVIDE_HOUSING",
             "category": "scientist",
-            "amount": 25000
+            "amount": 5000
           },
           {
             "type": "UNLOCK_CATEGORY",

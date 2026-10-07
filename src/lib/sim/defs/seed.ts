@@ -176,7 +176,7 @@ export function createStandardStart(defs: Record<string, ItemDefinition>): Plane
       metal: 30000,
       mineral: 20000,
       food: 1000,
-      energy: 0,
+      energy: 20000,
     },
     abundance: {
       metal: 1.0,
@@ -185,7 +185,7 @@ export function createStandardStart(defs: Record<string, ItemDefinition>): Plane
       energy: 1.0,
     },
     population: {
-      workersTotal: 20000,
+      workersTotal: 30000,
       soldiers: 0,
       scientists: HOMEWORLD_STARTING_SCIENTISTS,
     },
@@ -197,11 +197,14 @@ export function createStandardStart(defs: Record<string, ItemDefinition>): Plane
       solar_generator: 1,
       // Houses the homeworld's starting scientists
       research_lab: 1,
+      // Modelled for its energy upkeep only; not buildable
+      spy_centre: 1,
       // Homeworld starts with one outpost ship for the first colonisation mission
       outpost_ship: 1,
     },
     space: {
-      groundCap: 60,
+      // In-game homeworld shows 52 ground free with the 10 used by starting buildings
+      groundCap: 62,
       orbitalCap: 40,
     },
   });

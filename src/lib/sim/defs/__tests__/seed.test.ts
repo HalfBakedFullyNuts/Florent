@@ -10,6 +10,8 @@ import {
   createMinimalStart,
 } from '../seed';
 import { loadGameData } from '../adapter';
+import { computeNetOutputsPerTurn } from '../../engine/outputs';
+import { setDefsCatalog } from '../../engine/defsRegistry';
 import gameDataJson from '../../../game/game_data.json';
 
 describe('Seed Functions', () => {
@@ -222,7 +224,7 @@ describe('Seed Functions', () => {
       expect(state.stocks.metal).toBe(30000);
       expect(state.stocks.mineral).toBe(20000);
       expect(state.stocks.food).toBe(1000);
-      expect(state.stocks.energy).toBe(0);
+      expect(state.stocks.energy).toBe(20000);
     });
 
     it('should have standard abundance', () => {
@@ -237,7 +239,7 @@ describe('Seed Functions', () => {
     it('should have standard starting population', () => {
       const state = createStandardStart(defs);
 
-      expect(state.population.workersTotal).toBe(20000);
+      expect(state.population.workersTotal).toBe(30000);
       expect(state.population.soldiers).toBe(0);
       expect(state.population.scientists).toBe(250);
     });
@@ -252,7 +254,8 @@ describe('Seed Functions', () => {
       expect(state.completedCounts.solar_generator).toBe(1);
       expect(state.completedCounts.outpost_ship).toBe(1);
       expect(state.completedCounts.research_lab).toBe(1);
-      expect(state.housing.scientistCap).toBe(25000);
+      expect(state.completedCounts.spy_centre).toBe(1);
+      expect(state.housing.scientistCap).toBe(5000);
     });
 
     it('should have standard space limits', () => {
@@ -260,6 +263,25 @@ describe('Seed Functions', () => {
 
       expect(state.space.groundCap).toBeGreaterThanOrEqual(60);
       expect(state.space.orbitalCap).toBeGreaterThanOrEqual(40);
+    });
+
+    // Mirrors the in-game homeworld at turn 1 (52 ground / 40 orbital free)
+    it('should leave 52 ground and 40 orbital space free', () => {
+      const state = createStandardStart(defs);
+
+      expect(state.space.groundCap - state.space.groundUsed).toBe(52);
+      expect(state.space.orbitalCap - state.space.orbitalUsed).toBe(40);
+    });
+
+    // Mirrors the in-game homeworld output line: +1,200 / +800 / +140 / +70
+    it('should produce the in-game homeworld outputs per turn', () => {
+      setDefsCatalog(defs); // outputs resolve item defs through the registry
+      const outputs = computeNetOutputsPerTurn(createStandardStart(defs));
+
+      expect(outputs.metal).toBe(1200);
+      expect(outputs.mineral).toBe(800);
+      expect(outputs.food).toBeCloseTo(139.5, 6); // 200 - (30,000 workers + 250 scientists) * 0.002
+      expect(outputs.energy).toBe(70); // 100 solar + 150 outpost - 180 upkeep (incl. Spy Centre 100)
     });
   });
 

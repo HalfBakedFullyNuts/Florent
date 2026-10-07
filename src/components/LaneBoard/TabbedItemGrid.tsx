@@ -9,6 +9,9 @@ import { LANE_MANUAL_TOPICS, MANUAL_LINKS } from '../../lib/constants/manualLink
 import { ManualLink } from '@/components/ui/ManualLink';
 import { ItemIcon } from '@/components/ui/ItemIcon';
 
+// Exist only as starting state (or implicitly), never offered in the build list
+const NON_BUILDABLE_ITEM_IDS: ReadonlySet<string> = new Set(['outpost', 'worker', 'spy_centre']);
+
 export interface SmartQueueCheckShape {
   allowed: boolean;
   canQueueEventually?: boolean;
@@ -164,8 +167,8 @@ function TabbedItemGridInner({
     };
 
     Object.values(availableItems).forEach((item: any) => {
-      // Filter out outpost and worker - they cannot be built manually
-      if (item.id === 'outpost' || item.id === 'worker') {
+      // Starting-only items that cannot be built manually
+      if (NON_BUILDABLE_ITEM_IDS.has(item.id)) {
         return;
       }
       if (item.lane && grouped[item.lane]) {

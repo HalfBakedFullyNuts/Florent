@@ -248,7 +248,7 @@ describe('Data Adapter', () => {
         expect(outpost.effectsOnComplete.production_metal).toBe(300);
         expect(outpost.effectsOnComplete.production_mineral).toBe(200);
         expect(outpost.effectsOnComplete.production_food).toBe(100);
-        expect(outpost.effectsOnComplete.production_energy).toBe(100);
+        expect(outpost.effectsOnComplete.production_energy).toBe(150);
       });
 
       it('should extract production for farm', () => {
