@@ -149,11 +149,6 @@
       },
       "consumption": [
         {
-          "type": "resource",
-          "id": "food",
-          "amount_per_100_pop": 1
-        },
-        {
           "type": "housing",
           "category": "scientist",
           "amount": 1

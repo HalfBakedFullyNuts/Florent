@@ -78,16 +78,13 @@ export function computeNetOutputsPerTurn(state: PlanetState): NetOutputs {
 }
 
 /**
- * Calculate total food upkeep for all population types
- * Workers: FOOD_PER_WORKER (0.002) per worker
- * Soldiers: FOOD_PER_WORKER per soldier
- * Scientists: FOOD_PER_WORKER per scientist
+ * Calculate total food upkeep for the population.
+ * Workers and soldiers eat FOOD_PER_WORKER (0.002) each; scientists eat nothing.
  */
 export function calculatePopulationFoodUpkeep(state: PlanetState): number {
-  const { workersTotal, soldiers, scientists } = state.population;
+  const { workersTotal, soldiers } = state.population;
 
-  // All population types consume food at the same rate
-  const totalPopulation = workersTotal + soldiers + scientists;
+  const totalPopulation = workersTotal + soldiers;
 
   // Use the existing FOOD_PER_WORKER constant (0.002 per worker)
   // This gives 200 food per 100,000 population

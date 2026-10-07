@@ -283,14 +283,14 @@ describe('Seed Functions', () => {
       expect(state.space.orbitalCap).toBeGreaterThanOrEqual(40);
     });
 
-    // Mirrors the in-game homeworld output line: +1,200 / +800 / +140 / +70
+    // Mirrors the in-game homeworld output line exactly: +1,200 / +800 / +140 / +70
     it('should produce the in-game homeworld outputs per turn', () => {
       setDefsCatalog(defs); // outputs resolve item defs through the registry
       const outputs = computeNetOutputsPerTurn(createStandardStart(defs));
 
       expect(outputs.metal).toBe(1200);
       expect(outputs.mineral).toBe(800);
-      expect(outputs.food).toBeCloseTo(139.5, 6); // 200 - (30,000 workers + 250 scientists) * 0.002
+      expect(outputs.food).toBe(140); // 200 - 30,000 workers * 0.002; scientists eat nothing
       expect(outputs.energy).toBe(70); // 100 solar + 150 outpost - 180 upkeep (incl. Spy Centre 100)
     });
   });

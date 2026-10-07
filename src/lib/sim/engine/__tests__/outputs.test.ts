@@ -20,10 +20,19 @@ describe('Food Economy with Population Upkeep', () => {
     state.population.workersTotal = 100000; // Should consume 200 food
     expect(calculatePopulationFoodUpkeep(state)).toBe(200);
 
-    // Test with soldiers and scientists
+    // Soldiers eat like workers; scientists eat nothing
     state.population.soldiers = 5000; // +10 food
-    state.population.scientists = 2000; // +4 food
-    expect(calculatePopulationFoodUpkeep(state)).toBe(214); // 200 + 10 + 4
+    state.population.scientists = 2000; // +0 food
+    expect(calculatePopulationFoodUpkeep(state)).toBe(210); // 200 + 10
+  });
+
+  it('should not charge food for scientists', () => {
+    const state = cloneState(minimalState);
+    state.population.workersTotal = 0;
+    state.population.soldiers = 0;
+    state.population.scientists = 25000;
+
+    expect(calculatePopulationFoodUpkeep(state)).toBe(0);
   });
 
   it('should reduce food production by population upkeep in computeNetOutputsPerTurn', () => {
