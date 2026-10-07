@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useId } from 'react';
 import {
+  AlertTriangle,
   ClipboardPaste,
-  Database,
   Globe2,
   Home,
   Import,
@@ -13,8 +13,8 @@ import {
   Save,
   Sparkles,
   Users,
-  X,
 } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
 import {
   ABUNDANCE_LIMITS,
   DEFAULT_SPACE,
@@ -22,7 +22,6 @@ import {
   HOMEWORLD_PLANET_STARTING,
   PLANET_PRESETS,
   STARTER_PACKAGE,
-  RESOURCE_COLORS,
   type PlanetStartingSettings,
   validateAbundance,
   validateAllAbundances,
@@ -45,13 +44,19 @@ const STARTING_STRUCTURE_FIELDS: Array<{
   { id: 'solar_generator', label: 'Solar Gens' },
 ];
 
-const PANEL_CLASS = 'rounded-2xl border border-white/10 bg-white/[0.045] p-4 shadow-lg shadow-black/15';
-const INPUT_CLASS = 'w-full min-h-[42px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-pink-nebula-text outline-none transition-all placeholder:text-pink-nebula-muted/60 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20';
-const COMPACT_INPUT_CLASS = 'w-20 min-h-[36px] rounded-xl border border-white/10 bg-slate-950/70 px-2 py-1 text-right text-sm text-pink-nebula-text outline-none transition-all focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20';
-const SECONDARY_BUTTON_CLASS = 'inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2 text-xs font-black text-pink-nebula-text transition-all hover:border-cyan-200/35 hover:bg-white/[0.1] focus:outline-none focus:ring-2 focus:ring-cyan-300/20';
-const PRIMARY_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-emerald-200/35 bg-emerald-400/15 px-4 py-2 text-sm font-black text-emerald-50 shadow-lg shadow-emerald-500/10 transition-all hover:bg-emerald-400/25 focus:outline-none focus:ring-2 focus:ring-emerald-300/25';
-const QUIET_BUTTON_CLASS = 'inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-black text-pink-nebula-muted transition-all hover:border-white/20 hover:bg-white/[0.08] hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/20';
-const LABEL_CLASS = 'mb-1 block text-xs font-bold uppercase tracking-[0.16em] text-pink-nebula-muted';
+const SECTION_CLASS = 'border-b border-filament pb-5 mb-5 last:mb-0 last:border-b-0 last:pb-0';
+const LABEL_CLASS = 'eyebrow mb-1.5 block';
+
+const RESOURCE_TEXT: Record<string, string> = {
+  metal: 'text-res-metal',
+  mineral: 'text-res-mineral',
+  food: 'text-res-food',
+  energy: 'text-res-energy',
+  research_points: 'text-res-rp',
+};
+
+type AbundanceState = PlanetConfig['abundance'];
+type SpaceState = PlanetConfig['space'];
 
 export interface BestExpansionSource {
   departureTurn: number;
@@ -282,409 +287,419 @@ export function AddPlanetModal({
     setImportText('');
   }, [importText, parseImportData]);
 
+  const closeImport = useCallback(() => {
+    setImportModalOpen(false);
+    setImportText('');
+  }, []);
+
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-sm sm:items-center md:p-6"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="planet-modal-title"
-        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-200/20 bg-gradient-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 md:px-6">
-          <div className="flex gap-3">
-            <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/25 bg-cyan-300/10 text-cyan-50 shadow-lg shadow-cyan-500/10">
-              <Globe2 className="h-6 w-6" aria-hidden="true" />
-            </span>
-            <div>
-              <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">
-                Planet setup
-              </div>
-              <h2 id="planet-modal-title" className="mt-1 text-2xl font-black text-pink-nebula-text">
-                {mode === 'edit' ? 'Edit Planet' : 'Add New Planet'}
-              </h2>
-              <p className="mt-1 text-sm text-pink-nebula-muted">
-                Configure start turn, abundance, space, and the starting colony package.
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/30"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </header>
-
-        <div className="scroll-nebula overflow-y-auto px-4 py-4 md:px-6 md:py-5">
-
-        {/* Basic Settings */}
-        <div className={`${PANEL_CLASS} mb-4`}>
-          <h3 className="mb-3 flex items-center gap-2 text-lg font-black text-pink-nebula-text">
-            <Rocket className="h-5 w-5 text-cyan-100" aria-hidden="true" />
-            Basic Settings
-          </h3>
-
-          <div>
-            <label className={LABEL_CLASS}>
-              Start Turn
-            </label>
-            <input
-              type="number"
-              value={startTurn}
-              onChange={(e) => setStartTurn(Math.max(minTravelStart, parseInt(e.target.value) || minTravelStart))}
-              onFocus={(e) => e.target.select()}
-              className={INPUT_CLASS}
-              min={minTravelStart}
-            />
-            {mode === 'add' && startTurn < minTravelStart && (
-              <p className="mt-1 text-xs text-yellow-400">Will be adjusted to T{minTravelStart} on submit.</p>
-            )}
-          </div>
-        </div>
-
-        {mode === 'add' && (
-          <div className={`${PANEL_CLASS} mb-4`}>
-            <h3 className="mb-3 flex items-center gap-2 text-lg font-black text-pink-nebula-text">
-              <Route className="h-5 w-5 text-cyan-100" aria-hidden="true" />
-              Travel
-            </h3>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {(Object.keys(EXPANSION_TRAVEL_CHOICES) as ExpansionTravelChoice[]).map((choice) => {
-                const selected = travelChoice === choice;
-                const config = EXPANSION_TRAVEL_CHOICES[choice];
-                const turns = getExpansionTravelTime(choice);
-                return (
-                  <button
-                    key={choice}
-                    type="button"
-                    onClick={() => setTravelChoice(choice)}
-                    className={`rounded-xl border px-3 py-3 text-left transition-all focus:outline-none focus:ring-2 focus:ring-cyan-300/25 ${
-                      selected
-                        ? 'border-cyan-200/55 bg-cyan-300/15 text-cyan-50 shadow-lg shadow-cyan-500/10'
-                        : 'border-white/10 bg-white/[0.04] text-pink-nebula-text hover:border-cyan-200/35 hover:bg-white/[0.08]'
-                    }`}
-                    aria-pressed={selected}
-                  >
-                    <span className="block text-sm font-black">
-                      {config.label}
-                    </span>
-                    <span className="mt-1 block text-xs text-pink-nebula-muted">
-                      {turns} turns travel
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-            <div className="mt-2 text-xs text-pink-nebula-muted">
-              Earliest start: T{minTravelStart}
-              {expansionSource === undefined
-                ? <span className="ml-1 text-red-400">⚠ No spare outpost ship — build one first</span>
-                : expansionSource.departureTurn > currentTurn && (
-                  <span className="ml-1 text-yellow-400">⚠ outpost ship departs T{expansionSource.departureTurn}</span>
-                )
-              }
-            </div>
-          </div>
-        )}
-
-        {/* Resource Abundances */}
-        <div className={`${PANEL_CLASS} mb-4`}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-3">
-            <div>
-              <h3 className="flex items-center gap-2 text-lg font-black text-pink-nebula-text">
-                <Sparkles className="h-5 w-5 text-cyan-100" aria-hidden="true" />
-                Resource Abundances
-              </h3>
-              <p className="mt-1 text-sm text-pink-nebula-muted">
-                Percentages affect production rates (50% - 200%)
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => applyPreset('home-galaxy')}
-                className={SECONDARY_BUTTON_CLASS}
-              >
-                Home Galaxy Avg (60%)
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset('free-galaxy')}
-                className={SECONDARY_BUTTON_CLASS}
-              >
-                Free Galaxy Avg (80%)
-              </button>
-              <button
-                type="button"
-                onClick={() => applyPreset('homeworld')}
-                className="inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border border-cyan-200/35 bg-cyan-300/15 px-3 py-2 text-xs font-black text-cyan-50 shadow-lg shadow-cyan-500/10 transition-all hover:bg-cyan-300/25 focus:outline-none focus:ring-2 focus:ring-cyan-300/25"
-              >
-                <Home className="h-4 w-4" aria-hidden="true" />
-                Homeworld (100%)
-              </button>
-              <button
-                type="button"
-                onClick={() => setImportModalOpen(true)}
-                className={SECONDARY_BUTTON_CLASS}
-              >
-                <ClipboardPaste className="h-4 w-4" aria-hidden="true" />
-                Import Data
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {Object.entries(abundance)
-              .filter(([resource]) => resource !== 'research_points')
-              .map(([resource, value]) => (
-                <div key={resource} className="flex items-center gap-2">
-                  <label className={`w-24 text-sm capitalize ${getResourceColor(resource)}`}>
-                    {resource.replace('_', ' ')}:
-                  </label>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="number"
-                      value={value}
-                      onChange={(e) => updateAbundance(resource, parseFloat(e.target.value))}
-                      onBlur={(e) => validateAbundanceField(resource, parseFloat(e.target.value))}
-                      onFocus={(e) => e.target.select()}
-                      className={COMPACT_INPUT_CLASS}
-                      min={ABUNDANCE_LIMITS.MIN}
-                      max={ABUNDANCE_LIMITS.MAX}
-                      step="1"
-                    />
-                    <span className="text-sm text-pink-nebula-text">%</span>
-                  </div>
-                  <span className="text-xs text-pink-nebula-muted">
-                    {value < 100 ? '(scarce)' : value > 100 ? '(rich)' : '(normal)'}
-                  </span>
-                </div>
-              ))}
-          </div>
-        </div>
-
-        {/* Space Budgets */}
-        <div className={`${PANEL_CLASS} mb-4`}>
-          <h3 className="mb-3 flex items-center gap-2 text-lg font-black text-pink-nebula-text">
-            <Layers className="h-5 w-5 text-cyan-100" aria-hidden="true" />
-            Space Budgets
-          </h3>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-[0.16em] text-amber-100/80">
-                Ground Space Capacity
-              </label>
-              <input
-                type="number"
-                value={space.groundCap}
-                onChange={(e) => setSpace(prev => ({
-                  ...prev,
-                  groundCap: Math.max(10, parseInt(e.target.value) || 25)
-                }))}
-                className={INPUT_CLASS}
-                min="10"
-                max="100"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs font-bold uppercase tracking-[0.16em] text-sky-100/80">
-                Orbital Space Capacity
-              </label>
-              <input
-                type="number"
-                value={space.orbitalCap}
-                onChange={(e) => setSpace(prev => ({
-                  ...prev,
-                  orbitalCap: Math.max(5, parseInt(e.target.value) || 15)
-                }))}
-                className={INPUT_CLASS}
-                min="5"
-                max="50"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Starting Setup */}
-        <div className={`${PANEL_CLASS} mb-4`}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="flex items-center gap-2 text-lg font-black text-pink-nebula-text">
-              <Users className="h-5 w-5 text-cyan-100" aria-hidden="true" />
-              Starting Setup
-            </h3>
-            <button
-              type="button"
-              onClick={applyHomeworldStarting}
-              className={SECONDARY_BUTTON_CLASS}
-            >
-              Duplicate Homeworld
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={LABEL_CLASS}>
-                Starting Pop
-              </label>
-              <input
-                type="number"
-                value={starting.workersTotal}
-                onChange={(e) => updateStartingWorkers(parseInt(e.target.value, 10))}
-                onFocus={(e) => e.target.select()}
-                className={INPUT_CLASS}
-                min="0"
-                step="100"
-              />
-            </div>
-
-            {STARTING_STRUCTURE_FIELDS.map(field => (
-              <div key={field.id}>
-                <label className={LABEL_CLASS}>
-                  {field.label}
-                </label>
-                <input
-                  type="number"
-                  value={starting.structures[field.id]}
-                  onChange={(e) => updateStartingStructure(field.id, parseInt(e.target.value, 10))}
-                  onFocus={(e) => e.target.select()}
-                  className={INPUT_CLASS}
-                  min="0"
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Starter Package Info */}
-        <div className="mb-4 rounded-2xl border border-sky-200/20 bg-sky-400/10 p-4">
-          <p className="text-sm text-sky-50/85">
-            <span className="font-semibold">Starter Resources:</span> {STARTER_PACKAGE.METAL.toLocaleString()} metal, {STARTER_PACKAGE.MINERAL.toLocaleString()} mineral, {STARTER_PACKAGE.FOOD.toLocaleString()} food, {STARTER_PACKAGE.ENERGY} energy
-          </p>
-          <p className="mt-1 text-sm text-sky-50/75">
-            <span className="font-semibold">Selected Start:</span> {starting.workersTotal.toLocaleString()} workers, Outpost x1, Metal Mine x{starting.structures.metal_mine}, Mineral Extractor x{starting.structures.mineral_extractor}, Farm x{starting.structures.farm}, Solar Gen x{starting.structures.solar_generator}
-          </p>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="grid gap-2 sm:grid-cols-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className={`${QUIET_BUTTON_CLASS} order-2 sm:order-1`}
-          >
+    <Modal
+      onClose={onClose}
+      eyebrow="Planet setup"
+      title={mode === 'edit' ? 'Edit planet' : 'Add new planet'}
+      titleId="planet-modal-title"
+      description="Configure start turn, abundance, space, and the starting colony package."
+      icon={<Globe2 className="h-5 w-5" />}
+      widthClass="max-w-3xl"
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="btn btn-secondary">
             Cancel
           </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            className={`${PRIMARY_BUTTON_CLASS} order-1 sm:order-2`}
-          >
-            {mode === 'edit' ? <Save className="h-4 w-4" aria-hidden="true" /> : <Rocket className="h-4 w-4" aria-hidden="true" />}
-            {mode === 'edit' ? 'Save Planet' : 'Add Planet'}
+          <button type="button" onClick={handleSubmit} className="btn btn-primary">
+            {mode === 'edit' ? <Save aria-hidden="true" /> : <Rocket aria-hidden="true" />}
+            {mode === 'edit' ? 'Save planet' : 'Add planet'}
           </button>
-        </div>
-        </div>
-      </div>
+        </>
+      }
+    >
+      <StartTurnSection
+        startTurn={startTurn}
+        minTravelStart={minTravelStart}
+        showAdjustNote={mode === 'add' && startTurn < minTravelStart}
+        onChange={(value) => setStartTurn(Math.max(minTravelStart, value || minTravelStart))}
+      />
 
-      {/* Import Modal */}
-      {importModalOpen && (
-        <div
-          className="absolute inset-0 z-10 flex items-start justify-center overflow-y-auto bg-slate-950/80 p-3 backdrop-blur-sm sm:items-center md:p-4"
-          onClick={(event) => {
-            event.stopPropagation();
-            setImportModalOpen(false);
-            setImportText('');
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="planet-import-title"
-            className="my-auto w-full max-w-3xl overflow-hidden rounded-3xl border border-cyan-200/20 bg-gradient-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <header className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 md:px-6">
-              <div className="flex gap-3">
-                <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-cyan-200/25 bg-cyan-300/10 text-cyan-50">
-                  <Database className="h-6 w-6" aria-hidden="true" />
-                </span>
-                <div>
-                  <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">Planet import</div>
-                  <h3 id="planet-import-title" className="mt-1 text-2xl font-black text-pink-nebula-text">
-                    Import Planet Data
-                  </h3>
-                  <p className="mt-1 text-sm text-pink-nebula-muted">
-                    Paste planet data from your game. We extract ground/orbital space and resource abundance percentages.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setImportModalOpen(false);
-                  setImportText('');
-                }}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-none focus:ring-2 focus:ring-cyan-300/30"
-                aria-label="Close import"
-              >
-                <X className="h-5 w-5" aria-hidden="true" />
-              </button>
-            </header>
-
-            <div className="px-4 py-4 md:px-6 md:py-5">
-            <div className="mb-4 rounded-2xl border border-sky-200/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-50/80">
-              Extracts Ground Space, Orbital Space, and abundance percentages for Metal, Mineral, Food, and Energy.
-            </div>
-
-            <textarea
-              value={importText}
-              onChange={(e) => setImportText(e.target.value)}
-              placeholder="Paste planet data here..."
-              className="h-64 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-sm text-pink-nebula-text outline-none transition-all placeholder:text-pink-nebula-muted/55 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
-              autoFocus
-            />
-
-            <div className="mt-4 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setImportModalOpen(false);
-                  setImportText('');
-                }}
-                className={`${QUIET_BUTTON_CLASS} order-2 sm:order-1`}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleImport}
-                className={`${PRIMARY_BUTTON_CLASS} order-1 sm:order-2`}
-              >
-                <Import className="h-4 w-4" aria-hidden="true" />
-                Import
-              </button>
-            </div>
-            </div>
-          </div>
-        </div>
+      {mode === 'add' && (
+        <TravelSection
+          travelChoice={travelChoice}
+          onSelect={setTravelChoice}
+          minTravelStart={minTravelStart}
+          expansionSource={expansionSource}
+          currentTurn={currentTurn}
+        />
       )}
+
+      <AbundanceSection
+        abundance={abundance}
+        onPreset={applyPreset}
+        onOpenImport={() => setImportModalOpen(true)}
+        onChange={updateAbundance}
+        onBlur={validateAbundanceField}
+      >
+        {importModalOpen && (
+          <ImportPanel
+            value={importText}
+            onChange={setImportText}
+            onCancel={closeImport}
+            onImport={handleImport}
+          />
+        )}
+      </AbundanceSection>
+
+      <SpaceSection space={space} onChange={setSpace} />
+
+      <StartingSection
+        starting={starting}
+        onWorkersChange={updateStartingWorkers}
+        onStructureChange={updateStartingStructure}
+        onDuplicateHomeworld={applyHomeworldStarting}
+      />
+
+      <StarterSummary starting={starting} />
+    </Modal>
+  );
+}
+
+function SectionHeading({
+  icon,
+  title,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  action?: React.ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex items-center gap-2">
+      <span className="text-ink-3" aria-hidden="true">{icon}</span>
+      <h3 className="panel-title">{title}</h3>
+      {action && <div className="ml-auto">{action}</div>}
     </div>
   );
 }
 
-/**
- * Get Tailwind color class for a resource type
- */
-function getResourceColor(resource: string): string {
-  return RESOURCE_COLORS[resource as keyof typeof RESOURCE_COLORS] || 'text-pink-nebula-text';
+function StartTurnSection({
+  startTurn,
+  minTravelStart,
+  showAdjustNote,
+  onChange,
+}: {
+  startTurn: number;
+  minTravelStart: number;
+  showAdjustNote: boolean;
+  onChange: (value: number) => void;
+}) {
+  const inputId = useId();
+  return (
+    <section className={SECTION_CLASS}>
+      <SectionHeading icon={<Rocket className="h-4 w-4" />} title="Basic settings" />
+      <label htmlFor={inputId} className={LABEL_CLASS}>Start turn</label>
+      <input
+        id={inputId}
+        type="number"
+        value={startTurn}
+        onChange={(e) => onChange(parseInt(e.target.value))}
+        onFocus={(e) => e.target.select()}
+        className="field sm:max-w-[12rem]"
+        min={minTravelStart}
+      />
+      {showAdjustNote && (
+        <p className="mt-1.5 text-xs text-caution">Will be adjusted to T{minTravelStart} on submit.</p>
+      )}
+    </section>
+  );
+}
+
+function TravelSection({
+  travelChoice,
+  onSelect,
+  minTravelStart,
+  expansionSource,
+  currentTurn,
+}: {
+  travelChoice: ExpansionTravelChoice;
+  onSelect: (choice: ExpansionTravelChoice) => void;
+  minTravelStart: number;
+  expansionSource?: BestExpansionSource;
+  currentTurn: number;
+}) {
+  return (
+    <section className={SECTION_CLASS}>
+      <SectionHeading icon={<Route className="h-4 w-4" />} title="Travel" />
+      <div className="grid gap-2 sm:grid-cols-3">
+        {(Object.keys(EXPANSION_TRAVEL_CHOICES) as ExpansionTravelChoice[]).map((choice) => {
+          const selected = travelChoice === choice;
+          return (
+            <button
+              key={choice}
+              type="button"
+              onClick={() => onSelect(choice)}
+              aria-pressed={selected}
+              className={`rounded-ctl border bg-veil px-3 py-2.5 text-left transition-colors ${
+                selected ? 'border-oiii' : 'border-filament hover:border-edge'
+              }`}
+            >
+              <span className="block text-sm font-semibold text-ink">
+                {EXPANSION_TRAVEL_CHOICES[choice].label}
+              </span>
+              <span className="mt-0.5 block text-xs text-ink-2">
+                {getExpansionTravelTime(choice)} turns travel
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-2">
+        <span>Earliest start: T{minTravelStart}</span>
+        {expansionSource === undefined ? (
+          <span className="inline-flex items-center gap-1 text-danger">
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+            No spare outpost ship — build one first
+          </span>
+        ) : expansionSource.departureTurn > currentTurn && (
+          <span className="inline-flex items-center gap-1 text-caution">
+            <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
+            Outpost ship departs T{expansionSource.departureTurn}
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function AbundanceSection({
+  abundance,
+  onPreset,
+  onOpenImport,
+  onChange,
+  onBlur,
+  children,
+}: {
+  abundance: AbundanceState;
+  onPreset: (preset: string) => void;
+  onOpenImport: () => void;
+  onChange: (resource: string, value: number) => void;
+  onBlur: (resource: string, value: number) => void;
+  children?: React.ReactNode;
+}) {
+  const idPrefix = useId();
+  return (
+    <section className={SECTION_CLASS}>
+      <SectionHeading icon={<Sparkles className="h-4 w-4" />} title="Resource abundances" />
+      <p className="-mt-2 mb-3 text-sm text-ink-2">Percentages affect production rates (50% - 200%)</p>
+      <div className="mb-4 flex flex-wrap gap-2">
+        <button type="button" onClick={() => onPreset('home-galaxy')} className="btn btn-secondary btn-sm">
+          Home galaxy avg (60%)
+        </button>
+        <button type="button" onClick={() => onPreset('free-galaxy')} className="btn btn-secondary btn-sm">
+          Free galaxy avg (80%)
+        </button>
+        <button type="button" onClick={() => onPreset('homeworld')} className="btn btn-secondary btn-sm">
+          <Home aria-hidden="true" />
+          Homeworld (100%)
+        </button>
+        <button type="button" onClick={onOpenImport} className="btn btn-ghost btn-sm">
+          <ClipboardPaste aria-hidden="true" />
+          Import data
+        </button>
+      </div>
+      {children}
+      <div className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+        {Object.entries(abundance)
+          .filter(([resource]) => resource !== 'research_points')
+          .map(([resource, value]) => (
+            <div key={resource} className="flex items-center gap-2">
+              <label
+                htmlFor={`${idPrefix}-${resource}`}
+                className={`w-20 text-sm font-semibold capitalize ${RESOURCE_TEXT[resource] ?? 'text-ink'}`}
+              >
+                {resource.replace('_', ' ')}
+              </label>
+              <input
+                id={`${idPrefix}-${resource}`}
+                type="number"
+                value={value}
+                onChange={(e) => onChange(resource, parseFloat(e.target.value))}
+                onBlur={(e) => onBlur(resource, parseFloat(e.target.value))}
+                onFocus={(e) => e.target.select()}
+                className="field field-sm w-20 text-right"
+                min={ABUNDANCE_LIMITS.MIN}
+                max={ABUNDANCE_LIMITS.MAX}
+                step="1"
+              />
+              <span className="text-sm text-ink-2">%</span>
+              <span className="text-xs text-ink-3">
+                {value < 100 ? 'scarce' : value > 100 ? 'rich' : 'normal'}
+              </span>
+            </div>
+          ))}
+      </div>
+    </section>
+  );
+}
+
+function ImportPanel({
+  value,
+  onChange,
+  onCancel,
+  onImport,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onCancel: () => void;
+  onImport: () => void;
+}) {
+  const textareaId = useId();
+  return (
+    <div role="group" aria-labelledby={`${textareaId}-title`} className="well mb-4 p-4">
+      <div id={`${textareaId}-title`} className="panel-title">Import planet data</div>
+      <p className="mt-1 text-sm text-ink-2">
+        Paste planet data from your game. Ground space, orbital space and the metal, mineral, food
+        and energy abundance percentages are extracted.
+      </p>
+      <label htmlFor={textareaId} className="sr-only">Planet data</label>
+      <textarea
+        id={textareaId}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Paste planet data here..."
+        className="field mt-3 h-48 resize-y py-2 font-mono text-sm"
+        autoFocus
+      />
+      <div className="mt-3 flex justify-end gap-2">
+        <button type="button" onClick={onCancel} className="btn btn-secondary btn-sm">
+          Cancel
+        </button>
+        <button type="button" onClick={onImport} className="btn btn-primary btn-sm">
+          <Import aria-hidden="true" />
+          Import
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SpaceSection({
+  space,
+  onChange,
+}: {
+  space: SpaceState;
+  onChange: React.Dispatch<React.SetStateAction<SpaceState>>;
+}) {
+  const groundId = useId();
+  const orbitalId = useId();
+  return (
+    <section className={SECTION_CLASS}>
+      <SectionHeading icon={<Layers className="h-4 w-4" />} title="Space budgets" />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor={groundId} className={`${LABEL_CLASS} text-res-ground`}>Ground space capacity</label>
+          <input
+            id={groundId}
+            type="number"
+            value={space.groundCap}
+            onChange={(e) => onChange(prev => ({
+              ...prev,
+              groundCap: Math.max(10, parseInt(e.target.value) || 25)
+            }))}
+            className="field"
+            min="10"
+            max="100"
+          />
+        </div>
+        <div>
+          <label htmlFor={orbitalId} className={`${LABEL_CLASS} text-res-orbital`}>Orbital space capacity</label>
+          <input
+            id={orbitalId}
+            type="number"
+            value={space.orbitalCap}
+            onChange={(e) => onChange(prev => ({
+              ...prev,
+              orbitalCap: Math.max(5, parseInt(e.target.value) || 15)
+            }))}
+            className="field"
+            min="5"
+            max="50"
+          />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function StartingSection({
+  starting,
+  onWorkersChange,
+  onStructureChange,
+  onDuplicateHomeworld,
+}: {
+  starting: PlanetStartingSettings;
+  onWorkersChange: (value: number) => void;
+  onStructureChange: (id: keyof PlanetStartingSettings['structures'], value: number) => void;
+  onDuplicateHomeworld: () => void;
+}) {
+  const idPrefix = useId();
+  return (
+    <section className={SECTION_CLASS}>
+      <SectionHeading
+        icon={<Users className="h-4 w-4" />}
+        title="Starting setup"
+        action={
+          <button type="button" onClick={onDuplicateHomeworld} className="btn btn-secondary btn-sm">
+            Duplicate homeworld
+          </button>
+        }
+      />
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <div className="col-span-2 sm:col-span-1">
+          <label htmlFor={`${idPrefix}-workers`} className={LABEL_CLASS}>Starting pop</label>
+          <input
+            id={`${idPrefix}-workers`}
+            type="number"
+            value={starting.workersTotal}
+            onChange={(e) => onWorkersChange(parseInt(e.target.value, 10))}
+            onFocus={(e) => e.target.select()}
+            className="field"
+            min="0"
+            step="100"
+          />
+        </div>
+        {STARTING_STRUCTURE_FIELDS.map(field => (
+          <div key={field.id}>
+            <label htmlFor={`${idPrefix}-${field.id}`} className={`${LABEL_CLASS} truncate`}>{field.label}</label>
+            <input
+              id={`${idPrefix}-${field.id}`}
+              type="number"
+              value={starting.structures[field.id]}
+              onChange={(e) => onStructureChange(field.id, parseInt(e.target.value, 10))}
+              onFocus={(e) => e.target.select()}
+              className="field"
+              min="0"
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function StarterSummary({ starting }: { starting: PlanetStartingSettings }) {
+  return (
+    <div className="well space-y-1 px-4 py-3 text-sm text-ink-2">
+      <p>
+        <span className="font-semibold text-ink">Starter resources:</span>{' '}
+        {STARTER_PACKAGE.METAL.toLocaleString()} metal, {STARTER_PACKAGE.MINERAL.toLocaleString()} mineral,{' '}
+        {STARTER_PACKAGE.FOOD.toLocaleString()} food, {STARTER_PACKAGE.ENERGY} energy
+      </p>
+      <p>
+        <span className="font-semibold text-ink">Selected start:</span>{' '}
+        {starting.workersTotal.toLocaleString()} workers, Outpost x1, Metal Mine x{starting.structures.metal_mine},
+        Mineral Extractor x{starting.structures.mineral_extractor}, Farm x{starting.structures.farm},
+        Solar Gen x{starting.structures.solar_generator}
+      </p>
+    </div>
+  );
 }

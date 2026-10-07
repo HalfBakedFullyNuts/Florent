@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { Pencil, Plus } from 'lucide-react';
 import type { ExtendedPlanetState } from '../lib/game/gameState';
 
 interface PlanetTabsProps {
@@ -10,11 +11,13 @@ interface PlanetTabsProps {
   onAddPlanet: () => void;
   onEditPlanet?: (planetId: string) => void;
   maxPlanets: number;
-  onResetQueue?: () => void;
 }
 
+const HOMEWORLD_ID = 'planet-1';
+
 /**
- * PlanetTabs - Tab navigation for multiple planets, with optional Reset Queue button on the far right.
+ * PlanetTabs - one tab per planet plus "Add planet". Clicking the active colony tab
+ * opens its settings (the homeworld has none).
  */
 function PlanetTabsInner({
   planets,
@@ -23,12 +26,11 @@ function PlanetTabsInner({
   onAddPlanet,
   onEditPlanet,
   maxPlanets,
-  onResetQueue,
 }: PlanetTabsProps) {
   const planetArray = Array.from(planets.values());
 
   const handlePlanetClick = (planet: ExtendedPlanetState) => {
-    if (planet.id === currentPlanetId && planet.id !== 'planet-1' && onEditPlanet) {
+    if (planet.id === currentPlanetId && planet.id !== HOMEWORLD_ID && onEditPlanet) {
       onEditPlanet(planet.id);
       return;
     }
@@ -36,67 +38,42 @@ function PlanetTabsInner({
   };
 
   return (
-    <div
-      className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/80 via-slate-950/45 to-pink-nebula-panel/70 p-2 shadow-xl shadow-black/20 backdrop-blur-xl sm:flex sm:flex-wrap sm:items-center"
-      suppressHydrationWarning
-    >
-      {planetArray.map((planet, index) => {
-        const isActive = planet.id === currentPlanetId;
-        const planetLabel = `P${index + 1}`;
-        return (
-          <button
-            type="button"
-            key={planet.id}
-            aria-label={isActive && planet.id !== 'planet-1' ? `Edit ${planetLabel}` : `Switch to ${planetLabel}`}
-            {...(isActive ? { 'aria-current': 'true' as const } : {})}
-            onClick={() => handlePlanetClick(planet)}
-            suppressHydrationWarning
-            title={isActive && planet.id !== 'planet-1' ? `Edit ${planetLabel}` : `Switch to ${planetLabel}`}
-            className={`
-              min-h-[48px] justify-center rounded-xl px-3 py-2 font-semibold transition-all duration-200 sm:min-h-0 sm:px-4
-              flex items-center gap-2 cursor-pointer
-              ${isActive
-                ? 'bg-gradient-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow-lg shadow-pink-nebula-accent-primary/25 scale-[1.03]'
-                : 'border border-white/10 bg-white/5 text-pink-nebula-text hover:border-pink-nebula-accent-primary/45 hover:bg-white/10'
-              }
-            `}
-          >
-            <span className="text-sm font-black uppercase tracking-wide">{planetLabel}</span>
-            <span className="text-xs opacity-70" suppressHydrationWarning>T{planet.currentTurn}</span>
-          </button>
-        );
-      })}
+    <div className="flex min-w-0 flex-wrap items-center gap-2" suppressHydrationWarning>
+      <div className="seg max-w-full overflow-x-auto" role="group" aria-label="Planets">
+        {planetArray.map((planet, index) => {
+          const isActive = planet.id === currentPlanetId;
+          const planetLabel = `P${index + 1}`;
+          const isEditable = isActive && planet.id !== HOMEWORLD_ID;
+          const action = isEditable ? `Edit ${planetLabel}` : `Switch to ${planetLabel}`;
+          return (
+            <button
+              type="button"
+              key={planet.id}
+              aria-label={action}
+              aria-pressed={isActive}
+              {...(isActive ? { 'aria-current': 'true' as const } : {})}
+              onClick={() => handlePlanetClick(planet)}
+              title={planet.id === HOMEWORLD_ID ? `${planetLabel} · ${planet.name}` : `${planetLabel} · ${planet.name} · starts T${planet.startTurn}`}
+              className="seg-item"
+              suppressHydrationWarning
+            >
+              <span className={`font-bold ${isActive ? 'text-halpha-soft' : ''}`}>{planetLabel}</span>
+              <span className="max-w-[9rem] truncate font-medium">{planet.name}</span>
+              {isEditable && <Pencil aria-hidden="true" className="!h-3.5 !w-3.5 text-ink-3" />}
+            </button>
+          );
+        })}
+      </div>
 
       <button
         type="button"
         onClick={onAddPlanet}
-        className="
-          min-h-[48px] justify-center rounded-xl px-3 py-2 font-semibold transition-all duration-200 sm:min-h-0 sm:px-4
-          border border-dashed border-pink-nebula-accent-primary/45 bg-pink-nebula-accent-primary/10
-          text-pink-nebula-text hover:border-pink-nebula-accent-secondary hover:bg-pink-nebula-accent-primary/20
-          flex items-center gap-2 cursor-pointer
-        "
+        className="btn btn-ghost border border-dashed border-filament"
       >
-        <span className="text-sm">+</span>
-        <span className="text-sm">Add Planet</span>
-        <span className="text-xs opacity-70">{planets.size}/{maxPlanets}</span>
+        <Plus aria-hidden="true" />
+        Add planet
+        <span className="text-xs font-semibold text-ink-3">{planets.size}/{maxPlanets}</span>
       </button>
-
-      {onResetQueue && (
-        <button
-          type="button"
-          onClick={onResetQueue}
-          className="
-            col-span-2 min-h-[44px] justify-center rounded-xl px-3 py-2 font-semibold transition-all duration-200 sm:col-span-1 sm:ml-auto sm:min-h-0
-            bg-red-950/35 text-red-200 hover:bg-red-700/70 hover:text-white
-            border border-red-400/25 hover:border-red-300/60
-            flex items-center gap-2 cursor-pointer text-sm
-          "
-          title="Reset current planet queue to starting state"
-        >
-          <span>Reset Queue</span>
-        </button>
-      )}
     </div>
   );
 }

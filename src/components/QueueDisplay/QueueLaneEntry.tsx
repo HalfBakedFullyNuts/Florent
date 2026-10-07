@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { AlertTriangle, Hammer, Hourglass, Minus, Pause, Plus, X } from 'lucide-react';
 import type { LaneEntry } from '../../lib/game/selectors';
 import { formatPlannedWaitTurns } from '../../lib/game/waitDuration';
 import { DEMOLISH_PREFIX } from '../../lib/game/demolish';
@@ -27,10 +28,9 @@ export interface QueueLaneEntryProps {
 }
 
 /**
- * QueueLaneEntry - Planet Queue entry display with structured table-like layout
- *
- * Shows: Item name, quantity, duration, completion turn
- * Vertically aligned columns for all figures
+ * QueueLaneEntry - one queue row on a fixed five-column grid (turns | item | qty | time | remove)
+ * so every figure lines up down the list. Status is carried by tone: completed entries dim,
+ * the active entry gets the H-alpha edge, invalid/delayed entries get a danger/caution edge.
  *
  * Memoized to prevent unnecessary re-renders when entry data hasn't changed
  */
@@ -41,9 +41,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   onQuantityChange,
   maxQuantity,
   disabled = false,
-  isNewest = false,
   def,
-  busyWorkers = 0,
   showQuantityInput = false,
   onTurnClick,
   maxTurn = 199,
@@ -52,148 +50,81 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
   laneId,
 }: QueueLaneEntryProps) {
   const isDemolish = entry.itemId?.startsWith(DEMOLISH_PREFIX) ?? false;
-  const laneSuffix = laneId ? ` [${LANE_CONFIG[laneId].title}]` : '';
-
-  // Determine status color
-  const statusColor = entry.status === 'active' ? 'border-l-4 border-l-yellow-500' :
-    entry.status === 'pending' ? 'border-l-4 border-l-blue-500' :
-      entry.status === 'completed' ? 'border-l-4 border-l-green-500' : '';
-
   const isAutoWait = entry.isAutoWait;
-  const waitTurns = getDisplayWaitTurns(entry, currentTurn);
   const durationTurns = getDisplayDurationTurns(entry, def, currentTurn);
-
-  // Determine border/background override from validation state
-  const outerBorder = entry.invalid
-    ? 'border-red-500/60'
-    : entry.resourceDelayed
-      ? 'border-yellow-500/50'
-      : isDemolish
-        ? 'border-red-800/40'
-        : 'border-pink-nebula-border';
-
-  const outerBg = entry.invalid
-    ? 'bg-red-900/10'
-    : entry.resourceDelayed
-      ? 'bg-yellow-900/5'
-      : isAutoWait
-        ? 'bg-pink-nebula-panel/20 opacity-60 italic'
-        : isDemolish
-          ? 'bg-red-950/30'
-          : 'bg-pink-nebula-panel/50';
+  const tone = rowTone(entry);
 
   return (
-    <div
-      className={`w-full text-left px-3 py-2 ${outerBg} border ${outerBorder} rounded transition-colors group ${statusColor}`}
-    >
-      {/* Structured table-like layout */}
-      <div className="grid grid-cols-[auto_1fr_auto_auto_auto] gap-x-2 md:gap-x-4 items-center text-xs md:text-sm font-mono">
-        {/* Turn Range: Tx - Ty (or wall-clock times when showTimes) */}
-        <div className={`text-pink-nebula-muted flex items-center gap-1 ${showTimes ? 'w-36 md:w-40' : 'w-20 md:w-24'}`}>
-          {(() => {
-            const startT = entry.startTurn ?? entry.queuedTurn ?? '?';
-            const endT = entry.completionTurn ?? (entry.eta !== null ? entry.eta : '?');
-            const startLabel = showTimes && startT !== '?' ? formatTickTime(startT as number, roundStartMs) : `T${startT}`;
-            const endLabel = showTimes && endT !== '?' ? formatTickTime(endT as number, roundStartMs) : `T${endT}`;
-            const startTitle = showTimes && startT !== '?' ? `T${startT} · ${formatTickTimeFull(startT as number, roundStartMs)}` : 'Jump to start turn';
-            const endTitle = showTimes && endT !== '?' ? `T${endT} · ${formatTickTimeFull(endT as number, roundStartMs)}` : 'Jump to first turn where item is complete';
-            return (
-              <>
-                <button
-                  className="hover:text-pink-nebula-accent-primary hover:underline"
-                  onClick={(e) => { e.stopPropagation(); if (startT !== '?' && onTurnClick) onTurnClick(startT as number); }}
-                  title={startTitle}
-                >
-                  {startLabel}
-                </button>
-                <span>-</span>
-                <button
-                  className="hover:text-pink-nebula-accent-primary hover:underline"
-                  onClick={(e) => { e.stopPropagation(); if (endT !== '?' && onTurnClick) onTurnClick(Math.min((endT as number) + 1, maxTurn)); }}
-                  title={endTitle}
-                >
-                  {endLabel}
-                </button>
-              </>
-            );
-          })()}
+    <div className={`group border-b border-filament/60 py-1.5 pl-2 pr-3 transition-colors ${tone.row}`}>
+      <div className="grid min-h-[2rem] grid-cols-[minmax(0,1fr)_auto_2.75rem_1.75rem] items-center gap-x-2 gap-y-0.5 text-sm font-semibold [grid-template-areas:'name_qty_dur_rm'_'range_range_range_range'] md:grid-cols-[auto_minmax(0,1fr)_auto_2.75rem_1.75rem] md:gap-x-3 md:text-sm md:[grid-template-areas:'range_name_qty_dur_rm']">
+        <TurnRange entry={entry} showTimes={showTimes} roundStartMs={roundStartMs} onTurnClick={onTurnClick} maxTurn={maxTurn} />
+
+        <div className={`flex min-w-0 items-center gap-1.5 [grid-area:name] ${tone.name}`}>
+          <EntryName entry={entry} laneId={laneId} currentTurn={currentTurn} isDemolish={isDemolish} />
         </div>
 
-        {/* Item Name */}
-        <div className={`truncate ${isAutoWait ? 'text-pink-nebula-muted' : isDemolish ? 'text-red-300' : 'text-pink-nebula-text'}`}>
-          {isAutoWait
-            ? `⏳ Auto-wait${laneSuffix}: ${waitTurns}t (resource gap)`
-            : entry.isWait
-              ? `⏳ Manual wait${laneSuffix}: ${waitTurns}t`
-              : isDemolish
-                ? `🔨 ${entry.itemName}`
-                : entry.itemName}
-        </div>
-
-        {/* Quantity */}
-        <div className="text-pink-nebula-text">
-          {showQuantityInput && !disabled ? (
+        <div className="text-ink-2 [grid-area:qty]">
+          {showQuantityInput && !disabled && !entry.isWait && !isAutoWait ? (
             <div className="flex items-center gap-0.5">
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); if (onQuantityChange && entry.quantity > 1) onQuantityChange(entry.quantity - 1); }}
                 disabled={entry.quantity <= 1}
                 title="Decrease quantity"
-                className="w-5 h-5 flex items-center justify-center bg-pink-nebula-bg/70 border border-pink-nebula-border rounded text-pink-nebula-muted hover:border-pink-nebula-accent-primary hover:text-pink-nebula-text disabled:opacity-25 disabled:cursor-not-allowed transition-colors leading-none text-base"
+                aria-label={`Decrease ${entry.itemName} quantity`}
+                className="btn btn-ghost btn-sm btn-icon !h-6 !w-6"
               >
-                −
+                <Minus aria-hidden="true" className="!h-3 !w-3" />
               </button>
-              <span className="w-7 text-center font-mono text-sm tabular-nums select-none">{entry.quantity}</span>
+              <span className="w-10 select-none text-center text-ink">{entry.quantity}</span>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); if (onQuantityChange) onQuantityChange(entry.quantity + 1); }}
                 disabled={maxQuantity !== undefined && entry.quantity >= maxQuantity}
                 title={maxQuantity !== undefined && entry.quantity >= maxQuantity ? `Maximum: ${maxQuantity}` : 'Increase quantity'}
-                className="w-5 h-5 flex items-center justify-center bg-pink-nebula-bg/70 border border-pink-nebula-border rounded text-pink-nebula-muted hover:border-pink-nebula-accent-primary hover:text-pink-nebula-text disabled:opacity-25 disabled:cursor-not-allowed transition-colors leading-none text-base"
+                aria-label={`Increase ${entry.itemName} quantity`}
+                className="btn btn-ghost btn-sm btn-icon !h-6 !w-6"
               >
-                +
+                <Plus aria-hidden="true" className="!h-3 !w-3" />
               </button>
             </div>
           ) : (
-            <span className="w-12 text-right block">×{entry.quantity}</span>
+            <span className="block min-w-[2.5rem] text-right">{entry.isWait || isAutoWait || (!showQuantityInput && entry.quantity === 1) ? '' : `×${entry.quantity}`}</span>
           )}
         </div>
 
-        {/* Duration */}
-        <div className="text-pink-nebula-text text-right w-10">
-          {durationTurns}T
-        </div>
+        <div className="text-right text-ink-2 [grid-area:dur]">{durationTurns}T</div>
 
-        {/* Remove indicator */}
-        <div className="w-8 text-right flex items-center justify-end">
+        <div className="flex justify-end [grid-area:rm]">
           {!disabled && (
             <button
+              type="button"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 onCancel();
               }}
-              className="text-red-400 bg-red-900/30 rounded px-2 py-0.5 hover:bg-red-500 hover:text-white transition-all cursor-pointer text-base font-bold leading-none"
+              className="btn btn-ghost btn-sm btn-icon !h-7 !w-7 text-ink-3 hover:!bg-danger/15 hover:!text-danger"
               title="Remove from queue"
               aria-label={`Remove ${entry.itemName} from queue`}
             >
-              ✕
+              <X aria-hidden="true" className="!h-3.5 !w-3.5" />
             </button>
           )}
         </div>
       </div>
 
-      {/* Hard-block warning (missing prerequisite or constraint) */}
       {entry.invalid && entry.invalidReason && (
-        <div className="mt-1 text-xs text-red-400">
-          ⚠️ {entry.invalidReason}
-        </div>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-danger">
+          <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          {entry.invalidReason}
+        </p>
       )}
-      {/* Resource-delay info (soft: waiting for resources to accumulate) */}
       {!entry.invalid && entry.resourceDelayed && (
-        <div className="mt-1 text-xs text-yellow-400/80">
-          ⏳ {entry.resourceDelayReason ?? 'Waiting for resources to accumulate'}
-        </div>
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-caution">
+          <Hourglass aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+          {entry.resourceDelayReason ?? 'Waiting for resources to accumulate'}
+        </p>
       )}
     </div>
   );
@@ -248,4 +179,84 @@ function getDisplayDurationTurns(entry: LaneEntry, def?: any, currentTurn?: numb
   }
 
   return entry.turnsRemaining ?? '—';
+}
+
+function rowTone(entry: LaneEntry): { row: string; name: string } {
+  if (entry.invalid) return { row: 'bg-danger/[0.06] shadow-[inset_2px_0_0_#FF7A7A]', name: 'text-ink' };
+  if (entry.resourceDelayed) return { row: 'shadow-[inset_2px_0_0_#F5B544]', name: 'text-ink' };
+  if (entry.status === 'active') return { row: 'bg-halpha-deep shadow-[inset_2px_0_0_#F2508C]', name: 'text-ink' };
+  if (entry.status === 'completed') return { row: '', name: 'text-ink-3' };
+  return { row: 'hover:bg-veil/60', name: 'text-ink' };
+}
+
+interface TurnRangeProps {
+  entry: LaneEntry;
+  showTimes: boolean;
+  roundStartMs?: number;
+  onTurnClick?: (turn: number) => void;
+  maxTurn: number;
+}
+
+/** "T5 – T8" as two jump buttons: start turn, and the first turn the item is complete. */
+function TurnRange({ entry, showTimes, roundStartMs, onTurnClick, maxTurn }: TurnRangeProps) {
+  const startT = entry.startTurn ?? entry.queuedTurn ?? '?';
+  const endT = entry.completionTurn ?? (entry.eta !== null ? entry.eta : '?');
+  const label = (t: number | string) => (showTimes && t !== '?' ? formatTickTime(t as number, roundStartMs) : `T${t}`);
+  const fullTitle = (t: number | string, fallback: string) =>
+    showTimes && t !== '?' ? `T${t} · ${formatTickTimeFull(t as number, roundStartMs)}` : fallback;
+  const linkClass = 'rounded px-0.5 text-ink-2 hover:bg-veil hover:text-ink';
+
+  return (
+    <div className={`flex items-center gap-0.5 text-xs font-medium text-ink-3 [grid-area:range] md:text-[13px] ${showTimes ? 'md:w-40' : 'md:w-28'}`}>
+      <button
+        type="button"
+        className={linkClass}
+        onClick={(e) => { e.stopPropagation(); if (startT !== '?' && onTurnClick) onTurnClick(startT as number); }}
+        title={fullTitle(startT, 'Jump to start turn')}
+      >
+        {label(startT)}
+      </button>
+      <span aria-hidden="true">–</span>
+      <button
+        type="button"
+        className={linkClass}
+        onClick={(e) => { e.stopPropagation(); if (endT !== '?' && onTurnClick) onTurnClick(Math.min((endT as number) + 1, maxTurn)); }}
+        title={fullTitle(endT, 'Jump to first turn where item is complete')}
+      >
+        {label(endT)}
+      </button>
+    </div>
+  );
+}
+
+function EntryName({ entry, laneId, currentTurn, isDemolish }: { entry: LaneEntry; laneId?: LaneId; currentTurn: number; isDemolish: boolean }) {
+  const laneSuffix = laneId ? ` [${LANE_CONFIG[laneId].title}]` : '';
+  const waitTurns = getDisplayWaitTurns(entry, currentTurn);
+  if (entry.isAutoWait) {
+    const text = `Auto-wait${laneSuffix}: ${waitTurns}t (resource gap)`;
+    return (
+      <>
+        <Hourglass aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-ink-3" />
+        <span className="truncate italic text-ink-3" title={text}>{text}</span>
+      </>
+    );
+  }
+  if (entry.isWait) {
+    const text = `Manual wait${laneSuffix}: ${waitTurns}t`;
+    return (
+      <>
+        <Pause aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-ink-3" />
+        <span className="truncate text-ink-2" title={text}>{text}</span>
+      </>
+    );
+  }
+  if (isDemolish) {
+    return (
+      <>
+        <Hammer aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-danger" />
+        <span className="truncate text-danger" title={entry.itemName}>{entry.itemName}</span>
+      </>
+    );
+  }
+  return <span className="truncate" title={entry.itemName}>{entry.itemName}</span>;
 }

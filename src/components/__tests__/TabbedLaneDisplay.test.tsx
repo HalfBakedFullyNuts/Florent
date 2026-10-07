@@ -118,4 +118,38 @@ describe('TabbedLaneDisplay', () => {
     expect(screen.getByText('T250')).toBeInTheDocument();
     expect(onTurnClick).toHaveBeenCalledWith(199);
   });
+
+  it('clears the active lane from the queue header', () => {
+    const onClearLane = vi.fn();
+    render(
+      <TabbedLaneDisplay
+        buildingLane={{ laneId: 'building', entries: [] }}
+        shipLane={{
+          laneId: 'ship',
+          entries: [{
+            id: 'fighters',
+            itemId: 'fighter',
+            itemName: 'Fighter',
+            status: 'pending',
+            quantity: 5,
+            turnsRemaining: 4,
+            eta: 8,
+            startTurn: 5,
+            completionTurn: 8,
+          }],
+        }}
+        colonistLane={{ laneId: 'colonist', entries: [] }}
+        researchLane={{ laneId: 'research', entries: [] }}
+        currentTurn={1}
+        onCancel={vi.fn()}
+        onClearLane={onClearLane}
+        defs={defs}
+        activeTab="ship"
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear Ships lane' }));
+
+    expect(onClearLane).toHaveBeenCalledWith('ship');
+  });
 });

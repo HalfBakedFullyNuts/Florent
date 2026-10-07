@@ -1,11 +1,27 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import type { LaneId } from '../lib/sim/engine/types';
+import { ALL_LANES, LANE_CONFIG } from '../lib/constants/lanes';
+import { LaneIcon } from './ui/LaneIcon';
 
 export interface FirstEmptyTurns {
   building: number | null;
   ship: number | null;
   colonist: number | null;
+}
+
+/** Inclusive turn span a queue entry occupies in its lane; `label` names it in the hover card. */
+export interface LaneSpan {
+  start: number;
+  end: number;
+  label?: string;
+}
+
+interface SpectrumHover {
+  turn: number;
+  laneIndex: number;
 }
 
 export interface HorizontalTimelineProps {
@@ -19,38 +35,51 @@ export interface HorizontalTimelineProps {
     colonist?: string | null;
     research?: string | null;
   };
+  laneSpans?: Partial<Record<LaneId, LaneSpan[]>>;
+  isAutoJumpEnabled?: boolean;
+  onAutoJumpToggle?: (v: boolean) => void;
+}
+
+const ROW_HEIGHT = 20;
+const THUMB_PX = 14;
+
+/** Horizontal position of a turn along the range track, matching the native thumb mapping. */
+function turnPosition(turn: number, totalTurns: number): string {
+  const fraction = totalTurns > 1 ? (turn - 1) / (totalTurns - 1) : 0;
+  return `calc(${THUMB_PX / 2}px + (100% - ${THUMB_PX}px) * ${fraction})`;
+}
+
+function spanWidth(span: LaneSpan, totalTurns: number): string {
+  const fraction = totalTurns > 1 ? (span.end - span.start + 1) / (totalTurns - 1) : 1;
+  return `max(2px, calc((100% - ${THUMB_PX}px) * ${fraction} - 1px))`;
 }
 
 /**
- * HorizontalTimeline - Horizontal timeline navigation between dashboard and queues
- *
- * - Simple timeline style
- * - Turn input, slider, and quick jump buttons
- * - First empty turn buttons for each lane
- * - Fits between Population and Space Remaining sections width-wise
+ * Turn deck — the planner's time axis. Turn controls on top; below, one track per lane draws
+ * every queued item as a bar across turns 1..N so idle gaps are visible, with the H-alpha
+ * cursor marking the viewed turn. A transparent native range input over the tracks keeps
+ * click, drag and keyboard behaviour.
  */
-function HorizontalTimelineInner({ 
-  currentTurn, 
-  totalTurns, 
-  onTurnChange, 
+function HorizontalTimelineInner({
+  currentTurn,
+  totalTurns,
+  onTurnChange,
   firstEmptyTurns,
   currentBuilds,
+  laneSpans,
   isAutoJumpEnabled,
-  onAutoJumpToggle 
-}: HorizontalTimelineProps & { isAutoJumpEnabled?: boolean; onAutoJumpToggle?: (v: boolean) => void }) {
-  const [hoveredTurn, setHoveredTurn] = useState<number | null>(null);
-  // Local state for slider to prevent "snap-back" during fast dragging
+  onAutoJumpToggle,
+}: HorizontalTimelineProps) {
+  // Local state keeps the slider from snapping back while dragging fast.
   const [localTurn, setLocalTurn] = useState(currentTurn);
-
-  // Sync local state when prop changes from external source
   useEffect(() => {
     setLocalTurn(currentTurn);
   }, [currentTurn]);
 
-  const handleSliderChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTurn = parseInt(e.target.value, 10);
-    setLocalTurn(newTurn); // Update local state immediately for smooth slider
-    onTurnChange(newTurn); // Propagate to parent
+  const goTo = (turn: number) => {
+    const clamped = Math.min(totalTurns, Math.max(1, turn));
+    setLocalTurn(clamped);
+    onTurnChange(clamped);
   };
 
   const handleTurnInput = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,47 +90,13 @@ function HorizontalTimelineInner({
     }
   };
 
-  const handleButtonClick = (turn: number) => {
-    setLocalTurn(turn);
-    onTurnChange(turn);
-  };
-
-  const turnLabels = Array.from(
-    new Set([1, 50, 100, 150, 200, totalTurns].filter(t => t <= totalTurns))
-  ).sort((a, b) => a - b);
-  const buildStatus = currentBuilds
-    ? [
-        { key: 'building', label: 'B', value: currentBuilds.building },
-        { key: 'ship', label: 'S', value: currentBuilds.ship },
-        { key: 'colonist', label: 'C', value: currentBuilds.colonist },
-        { key: 'research', label: 'R', value: currentBuilds.research },
-      ]
-    : [];
-
   return (
-    <div className="w-full rounded-2xl border border-white/10 bg-gradient-to-r from-pink-nebula-panel/75 via-slate-950/45 to-pink-nebula-panel/70 p-3 shadow-xl shadow-black/20 backdrop-blur-xl md:p-4">
-      {buildStatus.length > 0 && (
-        <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold text-pink-nebula-muted">
-          <span className="uppercase tracking-wide text-pink-nebula-accent-secondary">Now</span>
-          {buildStatus.map((item) => (
-            <span key={item.key} className="min-w-0">
-              <span className="text-pink-nebula-muted/80">{item.label}:</span>{' '}
-              <span className="text-pink-nebula-text">{item.value || '-'}</span>
-            </span>
-          ))}
-        </div>
-      )}
-      <div className="flex flex-wrap items-center gap-3 md:gap-4">
-        {/* Current Turn Input with Step Buttons */}
-        <div className="grid w-full grid-cols-[auto_auto_minmax(4rem,5rem)_auto_1fr] items-center gap-2 md:flex md:w-auto">
-          <span className="text-pink-nebula-muted text-xs font-semibold">TURN</span>
-          <button
-            onClick={() => handleButtonClick(Math.max(1, localTurn - 1))}
-            disabled={localTurn <= 1}
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-pink-nebula-accent-primary/15 disabled:cursor-not-allowed disabled:opacity-40 md:h-8 md:w-8"
-            aria-label="Previous turn"
-          >
-            ◀
+    <section aria-label="Turn navigation" className="panel px-3 py-3 md:px-4">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="flex items-center gap-2">
+          <span className="eyebrow">Turn</span>
+          <button type="button" onClick={() => goTo(localTurn - 1)} disabled={localTurn <= 1} className="btn btn-secondary btn-icon" aria-label="Previous turn">
+            <ChevronLeft aria-hidden="true" />
           </button>
           <input
             type="number"
@@ -110,192 +105,232 @@ function HorizontalTimelineInner({
             min={1}
             max={totalTurns}
             aria-label="Turn"
-            className="w-full rounded-xl border border-pink-nebula-border/80 bg-slate-950/60 px-2 py-1 text-center font-bold text-pink-nebula-text outline-none transition-colors focus:border-pink-nebula-accent-secondary focus:ring-2 focus:ring-pink-nebula-accent-primary/25 md:w-16"
+            className="field w-[4.5rem] text-center text-lg font-bold text-halpha-soft [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
           />
-          <button
-            onClick={() => handleButtonClick(Math.min(totalTurns, localTurn + 1))}
-            disabled={localTurn >= totalTurns}
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/5 transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-pink-nebula-accent-primary/15 disabled:cursor-not-allowed disabled:opacity-40 md:h-8 md:w-8"
-            aria-label="Next turn"
-          >
-            ▶
+          <button type="button" onClick={() => goTo(localTurn + 1)} disabled={localTurn >= totalTurns} className="btn btn-secondary btn-icon" aria-label="Next turn">
+            <ChevronRight aria-hidden="true" />
           </button>
-          <span className="text-pink-nebula-muted text-xs">/ {totalTurns}</span>
+          <span className="text-sm text-ink-3">of {totalTurns}</span>
         </div>
 
-        {/* Auto-jump checkbox — moved to its own wrap-friendly group */}
-        <div className="flex w-full items-center gap-2 md:w-auto">
+        <div className="flex items-center gap-1" role="group" aria-label="Jump to">
+          <button type="button" onClick={() => goTo(1)} className="btn btn-ghost btn-sm">Start</button>
+          <button type="button" onClick={() => goTo(Math.round(totalTurns / 2))} className="btn btn-ghost btn-sm">Mid</button>
+          <button type="button" onClick={() => goTo(totalTurns)} className="btn btn-ghost btn-sm">End</button>
+        </div>
+
+        <label
+          className="ml-auto flex cursor-pointer select-none items-center gap-2 text-sm text-ink-2"
+          title="After you queue an item, move to the turn right after it completes"
+        >
           <input
             type="checkbox"
-            id="autoJump"
             checked={isAutoJumpEnabled ?? true}
             onChange={(e) => onAutoJumpToggle?.(e.target.checked)}
-            className="rounded bg-pink-nebula-bg border-pink-nebula-border text-pink-nebula-accent-primary focus:ring-pink-nebula-accent-primary/50"
+            className="h-4 w-4 rounded border-edge bg-void text-halpha focus:ring-0 focus:ring-offset-0"
           />
-          <label htmlFor="autoJump" className="text-pink-nebula-muted text-xs cursor-pointer select-none">
-            <span className="md:hidden">auto-jump to next free turn</span>
-            <span className="hidden md:inline">automatically jump to first turn with empty structure queue</span>
-          </label>
-        </div>
+          Advance after queuing
+        </label>
+      </div>
 
-        {/* Timeline Slider — full width on mobile so it gets its own row */}
-        <div className="flex-1 min-w-full md:min-w-0 relative">
-          {/* Turn Labels */}
-          <div className="relative h-6 mb-1">
-            {turnLabels.map((turn) => {
-              const position = ((turn - 1) / (totalTurns - 1)) * 100;
-              const isCurrentTurn = turn === localTurn;
+      <LaneSpectrum
+        localTurn={localTurn}
+        totalTurns={totalTurns}
+        onSlide={goTo}
+        laneSpans={laneSpans}
+        currentBuilds={currentBuilds}
+        firstEmptyTurns={firstEmptyTurns}
+      />
+    </section>
+  );
+}
 
-              return (
-                <div
-                  key={turn}
-                  className="absolute flex flex-col items-center cursor-pointer hover:text-pink-nebula-text transition-colors"
-                  style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
-                  onClick={() => handleButtonClick(turn)}
-                >
-                  <span
-                    className={`text-xs font-mono ${
-                      isCurrentTurn
-                        ? 'text-pink-nebula-accent-primary font-bold'
-                        : 'text-pink-nebula-muted'
-                    }`}
-                  >
-                    {turn}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+interface LaneSpectrumProps {
+  localTurn: number;
+  totalTurns: number;
+  onSlide: (turn: number) => void;
+  laneSpans?: HorizontalTimelineProps['laneSpans'];
+  currentBuilds?: HorizontalTimelineProps['currentBuilds'];
+  firstEmptyTurns?: FirstEmptyTurns;
+}
 
-          {/* Slider Track with Tick Marks */}
-          <div className="relative">
-            {/* Tick marks */}
-            <div className="absolute inset-0 flex justify-between pointer-events-none">
-              {turnLabels.map((turn) => {
-                const position = ((turn - 1) / (totalTurns - 1)) * 100;
-                return (
-                  <div
-                    key={turn}
-                    className="absolute w-[2px] h-2 bg-pink-nebula-border"
-                    style={{ left: `${position}%`, transform: 'translateX(-50%)', top: '-4px' }}
-                  />
-                );
-              })}
-            </div>
+/** Three aligned columns: lane + item in progress | spectrum tracks | first free turn. */
+function LaneSpectrum({ localTurn, totalTurns, onSlide, laneSpans, currentBuilds, firstEmptyTurns }: LaneSpectrumProps) {
+  const ticks = Array.from(new Set([1, 50, 100, 150, 200, totalTurns].filter((t) => t <= totalTurns))).sort((a, b) => a - b);
+  const [hover, setHover] = useState<SpectrumHover | null>(null);
+  const hoveredTurn = hover?.turn ?? null;
 
-            {/* Current position indicator */}
-            <div
-              className="absolute top-[-6px] w-[3px] h-3 bg-pink-nebula-accent-primary rounded pointer-events-none"
-              style={{
-                left: `${((localTurn - 1) / (totalTurns - 1)) * 100}%`,
-                transform: 'translateX(-50%)'
-              }}
-            />
+  // The range input covers all tracks, so the pointer position decides which lane and turn are hovered.
+  const handleHover = (e: React.MouseEvent<HTMLInputElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const fraction = (e.clientX - rect.left - THUMB_PX / 2) / (rect.width - THUMB_PX);
+    const turn = Math.min(totalTurns, Math.max(1, Math.round(fraction * (totalTurns - 1) + 1)));
+    const laneIndex = Math.min(ALL_LANES.length - 1, Math.max(0, Math.floor((e.clientY - rect.top) / ROW_HEIGHT)));
+    setHover((prev) => (prev?.turn === turn && prev.laneIndex === laneIndex ? prev : { turn, laneIndex }));
+  };
 
-            <input
-              type="range"
-              min={1}
-              max={totalTurns}
-              step={1}
-              value={localTurn}
-              onChange={handleSliderChange}
-              onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const percentage = (e.clientX - rect.left) / rect.width;
-                const turn = Math.round(percentage * (totalTurns - 1) + 1);
-                setHoveredTurn(turn);
-              }}
-              onMouseLeave={() => setHoveredTurn(null)}
-              className="w-full h-2 bg-pink-nebula-border rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:bg-pink-nebula-accent-primary [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:transition-transform [&::-webkit-slider-thumb]:duration-75 [&::-webkit-slider-thumb]:hover:scale-110 [&::-webkit-slider-thumb]:active:scale-95 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:bg-pink-nebula-accent-primary [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:transition-transform [&::-moz-range-thumb]:duration-75"
-              aria-label="Turn slider"
-            />
-          </div>
-
-          {/* Hover Tooltip */}
-          {hoveredTurn !== null && hoveredTurn !== currentTurn && (
-            <div
-              className="absolute bottom-full mb-2 px-2 py-1 bg-pink-nebula-bg border border-pink-nebula-border rounded text-xs text-pink-nebula-text pointer-events-none whitespace-nowrap"
-              style={{
-                left: `${((hoveredTurn - 1) / (totalTurns - 1)) * 100}%`,
-                transform: 'translateX(-50%)'
-              }}
-            >
-              Turn {hoveredTurn}
-            </div>
-          )}
-        </div>
-
-        {/* Quick Jump Buttons */}
-        <div className="grid w-full grid-cols-3 gap-2 md:flex md:w-auto md:flex-wrap md:gap-1">
-          <button
-            onClick={() => handleButtonClick(1)}
-            className="min-h-[44px] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10 md:min-h-0"
-          >
-            Start
-          </button>
-          <button
-            onClick={() => handleButtonClick(Math.round(totalTurns / 2))}
-            className="min-h-[44px] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10 md:min-h-0"
-          >
-            Mid
-          </button>
-          <button
-            onClick={() => handleButtonClick(totalTurns)}
-            className="min-h-[44px] rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold transition-all hover:border-pink-nebula-accent-primary/45 hover:bg-white/10 md:min-h-0"
-          >
-            End
-          </button>
-        </div>
-
-        {/* First Empty Turn Buttons */}
-        {firstEmptyTurns && (
-          <div className="grid w-full grid-cols-3 gap-2 md:ml-2 md:flex md:w-auto md:flex-wrap md:gap-1 md:border-l md:border-pink-nebula-border md:pl-2">
-            {firstEmptyTurns.building !== null && (
-              <button
-                onClick={() => handleButtonClick(firstEmptyTurns.building!)}
-                title={`First turn where building lane is empty (T${firstEmptyTurns.building})`}
-                className={`flex min-h-[44px] items-center justify-center gap-1 rounded-xl border px-2 py-1 text-xs font-semibold transition-colors md:min-h-0 ${
-                  localTurn === firstEmptyTurns.building
-                    ? 'bg-amber-600/30 border-amber-500 text-amber-300'
-                    : 'bg-pink-nebula-bg hover:bg-amber-600/20 border-pink-nebula-border hover:border-amber-500'
-                }`}
-              >
-                <span>🏗️</span>
-                <span className="font-mono">T{firstEmptyTurns.building}</span>
-              </button>
-            )}
-            {firstEmptyTurns.ship !== null && (
-              <button
-                onClick={() => handleButtonClick(firstEmptyTurns.ship!)}
-                title={`First turn where ship lane is empty (T${firstEmptyTurns.ship})`}
-                className={`flex min-h-[44px] items-center justify-center gap-1 rounded-xl border px-2 py-1 text-xs font-semibold transition-colors md:min-h-0 ${
-                  localTurn === firstEmptyTurns.ship
-                    ? 'bg-blue-600/30 border-blue-500 text-blue-300'
-                    : 'bg-pink-nebula-bg hover:bg-blue-600/20 border-pink-nebula-border hover:border-blue-500'
-                }`}
-              >
-                <span>🚀</span>
-                <span className="font-mono">T{firstEmptyTurns.ship}</span>
-              </button>
-            )}
-            {firstEmptyTurns.colonist !== null && (
-              <button
-                onClick={() => handleButtonClick(firstEmptyTurns.colonist!)}
-                title={`First turn where colonist lane is empty (T${firstEmptyTurns.colonist})`}
-                className={`flex min-h-[44px] items-center justify-center gap-1 rounded-xl border px-2 py-1 text-xs font-semibold transition-colors md:min-h-0 ${
-                  localTurn === firstEmptyTurns.colonist
-                    ? 'bg-green-600/30 border-green-500 text-green-300'
-                    : 'bg-pink-nebula-bg hover:bg-green-600/20 border-pink-nebula-border hover:border-green-500'
-                }`}
-              >
-                <span>👥</span>
-                <span className="font-mono">T{firstEmptyTurns.colonist}</span>
-              </button>
-            )}
-          </div>
+  return (
+    <div className="mt-3 grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_3.25rem] gap-x-3 md:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_4rem]">
+      <div className="eyebrow h-[18px]">In progress</div>
+      <div className="relative h-[18px]" aria-hidden="true">
+        {ticks.map((turn) => (
+          <span key={turn} className={`absolute -translate-x-1/2 text-[11px] leading-[18px] text-ink-3 ${turn === 50 || turn === 150 ? 'max-sm:hidden' : ''}`} style={{ left: turnPosition(turn, totalTurns) }}>
+            {turn}
+          </span>
+        ))}
+        {hoveredTurn !== null && hoveredTurn !== localTurn && (
+          <span className="absolute z-10 -translate-x-1/2 rounded bg-veil-hi px-1 text-[11px] font-semibold leading-[18px] text-ink" style={{ left: turnPosition(hoveredTurn, totalTurns) }}>
+            T{hoveredTurn}
+          </span>
         )}
+        <span className="absolute z-20 -translate-x-1/2 rounded bg-halpha px-1 text-[11px] font-bold leading-[18px] text-void" style={{ left: turnPosition(localTurn, totalTurns) }}>
+          T{localTurn}
+        </span>
+      </div>
+      <div className="eyebrow h-[18px] text-right">Free</div>
+
+      <ul className="flex min-w-0 flex-col">
+        {ALL_LANES.map((laneId) => (
+          <LaneLabel key={laneId} laneId={laneId} current={currentBuilds?.[laneId] ?? null} isHovered={hover?.laneIndex === ALL_LANES.indexOf(laneId)} />
+        ))}
+      </ul>
+
+      <div className="relative" style={{ height: ROW_HEIGHT * ALL_LANES.length }}>
+        {ticks.map((turn) => (
+          <span key={turn} aria-hidden="true" className="absolute inset-y-0 w-px bg-filament/70" style={{ left: turnPosition(turn, totalTurns) }} />
+        ))}
+        {hover && (
+          <span aria-hidden="true" className="absolute inset-x-0 rounded-[4px] bg-oiii/10" style={{ top: hover.laneIndex * ROW_HEIGHT, height: ROW_HEIGHT }} />
+        )}
+        {ALL_LANES.map((laneId, index) => (
+          <LaneTrack
+            key={laneId}
+            index={index}
+            spans={laneSpans?.[laneId] ?? []}
+            localTurn={localTurn}
+            totalTurns={totalTurns}
+            hoveredTurn={hover?.laneIndex === index ? hover.turn : null}
+          />
+        ))}
+        {hover && (
+          <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-10 w-px -translate-x-1/2 bg-oiii/80" style={{ left: turnPosition(hover.turn, totalTurns) }} />
+        )}
+        <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 z-10 w-0.5 -translate-x-1/2 bg-halpha shadow-[0_0_8px_rgba(242,80,140,0.7)]" style={{ left: turnPosition(localTurn, totalTurns) }} />
+        {hover && <SpectrumHoverCard hover={hover} laneSpans={laneSpans} totalTurns={totalTurns} />}
+        <input
+          type="range"
+          min={1}
+          max={totalTurns}
+          step={1}
+          value={localTurn}
+          onChange={(e) => onSlide(parseInt(e.target.value, 10))}
+          onMouseMove={handleHover}
+          onMouseLeave={() => setHover(null)}
+          aria-label="Turn slider"
+          aria-valuetext={`Turn ${localTurn} of ${totalTurns}`}
+          className="turn-range absolute inset-0 z-20 rounded-[4px]"
+        />
+      </div>
+
+      <div className="flex flex-col">
+        {ALL_LANES.map((laneId) => (
+          <FreeTurnCell key={laneId} laneId={laneId} turn={laneId === 'research' ? null : firstEmptyTurns?.[laneId] ?? null} localTurn={localTurn} onJump={onSlide} />
+        ))}
       </div>
     </div>
+  );
+}
+
+/** Names what the hovered lane is doing at the hovered turn, e.g. "Metal Mine · T21–T24". */
+function SpectrumHoverCard({ hover, laneSpans, totalTurns }: { hover: SpectrumHover; laneSpans?: HorizontalTimelineProps['laneSpans']; totalTurns: number }) {
+  const laneId = ALL_LANES[hover.laneIndex];
+  const span = (laneSpans?.[laneId] ?? []).find((s) => s.start <= hover.turn && hover.turn <= s.end);
+  const above = hover.laneIndex >= 2;
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute z-30 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap rounded-ctl border border-oiii/60 bg-veil-hi px-2.5 py-1.5 text-[13px] shadow-[0_8px_24px_rgba(0,0,0,0.6)]"
+      style={{
+        left: turnPosition(hover.turn, totalTurns),
+        top: above ? hover.laneIndex * ROW_HEIGHT - 34 : (hover.laneIndex + 1) * ROW_HEIGHT + 4,
+      }}
+    >
+      <LaneIcon laneId={laneId} size={14} className="text-oiii" />
+      {span ? (
+        <>
+          <span className="font-semibold text-ink">{span.label ?? LANE_CONFIG[laneId].title}</span>
+          <span className="font-semibold text-ink-2">T{span.start}–T{span.end}</span>
+        </>
+      ) : (
+        <span className="font-semibold text-ink-2">{LANE_CONFIG[laneId].title} idle · T{hover.turn}</span>
+      )}
+    </div>
+  );
+}
+
+function LaneLabel({ laneId, current, isHovered }: { laneId: LaneId; current: string | null; isHovered: boolean }) {
+  const title = LANE_CONFIG[laneId].title;
+  const iconTone = isHovered ? 'text-oiii' : current ? 'text-ink-2' : 'text-ink-3';
+  return (
+    <li
+      className="flex min-w-0 items-center gap-2 text-[13px] font-semibold"
+      style={{ height: ROW_HEIGHT }}
+      title={`${title}: ${current ?? 'idle'}`}
+    >
+      <LaneIcon laneId={laneId} size={14} className={`shrink-0 ${iconTone}`} />
+      <span className="sr-only">{title}:</span>
+      <span className={`truncate ${current ? 'text-ink' : 'text-ink-3'}`}>{current ?? 'Idle'}</span>
+    </li>
+  );
+}
+
+interface LaneTrackProps {
+  index: number;
+  spans: LaneSpan[];
+  localTurn: number;
+  totalTurns: number;
+  /** Turn under the pointer when this lane is hovered; the bar covering it lights up in O-III. */
+  hoveredTurn: number | null;
+}
+
+function LaneTrack({ index, spans, localTurn, totalTurns, hoveredTurn }: LaneTrackProps) {
+  return (
+    <div aria-hidden="true" className="absolute inset-x-0 h-2 overflow-hidden rounded-[2px] bg-filament/35" style={{ top: index * ROW_HEIGHT + (ROW_HEIGHT - 8) / 2 }}>
+      {spans.filter((span) => span.start <= totalTurns).map((raw) => {
+        const span = { start: raw.start, end: Math.min(raw.end, totalTurns) };
+        const isCurrent = span.start <= localTurn && localTurn <= span.end;
+        const isPast = span.end < localTurn;
+        const isHovered = hoveredTurn !== null && span.start <= hoveredTurn && hoveredTurn <= span.end;
+        const tone = isHovered ? 'bg-oiii' : isCurrent ? 'bg-halpha' : isPast ? 'bg-ink-3/45' : 'bg-ink-2/70';
+        return (
+          <span
+            key={`${raw.start}-${raw.end}`}
+            className={`absolute inset-y-0 rounded-[2px] ${tone}`}
+            style={{ left: turnPosition(span.start, totalTurns), width: spanWidth(span, totalTurns) }}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function FreeTurnCell({ laneId, turn, localTurn, onJump }: { laneId: LaneId; turn: number | null; localTurn: number; onJump: (t: number) => void }) {
+  if (turn === null) {
+    return <span className="flex items-center justify-end text-[13px] text-ink-3" style={{ height: ROW_HEIGHT }} aria-hidden="true">—</span>;
+  }
+  const isHere = turn === localTurn;
+  return (
+    <button
+      type="button"
+      onClick={() => onJump(turn)}
+      aria-pressed={isHere}
+      title={`First turn where the ${LANE_CONFIG[laneId].title} lane is empty (T${turn})`}
+      aria-label={`Jump to first free ${LANE_CONFIG[laneId].title} turn, T${turn}`}
+      className={`flex items-center justify-end rounded-[4px] px-1 text-[13px] font-semibold transition-colors hover:bg-veil ${isHere ? 'text-oiii' : 'text-ink-2 hover:text-ink'}`}
+      style={{ height: ROW_HEIGHT }}
+    >
+      T{turn}
+    </button>
   );
 }
 

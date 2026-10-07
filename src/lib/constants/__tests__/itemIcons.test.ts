@@ -17,7 +17,7 @@ describe('getItemImageUrl', () => {
     expect(url).not.toBeNull();
     expect(url).toContain('width=32');
     expect(url).toContain('height=32');
-    expect(url).toContain('images/ships/fighter.jpg');
+    expect(url).toContain('images/units/fighter.jpg');
   });
 
   it('returns a valid Cloudflare URL for a colonist', () => {

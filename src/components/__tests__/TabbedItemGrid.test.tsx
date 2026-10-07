@@ -100,21 +100,4 @@ describe('TabbedItemGrid batch controls', () => {
     // is used, not the immediate-allowed cap (5) and not a blind 99999.
     expect(onQueueItem).toHaveBeenCalledWith('fighter', 100);
   });
-
-  test('item-count badge can clear the active lane', () => {
-    const onClearLane = vi.fn();
-    render(
-      <TabbedItemGrid
-        availableItems={availableItems}
-        onQueueItem={vi.fn()}
-        onClearLane={onClearLane}
-        canQueueItem={() => ({ allowed: true, canQueueEventually: true })}
-        activeTab="ship"
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Clear Ships lane' }));
-
-    expect(onClearLane).toHaveBeenCalledWith('ship');
-  });
 });

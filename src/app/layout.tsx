@@ -1,7 +1,22 @@
 import type { Metadata, Viewport } from 'next'
 import Script from 'next/script'
+import { Source_Sans_3, Turret_Road } from 'next/font/google'
 import './globals.css'
 import { serviceWorkerRegistrationScript } from './serviceWorkerRegistration'
+
+// Self-hosted at build time: the game's own faces, no runtime request to Google.
+const sans = Source_Sans_3({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+})
+
+const display = Turret_Road({
+  subsets: ['latin'],
+  weight: '800',
+  variable: '--font-display',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: 'Infinite Conflict Simulator',
@@ -26,39 +41,16 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: '#21182c',
+  themeColor: '#0E0A14',
   width: 'device-width',
   initialScale: 1,
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        {/* External fonts and icons */}
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
-        <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,700|Turret+Road:200,400,700&display=swap" rel="stylesheet" />
-        {/* Material Icons font removed — no `material-icons` usage anywhere in src */}
-
-        {/* External game stylesheet removed — it caused hydration mismatches
-             because it was unavailable during SSR. Vendor locally if needed. */}
-
-        {/* Provide a small inline script to set baseUrl as in the original template */}
-        <script dangerouslySetInnerHTML={{ __html: "window.baseUrl = 'https://beta.infiniteconflict.com';" }} />
-      </head>
-
+    <html lang="en" className={`${sans.variable} ${display.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>
-        {/* Star background layers from template */}
-        <div id="stars1" />
-        <div id="stars2" />
-        <div id="stars3" />
-
-        {/* Vibrant gradient background to show blur effect */}
-        <div className="fixed inset-0 -z-10 bg-gradient-to-br from-purple-900 via-pink-900 to-blue-900" />
-
-        <div className="min-h-screen text-pink-nebula-text relative">{children}</div>
+        <div className="min-h-screen relative">{children}</div>
 
         {/* Register the PWA service worker outside local dev hosts only — dev rebuilds
             invalidate the worker on every reload, which is noisy and stale-cache prone. */}

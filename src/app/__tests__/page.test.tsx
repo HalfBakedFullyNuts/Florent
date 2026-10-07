@@ -66,7 +66,7 @@ describe('Home page', () => {
 
   it('displays a score value on the page', () => {
     render(<Home />);
-    expect(screen.getByText('Score:')).toBeInTheDocument();
+    expect(screen.getByText(/^Score$/)).toBeInTheDocument();
   });
 
   it('reveals the extended turn modal after the wait code sequence', async () => {

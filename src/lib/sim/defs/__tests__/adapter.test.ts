@@ -248,7 +248,7 @@ describe('Data Adapter', () => {
         expect(outpost.effectsOnComplete.production_metal).toBe(300);
         expect(outpost.effectsOnComplete.production_mineral).toBe(200);
         expect(outpost.effectsOnComplete.production_food).toBe(100);
-        expect(outpost.effectsOnComplete.production_energy).toBe(100);
+        expect(outpost.effectsOnComplete.production_energy).toBe(150);
       });
 
       it('should extract production for farm', () => {
@@ -349,14 +349,14 @@ describe('Data Adapter', () => {
   });
 
   describe('Data Completeness', () => {
-    it('should convert expected number of units (15 total)', () => {
+    it('should convert expected number of units (16 total)', () => {
       const defs = loadGameData(gameDataJson as any);
 
       const units = Object.values(defs).filter((def: any) =>
         def.lane === 'colonist' || def.lane === 'ship'
       );
 
-      expect(units.length).toBe(15);
+      expect(units.length).toBe(16);
     });
 
     it('should convert all colonist types (3 total)', () => {
@@ -372,14 +372,14 @@ describe('Data Adapter', () => {
       expect(defs.scientist).toBeDefined();
     });
 
-    it('should convert all ship types (12 total)', () => {
+    it('should convert all ship types (13 total, incl. Scout)', () => {
       const defs = loadGameData(gameDataJson as any);
 
       const ships = Object.values(defs).filter((def: any) =>
         def.lane === 'ship'
       );
 
-      expect(ships.length).toBe(12);
+      expect(ships.length).toBe(13);
     });
 
     it('should convert all structures', () => {
