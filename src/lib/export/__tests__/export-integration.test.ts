@@ -12,7 +12,7 @@ import { loadGameData } from '../../sim/defs/adapter';
 import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../../game/game_data.json';
 import { extractQueueItems, formatAsText, formatAsDiscord } from '../formatters';
-import type { LaneView } from '../../game/selectors';
+import type { LaneView } from '../../game/selectors';
 import { requireDefined } from '../../../test/requireDefined';
 
 describe('Export Integration - Queue Display Match (TICKET-6)', () => {

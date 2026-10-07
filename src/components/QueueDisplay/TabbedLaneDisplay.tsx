@@ -154,7 +154,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
       {/* Active Tab Content */}
       <Card
         ref={scrollRef}
-        className={`scroll-nebula max-h-[60vh] overflow-y-auto p-3 pr-4 md:max-h-[600px] md:p-4 md:pr-5 transition-shadow${dragOverExternal ? ' ring-2 ring-cyan-300/40' : ''}`}
+        className={`scroll-nebula max-h-[60vh] overflow-y-auto p-3 pr-4 md:max-h-[600px] md:p-4 md:pr-5 transition-shadow ${dragOverExternal ? 'ring-2 ring-cyan-300/40' : ''}`}
         onDragOver={(e) => {
           // Edge-scroll when an internal reorder drag is near the container boundary
           if (draggedItem) {

@@ -10,7 +10,7 @@ import { createStandardStart } from '../../sim/defs/seed';
 import { loadGameData } from '../../sim/defs/adapter';
 import { setDefsCatalog } from '../../sim/engine/defsRegistry';
 import gameDataRaw from '../../game/game_data.json';
-import { extractQueueItems, formatAsText, formatAsDiscord } from '../formatters';
+import { extractQueueItems, formatAsText, formatAsDiscord } from '../formatters';
 import { requireDefined } from '../../../test/requireDefined';
 
 describe('Complete Build Order Export', () => {
