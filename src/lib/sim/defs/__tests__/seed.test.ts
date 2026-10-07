@@ -252,10 +252,28 @@ describe('Seed Functions', () => {
       expect(state.completedCounts.mineral_extractor).toBe(3);
       expect(state.completedCounts.farm).toBe(1);
       expect(state.completedCounts.solar_generator).toBe(1);
-      expect(state.completedCounts.outpost_ship).toBe(1);
       expect(state.completedCounts.research_lab).toBe(1);
       expect(state.completedCounts.spy_centre).toBe(1);
+      expect(state.housing.workerCap).toBe(50000);
       expect(state.housing.scientistCap).toBe(5000);
+    });
+
+    it('should start with the ships of the three starting fleets (cargo is not simulated yet)', () => {
+      const state = createStandardStart(defs);
+
+      expect(state.completedCounts.outpost_ship).toBe(1);
+      expect(state.completedCounts.scout).toBe(1);
+      expect(state.completedCounts.freighter).toBe(1);
+      expect(state.completedCounts.invasion_ship).toBe(1);
+      // Fleet cargo (1000 soldiers, 5000 workers) stays out of the planet population
+      expect(state.population.soldiers).toBe(0);
+    });
+
+    it('should leave 52 ground and 40 orbital space free like the in-game homeworld', () => {
+      const state = createStandardStart(defs);
+
+      expect(state.space.groundCap - state.space.groundUsed).toBe(52);
+      expect(state.space.orbitalCap - state.space.orbitalUsed).toBe(40);
     });
 
     it('should have standard space limits', () => {
@@ -263,14 +281,6 @@ describe('Seed Functions', () => {
 
       expect(state.space.groundCap).toBeGreaterThanOrEqual(60);
       expect(state.space.orbitalCap).toBeGreaterThanOrEqual(40);
-    });
-
-    // Mirrors the in-game homeworld at turn 1 (52 ground / 40 orbital free)
-    it('should leave 52 ground and 40 orbital space free', () => {
-      const state = createStandardStart(defs);
-
-      expect(state.space.groundCap - state.space.groundUsed).toBe(52);
-      expect(state.space.orbitalCap - state.space.orbitalUsed).toBe(40);
     });
 
     // Mirrors the in-game homeworld output line: +1,200 / +800 / +140 / +70
@@ -282,6 +292,38 @@ describe('Seed Functions', () => {
       expect(outputs.mineral).toBe(800);
       expect(outputs.food).toBeCloseTo(139.5, 6); // 200 - (30,000 workers + 250 scientists) * 0.002
       expect(outputs.energy).toBe(70); // 100 solar + 150 outpost - 180 upkeep (incl. Spy Centre 100)
+    });
+  });
+
+  describe('game data updates (new game version)', () => {
+    it('defines the Spy Centre as a 16-turn, max-1 structure that needs an Outpost', () => {
+      const spy = defs.spy_centre;
+
+      expect(spy.name).toBe('Spy Centre');
+      expect(spy.lane).toBe('building');
+      expect(spy.durationTurns).toBe(16);
+      expect(spy.costsPerUnit).toMatchObject({ metal: 6000, mineral: 4000, workers: 3000, space: 2 });
+      expect(spy.upkeepPerUnit.energy).toBe(100);
+      expect(spy.prerequisites).toContain('outpost');
+      expect(spy.unique).toBe(true);
+    });
+
+    it('defines the Scout as a 2-turn ship that needs a Shipyard', () => {
+      const scout = defs.scout;
+
+      expect(scout.name).toBe('Scout');
+      expect(scout.lane).toBe('ship');
+      expect(scout.durationTurns).toBe(2);
+      expect(scout.costsPerUnit).toMatchObject({ metal: 300, mineral: 200, workers: 250 });
+      expect(scout.prerequisites).toContain('shipyard');
+    });
+
+    it('houses 5,000 scientists per Research Lab', () => {
+      expect(defs.research_lab.effectsOnComplete.housing_scientist_cap).toBe(5000);
+    });
+
+    it('gives the Outpost +150 energy', () => {
+      expect(defs.outpost.effectsOnComplete.production_energy).toBe(150);
     });
   });
 

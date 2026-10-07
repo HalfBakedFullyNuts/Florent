@@ -371,6 +371,37 @@
       "score_value": 50
     },
     {
+      "id": "scout",
+      "name": "Scout",
+      "category": "ship",
+      "subcategory": "recon",
+      "tier": 1,
+      "build_time_turns": 2,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 300
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 200
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 250
+      },
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "shipyard"
+        }
+      ],
+      "score_value": 0.5
+    },
+    {
       "id": "cruiser",
       "name": "Cruiser",
       "category": "ship",
@@ -627,32 +658,6 @@
       },
       "max_per_planet": 1,
       "description": "Starting structure; provides housing and basic production."
-    },
-    {
-      "id": "spy_centre",
-      "name": "Spy Centre",
-      "tier": 1,
-      "is_advanced": false,
-      "build_time_turns": 0,
-      "cost": [],
-      "build_requirements": {
-        "workers_occupied": 0,
-        "space_cost": []
-      },
-      "requirements": [],
-      "operations": {
-        "production": [],
-        "consumption": [
-          {
-            "type": "resource",
-            "id": "energy",
-            "amount": 100
-          }
-        ],
-        "effects": []
-      },
-      "max_per_planet": 1,
-      "description": "Homeworld starting structure for espionage; modelled for its energy upkeep only (not buildable)."
     },
     {
       "id": "farm",
@@ -1069,6 +1074,53 @@
       },
       "max_per_planet": 1,
       "description": "Unlocks scientist training"
+    },
+    {
+      "id": "spy_centre",
+      "name": "Spy Centre",
+      "tier": 1,
+      "is_advanced": true,
+      "build_time_turns": 16,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 6000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 4000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 3000,
+        "space_cost": [
+          {
+            "type": "ground_space",
+            "amount": 2
+          }
+        ]
+      },
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "outpost"
+        }
+      ],
+      "operations": {
+        "production": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 100
+          }
+        ],
+        "effects": []
+      },
+      "max_per_planet": 1,
+      "description": "Espionage centre; the homeworld starts with one"
     },
     {
       "id": "comms_satellite",

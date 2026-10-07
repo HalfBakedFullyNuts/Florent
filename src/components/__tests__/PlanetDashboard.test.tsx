@@ -214,7 +214,7 @@ describe('PlanetDashboard', () => {
     it('should show planet limit in the Ships panel', () => {
       const { container } = render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
       const allText = container.textContent || '';
-      expect(allText).toContain('Planet Limit');
+      expect(allText).toContain('Planet limit');
     });
   });
 

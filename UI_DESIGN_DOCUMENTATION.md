@@ -1,348 +1,118 @@
-# Florent UI & Design Documentation
+# Florent UI & Design Documentation — "Emission" (v0.2.72)
 
-**Purpose**: This document describes the current UI structure, design choices, and styling for layout improvement discussions.
-
----
-
-## Overview
-
-Florent is a turn-based strategy simulator for Infinite Conflict with a space-themed "Pink Nebula" design system. The application manages planetary resources, structures, ships, colonists, and research across multiple planets.
+Current-state reference for the planner UI. The assessment that led here, with contrast
+measurements and open behaviour questions, is in `docs/UI_ASSESSMENT.md`.
 
 ---
 
-## 1. Page Layout Structure
+## 1. Page layout
+
+Order follows cause → effect: pick the turn, read the economy, then plan.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  PLANET TABS (🌍 Planet-1 | 🔴 Planet-2 | ➕ Add Planet)    │
-├─────────────────────────────────────────────────────────────┤
-│  ERROR DISPLAY (red banner, shown when errors occur)        │
-├─────────────────────────────────────────────────────────────┤
-│  WARNINGS PANEL (yellow/blue alerts for game state)         │
-├─────────────────────────────────────────────────────────────┤
-│  PLANET DASHBOARD (4-column responsive grid)                │
-│  ┌─────────────┬─────────────┬─────────────┬─────────────┐ │
-│  │  Resources  │ Population  │    Space    │  Buildings  │ │
-│  │  (table)    │  (table)    │ (progress)  │  (table)    │ │
-│  └─────────────┴─────────────┴─────────────┴─────────────┘ │
-├─────────────────────────────────────────────────────────────┤
-│  HORIZONTAL TIMELINE (Turn slider: 1-200)                   │
-├─────────────────────────────────────────────────────────────┤
-│  MAIN CONTENT (side-by-side panels)                         │
-│  ┌────────────────────────┬────────────────────────────┐   │
-│  │    ADD TO QUEUE        │      PLANET QUEUE          │   │
-│  │    ───────────────     │      ───────────────       │   │
-│  │    [Structures|Ships|  │      [Structures|Ships|    │   │
-│  │     Colonists|Research]│       Colonists|Research]  │   │
-│  │                        │                            │   │
-│  │    Item list with      │      Queue entries with    │   │
-│  │    costs & buttons     │      status & timing       │   │
-│  └────────────────────────┴────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
+┌ App bar ──────────────────────────────────────────────────────────────────────┐
+│ ◆ INFINITE CONFLICT SIMULATOR                 [Copy share link] [Saves] [Export] │
+│ BUILD LIST [Choose a build list ▾] [Load] [Delete] [↻]   LIST NAME [ ] AUTHOR [ ] │
+├ Planet bar ───────────────────────────────────────────────────────────────────┤
+│ [P1 Homeworld][P2 …] [+ Add planet 1/4]                 SCORE 651,8 [Reset plan] │
+├ Turn deck (sticky ≥ md) ──────────────────────────────────────────────────────┤
+│ TURN ‹ [40] › of 200  Start Mid End                       ☑ Advance after queuing │
+│ IN PROGRESS          1 ──── 50 ──── 100 ──── 150 ──── 200                  FREE  │
+│ ▣ Mineral Extractor  ▬▬ ▬▬▬ ▬▬│▬▬ ▬▬▬▬ ▬▬▬                                 T41   │
+│ ⛴ Idle                         │        ▬▬▬▬ ▬▬▬▬ ▬▬▬▬                      T1    │
+│ 👥 Idle               ▬         │                                            T9    │
+│ ⚗ PL 8               ▬▬▬▬▬▬▬▬▬│▬▬▬▬           (hover a bar: item + turns)  —     │
+├ Economy: Resources | Population | Ships | Buildings ───────────────────────────┤
+├ [Structures | Ships | Colonists | Research]  ⚠ Worker housing near capacity  +2 ┤
+│ Add to Queue (catalog)                 │ Planet Queue (newest first, now line)   │
+└────────────────────────────────────────┴────────────────────────────────────────┘
 ```
 
-### Responsive Breakpoints
-- **Mobile**: Single column, stacked panels
-- **Tablet (md)**: 2-column dashboard grid
-- **Desktop (lg)**: Side-by-side main panels
-- **Large (xl)**: 4-column dashboard, max-width 1800px
-
----
-
-## 2. Color System
-
-### Primary Theme Colors (Pink Nebula)
-
-| Token | Hex | Usage |
-|-------|-----|-------|
-| `bg` | `#120c18` | Primary dark background |
-| `panel` | `#21182c` | Card/panel backgrounds |
-| `accent-primary` | `#e91e63` | Primary actions, highlights |
-| `accent-secondary` | `#ff4081` | Secondary highlights |
-| `text` | `#e1dce6` | Primary text (off-white) |
-| `muted` | `#a39cb0` | Secondary/disabled text |
-| `border` | `#3c2d4a` | Borders and dividers |
-| `success` | `#00b0ff` | Success states |
-| `warning` | `#ffab40` | Warning states |
-
-### Interaction Intent Colors
-
-Use these colors to prevent tabs and actions from looking interchangeable.
-
-| Intent | Color Family | Usage |
-|--------|--------------|-------|
-| Selected lane/tab | Cyan / sky | Active Structures, Ships, Colonists, Research tabs in Add to Queue and Planet Queue |
-| Share link | Emerald / teal | Copy Share Link action |
-| Saves | Sky / blue | Open Saves action |
-| Export current | Amber | Export Current action |
-| Export full | Violet | Export Full List action |
-
-Guideline: pink/magenta remains the brand accent and confirmation color, but it should not be the default active-tab color. Active lane tabs use cyan/sky so they read as navigation state, while action buttons use intent-specific colors and icons.
-
-### Resource Colors (Consistent across entire UI)
-
-| Resource | Tailwind Class | Color | Notes |
-|----------|---------------|-------|-------|
-| Metal | `text-gray-300` | Silver | Primary building material |
-| Mineral | `text-red-500` | Red | Secondary resource |
-| Food | `text-green-500` | Green | Population sustenance |
-| Energy | `text-blue-400` | Blue | Power for structures |
-| Research Points | `text-purple-400` | Purple | Technology progress |
-| Workers | `text-orange-400` | Orange | Labor force |
-| Soldiers | `text-red-300` | Light red | Military units |
-| Scientists | `text-yellow-400` | Yellow | Research specialists |
-| Ground Space | `text-amber-600` | Brown | Planet surface |
-| Orbital Space | `text-blue-600` | Dark blue | Orbital facilities |
-
-### Status Colors
-
-| Status | Color | Usage |
-|--------|-------|-------|
-| Available | Green border | Can queue immediately |
-| Queueable with wait | Blue border | Needs auto-wait turns |
-| Locked | Gray border | Missing prerequisites |
-| Active | Yellow/amber | Currently in progress |
-| Completed | Green/slate | Finished building |
-| Error | Red | Problems/warnings |
-
----
-
-## 3. Typography
-
-### Font Stack
-- **Primary**: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif
-- **Display**: Source Sans Pro (300, 400, 700), Turret Road (200, 400, 700)
-- **Monospace**: System monospace (for numbers)
-
-### Text Hierarchy
-
-| Level | Classes | Usage |
-|-------|---------|-------|
-| Page Title | `text-2xl font-bold` | Main headings |
-| Section Header | `text-lg font-bold` | Card/panel titles |
-| Subsection | `text-sm font-semibold` | Table headers, labels |
-| Body | `text-sm` | General content |
-| Meta | `text-xs text-muted` | Timestamps, hints |
-| Numbers | `font-mono` | All numeric values |
-
-### Number Formatting
-- Full numbers displayed (no abbreviations): `1.500` not `1.5k`
-- German locale formatting with period separators
-- Right-aligned in columns for easy scanning
-
----
-
-## 4. Component Inventory
-
-### Planet Dashboard
-**4-card horizontal grid showing planet status**
-
-| Card | Content | Key Features |
-|------|---------|--------------|
-| Resources | Table: Type, Stock, Abundance %, Output/Turn | Color-coded rows, German number format |
-| Population | Table: Workers, Soldiers, Scientists with caps | Idle count, growth hints, housing warnings |
-| Space | Progress bars: Ground, Orbital, Planet Limit | Visual fill indicators, remaining space counts |
-| Buildings | Scrollable table of structures | Space used, quantities, net resource output |
-
-### Horizontal Timeline
-**Turn navigation control**
-
-- Turn number input (1-200)
-- Range slider with labeled tick marks (1, 50, 100, 150, 200)
-- Current position indicator
-- Quick jump buttons: Start, Mid, End
-- Hover tooltip showing turn number
-
-### Add to Queue Panel (TabbedItemGrid)
-**Item selection interface**
-
-- 4 tabs: Structures, Ships, Colonists, Research
-- Single-row items with columns:
-  - Item name (fixed width, truncated)
-  - Resource costs (color-coded columns)
-  - Energy upkeep (blue with ⚡)
-  - Duration (e.g., "4T")
-  - Add button (+)
-- Quantity input for Ships/Colonists
-- Sorted: Available first, then by duration, then alphabetically
-
-### Planet Queue Panel (TabbedLaneDisplay)
-**Queue schedule viewer**
-
-- 4 tabs matching Add to Queue
-- Queue entries showing:
-  - Turn range (T1 - T5)
-  - Item name
-  - Status indicator (⏳ active, ⏸ pending, ✓ completed)
-  - Turns remaining
-  - Cancel button (×)
-- Drag-and-drop reordering for pending items
-- Scrollable list with fixed height
-
-### Planet Tabs
-**Multi-planet navigation**
-
-- Horizontal scrollable tabs
-- Planet emoji + name + current turn
-- Active: Pink background, scale effect, shadow
-- Inactive: Slate background, hover effect
-- Add Planet button (dashed border)
-
----
-
-## 5. Visual Effects
-
-### Glassmorphism
-Used on cards and panels for depth:
-```css
-background: rgba(255, 255, 255, 0.08);
-backdrop-filter: blur(40px) saturate(180%) brightness(110%);
-border: 2px solid rgba(255, 255, 255, 0.3);
-box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-```
-
-### Glow Effects
-Resource-specific glows for emphasis:
-- `.glow-tyr` - Magenta double shadow
-- `.glow-mineral` - Red double shadow
-- `.glow-food` - Green double shadow
-- `.glow-energy` - Blue double shadow
-
-### Transitions
-- Color changes: 200ms
-- Tab switches: 350ms
-- Hover effects: Immediate with smooth falloff
-
----
-
-## 6. Interactive Patterns
-
-### Buttons
-| Type | Style | Usage |
-|------|-------|-------|
-| Primary | Pink bg, white text | Confirm/save flows where there is a single obvious primary action |
-| Secondary | Slate bg, muted text | Cancel, dismiss |
-| Destructive | Red bg | Delete, remove |
-| Disabled | Gray bg, 50% opacity | Unavailable actions |
-
-### Queue Header Actions
-
-Queue header actions must be impossible to confuse:
-- **Copy Share Link**: emerald/teal, link icon, copies a URL that opens this build list.
-- **Open Saves**: blue, save/disk icon, opens local save/shared/history management.
-- **Export Current**: amber, export/upload icon, exports the currently visible build order.
-- **Export Full List**: violet, list icon, exports the full future build list.
-
-Labels should describe the outcome directly. Avoid ambiguous pairs like "Share Link" and "Export / Share" next to each other.
-
-### Lane Tabs
-
-- Active lane tabs use cyan/sky selected styling rather than pink/magenta.
-- Every lane tab includes its icon plus text label.
-- Tabs indicate navigation/filter state only; do not style them like action buttons.
-
-### Form Inputs
-- Number inputs: Center-aligned, monospace, 40px height
-- Range sliders: Custom styled thumb (pink), track (border color)
-- Focus: Pink border highlight
-
-### Hover States
-- Cards: Background lightens
-- Buttons: Brightness increases
-- List items: Subtle background shift
-- Disabled: No hover effect, `cursor: not-allowed`
-
-### Drag & Drop
-- Draggable items show `cursor: move`
-- Dragging: 50% opacity
-- Drop indicator: Top border line
-
----
-
-## 7. Spacing & Layout
-
-### Spacing Scale (Tailwind)
-| Size | Value | Usage |
-|------|-------|-------|
-| xs | 4px (gap-1) | Tight groupings |
-| sm | 8px (gap-2) | Related elements |
-| md | 16px (gap-4) | Section spacing |
-| lg | 24px (gap-6) | Major sections |
-| xl | 32px (gap-8) | Page sections |
-
-### Padding Patterns
-- Cards: `p-3` to `p-4`
-- Buttons: `px-4 py-2`
-- Table cells: `py-2`
-- Page container: `px-6`
-
-### Fixed Dimensions
-- Dashboard cards: 600px max-height with scroll
-- Add to Queue panel: 400px width on desktop
-- Queue panel: Flexible width
-- Timeline: Full width with max-width container
-
----
-
-## 8. Current Design Issues / Areas for Improvement
-
-### Potential Layout Issues
-1. **Fixed heights**: 600px card heights may crop content on smaller screens
-2. **Column widths**: Cost columns may overflow with large numbers
-3. **Mobile experience**: Side-by-side panels stack but may need redesign
-4. **Information density**: Dashboard packs a lot; may overwhelm new users
-
-### Visual Consistency
-1. **Mixed icon styles**: Emoji icons + Material Icons
-2. **Border inconsistency**: Mix of 1px and 2px borders
-3. **Color saturation**: Some colors more vivid than others
-4. **Font weight variety**: Multiple weights used somewhat arbitrarily
-
-### Interaction Patterns
-1. **Confirmation flows**: Some destructive actions lack confirmation
-2. **Loading states**: No visible loading indicators
-3. **Empty states**: Minimal styling for "no items" messages
-4. **Error feedback**: Basic red text, could be more prominent
-
-### Accessibility
-1. **Color contrast**: Some muted text may be hard to read
-2. **Focus indicators**: Rely on browser defaults in some places
-3. **Touch targets**: Some buttons may be too small on mobile
-4. **Screen reader**: Limited ARIA labels on complex components
-
----
-
-## 9. Star Background
-
-The app uses animated star layers from the original Infinite Conflict template:
-- `#stars1`, `#stars2`, `#stars3` - Three parallax star layers
-- Gradient overlay: Purple to pink to blue (`from-purple-900 via-pink-900 to-blue-900`)
-- Fixed positioning behind all content
-
----
-
-## 10. External Dependencies
-
-### Fonts (Google Fonts)
-- Source Sans Pro (300, 400, 700)
-- Turret Road (200, 400, 700)
-- Material Icons
-
-### CSS
-- Tailwind CSS (utility-first framework)
-- Custom CSS for glassmorphism and glow effects
-- External Infinite Conflict stylesheet (preloaded)
-
----
-
-## Summary
-
-The Florent UI combines:
-- **Dark space theme** with pink/magenta accents
-- **Glassmorphic cards** for modern depth
-- **Color-coded resources** for quick scanning
-- **Tabbed interfaces** for organizing complex data
-- **Monospace numbers** for alignment and clarity
-- **Responsive grid layouts** for multi-device support
-
-The design prioritizes **information density** and **visual clarity** for strategy game players who need to track multiple resources and queues simultaneously.
+- **Warnings** share the lane-switcher row: the most severe shows inline, "+N" opens the rest, so they never shift the page.
+- **Phones (< 768px):** single column; a Build / Queue switch shows one panel; the turn deck is not sticky; catalog rows put costs on a labelled second line; queue rows put the turn range on a second line.
+- **Max width:** 1800px, 16px gutters on phones, 24px from `md`.
+
+## 2. Tokens
+
+Defined once as CSS variables in `src/app/globals.css` and mirrored in `tailwind.config.js`
+(`bg-dust`, `text-ink-2`, `border-filament`, …). Legacy `pink-nebula-*` classes are aliases.
+
+| Token | Hex | Role |
+|-------|-----|------|
+| `void` | `#0E0A14` | Page ground, input wells |
+| `dust` | `#18121F` | Panels |
+| `veil` / `veil-hi` | `#221A2D` / `#2B2238` | Raised rows, hover, selected segment |
+| `filament` | `#342843` | Hairlines, panel borders |
+| `edge` | `#76688E` | Input borders (3.3:1, meets non-text contrast) |
+| `ink` / `ink-2` / `ink-3` | `#EEE8F4` / `#B8AEC8` / `#9489A6` | Text tiers, all ≥ 4.5:1 |
+| `halpha` (+ `-soft`, `-deep`) | `#F2508C` | Brand, the viewed turn, the one primary action |
+| `oiii` | `#5FD4C4` | Selection and keyboard focus |
+| `danger` / `caution` | `#FF7A7A` / `#F5B544` | Destructive actions, errors / delays, warnings |
+
+Resource colours (`text-res-*`) share one lightness so no column dominates:
+metal, mineral, food, energy, rp, workers, soldiers, scientists, ground, orbital.
+Use `RESOURCE_META` in `src/components/ui/resources.ts` — never hardcode a resource colour.
+
+**Accent rules**
+- H-alpha appears at most once per surface as an action (`btn-primary`), plus the turn cursor, the "now" divider and the active queue row.
+- O-III only marks what is selected or focused.
+- Status is never colour alone: icons (lucide) and text accompany every warning or state.
+
+## 3. Type
+
+| Role | Face | Where |
+|------|------|-------|
+| Display | Turret Road 800, uppercase | The wordmark only |
+| UI and data | Source Sans 3, 400–700 | Everything else |
+
+Both are self-hosted at build time through `next/font` (no runtime Google request): one variable
+Source Sans 3 file and a single Turret Road weight.
+`body` sets `font-variant-numeric: tabular-nums`, so every number column aligns without monospace.
+
+**Weight rule:** data (table cells, queue rows, catalog figures, counts) is 14px semibold; labels
+and meta are 11–13px at 400–600 in `ink-2`/`ink-3`. Thin regular text at 13px read poorly on
+normal-DPI screens.
+
+**Number formats** (`src/components/ui/resources.ts`)
+- `formatThousands` — whole numbers grouped with `.`: `30.123`
+- `formatSigned` — per-turn deltas with `,` decimal: `+1.200,5`, `-50,2`
+- `formatWithK` — capacities: `50k`
+- `formatScore` — like `formatSigned` without the sign: `651,8`
+- Turns read `T40` (a point in time) and durations read `4T` (a length).
+
+## 4. Primitives
+
+All in `globals.css` (`@layer components`) unless noted.
+
+| Class / component | Use |
+|-------------------|-----|
+| `.panel`, `.panel-head`, `.panel-title` | Every card: 12px radius, one hairline, 48px head |
+| `.well` | Recessed cell (summaries, code) |
+| `.eyebrow` | 11px uppercase labels and table heads |
+| `.btn` + `.btn-primary` / `-secondary` / `-ghost` / `-danger`, `.btn-sm`, `.btn-icon` | The only button styles: 36px / 28px tall, 8px / 6px radius |
+| `.field`, `.field-sm` | Text and number inputs |
+| `.seg` + `.seg-item[aria-pressed]` | Lane switcher, planet tabs, Build/Queue, modal tabs |
+| `.chip` | Counts, badges, "Locked" |
+| `.data-table` | Dashboard tables: right-aligned figures, quiet heads |
+| `.callout` + `border-l-*` | Warnings, errors, shared-list banner |
+| `ui/Modal.tsx` | Every dialog: backdrop, Escape, focus trap, focus return |
+| `ConfirmDialog` + `.btn-destructive` | Destructive actions (Reset plan, Clear lane): Cancel first, confirm button names the result |
+| `LaneTabs`, `ui/LaneIcon` | The lane switcher and its icons (Building2, Rocket, Users, FlaskConical) |
+
+Icons are lucide-react only, 16px in buttons, `aria-hidden` next to a text label.
+Spacing sits on a 4px grid; panels pad 16px; rows are 32–44px tall.
+
+## 5. Accessibility contract
+
+- Every interactive element is a real `button`, `a` or `input`; catalog rows that queue on click expose an inner "Queue {item}" button.
+- Keyboard focus is always visible: a 2px O-III ring that `outline-none` classes cannot remove.
+- Dialogs close on Escape and keep Tab inside until closed.
+- `prefers-reduced-motion` disables all transitions and animation.
+- Text tiers and resource colours meet WCAG AA on every surface they sit on.
+
+## 6. Adding UI
+
+1. Reach for a primitive above before writing utility soup; add a new primitive to `globals.css` if two places need it.
+2. Use tokens, never raw Tailwind palette classes (`slate-*`, `cyan-*`, …) or hex.
+3. Keep one primary action per surface.
+4. Check 390px, 1024px and 1600px widths and a keyboard-only pass.

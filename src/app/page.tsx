@@ -43,7 +43,6 @@ import {
 import { Timeline } from "../lib/game/state";
 import { getDefs } from "../lib/sim/engine/defsRegistry";
 import { computePlanetScore } from "../lib/game/scoring";
-import { formatDecimal } from "../lib/utils/formatting";
 import type { LaneId, PlanetState } from "../lib/sim/engine/types";
 import { canDemolish, createDemolishDef, DEMOLISH_PREFIX } from "../lib/game/demolish";
 import { setupLogging } from "../lib/game/logging-utils";
@@ -95,7 +94,11 @@ import {
   type BestExpansionSource,
   type PlanetConfig,
 } from "../components/AddPlanetModal";
-import { Card } from "@/components/ui/card";
+import { LaneTabs } from "../components/LaneTabs";
+import { ConfirmDialog } from "../components/ConfirmDialog";
+import { LANE_CONFIG } from "../lib/constants/lanes";
+import { formatScore } from "@/components/ui/resources";
+import { Bug, Link2, ListOrdered, ListPlus, RotateCcw, Save, Upload } from "lucide-react";
 import { DependencyWarningModal } from "../components/DependencyWarningModal";
 import { PlanetActionsModal } from "../components/PlanetActionsModal";
 import { SavesModal } from "../components/SavesModal";
@@ -230,86 +233,6 @@ function getBestExpansionSource(
   return best;
 }
 
-type ActionGlyphName = "link" | "saves" | "export" | "full-list";
-
-function ActionGlyph({ name }: { name: ActionGlyphName }) {
-  if (name === "link") {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        className="h-4 w-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M10 13a5 5 0 0 0 7.1 0l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1" />
-        <path d="M14 11a5 5 0 0 0-7.1 0l-2 2A5 5 0 0 0 12 20.1l1.1-1.1" />
-      </svg>
-    );
-  }
-
-  if (name === "saves") {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        className="h-4 w-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M5 3h11l3 3v15H5z" />
-        <path d="M8 3v6h8V3" />
-        <path d="M8 17h8" />
-      </svg>
-    );
-  }
-
-  if (name === "export") {
-    return (
-      <svg
-        viewBox="0 0 24 24"
-        className="h-4 w-4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M12 3v12" />
-        <path d="m7 8 5-5 5 5" />
-        <path d="M5 15v4h14v-4" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-4 w-4"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M8 6h12" />
-      <path d="M8 12h12" />
-      <path d="M8 18h12" />
-      <path d="M4 6h.01" />
-      <path d="M4 12h.01" />
-      <path d="M4 18h.01" />
-    </svg>
-  );
-}
-
 /**
  * Main game page - Multi-planet support
  *
@@ -327,6 +250,10 @@ export default function Home() {
     createInitialGameState(),
   );
   const [isMounted, setIsMounted] = useState(false);
+  // Destructive actions wait here until the user confirms them in a ConfirmDialog.
+  const [pendingConfirm, setPendingConfirm] = useState<
+    { kind: "reset" } | { kind: "clear"; laneId: LaneId } | null
+  >(null);
   const [isReplaying, setIsReplaying] = useState(false);
   const [activeShareMetadata, setActiveShareMetadata] =
     useState<ShareMetadata | null>(null);
@@ -962,8 +889,7 @@ export default function Home() {
         return `Wait ${turns}T`;
       }
       const name = defs[item.itemId]?.name || item.itemId;
-      const shortName = name.length > 18 ? `${name.slice(0, 16)}...` : name;
-      return item.quantity > 1 ? `${shortName} x${item.quantity}` : shortName;
+      return item.quantity > 1 ? `${name} ×${item.quantity}` : name;
     };
     const planetDefs = getDefs();
     const researchActive = globalResearchLane?.entries.find(
@@ -1061,6 +987,24 @@ export default function Home() {
       countNonCompleted(enrichedLanes.colonist) +
       countNonCompleted(enrichedLanes.research)
     );
+  }, [enrichedLanes]);
+
+  // Turn deck spectrum: the inclusive turn span of every non-wait queue entry, per lane.
+  const laneSpans = useMemo(() => {
+    const toSpans = (lane: LaneView | null | undefined) =>
+      (lane?.entries ?? []).flatMap((entry) => {
+        const start = entry.startTurn ?? entry.queuedTurn;
+        const end = entry.completionTurn ?? entry.eta;
+        if (entry.isWait || entry.isAutoWait || start == null || end == null) return [];
+        const label = entry.quantity > 1 ? `${entry.itemName} ×${entry.quantity}` : entry.itemName;
+        return [{ start, end, label }];
+      });
+    return {
+      building: toSpans(enrichedLanes.building),
+      ship: toSpans(enrichedLanes.ship),
+      colonist: toSpans(enrichedLanes.colonist),
+      research: toSpans(enrichedLanes.research),
+    };
   }, [enrichedLanes]);
 
   // Get available items for each lane - must be before early return
@@ -2407,82 +2351,124 @@ export default function Home() {
     [],
   );
 
+  const showToast = (message: string) => {
+    setToast(message);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleCopyShareLink = async () => {
+    const metadata = getShareMetadataForCurrentBuild();
+    if (!metadata) return;
+
+    const share = buildCurrentShareURL(metadata);
+    if (!share) {
+      showToast("No queued plan to share yet");
+      return;
+    }
+    const { commandCount: cmds, url } = share;
+    const copied = await copyTextToClipboard(url);
+    if (!copied) {
+      showToast("Could not copy — clipboard unavailable");
+      return;
+    }
+    try {
+      if (shareAuthor.trim()) {
+        window.localStorage.setItem(SHARE_AUTHOR_STORAGE_KEY, shareAuthor.trim());
+      }
+    } catch {
+      /* ignore */
+    }
+    showToast(`Link copied — "${metadata.name}" by ${metadata.author}, ${cmds} command${cmds === 1 ? "" : "s"}`);
+  };
+
+  const handleCopyDebugState = async () => {
+    const share = buildCurrentDebugURL(activeShareMetadata);
+    if (!share) {
+      alert("No state to copy yet.");
+      return;
+    }
+    const copied = await copyTextToClipboard(share.url);
+    if (copied) {
+      showToast("Debug URL copied to clipboard");
+    } else {
+      window.prompt("Copy debug URL", share.url);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-pink-nebula-bg text-pink-nebula-text font-sans flex flex-col relative">
+    <div className="relative flex min-h-screen flex-col bg-void text-ink">
+      <div className="emission-glow" aria-hidden="true" />
+
       {/* BL loading indicator — shown while replayCommands is running on a shared link */}
       {isMounted && isReplaying && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-pink-nebula-bg/80">
-          <p className="font-mono text-lg text-pink-nebula-text animate-pulse">
-            Loading build list...
-          </p>
+        <div className="fixed inset-0 z-50 grid place-items-center bg-void/85" role="status">
+          <p className="text-lg font-semibold text-ink">Loading build list…</p>
         </div>
       )}
 
-      {/* Background Overlay */}
-      <div
-        className="fixed inset-0 z-0 bg-cover bg-no-repeat pointer-events-none"
-        style={{
-          backgroundImage: "url(/BG_Nebula.webp)",
-          backgroundPosition: "33% center",
-          opacity: 0.2,
-        }}
-      />
-
-      {/* Main Content Container */}
-      <div className="flex flex-col flex-1 relative z-10">
-        {/* Header */}
-        <header className="border-b border-white/10 bg-linear-to-r from-pink-nebula-panel/95 via-[#190f22]/95 to-pink-nebula-panel/85 px-3 py-2 shadow-2xl shadow-black/20 md:px-6 md:py-3">
-          <div className="mx-auto flex max-w-[1800px] items-center gap-4">
-            {/* Title */}
-            <div className="shrink-0">
-              <div className="text-[10px] font-bold uppercase tracking-[0.28em] text-pink-nebula-accent-secondary/80">
-                Command planner
-              </div>
-              <h1 className="text-lg font-black tracking-wide text-pink-nebula-text md:text-2xl">
-                <a
-                  href={INFINITE_CONFLICT_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="transition hover:text-cyan-100"
-                >
-                  Infinite Conflict Simulator
-                </a>
-              </h1>
+      <div className="relative z-10 flex flex-1 flex-col">
+        <header className="border-b border-filament/70">
+          <div className="mx-auto flex max-w-[1800px] flex-wrap items-center gap-x-6 gap-y-3 px-4 pt-4 md:px-6">
+            <h1 className="flex items-center gap-2.5 font-display text-lg font-extrabold uppercase tracking-[0.08em] text-ink md:text-xl">
+              <span aria-hidden="true" className="h-2.5 w-2.5 rotate-45 bg-halpha shadow-[0_0_12px_rgba(242,80,140,0.8)]" />
+              <a href={INFINITE_CONFLICT_URL} target="_blank" rel="noopener noreferrer" className="rounded-sm hover:text-halpha-soft">
+                Infinite Conflict Simulator
+              </a>
+            </h1>
+            <div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
+              <button
+                type="button"
+                onClick={handleCopyShareLink}
+                className="btn btn-primary flex-1 sm:flex-none"
+                title="Copy a share link that opens this build list"
+              >
+                <Link2 aria-hidden="true" />
+                Copy share link
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSavesModal(true)}
+                className="btn btn-secondary flex-1 sm:flex-none"
+                title="Save, load, and import plans (stored on this device)"
+              >
+                <Save aria-hidden="true" />
+                Saves
+              </button>
+              <button
+                type="button"
+                onClick={() => openExportModal()}
+                className="btn btn-secondary flex-1 sm:flex-none"
+                title="Export build list"
+              >
+                <Upload aria-hidden="true" />
+                Export
+              </button>
             </div>
+          </div>
 
-            {/* Build list selector + metadata inputs */}
-            <div className="hidden min-w-0 flex-1 lg:block">
-              <div className="grid gap-2 lg:grid-cols-[2fr_1fr] items-stretch">
-                <BuildListSelector onRestore={handleRestoreSave} />
-                <div className="rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-2 shadow-lg shadow-black/15 backdrop-blur-xl">
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="block min-w-0">
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
-                        List name
-                      </span>
-                      <input
-                        type="text"
-                        value={shareListName}
-                        onChange={(e) => setShareListName(e.target.value)}
-                        placeholder="Build list"
-                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-hidden transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
-                      />
-                    </label>
-                    <label className="block min-w-0">
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
-                        Author
-                      </span>
-                      <input
-                        type="text"
-                        value={shareAuthor}
-                        onChange={(e) => setShareAuthor(e.target.value)}
-                        placeholder="Commander"
-                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-hidden transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
-                      />
-                    </label>
-                  </div>
-                </div>
-              </div>
+          <div className="mx-auto grid max-w-[1800px] gap-3 px-4 py-3 md:px-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,24rem)] lg:items-end">
+            <BuildListSelector onRestore={handleRestoreSave} />
+            <div className="grid grid-cols-2 gap-2">
+              <label className="block min-w-0">
+                <span className="eyebrow mb-1 block">List name</span>
+                <input
+                  type="text"
+                  value={shareListName}
+                  onChange={(e) => setShareListName(e.target.value)}
+                  placeholder="Build list"
+                  className="field"
+                />
+              </label>
+              <label className="block min-w-0">
+                <span className="eyebrow mb-1 block">Author</span>
+                <input
+                  type="text"
+                  value={shareAuthor}
+                  onChange={(e) => setShareAuthor(e.target.value)}
+                  placeholder="Commander"
+                  className="field"
+                />
+              </label>
             </div>
           </div>
         </header>
@@ -2508,371 +2494,204 @@ export default function Home() {
             }}
           />
         ) : (
-          <>
-            {/* Mobile-only build list selector (hidden on lg+, shown in header there) */}
-            <div className="px-3 py-2 md:px-6 lg:hidden" aria-hidden="true">
-              <div className="grid gap-3 lg:grid-cols-[2fr_1fr] items-stretch">
-                <BuildListSelector onRestore={handleRestoreSave} />
-                <div className="rounded-2xl border border-cyan-300/15 bg-slate-950/35 p-3 shadow-lg shadow-black/15 backdrop-blur-xl">
-                  <div className="grid grid-cols-2 gap-2">
-                    {/* aria-hidden inputs — duplicates of the header inputs; excluded from a11y tree */}
-                    <div className="block min-w-0">
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
-                        List name
-                      </span>
-                      <input
-                        aria-hidden="true"
-                        tabIndex={-1}
-                        type="text"
-                        value={shareListName}
-                        onChange={(e) => setShareListName(e.target.value)}
-                        placeholder="Build list"
-                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-hidden transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+          <div className="mx-auto w-full max-w-[1800px] flex-1 px-4 md:px-6">
+            {/* Planet bar */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 py-4">
+              <PlanetTabs
+                planets={gameState.planets}
+                currentPlanetId={gameState.currentPlanetId}
+                onPlanetSwitch={handlePlanetSwitch}
+                onAddPlanet={handleAddPlanet}
+                onEditPlanet={handleEditPlanet}
+                maxPlanets={effectivePlanetLimit}
+              />
+              <div className="ml-auto flex items-center gap-4">
+                <div className="flex items-baseline gap-2" title="Score across all planets at the viewed turn">
+                  <span className="eyebrow">Score</span>
+                  <span className="text-lg font-semibold text-ink">{formatScore(globalScore)}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPendingConfirm({ kind: "reset" })}
+                  className="btn btn-danger btn-sm"
+                  title="Start over: remove every colony, queue and research, back to a fresh homeworld at T1"
+                >
+                  <RotateCcw aria-hidden="true" className="h-3.5! w-3.5!" />
+                  Reset plan
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {activeShareMetadata && (
+                <div className="callout border-l-oiii flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="eyebrow text-oiii">Shared list</span>
+                  <span className="font-semibold text-ink">{activeShareMetadata.name}</span>
+                  <span className="text-ink-2">by {activeShareMetadata.author}</span>
+                  <span className="text-ink-3 sm:ml-auto">Opened from a shared link; save it as yours from Saves → Shared.</span>
+                </div>
+              )}
+
+              {error && (
+                <div role="alert" className="callout border-l-danger text-danger">
+                  {error}
+                </div>
+              )}
+            </div>
+
+            {/* Turn deck — sticky from tablet up so the viewed turn stays in reach while scrolling */}
+            <div className="z-30 -mx-4 bg-void/95 px-4 py-2 backdrop-blur-sm md:sticky md:top-0 md:-mx-6 md:px-6">
+              <HorizontalTimeline
+                currentTurn={viewTurn}
+                totalTurns={timelineMaxTurn}
+                onTurnChange={setViewTurn}
+                firstEmptyTurns={firstEmptyTurns}
+                currentBuilds={currentBuilds}
+                laneSpans={laneSpans}
+                isAutoJumpEnabled={isAutoJumpEnabled}
+                onAutoJumpToggle={setIsAutoJumpEnabled}
+              />
+            </div>
+
+            {/* Economy at the viewed turn */}
+            <div className="mt-3">
+              {summary ? (
+                <PlanetDashboard
+                  summary={summary}
+                  defs={defs}
+                  turnsToHousingCap={currentState ? getTurnsUntilHousingCap(currentState, viewTurn) : null}
+                  stocksEstimated={currentState?.activationUsedProjectedProduction === true}
+                  onDemolish={handleDemolish}
+                  demolishableIds={demolishableIds}
+                />
+              ) : (
+                <div className="callout border-l-caution items-center justify-between gap-4 max-md:flex-col max-md:items-start">
+                  <div>
+                    <h2 className="font-semibold text-ink">Planet not active at this turn</h2>
+                    <p className="mt-0.5 text-ink-2">
+                      {planetUnavailableReason || `No planet state is available for T${viewTurn}.`}
+                    </p>
+                  </div>
+                  {currentPlanet && (
+                    <button type="button" onClick={() => setViewTurn(currentPlanet.startTurn)} className="btn btn-primary">
+                      Go to T{currentPlanet.startTurn}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Workbench — one lane switcher drives both the catalog and the queue */}
+            <main className="pb-10 pt-6">
+              {!isPlanetViewAvailable ? (
+                <section className="panel p-6">
+                  <h2 className="panel-title mb-2">Queue unavailable</h2>
+                  <p className="text-sm text-ink-2">
+                    Move to a turn where this planet exists before adding planet-local queue items. Planet tabs, turn
+                    navigation, global research, and Add planet remain available.
+                  </p>
+                </section>
+              ) : (
+                <>
+                  <div className="mb-3 flex flex-wrap items-center gap-2 md:flex-nowrap">
+                    <div className="seg grid w-full grid-cols-2 md:hidden" role="group" aria-label="Panel">
+                      <button type="button" onClick={() => setMobileView("build")} aria-pressed={mobileView === "build"} className="seg-item">
+                        <ListPlus aria-hidden="true" />
+                        Build
+                      </button>
+                      <button type="button" onClick={() => setMobileView("queue")} aria-pressed={mobileView === "queue"} className="seg-item">
+                        <ListOrdered aria-hidden="true" />
+                        Queue
+                        {totalQueuedItems > 0 && <span className="text-xs text-ink-3">({totalQueuedItems})</span>}
+                      </button>
+                    </div>
+                    <LaneTabs activeTab={activeTab} onTabChange={setActiveTab} className="w-full shrink-0 md:w-auto" />
+                    {/* Warnings (engine + cascade-removal notices) live in this row's free space so they never shift the page */}
+                    <WarningsPanel warnings={allWarnings} className="w-full md:ml-2 md:w-auto md:flex-1" />
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2 md:items-start">
+                    <div className={`min-w-0 ${mobileView === "build" ? "block" : "hidden md:block"}`}>
+                      <TabbedItemGrid
+                        availableItems={availableItems}
+                        onQueueItem={handleQueueItem}
+                        onQueueWait={handleQueueWait}
+                        canQueueItem={canQueueItem}
+                        activeTab={activeTab}
                       />
                     </div>
-                    <div className="block min-w-0">
-                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-cyan-100/65">
-                        Author
-                      </span>
-                      <input
-                        aria-hidden="true"
-                        tabIndex={-1}
-                        type="text"
-                        value={shareAuthor}
-                        onChange={(e) => setShareAuthor(e.target.value)}
-                        placeholder="Commander"
-                        className="h-8 w-full rounded-lg border border-cyan-200/20 bg-slate-950/70 px-3 text-sm font-semibold text-pink-nebula-text outline-hidden transition focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
+
+                    <div className={`min-w-0 ${mobileView === "queue" ? "block" : "hidden md:block"}`} data-export-target="planet-queue">
+                      <TabbedLaneDisplay
+                        buildingLane={enrichedBuildingLane}
+                        shipLane={enrichedShipLane}
+                        colonistLane={enrichedColonistLane}
+                        researchLane={enrichedResearchLane}
+                        currentTurn={viewTurn}
+                        onCancel={handleCancelItem}
+                        onQuantityChange={handleQuantityChange}
+                        getMaxQuantity={getMaxQuantity}
+                        onReorder={handleReorder}
+                        onClearLane={(laneId) => setPendingConfirm({ kind: "clear", laneId })}
+                        disabled={false}
+                        defs={defs}
+                        activeTab={activeTab}
+                        onTurnClick={setViewTurn}
+                        maxTurn={timelineMaxTurn}
+                        onDropGridItem={handleQueueItem}
                       />
                     </div>
                   </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Planet Tabs - Multi-planet navigation */}
-            <div className="px-3 pb-2 md:px-6">
-              <div className="mx-auto max-w-[1800px]">
-                <PlanetTabs
-                  planets={gameState.planets}
-                  currentPlanetId={gameState.currentPlanetId}
-                  onPlanetSwitch={handlePlanetSwitch}
-                  onAddPlanet={handleAddPlanet}
-                  onEditPlanet={handleEditPlanet}
-                  maxPlanets={effectivePlanetLimit}
-                  onResetQueue={handleResetQueue}
-                />
-              </div>
-            </div>
-
-            {activeShareMetadata && (
-              <div className="px-3 md:px-6">
-                <div className="max-w-[1800px] mx-auto rounded-2xl border border-blue-300/25 bg-blue-950/35 px-4 py-3 text-sm text-blue-100 shadow-xl shadow-blue-950/20 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                  <span className="font-semibold uppercase tracking-wide text-blue-200">
-                    Shared list
-                  </span>
-                  <span className="font-bold text-pink-nebula-text">
-                    {activeShareMetadata.name}
-                  </span>
-                  <span className="text-blue-200/80">
-                    by {activeShareMetadata.author}
-                  </span>
-                  <span className="text-blue-200/60 sm:ml-auto">
-                    Opened from a shared link; save as mine from Saves → Shared.
-                  </span>
-                </div>
-              </div>
-            )}
-
-            {/* Error Display */}
-            {error && (
-              <div className="mt-4 px-3 md:px-6">
-                <div className="mx-auto w-full max-w-[1800px] rounded-2xl border border-red-400 bg-red-900/20 p-4 text-red-400">
-                  {error}
-                </div>
-              </div>
-            )}
-
-            {/* Warnings Panel — includes engine warnings + cascade-removal notices */}
-            {allWarnings.length > 0 && (
-              <div className="px-3 md:px-6 mt-4">
-                <div className="mx-auto w-full max-w-[1800px]">
-                  <WarningsPanel warnings={allWarnings} />
-                </div>
-              </div>
-            )}
-
-            {/* Global Score */}
-            <div className="px-3 md:px-6">
-              <div className="mx-auto flex max-w-[1800px] items-center gap-2 text-sm text-pink-nebula-muted">
-                <span className="font-semibold text-yellow-400">Score:</span>
-                <span className="font-mono text-pink-nebula-text">{formatDecimal(globalScore)}</span>
-              </div>
-            </div>
-
-            {/* Planet Dashboard - Horizontal Overview */}
-            {summary ? (
-              <PlanetDashboard
-                summary={summary}
-                defs={defs}
-                turnsToHousingCap={
-                  currentState
-                    ? getTurnsUntilHousingCap(currentState, viewTurn)
-                    : null
-                }
-                stocksEstimated={
-                  currentState?.activationUsedProjectedProduction === true
-                }
-                onDemolish={handleDemolish}
-                demolishableIds={demolishableIds}
-              />
-            ) : (
-              <div className="px-3 py-4 md:px-6">
-                <div className="mx-auto w-full max-w-[1800px]">
-                  <Card className="p-5 border-amber-500/50 bg-amber-950/20">
-                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.76</div>
-                      <div>
-                        <h2 className="text-lg font-bold text-amber-300">
-                          Planet not active at this turn
-                        </h2>
-                        <p className="text-sm text-pink-nebula-muted mt-1">
-                          {planetUnavailableReason ||
-                            `No planet state is available for T${viewTurn}.`}
-                        </p>
-                      </div>
-                      {currentPlanet && (
-                        <button
-                          type="button"
-                          onClick={() => setViewTurn(currentPlanet.startTurn)}
-                          className="rounded-xl border border-pink-nebula-accent-secondary/45 bg-pink-nebula-accent-primary px-4 py-2 font-semibold text-white transition-colors hover:bg-pink-nebula-accent-secondary"
-                        >
-                          Go to T{currentPlanet.startTurn}
-                        </button>
-                      )}
-                    </div>
-                  </Card>
-                </div>
-              </div>
-            )}
-
-            {/* Horizontal Timeline - Between dashboard and queues */}
-            <div className="px-3 md:px-6">
-              <div className="mx-auto w-full max-w-[1800px]">
-                <HorizontalTimeline
-                  currentTurn={viewTurn}
-                  totalTurns={timelineMaxTurn}
-                  onTurnChange={setViewTurn}
-                  firstEmptyTurns={firstEmptyTurns}
-                  currentBuilds={currentBuilds}
-                  isAutoJumpEnabled={isAutoJumpEnabled}
-                  onAutoJumpToggle={setIsAutoJumpEnabled}
-                />
-              </div>
-            </div>
-
-            {/* Main Content - Side-by-side Tabbed Displays */}
-            <main className="flex-1 px-3 py-4 md:px-6 md:py-6">
-              <div className="mx-auto w-full max-w-[1800px]">
-                {!isPlanetViewAvailable ? (
-                  <Card className="p-6">
-                    <h2 className="text-2xl font-bold text-pink-nebula-text mb-3">
-                      Queue unavailable
-                    </h2>
-                    <p className="text-sm text-pink-nebula-muted">
-                      Move to a turn where this planet exists before adding
-                      planet-local queue items. Planet tabs, turn navigation,
-                      global research, and Add Planet remain available.
-                    </p>
-                  </Card>
-                ) : (
-                  <>
-                    {/* Mobile-only Build/Queue toggle: switches which panel is visible on phones */}
-                    <div className="md:hidden flex gap-1 mb-3 rounded-2xl border border-white/10 bg-pink-nebula-panel/70 p-1 shadow-xl shadow-black/20">
-                      <button
-                        onClick={() => setMobileView("build")}
-                        className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
-                          mobileView === "build"
-                            ? "bg-linear-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow-sm"
-                            : "text-pink-nebula-text hover:bg-white/10"
-                        }`}
-                      >
-                        ➕ Build
-                      </button>
-                      <button
-                        onClick={() => setMobileView("queue")}
-                        className={`flex-1 py-2 px-3 rounded-md font-semibold text-sm transition-colors ${
-                          mobileView === "queue"
-                            ? "bg-linear-to-r from-pink-nebula-accent-primary to-pink-nebula-accent-secondary text-white shadow-sm"
-                            : "text-pink-nebula-text hover:bg-white/10"
-                        }`}
-                      >
-                        📋 Queue{" "}
-                        {totalQueuedItems > 0 && (
-                          <span className="ml-1 text-xs opacity-80">
-                            ({totalQueuedItems})
-                          </span>
-                        )}
-                      </button>
-                    </div>
-
-                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
-                      {/* Left: Add to Queue (Item Selection) */}
-                      <Card
-                        className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === "build" ? "block" : "hidden md:block"}`}
-                      >
-                        <h2 className="text-xl md:text-2xl font-bold text-pink-nebula-text mb-4 md:mb-6">
-                          Add to Queue
-                        </h2>
-                        <TabbedItemGrid
-                          availableItems={availableItems}
-                          onQueueItem={handleQueueItem}
-                          onQueueWait={handleQueueWait}
-                          canQueueItem={canQueueItem}
-                          onClearLane={handleClearLane}
-                          activeTab={activeTab}
-                          onTabChange={setActiveTab}
-                        />
-                      </Card>
-
-                      {/* Right: Planet Queue (Lane Display) */}
-                      <Card
-                        className={`flex-1 min-w-0 p-3 md:p-6 ${mobileView === "queue" ? "block" : "hidden md:block"}`}
-                        data-export-target="planet-queue"
-                      >
-                        <div className="mb-4 space-y-3 md:mb-6">
-                          <div className="flex min-h-[34px] flex-wrap items-center gap-2 md:gap-4">
-                            <h2 className="shrink-0 text-xl md:text-2xl font-bold text-pink-nebula-text">
-                              Planet Queue
-                            </h2>
-                          </div>
-                          <div className="grid min-h-[46px] w-full grid-cols-2 gap-2 xl:grid-cols-4">
-                            <button
-                              onClick={async () => {
-                                const metadata =
-                                  getShareMetadataForCurrentBuild();
-                                if (!metadata) return;
-
-                                const share = buildCurrentShareURL(metadata);
-                                if (!share) {
-                                  setToast("No queued plan to share yet");
-                                  setTimeout(() => setToast(null), 3000);
-                                  return;
-                                }
-                                const { commandCount: cmds, url } = share;
-                                const copied = await copyTextToClipboard(url);
-                                if (copied) {
-                                  try {
-                                    if (shareAuthor.trim()) {
-                                      window.localStorage.setItem(
-                                        SHARE_AUTHOR_STORAGE_KEY,
-                                        shareAuthor.trim(),
-                                      );
-                                    }
-                                  } catch {
-                                    /* ignore */
-                                  }
-                                  setToast(
-                                    `Link copied — "${metadata.name}" by ${metadata.author}, ${cmds} command${cmds === 1 ? "" : "s"}`,
-                                  );
-                                  setTimeout(() => setToast(null), 3000);
-                                } else {
-                                  setToast(
-                                    "Could not copy — clipboard unavailable",
-                                  );
-                                  setTimeout(() => setToast(null), 3000);
-                                }
-                              }}
-                              className="group inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-linear-to-r from-emerald-500/95 to-teal-400/90 px-3 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-hidden transition duration-200 hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
-                              title="Copy a share link that opens this build list"
-                            >
-                              <span
-                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-slate-950/10 bg-slate-950/12 text-slate-950"
-                                aria-hidden="true"
-                              >
-                                <ActionGlyph name="link" />
-                              </span>
-                              <span className="truncate">Copy Share Link</span>
-                            </button>
-                            <button
-                              onClick={() => setShowSavesModal(true)}
-                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-sky-300/35 bg-sky-500/[0.14] px-3 text-sm font-bold text-sky-100 outline-hidden transition-colors duration-200 hover:border-sky-200/60 hover:bg-sky-500/24 focus:ring-2 focus:ring-sky-300/35"
-                              title="Save, load, and import plans (stored on this device)"
-                            >
-                              <span
-                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-sky-100/15 bg-sky-200/10 text-sky-100"
-                                aria-hidden="true"
-                              >
-                                <ActionGlyph name="saves" />
-                              </span>
-                              <span className="truncate">Open Saves</span>
-                            </button>
-                            <button
-                              onClick={() => openExportModal()}
-                              className="inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-2xl border border-violet-300/35 bg-violet-500/16 px-3 text-sm font-bold text-violet-100 outline-hidden transition-colors duration-200 hover:border-violet-200/60 hover:bg-violet-500/26 focus:ring-2 focus:ring-violet-300/35"
-                              title="Export build list"
-                            >
-                              <span
-                                className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-violet-100/15 bg-violet-200/10 text-violet-100"
-                                aria-hidden="true"
-                              >
-                                <ActionGlyph name="export" />
-                              </span>
-                              <span className="truncate">Export</span>
-                            </button>
-                          </div>
-                        </div>
-                        <TabbedLaneDisplay
-                          buildingLane={enrichedBuildingLane}
-                          shipLane={enrichedShipLane}
-                          colonistLane={enrichedColonistLane}
-                          researchLane={enrichedResearchLane}
-                          currentTurn={viewTurn}
-                          onCancel={handleCancelItem}
-                          onQuantityChange={handleQuantityChange}
-                          getMaxQuantity={getMaxQuantity}
-                          onReorder={handleReorder}
-                          disabled={false}
-                          defs={defs}
-                          activeTab={activeTab}
-                          onTabChange={setActiveTab}
-                          onTurnClick={setViewTurn}
-                          maxTurn={timelineMaxTurn}
-                          onDropGridItem={handleQueueItem}
-                        />
-                      </Card>
-                    </div>
-                  </>
-                )}
-              </div>
+                </>
+              )}
             </main>
-          </>
+          </div>
         )}
 
-        {/* Footer */}
-        <footer className="mt-8 text-center text-xs text-pink-nebula-text-secondary pb-8 space-y-2">
-          <button
-            className="hover:text-pink-nebula-text transition-colors opacity-50 hover:opacity-100"
-            onClick={async () => {
-              const share = buildCurrentDebugURL(activeShareMetadata);
-              if (share) {
-                const copied = await copyTextToClipboard(share.url);
-                if (copied) {
-                  setToast("Debug URL copied to clipboard");
-                  setTimeout(() => setToast(null), 3000);
-                } else {
-                  window.prompt("Copy debug URL", share.url);
-                }
-              } else {
-                alert("No state to copy yet.");
-              }
-            }}
-            title="Copy URL with full command history to clipboard for bug reporting"
-          >
-            Copy Debug State
-          </button>
-          <div className="opacity-30 text-[10px]">v0.2.76</div>
+        <footer className="mt-auto border-t border-filament/70">
+          <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
+            <span>v0.2.77</span>
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              onClick={handleCopyDebugState}
+              title="Copy URL with full command history to clipboard for bug reporting"
+            >
+              <Bug aria-hidden="true" className="h-3.5! w-3.5!" />
+              Copy debug state
+            </button>
+          </div>
         </footer>
       </div>
+
+      {pendingConfirm?.kind === "reset" && (
+        <ConfirmDialog
+          title="Reset plan?"
+          description="This removes every colony, queued item and research, and starts again from a fresh homeworld at T1."
+          confirmLabel="Reset plan"
+          onCancel={() => setPendingConfirm(null)}
+          onConfirm={() => {
+            setPendingConfirm(null);
+            handleResetQueue();
+          }}
+        >
+          <p className="text-sm text-ink-2">The current plan stays in Saves → History if you want it back.</p>
+        </ConfirmDialog>
+      )}
+
+      {pendingConfirm?.kind === "clear" && (
+        <ConfirmDialog
+          title={`Clear the ${LANE_CONFIG[pendingConfirm.laneId].title.toLowerCase()} lane?`}
+          description={`Every entry in the ${LANE_CONFIG[pendingConfirm.laneId].title.toLowerCase()} lane of this ${pendingConfirm.laneId === "research" ? "plan" : "planet"} will be removed.`}
+          confirmLabel="Clear lane"
+          onCancel={() => setPendingConfirm(null)}
+          onConfirm={() => {
+            const { laneId } = pendingConfirm;
+            setPendingConfirm(null);
+            handleClearLane(laneId);
+          }}
+        />
+      )}
 
       {/* Dependency warning — cancelling an item other queue entries rely on */}
       {pendingCancellation && (
@@ -2941,68 +2760,51 @@ export default function Home() {
         onRestore={handleRestoreSave}
       />
 
-      {/* Transient toast — shown after copy-link, etc. */}
+      {/* Easter egg: the wait-code sequence unlocks the extended planning range */}
       {showWaitCodeModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="wait-code-title"
-        >
-          <div className="wait-code-shell relative w-full max-w-md overflow-hidden rounded-3xl border border-cyan-200/30 bg-linear-to-br from-slate-950 via-[#231538] to-[#091827] p-6 text-center shadow-2xl shadow-cyan-500/20">
+        <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="wait-code-title">
+          <div className="modal wait-code-shell max-w-md overflow-hidden p-6 text-center">
             <div className="wait-code-spark wait-code-spark-a" />
             <div className="wait-code-spark wait-code-spark-b" />
             <div className="wait-code-spark wait-code-spark-c" />
 
             <div className="relative z-10">
-              <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-2xl border border-cyan-200/30 bg-cyan-300/10 text-3xl shadow-lg shadow-cyan-400/20">
+              <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-panel border border-filament bg-veil font-display text-2xl font-extrabold text-halpha-soft">
                 123
               </div>
-              <h2
-                id="wait-code-title"
-                className="mb-2 text-2xl font-black text-pink-nebula-text"
-              >
+              <h2 id="wait-code-title" className="modal-title mb-2 text-2xl">
                 Signal found
               </h2>
-              <p className="mx-auto mb-5 max-w-xs text-sm text-pink-nebula-muted">
-                Pick a response. The extended planning range is available after
-                either signal is sent.
+              <p className="mx-auto mb-5 max-w-xs text-sm text-ink-2">
+                Pick a response. The extended planning range is available after either signal is sent.
               </p>
 
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
                   onClick={() => handleWaitCodeChoice("awoo")}
-                  className="wait-code-button rounded-2xl border border-fuchsia-200/35 bg-fuchsia-400/15 px-4 py-4 text-lg font-black text-fuchsia-50 transition hover:bg-fuchsia-400/25 focus:outline-hidden focus:ring-2 focus:ring-fuchsia-200/50"
+                  className="wait-code-button rounded-panel border border-halpha/40 bg-halpha/10 px-4 py-4 text-lg font-bold text-ink transition-colors hover:bg-halpha/20"
                 >
                   <span>awoo!</span>
-                  <span className="mt-2 block font-mono text-sm text-fuchsia-100/75">
-                    {waitCodeCounts.awoo}
-                  </span>
+                  <span className="mt-1 block text-sm text-halpha-soft">{waitCodeCounts.awoo}</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => handleWaitCodeChoice("aroo")}
-                  className="wait-code-button rounded-2xl border border-cyan-200/35 bg-cyan-400/15 px-4 py-4 text-lg font-black text-cyan-50 transition hover:bg-cyan-400/25 focus:outline-hidden focus:ring-2 focus:ring-cyan-200/50"
+                  className="wait-code-button rounded-panel border border-oiii/40 bg-oiii/10 px-4 py-4 text-lg font-bold text-ink transition-colors hover:bg-oiii/20"
                 >
                   <span>aroo!</span>
-                  <span className="mt-2 block font-mono text-sm text-cyan-100/75">
-                    {waitCodeCounts.aroo}
-                  </span>
+                  <span className="mt-1 block text-sm text-oiii">{waitCodeCounts.aroo}</span>
                 </button>
               </div>
 
               {extendedViewUnlocked && (
-                <div className="mt-5 rounded-2xl border border-emerald-200/35 bg-emerald-400/10 px-4 py-3 text-sm font-bold text-emerald-100">
+                <div className="callout mt-5 border-l-res-food justify-center font-semibold">
                   Planning range extended to T{EXTENDED_VIEW_TURNS}.
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => setShowWaitCodeModal(false)}
-                className="mt-4 text-xs font-semibold text-pink-nebula-muted underline decoration-white/20 underline-offset-4 transition hover:text-pink-nebula-text"
-              >
+              <button type="button" onClick={() => setShowWaitCodeModal(false)} className="btn btn-ghost btn-sm mt-4">
                 Continue planning
               </button>
             </div>
@@ -3010,11 +2812,12 @@ export default function Home() {
         </div>
       )}
 
+      {/* Transient toast — shown after copy-link, etc. */}
       {toast && (
         <div
           role="status"
           aria-live="polite"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 max-w-[90vw] bg-pink-nebula-panel border border-pink-nebula-accent-primary rounded-lg shadow-2xl text-pink-nebula-text text-sm font-medium pointer-events-none animate-in fade-in slide-in-from-bottom-2"
+          className="pointer-events-none fixed bottom-6 left-1/2 z-50 max-w-[90vw] -translate-x-1/2 rounded-ctl border border-filament bg-veil-hi px-4 py-3 text-sm font-medium text-ink shadow-[0_12px_32px_rgba(0,0,0,0.5),inset_2px_0_0_#F2508C]"
         >
           {toast}
         </div>
@@ -3023,14 +2826,14 @@ export default function Home() {
       {replayNotice && (
         <div
           role="alert"
-          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-start gap-3 px-4 py-3 w-[min(42rem,92vw)] bg-pink-nebula-panel border border-pink-nebula-warning rounded-lg shadow-2xl text-pink-nebula-text text-sm"
+          className="fixed top-4 left-1/2 z-50 flex w-[min(42rem,92vw)] -translate-x-1/2 items-start gap-3 rounded-ctl border border-caution/60 bg-veil-hi px-4 py-3 text-sm text-ink shadow-[0_12px_32px_rgba(0,0,0,0.5),inset_2px_0_0_#F5B544]"
         >
-          <span aria-hidden="true" className="text-pink-nebula-warning font-bold">!</span>
+          <span aria-hidden="true" className="font-bold text-caution">!</span>
           <p className="flex-1">{replayNotice}</p>
           <button
             type="button"
             onClick={() => setReplayNotice(null)}
-            className="shrink-0 px-2 py-0.5 rounded-sm text-pink-nebula-muted hover:text-pink-nebula-text"
+            className="shrink-0 rounded-ctl px-2 py-0.5 text-ink-2 hover:text-ink"
             aria-label="Dismiss notice"
           >
             ✕

@@ -141,6 +141,8 @@ const V2_ITEM_IDS: readonly string[] = [
   'strip_mineral_extractor_research', // 83
   'hydroponics_dome_research', // 84
   'solar_station_research',  // 85
+  'spy_centre',              // 86
+  'scout',                   // 87
 ];
 
 const V2_ITEM_CODE: Record<string, number> = Object.fromEntries(

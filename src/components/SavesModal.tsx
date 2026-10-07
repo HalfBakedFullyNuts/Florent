@@ -11,7 +11,6 @@ import {
   Share2,
   Trash2,
   Upload,
-  X,
 } from 'lucide-react';
 import {
   listSaves,
@@ -34,9 +33,10 @@ import {
 } from '../lib/persistence/saveFile';
 import { formatOpenedTimestamp } from '../lib/persistence/saveLabels';
 import { stripShareMetadataFromEncodedState } from '../lib/game/urlState';
+import { Modal } from './ui/Modal';
 
 type Tab = 'saves' | 'shared' | 'history' | 'import';
-type ActionTone = 'primary' | 'secondary' | 'success' | 'warning' | 'danger' | 'quiet';
+type ActionTone = 'primary' | 'secondary' | 'ghost' | 'danger';
 
 export interface SavesModalProps {
   isOpen: boolean;
@@ -209,293 +209,197 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-xs sm:items-center md:p-6"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      widthClass="max-w-3xl"
+      icon={<Save className="h-5 w-5" aria-hidden="true" />}
+      eyebrow="Build list"
+      title="Saves"
+      description="Named saves, shared links, history, and pasted files all live on this device."
     >
-      <div
-        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-cyan-200/20 bg-linear-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-white/10 px-4 py-4 md:px-6">
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">Local save vault</div>
-            <h2 className="mt-1 text-2xl font-black text-pink-nebula-text">Saves</h2>
-            <p className="mt-1 max-w-xl text-sm text-pink-nebula-muted">
-              Named saves, shared links, history, and pasted files all live on this device.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-hidden focus:ring-2 focus:ring-cyan-300/30"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </header>
-
-        <div className="border-b border-white/10 px-4 py-3 md:px-6">
-          <div className="grid grid-cols-2 gap-2 rounded-2xl border border-white/10 bg-slate-950/45 p-1 sm:grid-cols-4">
-            <TabButton active={tab === 'saves'} onClick={() => setTab('saves')}>
-              <Save className="h-4 w-4" aria-hidden="true" />
-              Saves {saves.length > 0 && <span className="opacity-70">({saves.length})</span>}
-            </TabButton>
-            <TabButton active={tab === 'shared'} onClick={() => setTab('shared')}>
-              <Share2 className="h-4 w-4" aria-hidden="true" />
-              Shared {shared.length > 0 && <span className="opacity-70">({shared.length})</span>}
-            </TabButton>
-            <TabButton active={tab === 'history'} onClick={() => setTab('history')}>
-              <History className="h-4 w-4" aria-hidden="true" />
-              History {history.length > 0 && <span className="opacity-70">({history.length})</span>}
-            </TabButton>
-            <TabButton active={tab === 'import'} onClick={() => setTab('import')}>
-              <FileUp className="h-4 w-4" aria-hidden="true" />
-              Import
-            </TabButton>
-          </div>
-        </div>
-
-        <div className="scroll-nebula overflow-y-auto px-4 py-4 md:px-6 md:py-5">
-          {error && (
-            <div className="mb-4 rounded-2xl border border-red-300/35 bg-red-950/35 px-4 py-3 text-sm font-semibold text-red-100">
-              {error}
-            </div>
-          )}
-
-          {tab === 'saves' && (
-            <section className="space-y-4">
-              <div className="rounded-2xl border border-cyan-200/15 bg-slate-950/35 p-4 shadow-inner shadow-black/25">
-                <label htmlFor="save-name" className="block text-xs font-bold uppercase tracking-[0.18em] text-cyan-100/70">
-                  Save current state as
-                </label>
-                <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                  <input
-                    id="save-name"
-                    type="text"
-                    value={newSaveName}
-                    onChange={(e) => setNewSaveName(e.target.value)}
-                    placeholder="Save name, e.g. Tech rush"
-                    className="min-h-[44px] rounded-xl border border-white/10 bg-slate-950/70 px-3 py-2 text-sm text-pink-nebula-text outline-hidden transition-all placeholder:text-pink-nebula-muted/60 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
-                  />
-                  <ActionButton tone="success" onClick={handleSaveCurrent}>
-                    <Save className="h-4 w-4" aria-hidden="true" />
-                    Save
-                  </ActionButton>
-                  <ActionButton tone="warning" onClick={handleExportCurrent} title="Download current state as a JSON file">
-                    <Download className="h-4 w-4" aria-hidden="true" />
-                    Export file
-                  </ActionButton>
-                </div>
-              </div>
-
-              {loading && <LoadingLine />}
-              {!loading && saves.length === 0 && (
-                <EmptyState>No named saves yet. Save the current queue when you want a stable local checkpoint.</EmptyState>
-              )}
-
-              <ul className="scroll-nebula max-h-[48vh] space-y-3 overflow-y-auto pr-1">
-                {saves.map((s) => (
-                  <li
-                    key={s.id}
-                    className="rounded-2xl border border-white/10 bg-white/4.5 p-4 shadow-lg shadow-black/15 transition-colors hover:border-cyan-200/25 hover:bg-white/6.5"
-                  >
-                    {renamingId === s.id ? (
-                      <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
-                        <input
-                          type="text"
-                          value={renameValue}
-                          onChange={(e) => setRenameValue(e.target.value)}
-                          autoFocus
-                          className="min-h-[42px] rounded-xl border border-cyan-200/50 bg-slate-950/75 px-3 py-2 text-sm text-pink-nebula-text outline-hidden focus:ring-2 focus:ring-cyan-300/20"
-                        />
-                        <ActionButton tone="success" onClick={handleRename}>
-                          Save name
-                        </ActionButton>
-                        <ActionButton tone="quiet" onClick={() => setRenamingId(null)}>
-                          Cancel
-                        </ActionButton>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <div className="wrap-break-word text-base font-black text-pink-nebula-text">{s.name}</div>
-                            <SummaryLine summary={s.summary} />
-                          </div>
-                          <div className="shrink-0 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-pink-nebula-muted">
-                            Updated {new Date(s.updatedAt).toLocaleString()}
-                          </div>
-                        </div>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          <ActionButton
-                            tone="primary"
-                            onClick={() => { onRestore(s.encoded, s.name, { shared: false }); onClose(); }}
-                          >
-                            <FolderOpen className="h-4 w-4" aria-hidden="true" />
-                            Load mine
-                          </ActionButton>
-                          <ActionButton tone="warning" onClick={() => handleExportSave(s)}>
-                            <Download className="h-4 w-4" aria-hidden="true" />
-                            Export file
-                          </ActionButton>
-                          <ActionButton
-                            tone="secondary"
-                            onClick={() => { setRenamingId(s.id); setRenameValue(s.name); }}
-                          >
-                            <Pencil className="h-4 w-4" aria-hidden="true" />
-                            Rename
-                          </ActionButton>
-                          <ActionButton tone="danger" onClick={() => handleDelete(s.id)}>
-                            <Trash2 className="h-4 w-4" aria-hidden="true" />
-                            Delete save
-                          </ActionButton>
-                        </div>
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {tab === 'shared' && (
-            <section className="space-y-4">
-              <div className="rounded-2xl border border-sky-200/20 bg-sky-400/10 px-4 py-3 text-sm text-sky-100/85">
-                Shared lists are cached from opened links only. Saving one as mine creates a separate owned copy on this device.
-              </div>
-              {loading && <LoadingLine />}
-              {!loading && shared.length === 0 && (
-                <EmptyState>No shared lists opened yet. Open or paste a shared link and it will appear here.</EmptyState>
-              )}
-              <ul className="scroll-nebula max-h-[56vh] space-y-3 overflow-y-auto pr-1">
-                {shared.map((s) => (
-                  <li
-                    key={s.id}
-                    className="rounded-2xl border border-sky-300/25 bg-sky-950/20 p-4 shadow-lg shadow-black/15 transition-colors hover:border-sky-200/45 hover:bg-sky-900/25"
-                  >
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="wrap-break-word text-base font-black text-pink-nebula-text">{s.name}</div>
-                        <div className="mt-1 text-xs font-semibold text-sky-100/80">Shared by {s.author}</div>
-                        <SummaryLine summary={s.summary} />
-                      </div>
-                      <div className="shrink-0 rounded-full border border-sky-200/20 bg-sky-300/10 px-3 py-1 text-xs text-sky-100/75">
-                        Opened {formatOpenedTimestamp(s.openedAt)}
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <ActionButton
-                        tone="primary"
-                        onClick={() => { onRestore(s.encoded, s.name, { shared: true }); onClose(); }}
-                      >
-                        <FolderOpen className="h-4 w-4" aria-hidden="true" />
-                        Open shared
-                      </ActionButton>
-                      <ActionButton tone="success" onClick={() => handleSaveSharedAsMine(s)}>
-                        <Save className="h-4 w-4" aria-hidden="true" />
-                        Save as mine
-                      </ActionButton>
-                      <ActionButton tone="danger" onClick={() => handleDeleteShared(s.id)}>
-                        <Trash2 className="h-4 w-4" aria-hidden="true" />
-                        Remove shared
-                      </ActionButton>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {tab === 'history' && (
-            <section className="space-y-4">
-              <div className="rounded-2xl border border-amber-200/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-50/85">
-                Auto-save history is newest first and rolls off automatically after the recent entries.
-              </div>
-              {loading && <LoadingLine />}
-              {!loading && history.length === 0 && (
-                <EmptyState>No auto-save history yet. Make a queue change and the safety net starts filling in.</EmptyState>
-              )}
-              <ul className="scroll-nebula max-h-[56vh] space-y-3 overflow-y-auto pr-1">
-                {history.map((h) => (
-                  <li
-                    key={h.id}
-                    className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-white/4.5 p-4 shadow-lg shadow-black/15 sm:flex-row sm:items-center sm:justify-between"
-                  >
-                    <div className="min-w-0">
-                      <div className="text-sm font-bold text-pink-nebula-text">{new Date(h.savedAt).toLocaleString()}</div>
-                      <SummaryLine summary={h.summary} />
-                    </div>
-                    <ActionButton
-                      tone="primary"
-                      className="sm:shrink-0"
-                      onClick={() => {
-                        onRestore(h.encoded, `Auto-save ${new Date(h.savedAt).toLocaleTimeString()}`, { shared: isSharedSummary(h.summary) });
-                        onClose();
-                      }}
-                    >
-                      <FolderOpen className="h-4 w-4" aria-hidden="true" />
-                      Restore
-                    </ActionButton>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {tab === 'import' && (
-            <section className="space-y-4">
-              <div className="rounded-2xl border border-cyan-200/15 bg-slate-950/35 p-4">
-                <h3 className="text-sm font-black uppercase tracking-[0.18em] text-cyan-100/75">Open a file or pasted link</h3>
-                <p className="mt-2 text-sm text-pink-nebula-muted">
-                  Import a JSON save file, paste a shared URL, paste a #state fragment, or paste the raw encoded payload.
-                </p>
-                <label className="mt-4 flex cursor-pointer items-center justify-center gap-3 rounded-2xl border border-dashed border-cyan-200/30 bg-cyan-300/10 px-4 py-5 text-sm font-bold text-cyan-50 transition-all hover:border-cyan-100/60 hover:bg-cyan-300/15">
-                  <Upload className="h-5 w-5" aria-hidden="true" />
-                  Choose a Florent JSON file
-                  <input
-                    type="file"
-                    accept=".florent.json,.json,application/json"
-                    onChange={handleFileSelected}
-                    className="sr-only"
-                  />
-                </label>
-              </div>
-
-              <textarea
-                value={importText}
-                onChange={(e) => setImportText(e.target.value)}
-                aria-label="Paste save or shared link"
-                placeholder="Paste a Florent JSON save, shared URL, #state=..., or encoded payload here"
-                className="h-44 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3 font-mono text-xs text-pink-nebula-text outline-hidden transition-all placeholder:text-pink-nebula-muted/55 focus:border-cyan-200/60 focus:ring-2 focus:ring-cyan-300/20"
-              />
-              <div className="grid gap-2 sm:grid-cols-2">
-                <ActionButton
-                  tone="primary"
-                  onClick={handleImportRestore}
-                  disabled={!importText.trim()}
-                  className="min-h-[46px]"
-                >
-                  <FolderOpen className="h-4 w-4" aria-hidden="true" />
-                  Load now
-                </ActionButton>
-                <ActionButton
-                  tone="success"
-                  onClick={handleImportSaveAs}
-                  disabled={!importText.trim()}
-                  className="min-h-[46px]"
-                >
-                  <Save className="h-4 w-4" aria-hidden="true" />
-                  Save as mine
-                </ActionButton>
-              </div>
-            </section>
-          )}
+      <div className="sticky -top-5 z-10 -mx-5 -mt-5 mb-5 border-b border-filament bg-dust px-5 pb-4 pt-5">
+        <div className="seg grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabButton active={tab === 'saves'} onClick={() => setTab('saves')} count={saves.length}>
+            <Save aria-hidden="true" />
+            Saves
+          </TabButton>
+          <TabButton active={tab === 'shared'} onClick={() => setTab('shared')} count={shared.length}>
+            <Share2 aria-hidden="true" />
+            Shared
+          </TabButton>
+          <TabButton active={tab === 'history'} onClick={() => setTab('history')} count={history.length}>
+            <History aria-hidden="true" />
+            History
+          </TabButton>
+          <TabButton active={tab === 'import'} onClick={() => setTab('import')}>
+            <FileUp aria-hidden="true" />
+            Import
+          </TabButton>
         </div>
       </div>
-    </div>
+
+      {error && (
+        <div role="alert" className="callout mb-4 border-l-danger">
+          {error}
+        </div>
+      )}
+
+      {tab === 'saves' && (
+        <section className="space-y-4">
+          <div className="well p-4">
+            <label htmlFor="save-name" className="eyebrow block">
+              Save current state as
+            </label>
+            <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+              <input
+                id="save-name"
+                type="text"
+                value={newSaveName}
+                onChange={(e) => setNewSaveName(e.target.value)}
+                placeholder="Save name, e.g. Tech rush"
+                className="field"
+              />
+              <ActionButton tone="primary" onClick={handleSaveCurrent}>
+                <Save aria-hidden="true" />
+                Save
+              </ActionButton>
+              <ActionButton onClick={handleExportCurrent} title="Download current state as a JSON file">
+                <Download aria-hidden="true" />
+                Export file
+              </ActionButton>
+            </div>
+          </div>
+
+          {loading && <LoadingLine />}
+          {!loading && saves.length === 0 && (
+            <EmptyState>No named saves yet. Save the current queue when you want a stable local checkpoint.</EmptyState>
+          )}
+
+          <ul className="space-y-2">
+            {saves.map((s) => (
+              <li key={s.id} className={ROW_CARD}>
+                {renamingId === s.id ? (
+                  <RenameRow
+                    value={renameValue}
+                    onChange={setRenameValue}
+                    onSubmit={handleRename}
+                    onCancel={() => setRenamingId(null)}
+                  />
+                ) : (
+                  <SaveRow
+                    save={s}
+                    onLoad={() => { onRestore(s.encoded, s.name, { shared: false }); onClose(); }}
+                    onExport={() => handleExportSave(s)}
+                    onRename={() => { setRenamingId(s.id); setRenameValue(s.name); }}
+                    onDelete={() => handleDelete(s.id)}
+                  />
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {tab === 'shared' && (
+        <section className="space-y-4">
+          <p className="text-sm text-ink-2">
+            Shared lists are cached from opened links only. Saving one as mine creates a separate owned copy on this device.
+          </p>
+          {loading && <LoadingLine />}
+          {!loading && shared.length === 0 && (
+            <EmptyState>No shared lists opened yet. Open or paste a shared link and it will appear here.</EmptyState>
+          )}
+          <ul className="space-y-2">
+            {shared.map((s) => (
+              <li key={s.id} className={ROW_CARD}>
+                <SharedRow
+                  sharedList={s}
+                  onOpen={() => { onRestore(s.encoded, s.name, { shared: true }); onClose(); }}
+                  onSaveAsMine={() => handleSaveSharedAsMine(s)}
+                  onRemove={() => handleDeleteShared(s.id)}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {tab === 'history' && (
+        <section className="space-y-4">
+          <p className="text-sm text-ink-2">
+            Auto-save history is newest first and rolls off automatically after the recent entries.
+          </p>
+          {loading && <LoadingLine />}
+          {!loading && history.length === 0 && (
+            <EmptyState>No auto-save history yet. Make a queue change and the safety net starts filling in.</EmptyState>
+          )}
+          <ul className="space-y-2">
+            {history.map((h) => (
+              <li key={h.id} className={`${ROW_CARD} flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between`}>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-ink">{new Date(h.savedAt).toLocaleString()}</div>
+                  <SummaryLine summary={h.summary} />
+                </div>
+                <ActionButton
+                  size="sm"
+                  className="sm:shrink-0"
+                  onClick={() => {
+                    onRestore(h.encoded, `Auto-save ${new Date(h.savedAt).toLocaleTimeString()}`, { shared: isSharedSummary(h.summary) });
+                    onClose();
+                  }}
+                >
+                  <FolderOpen aria-hidden="true" />
+                  Restore
+                </ActionButton>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {tab === 'import' && (
+        <section className="space-y-4">
+          <div className="well p-4">
+            <h3 className="eyebrow">Open a file or pasted link</h3>
+            <p className="mt-1 text-sm text-ink-2">
+              Import a JSON save file, paste a shared URL, paste a #state fragment, or paste the raw encoded payload.
+            </p>
+            <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-panel border border-dashed border-edge px-4 py-5 text-sm font-semibold text-ink transition-colors hover:bg-veil focus-within:outline-solid focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-oiii">
+              <Upload className="h-4 w-4 text-ink-2" aria-hidden="true" />
+              Choose a Florent JSON file
+              <input
+                type="file"
+                accept=".florent.json,.json,application/json"
+                onChange={handleFileSelected}
+                className="sr-only"
+              />
+            </label>
+          </div>
+
+          <textarea
+            value={importText}
+            onChange={(e) => setImportText(e.target.value)}
+            aria-label="Paste save or shared link"
+            placeholder="Paste a Florent JSON save, shared URL, #state=..., or encoded payload here"
+            className="field h-44 py-3 font-mono text-xs leading-5"
+          />
+          <div className="grid gap-2 sm:grid-cols-2">
+            <ActionButton tone="primary" onClick={handleImportRestore} disabled={!importText.trim()}>
+              <FolderOpen aria-hidden="true" />
+              Load now
+            </ActionButton>
+            <ActionButton onClick={handleImportSaveAs} disabled={!importText.trim()}>
+              <Save aria-hidden="true" />
+              Save as mine
+            </ActionButton>
+          </div>
+        </section>
+      )}
+    </Modal>
   );
 }
+
+const ROW_CARD = 'rounded-panel border border-filament bg-veil p-4';
 
 function asOwnedEncoded(encoded: string): string {
   return stripShareMetadataFromEncodedState(encoded);
@@ -512,32 +416,140 @@ function isSharedSummary(summary: SaveSummary): boolean {
   return Boolean(summary.shareName || summary.shareAuthor);
 }
 
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+interface SaveRowProps {
+  save: SaveRecord;
+  onLoad: () => void;
+  onExport: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+}
+
+function SaveRow({ save, onLoad, onExport, onRename, onDelete }: SaveRowProps) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`inline-flex min-h-[42px] items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-black transition-all duration-200 focus:outline-hidden focus:ring-2 focus:ring-cyan-300/25 ${
-        active
-          ? 'border-cyan-100/50 bg-cyan-300/20 text-cyan-50 shadow-lg shadow-cyan-500/15'
-          : 'border-transparent text-pink-nebula-muted hover:border-white/10 hover:bg-white/[0.07] hover:text-pink-nebula-text'
-      }`}
-    >
+    <>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="wrap-break-word text-[15px] font-semibold text-ink">{save.name}</div>
+          <SummaryLine summary={save.summary} />
+        </div>
+        <span className="chip shrink-0 self-start">Updated {new Date(save.updatedAt).toLocaleString()}</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <ActionButton size="sm" onClick={onLoad}>
+          <FolderOpen aria-hidden="true" />
+          Load mine
+        </ActionButton>
+        <ActionButton size="sm" tone="ghost" onClick={onExport}>
+          <Download aria-hidden="true" />
+          Export file
+        </ActionButton>
+        <ActionButton size="sm" tone="ghost" onClick={onRename}>
+          <Pencil aria-hidden="true" />
+          Rename
+        </ActionButton>
+        <ActionButton size="sm" tone="danger" className="sm:ml-auto" onClick={onDelete}>
+          <Trash2 aria-hidden="true" />
+          Delete save
+        </ActionButton>
+      </div>
+    </>
+  );
+}
+
+interface RenameRowProps {
+  value: string;
+  onChange: (value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+}
+
+function RenameRow({ value, onChange, onSubmit, onCancel }: RenameRowProps) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label="Save name"
+        autoFocus
+        className="field"
+      />
+      <ActionButton tone="primary" onClick={onSubmit}>
+        Save name
+      </ActionButton>
+      <ActionButton tone="ghost" onClick={onCancel}>
+        Cancel
+      </ActionButton>
+    </div>
+  );
+}
+
+interface SharedRowProps {
+  sharedList: SharedRecord;
+  onOpen: () => void;
+  onSaveAsMine: () => void;
+  onRemove: () => void;
+}
+
+function SharedRow({ sharedList, onOpen, onSaveAsMine, onRemove }: SharedRowProps) {
+  return (
+    <>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <div className="wrap-break-word text-[15px] font-semibold text-ink">{sharedList.name}</div>
+          <div className="mt-0.5 text-xs font-semibold text-ink-2">Shared by {sharedList.author}</div>
+          <SummaryLine summary={sharedList.summary} />
+        </div>
+        <span className="chip shrink-0 self-start">Opened {formatOpenedTimestamp(sharedList.openedAt)}</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <ActionButton size="sm" onClick={onOpen}>
+          <FolderOpen aria-hidden="true" />
+          Open shared
+        </ActionButton>
+        <ActionButton size="sm" tone="ghost" onClick={onSaveAsMine}>
+          <Save aria-hidden="true" />
+          Save as mine
+        </ActionButton>
+        <ActionButton size="sm" tone="danger" className="sm:ml-auto" onClick={onRemove}>
+          <Trash2 aria-hidden="true" />
+          Remove shared
+        </ActionButton>
+      </div>
+    </>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  count,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  count?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <button type="button" aria-pressed={active} onClick={onClick} className="seg-item">
       {children}
+      {count !== undefined && count > 0 && <span className="text-ink-3">{count}</span>}
     </button>
   );
 }
 
 interface ActionButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   tone?: ActionTone;
+  size?: 'md' | 'sm';
 }
 
-function ActionButton({ tone = 'secondary', className = '', children, type = 'button', ...props }: ActionButtonProps) {
+function ActionButton({ tone = 'secondary', size = 'md', className = '', children, type = 'button', ...props }: ActionButtonProps) {
   return (
     <button
       type={type}
       {...props}
-      className={`inline-flex min-h-[40px] items-center justify-center gap-2 rounded-xl border px-3 py-2 text-xs font-black transition-all duration-200 focus:outline-hidden focus:ring-2 disabled:cursor-not-allowed disabled:opacity-45 ${ACTION_TONES[tone]} ${className}`}
+      className={`btn ${ACTION_TONES[tone]} ${size === 'sm' ? 'btn-sm' : ''} ${className}`}
     >
       {children}
     </button>
@@ -545,17 +557,15 @@ function ActionButton({ tone = 'secondary', className = '', children, type = 'bu
 }
 
 const ACTION_TONES: Record<ActionTone, string> = {
-  primary: 'border-cyan-100/45 bg-cyan-300/20 text-cyan-50 shadow-lg shadow-cyan-500/10 hover:bg-cyan-300/30 focus:ring-cyan-300/30',
-  secondary: 'border-white/10 bg-white/[0.07] text-pink-nebula-text hover:border-cyan-200/30 hover:bg-white/11 focus:ring-cyan-300/20',
-  success: 'border-emerald-200/35 bg-emerald-400/15 text-emerald-50 shadow-lg shadow-emerald-500/10 hover:bg-emerald-400/25 focus:ring-emerald-300/25',
-  warning: 'border-amber-200/35 bg-amber-400/15 text-amber-50 shadow-lg shadow-amber-500/10 hover:bg-amber-400/25 focus:ring-amber-300/25',
-  danger: 'border-red-300/30 bg-red-500/15 text-red-100 hover:border-red-200/50 hover:bg-red-500/25 focus:ring-red-300/25',
-  quiet: 'border-white/10 bg-white/4 text-pink-nebula-muted hover:border-white/20 hover:bg-white/8 hover:text-pink-nebula-text focus:ring-cyan-300/20',
+  primary: 'btn-primary',
+  secondary: 'btn-secondary',
+  ghost: 'btn-ghost',
+  danger: 'btn-danger',
 };
 
 function LoadingLine() {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/4 px-4 py-3 text-sm text-pink-nebula-muted">
+    <div role="status" className="text-sm text-ink-2">
       Loading saves...
     </div>
   );
@@ -563,7 +573,7 @@ function LoadingLine() {
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-white/15 bg-white/[0.035] px-4 py-8 text-center text-sm text-pink-nebula-muted">
+    <div className="rounded-panel border border-dashed border-filament px-4 py-8 text-center text-sm text-ink-2">
       {children}
     </div>
   );
@@ -571,13 +581,13 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 
 function SummaryLine({ summary }: { summary: SaveSummary }) {
   return (
-    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-pink-nebula-muted">
+    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-ink-3">
       <span>{summary.planetCount} planet{summary.planetCount === 1 ? '' : 's'}</span>
       <span>{summary.commandCount} command{summary.commandCount === 1 ? '' : 's'}</span>
       {summary.maxTurn > 0 && <span>Max T{summary.maxTurn}</span>}
       {summary.planetNames && <span className="break-all">{summary.planetNames}</span>}
       {summary.shareName && (
-        <span className="basis-full text-sky-100/80">
+        <span className="basis-full text-ink-2">
           Shared list: {summary.shareName}{summary.shareAuthor ? ` by ${summary.shareAuthor}` : ''}
         </span>
       )}

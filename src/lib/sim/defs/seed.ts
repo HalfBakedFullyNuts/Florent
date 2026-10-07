@@ -197,18 +197,20 @@ export function createStandardStart(defs: Record<string, ItemDefinition>): Plane
       solar_generator: 1,
       // Houses the homeworld's starting scientists
       research_lab: 1,
-      // Modelled for its energy upkeep only; not buildable
       spy_centre: 1,
-      // Homeworld starts with one outpost ship for the first colonisation mission
+      // Ships of the three starting fleets. Fleet cargo (1000 soldiers, 5000 workers) is not
+      // simulated until fleets exist as their own model.
       outpost_ship: 1,
+      scout: 1,
+      freighter: 1,
+      invasion_ship: 1,
     },
     space: {
-      // In-game homeworld shows 52 ground free with the 10 used by starting buildings
-      groundCap: 62,
+      // 52 ground space free in-game: 64 minus the 12 the starting buildings use
+      groundCap: 64,
       orbitalCap: 40,
     },
   });
-  state.completedCounts.outpost_ship = 1;
   return state;
 }
 

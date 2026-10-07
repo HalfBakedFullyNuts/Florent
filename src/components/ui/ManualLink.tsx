@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { ExternalLink } from 'lucide-react';
 import { MANUAL_LINKS, type ManualLinkKey } from '../../lib/constants/manualLinks';
 
 interface ManualLinkProps {
@@ -16,9 +17,9 @@ export function ManualLink({ topic, label }: ManualLinkProps) {
       rel="noopener noreferrer"
       aria-label={label}
       title={label}
-      className="inline-flex items-center rounded-sm px-1 py-0.5 text-[10px] text-pink-nebula-muted/50 transition-colors hover:text-pink-nebula-muted focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-cyan-300/50"
+      className="inline-flex items-center rounded-sm p-1 text-ink-3 transition-colors hover:text-ink"
     >
-      ↗
+      <ExternalLink aria-hidden="true" className="h-3 w-3" />
     </a>
   );
 }

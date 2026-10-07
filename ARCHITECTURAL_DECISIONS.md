@@ -2,6 +2,9 @@
 
 One- to two-sentence entries, newest first, per CLAUDE.md.
 
+## 2026-10-06 — "Emission" design system replaces glass/nebula styling
+UI colour, type and component styling now come from one token set (CSS variables in `app/globals.css` exposed to Tailwind via `@theme`; `pink-nebula-*` kept as aliases) plus shared primitives (`.panel`, `.btn-*`, `.field`, `.seg`, `.chip`, `.data-table`, `.callout`, `ui/Modal`); fonts are self-hosted via `next/font` (Source Sans 3, Turret Road) instead of a runtime Google Fonts link. Raw Tailwind palette classes in components are replaced by tokens — see docs/UI_ASSESSMENT.md §6.
+
 ## 2026-10-06 — Tailwind CSS v4 with CSS-first config
 `tailwind.config.js` is gone: theme tokens live in `@theme` and plugins in `@plugin` inside `src/app/globals.css`, built via `@tailwindcss/postcss`. Utilities now sit in real CSS cascade layers, so a utility always beats base/plugin styles regardless of specificity — state-dependent styling (e.g. a checked checkbox) must be expressed with variants like `checked:` rather than relying on plugin selectors.
 

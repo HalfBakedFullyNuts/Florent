@@ -11,14 +11,6 @@ export const formatNumber = (num: number): string => {
 };
 
 /**
- * Format number keeping decimals (German format). The locale is fixed so the
- * pre-rendered HTML and the browser produce identical text (no hydration mismatch).
- */
-export const formatDecimal = (num: number): string => {
-  return num.toLocaleString('de-DE');
-};
-
-/**
  * Format large numbers with K suffix
  */
 export const formatWithK = (num: number): string => {

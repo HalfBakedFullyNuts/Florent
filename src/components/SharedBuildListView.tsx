@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { ArrowLeft, Building2, FlaskConical, Pencil, Rocket, Users, type LucideIcon } from "lucide-react";
 import type { ExtendedPlanetState } from "../lib/game/gameState";
 import {
   getPlanetSummary,
@@ -13,6 +14,12 @@ import { formatPlannedWaitTurns } from "../lib/game/waitDuration";
 import type { MultiPlanetExportData } from "../lib/export/formatters";
 
 const SUMMARY_TURN = 200;
+const LANE_ICONS: Record<LaneId, LucideIcon> = {
+  building: Building2,
+  ship: Rocket,
+  colonist: Users,
+  research: FlaskConical,
+};
 const OFFICIAL_GAME_URL = "https://www.infiniteconflict.com/";
 
 interface SharedBuildListViewProps {
@@ -135,162 +142,100 @@ export function SharedBuildListView({
   }, []);
 
   return (
-    <main className="flex-1 px-3 py-3 md:px-6 md:py-5">
-      <div className="mx-auto w-full max-w-[1500px] space-y-3">
-        <section className="overflow-hidden rounded-3xl border border-cyan-200/20 bg-linear-to-br from-slate-950/90 via-[#15132d]/95 to-[#082234]/90 shadow-2xl shadow-cyan-950/25 ring-1 ring-white/10">
-          <div className="border-b border-white/10 bg-cyan-300/4 px-4 py-3 md:px-5">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0">
-                <div className="text-[10px] font-black uppercase tracking-[0.28em] text-cyan-200/70">
-                  Shared list
-                </div>
-                <h2 className="mt-1 truncate text-2xl font-black text-pink-nebula-text md:text-3xl">
-                  {name}
-                </h2>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-cyan-100/70 md:text-sm">
-                  <span>by {author}</span>
-                  <span className="hidden h-1 w-1 rounded-full bg-cyan-200/40 sm:inline-block" />
-                  <span>
-                    {totalItems} queued item{totalItems === 1 ? "" : "s"}
-                  </span>
-                  <span className="hidden h-1 w-1 rounded-full bg-cyan-200/40 sm:inline-block" />
-                  <a
-                    href={OFFICIAL_GAME_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="font-bold text-cyan-100 underline decoration-cyan-200/35 underline-offset-4 transition hover:text-white hover:decoration-cyan-100"
-                  >
-                    Infinite Conflict
-                  </a>
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={onExit}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-white/15 bg-white/6 px-4 text-sm font-black text-cyan-50 shadow-lg shadow-black/15 outline-hidden transition hover:border-cyan-200/35 hover:bg-white/10 focus:ring-2 focus:ring-cyan-200/30"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M15 18l-6-6 6-6" />
-                    <path d="M21 12H9" />
-                  </svg>
-                  Exit
-                </button>
-                <button
-                  type="button"
-                  onClick={onEdit}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-emerald-200/55 bg-linear-to-r from-emerald-500/95 to-teal-400/90 px-4 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/20 outline-hidden transition hover:brightness-110 focus:ring-2 focus:ring-emerald-200/45"
-                >
-                  <svg
-                    viewBox="0 0 24 24"
-                    className="h-4 w-4"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
-                  </svg>
-                  Edit BL
-                </button>
-              </div>
+    <main className="flex-1 px-4 py-6 md:px-6">
+      <div className="mx-auto w-full max-w-[1500px] space-y-4">
+        <header className="flex flex-col gap-4 border-b border-filament pb-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <div className="eyebrow">Shared list</div>
+            <h2 className="mt-1 truncate text-[28px] font-bold leading-9 text-ink">
+              {name}
+            </h2>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
+              <span>by {author}</span>
+              <span aria-hidden="true" className="text-ink-3">·</span>
+              <span>
+                {totalItems} queued item{totalItems === 1 ? "" : "s"}
+              </span>
+              <span aria-hidden="true" className="text-ink-3">·</span>
+              <a
+                href={OFFICIAL_GAME_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-ink underline decoration-edge underline-offset-4 transition-colors hover:decoration-ink"
+              >
+                Infinite Conflict
+              </a>
             </div>
           </div>
-
-          <div className="space-y-3 p-3 md:p-4">
-            {summary.facts.length > 0 && (
-              <div
-                aria-label="Build list summary"
-                className="rounded-2xl border border-cyan-200/15 bg-slate-950/28 p-3"
-              >
-                <div className="mb-2 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
-                  Build list summary
-                </div>
-                <dl className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-                  {summary.facts.map((fact) => (
-                    <div
-                      key={fact.label}
-                      className="min-w-0 rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2"
-                    >
-                      <dt className="truncate text-[10px] font-black uppercase tracking-[0.16em] text-cyan-100/55">
-                        {fact.label}
-                      </dt>
-                      <dd className="mt-1 text-sm font-black text-pink-nebula-text">
-                        {fact.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </div>
-            )}
-
-            {planetList.length > 1 && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-2">
-                <div className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.24em] text-cyan-100/55">
-                  Planets in this share
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {planetList.map((planet, index) => {
-                    const active = planet.id === currentPlanetId;
-                    return (
-                      <button
-                        key={planet.id}
-                        type="button"
-                        onClick={() => onPlanetSelect(planet.id)}
-                        className={`rounded-2xl border px-4 py-2 text-left text-sm font-bold transition ${
-                          active
-                            ? "border-cyan-200/60 bg-cyan-300/18 text-cyan-50 shadow-lg shadow-cyan-500/10"
-                            : "border-white/10 bg-white/4 text-pink-nebula-muted hover:border-cyan-200/35 hover:text-pink-nebula-text"
-                        }`}
-                      >
-                        <span className="mr-2 text-[10px] uppercase tracking-[0.18em] opacity-65">
-                          P{index + 1}
-                        </span>
-                        <span className="ml-2 text-xs opacity-60">
-                          T{planet.startTurn}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {totalItems === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-white/4 p-8 text-center text-pink-nebula-muted">
-                This shared build list has no queued items yet.
-              </div>
-            ) : (
-              <div
-                aria-label="Shared build lanes"
-                data-testid="shared-lane-board"
-                className="grid items-start gap-2 md:grid-cols-2 xl:grid-cols-4"
-              >
-                {ALL_LANES.map((laneId) => (
-                  <SharedLaneCard
-                    key={laneId}
-                    laneId={laneId}
-                    lane={lanes[laneId]}
-                    currentTurn={currentTurn}
-                    defs={defs}
-                  />
-                ))}
-              </div>
-            )}
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={onExit} className="btn btn-secondary">
+              <ArrowLeft aria-hidden="true" />
+              Exit
+            </button>
+            <button type="button" onClick={onEdit} className="btn btn-primary">
+              <Pencil aria-hidden="true" />
+              Edit BL
+            </button>
           </div>
-        </section>
+        </header>
+
+        {summary.facts.length > 0 && (
+          <section aria-label="Build list summary" className="panel">
+            <div className="panel-head">
+              <h3 className="panel-title">Build list summary</h3>
+            </div>
+            <dl className="grid gap-2 p-4 sm:grid-cols-2 xl:grid-cols-3">
+              {summary.facts.map((fact) => (
+                <div key={fact.label} className="well min-w-0 px-3 py-2.5">
+                  <dt className="eyebrow truncate">{fact.label}</dt>
+                  <dd className="mt-1 text-sm font-semibold text-ink">{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        )}
+
+        {planetList.length > 1 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="eyebrow">Planets in this share</span>
+            <div className="seg flex-wrap">
+              {planetList.map((planet, index) => (
+                <button
+                  key={planet.id}
+                  type="button"
+                  onClick={() => onPlanetSelect(planet.id)}
+                  aria-pressed={planet.id === currentPlanetId}
+                  className="seg-item"
+                >
+                  <span>P{index + 1}</span>
+                  <span className="text-xs font-normal text-ink-3">T{planet.startTurn}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {totalItems === 0 ? (
+          <div className="panel p-8 text-center text-sm text-ink-2">
+            This shared build list has no queued items yet.
+          </div>
+        ) : (
+          <div
+            aria-label="Shared build lanes"
+            data-testid="shared-lane-board"
+            className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-4"
+          >
+            {ALL_LANES.map((laneId) => (
+              <SharedLaneCard
+                key={laneId}
+                laneId={laneId}
+                lane={lanes[laneId]}
+                currentTurn={currentTurn}
+                defs={defs}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </main>
   );
@@ -473,36 +418,28 @@ function SharedLaneCard({
   defs: Record<string, any>;
 }) {
   const config = LANE_CONFIG[laneId];
+  const LaneGlyph = LANE_ICONS[laneId];
   const entries = [...(lane?.entries ?? [])].sort(compareEntries);
 
   return (
     <section
       aria-label={`${config.title} shared lane`}
-      className="flex min-w-0 flex-col rounded-2xl border border-white/10 bg-linear-to-br from-white/[0.07] via-white/4 to-slate-950/25 p-2 shadow-xl shadow-black/15 md:p-2.5"
+      className="panel flex min-w-0 flex-col overflow-hidden"
     >
-      <div className="mb-1.5 flex items-center gap-2 border-b border-white/10 pb-1.5">
-        <span
-          className="grid h-7 w-7 place-items-center rounded-lg border border-cyan-200/25 bg-cyan-300/10 text-sm shadow-[0_0_18px_rgba(34,211,238,0.12)]"
-          aria-hidden="true"
-        >
-          {config.icon}
+      <div className="panel-head">
+        <LaneGlyph className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
+        <h3 className="panel-title truncate">{config.title}</h3>
+        <span className="chip ml-auto">
+          {entries.length} item{entries.length === 1 ? "" : "s"}
         </span>
-        <div className="flex min-w-0 flex-1 items-baseline gap-2">
-          <h3 className="truncate text-sm font-black text-pink-nebula-text md:text-base">
-            {config.title}
-          </h3>
-          <p className="shrink-0 text-[11px] text-pink-nebula-muted">
-            {entries.length} item{entries.length === 1 ? "" : "s"}
-          </p>
-        </div>
       </div>
 
       {entries.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-white/10 bg-slate-950/25 px-3 py-2.5 text-center text-xs text-pink-nebula-muted">
+        <div className="px-3 py-4 text-center text-sm text-ink-2">
           No {config.title.toLowerCase()} queued.
         </div>
       ) : (
-        <div className="scroll-nebula min-h-0 space-y-1 xl:max-h-[62vh] xl:overflow-y-auto xl:pr-1">
+        <div className="scroll-nebula min-h-0 divide-y divide-filament/60 xl:max-h-[62vh] xl:overflow-y-auto">
           {entries.map((entry) => (
             <SharedLaneRow
               key={entry.id}
@@ -532,34 +469,22 @@ function SharedLaneRow({
   const status = getDisplayStatus(entry, currentTurn);
 
   return (
-    <div
-      className={`rounded-lg border px-2.5 py-1.5 font-mono text-xs ${rowClass(status, entry.invalid)}`}
-    >
-      <div className="grid min-w-0 grid-cols-[4.75rem_1fr_auto] items-center gap-2">
-        <div className="whitespace-nowrap text-[10px] font-black uppercase tracking-[0.08em] text-cyan-100/65">
-          T{start} - T{end}
+    <div className={`border-l-2 text-[13px] ${rowClass(status, entry.invalid)}`}>
+      <div className="grid h-9 min-w-0 grid-cols-[5.5rem_1fr_auto] items-center gap-2 px-3">
+        <div className="whitespace-nowrap text-xs text-ink-3">
+          T{start} – T{end}
         </div>
-        <div className="min-w-0 truncate font-bold text-pink-nebula-text">
+        <div className={`min-w-0 truncate font-semibold ${status === "completed" ? "text-ink-2" : "text-ink"}`}>
           {formatEntryName(entry, currentTurn)}
         </div>
-        <div className="flex shrink-0 items-center justify-end gap-1 text-right">
-          {entry.quantity > 1 && (
-            <span className="rounded-md bg-white/6 px-1.5 py-0.5 text-[11px] text-pink-nebula-text">
-              x{entry.quantity}
-            </span>
-          )}
-          {duration !== null && (
-            <span className="rounded-md border border-white/10 bg-white/4 px-1.5 py-0.5 text-[11px] text-pink-nebula-muted">
-              {duration}T
-            </span>
-          )}
+        <div className="flex shrink-0 items-center justify-end gap-1.5 text-xs text-ink-2">
+          {entry.quantity > 1 && <span className="chip h-5 px-1.5">×{entry.quantity}</span>}
+          {duration !== null && <span className="w-8 text-right">{duration}T</span>}
         </div>
       </div>
       {entry.invalid && entry.invalidReason && (
-        <div className="mt-1 min-w-0">
-          <div className="truncate text-xs text-orange-300">
-            {entry.invalidReason}
-          </div>
+        <div className="-mt-1 truncate px-3 pb-2 text-xs text-danger">
+          {entry.invalidReason}
         </div>
       )}
     </div>
@@ -625,9 +550,7 @@ function getDurationTurns(
 }
 
 function rowClass(status: LaneEntry["status"], invalid?: boolean): string {
-  if (invalid) return "border-orange-300/35 bg-orange-500/10";
-  if (status === "completed")
-    return "border-emerald-300/20 bg-emerald-500/8";
-  if (status === "active") return "border-yellow-200/35 bg-yellow-400/10";
-  return "border-blue-200/15 bg-slate-950/28";
+  if (invalid) return "border-l-danger";
+  if (status === "active") return "border-l-halpha bg-halpha-deep";
+  return "border-l-transparent";
 }

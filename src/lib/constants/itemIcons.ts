@@ -1,4 +1,5 @@
-type ImageDir = 'buildings' | 'ships' | 'colonists' | 'units';
+// Ship art lives under /images/units/ on the game CDN (there is no /images/ships/).
+type ImageDir = 'buildings' | 'colonists' | 'units';
 
 interface ItemIconConfig {
   slug: string;
@@ -16,6 +17,7 @@ const ITEM_ICON_MAP: Record<string, ItemIconConfig> = {
   mineral_extractor:          { slug: 'mineral-extractor',        dir: 'buildings' },
   solar_generator:            { slug: 'solar-generator',          dir: 'buildings' },
   research_lab:               { slug: 'research-lab',             dir: 'buildings' },
+  spy_centre:                 { slug: 'spy-centre',               dir: 'buildings' },
   comms_satellite:            { slug: 'comms-satellite',          dir: 'buildings' },
   habitat:                    { slug: 'habitat',                  dir: 'buildings' },
   shipyard:                   { slug: 'ship-yard',                dir: 'buildings' },
@@ -44,18 +46,19 @@ const ITEM_ICON_MAP: Record<string, ItemIconConfig> = {
   solar_station:              { slug: 'solar-station',            dir: 'buildings' },
 
   // ── Ships ───────────────────────────────────────────────────────────
-  fighter:                    { slug: 'fighter',                  dir: 'ships' },
-  bomber:                     { slug: 'bomber',                   dir: 'ships' },
-  frigate:                    { slug: 'frigate',                  dir: 'ships' },
-  destroyer:                  { slug: 'destroyer',                dir: 'ships' },
-  cruiser:                    { slug: 'cruiser',                  dir: 'ships' },
-  battleship:                 { slug: 'battleship',               dir: 'ships' },
-  freighter:                  { slug: 'freighter',                dir: 'ships' },
-  merchant:                   { slug: 'merchant',                 dir: 'ships' },
-  trader:                     { slug: 'trader',                   dir: 'ships' },
-  command_carrier:            { slug: 'carrier',                  dir: 'ships' },
-  invasion_ship:              { slug: 'invasion-ship',            dir: 'ships' },
+  fighter:                    { slug: 'fighter',                  dir: 'units' },
+  bomber:                     { slug: 'bomber',                   dir: 'units' },
+  frigate:                    { slug: 'frigate',                  dir: 'units' },
+  destroyer:                  { slug: 'destroyer',                dir: 'units' },
+  cruiser:                    { slug: 'cruiser',                  dir: 'units' },
+  battleship:                 { slug: 'battleship',               dir: 'units' },
+  freighter:                  { slug: 'freighter',                dir: 'units' },
+  merchant:                   { slug: 'merchant',                 dir: 'units' },
+  trader:                     { slug: 'trader',                   dir: 'units' },
+  command_carrier:            { slug: 'carrier',                  dir: 'units' },
+  invasion_ship:              { slug: 'invasion-ship',            dir: 'units' },
   outpost_ship:               { slug: 'outpost-ship',             dir: 'units' },
+  scout:                      { slug: 'scout',                    dir: 'units' },
 
   // ── Colonists ───────────────────────────────────────────────────────
   soldier:                    { slug: 'soldier',                  dir: 'colonists' },

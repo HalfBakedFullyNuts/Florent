@@ -233,6 +233,7 @@ describe('ExportModal', () => {
       closePath: vi.fn(),
       clip: vi.fn(),
       createLinearGradient: vi.fn(() => gradient),
+      createRadialGradient: vi.fn(() => gradient),
       fill: vi.fn(),
       fillRect: vi.fn(),
       fillText: vi.fn(),

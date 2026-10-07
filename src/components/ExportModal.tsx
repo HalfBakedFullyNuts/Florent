@@ -8,7 +8,7 @@ import {
   FileText,
   Image as ImageIcon,
   MessageSquare,
-  X,
+  Upload,
 } from 'lucide-react';
 import type { LaneView } from '../lib/game/selectors';
 import type { LaneId } from '../lib/sim/engine/types';
@@ -23,6 +23,7 @@ import {
   extractQueueItems,
 } from '../lib/export/formatters';
 import type { MultiPlanetExportData, QueueItem } from '../lib/export/formatters';
+import { Modal } from './ui/Modal';
 
 export interface ExportModalProps {
   isOpen: boolean;
@@ -228,186 +229,177 @@ export function ExportModal({
 
   if (!isOpen) return null;
 
+  const resetRange = () => {
+    setExportStartTurn(1);
+    setExportEndTurn(defaultEndTurn);
+  };
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-slate-950/75 p-3 backdrop-blur-xs sm:items-center md:p-6"
-      onClick={onClose}
+    <Modal
+      onClose={onClose}
+      titleId="export-build-queue-title"
+      widthClass="max-w-xl"
+      icon={<Upload className="h-5 w-5" aria-hidden="true" />}
+      eyebrow="Build list"
+      title="Export build queue"
+      description={
+        <span className="mt-1 flex flex-wrap gap-2">
+          <span className="chip">{targetLabel}</span>
+          <span className="chip">{rangeItemCount} item{rangeItemCount === 1 ? '' : 's'}</span>
+        </span>
+      }
+      footer={
+        <button type="button" onClick={onClose} className="btn btn-secondary">
+          Cancel
+        </button>
+      }
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="export-build-queue-title"
-        className="w-full max-w-xl overflow-hidden rounded-3xl border border-cyan-200/20 bg-linear-to-br from-[#24142d]/95 via-[#171024]/95 to-[#0d1b2f]/95 shadow-2xl shadow-black/60 ring-1 ring-white/10"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-5 md:px-6">
-          <div>
-            <div className="text-[11px] font-bold uppercase tracking-[0.22em] text-cyan-200/70">Export vault</div>
-            <h2 id="export-build-queue-title" className="mt-1 text-2xl font-black text-pink-nebula-text">
-              Export Build Queue
-            </h2>
-            <div className="mt-2 flex flex-wrap gap-2 text-xs font-semibold text-pink-nebula-muted">
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                {targetLabel}
-              </span>
-              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">
-                {rangeItemCount} item{rangeItemCount === 1 ? '' : 's'}
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-pink-nebula-muted transition-all hover:border-cyan-200/40 hover:bg-white/10 hover:text-pink-nebula-text focus:outline-hidden focus:ring-2 focus:ring-cyan-300/30"
-            aria-label="Close"
-          >
-            <X className="h-5 w-5" aria-hidden="true" />
-          </button>
-        </header>
+      <div className="space-y-4">
+        <ExportTurnRange
+          startTurn={exportStartTurn}
+          endTurn={exportEndTurn}
+          onStartChange={(v) => {
+            setExportStartTurn(v);
+            if (v > exportEndTurn) setExportEndTurn(v);
+          }}
+          onEndChange={setExportEndTurn}
+          onReset={resetRange}
+        />
 
-        <div className="space-y-4 px-5 py-5 md:px-6">
-          {/* Turn range picker */}
-          <div className="rounded-2xl border border-white/10 bg-white/4 px-4 py-3">
-            <div className="flex flex-wrap items-center gap-3 text-sm">
-              <span className="font-semibold text-pink-nebula-muted">Turn range</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  min={1}
-                  max={exportEndTurn}
-                  value={exportStartTurn}
-                  onChange={(e) => {
-                    const v = Math.max(1, parseInt(e.target.value) || 1);
-                    setExportStartTurn(v);
-                    if (v > exportEndTurn) setExportEndTurn(v);
-                  }}
-                  className="w-20 rounded-lg border border-white/10 bg-pink-nebula-bg px-2 py-1 text-center font-mono text-pink-nebula-text focus:border-cyan-300/50 focus:outline-hidden"
-                />
-                <span className="text-pink-nebula-muted">to</span>
-                <input
-                  type="number"
-                  min={exportStartTurn}
-                  value={exportEndTurn}
-                  onChange={(e) => {
-                    const v = Math.max(exportStartTurn, parseInt(e.target.value) || exportStartTurn);
-                    setExportEndTurn(v);
-                  }}
-                  className="w-20 rounded-lg border border-white/10 bg-pink-nebula-bg px-2 py-1 text-center font-mono text-pink-nebula-text focus:border-cyan-300/50 focus:outline-hidden"
-                />
-              </div>
-              <button
-                type="button"
-                onClick={() => { setExportStartTurn(1); setExportEndTurn(defaultEndTurn); }}
-                className="text-xs text-pink-nebula-muted hover:text-pink-nebula-text underline"
-              >
-                Reset
-              </button>
-            </div>
-          </div>
+        {hasMultiPlanetTarget && (
+          <ExportTargetSwitch active={activeTarget} onChange={setExportTarget} />
+        )}
 
-          {hasMultiPlanetTarget && (
-            <div className="rounded-2xl border border-white/10 bg-white/4.5 p-1">
-              <div className="grid grid-cols-2 gap-1">
-                <button
-                  type="button"
-                  onClick={() => setExportTarget('selected')}
-                  className={exportTargetButtonClass(activeTarget === 'selected')}
-                >
-                  Selected planet
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setExportTarget('all')}
-                  className={exportTargetButtonClass(activeTarget === 'all')}
-                >
-                  All planets
-                </button>
-              </div>
+        <div className="grid gap-2">
+          <ExportActionCard
+            icon={<FileText aria-hidden="true" />}
+            title="Export as plain text"
+            description="Simple queue-turn list copied to clipboard."
+            onClick={handleExportText}
+          />
+
+          <ExportActionCard
+            icon={<MessageSquare aria-hidden="true" />}
+            title="Export for Discord"
+            description="Formatted table copied in 2,000-character chunks for non-Nitro users."
+            onClick={handleExportDiscord}
+          />
+
+          {discordMessages.length > 1 && nextDiscordMessageIndex < discordMessages.length && (
+            <ExportActionCard
+              icon={<ClipboardList aria-hidden="true" />}
+              title={`Copy Discord message ${nextDiscordMessageIndex + 1} of ${discordMessages.length}`}
+              description="Paste the previous message in Discord first, then copy this next chunk."
+              onClick={handleCopyNextDiscordMessage}
+              followUp
+            />
+          )}
+
+          {discordMessages.length > 1 && nextDiscordMessageIndex >= discordMessages.length && (
+            <div className="callout border-l-res-food">
+              All Discord chunks copied. Paste each copied message into Discord in order.
             </div>
           )}
 
-          <div className="grid gap-3">
+          <ExportActionCard
+            icon={<Braces aria-hidden="true" />}
+            title="Export game JSON"
+            description="Raw item ids, turns, lanes, and quantities only. No Florent save metadata."
+            onClick={handleExportGameJson}
+          />
+
+          {jsonFallback && (
             <ExportActionCard
-              icon={<FileText className="h-5 w-5" aria-hidden="true" />}
-              title="Export as Plain Text"
-              description="Simple queue-turn list copied to clipboard."
-              onClick={handleExportText}
+              icon={<Download aria-hidden="true" />}
+              title="Download game JSON"
+              description="Use this file if the actual game imports build-list JSON from disk."
+              onClick={() => downloadBlob(jsonFallback.blob, jsonFallback.filename)}
+              followUp
             />
-
-            <ExportActionCard
-              icon={<MessageSquare className="h-5 w-5" aria-hidden="true" />}
-              title="Export for Discord"
-              description="Formatted table copied in 2,000-character chunks for non-Nitro users."
-              onClick={handleExportDiscord}
-            />
-
-            <ExportActionCard
-              icon={<Braces className="h-5 w-5" aria-hidden="true" />}
-              title="Export game JSON"
-              description="Raw item ids, turns, lanes, and quantities only. No Florent save metadata."
-              onClick={handleExportGameJson}
-              tone="purple"
-            />
-
-            {jsonFallback && (
-              <ExportActionCard
-                icon={<Download className="h-5 w-5" aria-hidden="true" />}
-                title="Download game JSON"
-                description="Use this file if the actual game imports build-list JSON from disk."
-                onClick={() => downloadBlob(jsonFallback.blob, jsonFallback.filename)}
-                tone="amber"
-              />
-            )}
-
-            {discordMessages.length > 1 && nextDiscordMessageIndex < discordMessages.length && (
-              <ExportActionCard
-                icon={<ClipboardList className="h-5 w-5" aria-hidden="true" />}
-                title={`Copy Discord message ${nextDiscordMessageIndex + 1} of ${discordMessages.length}`}
-                description="Paste the previous message in Discord first, then copy this next chunk."
-                onClick={handleCopyNextDiscordMessage}
-                tone="purple"
-              />
-            )}
-
-            {discordMessages.length > 1 && nextDiscordMessageIndex >= discordMessages.length && (
-              <div className="rounded-2xl border border-emerald-300/30 bg-emerald-400/10 px-4 py-3 text-sm font-semibold text-emerald-50">
-                All Discord chunks copied. Paste each copied message into Discord in order.
-              </div>
-            )}
-
-            <ExportActionCard
-              icon={<ImageIcon className="h-5 w-5" aria-hidden="true" />}
-              title="Export as Image"
-              description="PNG copied to clipboard when the browser supports image clipboard writes."
-              onClick={handleExportImage}
-            />
-
-            {imageFallback && (
-              <ExportActionCard
-                icon={<Download className="h-5 w-5" aria-hidden="true" />}
-                title="Download image instead"
-                description="Optional fallback if Discord or the browser refuses clipboard images."
-                onClick={() => downloadBlob(imageFallback.blob, imageFallback.filename)}
-                tone="amber"
-              />
-            )}
-          </div>
-
-          {notification && (
-            <div className="rounded-2xl border border-cyan-200/25 bg-cyan-300/10 px-4 py-3 text-center text-sm font-semibold text-cyan-50 animate-fade-in">
-              {notification}
-            </div>
           )}
 
-          <button
-            type="button"
-            onClick={onClose}
-            className="inline-flex min-h-[42px] w-full items-center justify-center rounded-xl border border-white/10 bg-white/4 px-4 py-2 text-sm font-black text-pink-nebula-muted transition-all hover:border-white/20 hover:bg-white/8 hover:text-pink-nebula-text focus:outline-hidden focus:ring-2 focus:ring-cyan-300/20"
-          >
-            Cancel
-          </button>
+          <ExportActionCard
+            icon={<ImageIcon aria-hidden="true" />}
+            title="Export as image"
+            description="PNG copied to clipboard when the browser supports image clipboard writes."
+            onClick={handleExportImage}
+          />
+
+          {imageFallback && (
+            <ExportActionCard
+              icon={<Download aria-hidden="true" />}
+              title="Download image instead"
+              description="Optional fallback if Discord or the browser refuses clipboard images."
+              onClick={() => downloadBlob(imageFallback.blob, imageFallback.filename)}
+              followUp
+            />
+          )}
         </div>
+
+        {notification && (
+          <div role="status" aria-live="polite" className="callout justify-center font-semibold">
+            {notification}
+          </div>
+        )}
       </div>
+    </Modal>
+  );
+}
+
+interface ExportTurnRangeProps {
+  startTurn: number;
+  endTurn: number;
+  onStartChange: (turn: number) => void;
+  onEndChange: (turn: number) => void;
+  onReset: () => void;
+}
+
+function ExportTurnRange({ startTurn, endTurn, onStartChange, onEndChange, onReset }: ExportTurnRangeProps) {
+  return (
+    <div className="well flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+      <span className="font-semibold text-ink-2">Turn range</span>
+      <div className="flex items-center gap-2">
+        <input
+          type="number"
+          min={1}
+          max={endTurn}
+          value={startTurn}
+          aria-label="First turn"
+          onChange={(e) => onStartChange(Math.max(1, parseInt(e.target.value) || 1))}
+          className="field field-sm w-20 text-center"
+        />
+        <span className="text-ink-3">to</span>
+        <input
+          type="number"
+          min={startTurn}
+          value={endTurn}
+          aria-label="Last turn"
+          onChange={(e) => onEndChange(Math.max(startTurn, parseInt(e.target.value) || startTurn))}
+          className="field field-sm w-20 text-center"
+        />
+      </div>
+      <button type="button" onClick={onReset} className="btn btn-ghost btn-sm ml-auto">
+        Reset
+      </button>
+    </div>
+  );
+}
+
+function ExportTargetSwitch({
+  active,
+  onChange,
+}: {
+  active: 'selected' | 'all';
+  onChange: (target: 'selected' | 'all') => void;
+}) {
+  return (
+    <div className="seg grid w-full grid-cols-2">
+      <button type="button" aria-pressed={active === 'selected'} onClick={() => onChange('selected')} className="seg-item">
+        Selected planet
+      </button>
+      <button type="button" aria-pressed={active === 'all'} onClick={() => onChange('all')} className="seg-item">
+        All planets
+      </button>
     </div>
   );
 }
@@ -417,43 +409,34 @@ function ExportActionCard({
   title,
   description,
   onClick,
-  tone = 'cyan',
+  followUp = false,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   onClick: () => void;
-  tone?: 'cyan' | 'purple' | 'amber';
+  /** Secondary step that appears after an export (fallback download, next Discord chunk). */
+  followUp?: boolean;
 }) {
-  const toneClass = tone === 'purple'
-    ? 'border-violet-200/30 bg-violet-400/10 text-violet-50 hover:border-violet-100/55 hover:bg-violet-400/15'
-    : tone === 'amber'
-      ? 'border-amber-200/30 bg-amber-400/10 text-amber-50 hover:border-amber-100/55 hover:bg-amber-400/15'
-      : 'border-cyan-200/25 bg-white/5.5 text-cyan-50 hover:border-cyan-100/55 hover:bg-cyan-300/10';
+  const frame = followUp
+    ? 'border-dashed border-edge bg-transparent hover:bg-veil'
+    : 'border-filament bg-veil hover:border-edge hover:bg-veil-hi';
 
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`group flex w-full items-start gap-3 rounded-2xl border p-4 text-left shadow-lg shadow-black/15 transition-all focus:outline-hidden focus:ring-2 focus:ring-cyan-300/25 ${toneClass}`}
+      className={`flex w-full items-start gap-3 rounded-panel border p-3 text-left transition-colors ${frame}`}
     >
-      <span className="mt-0.5 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-slate-950/35 shadow-inner shadow-black/20">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-ctl border border-filament bg-dust text-ink-2 [&>svg]:h-4 [&>svg]:w-4">
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-base font-black text-pink-nebula-text">{title}</span>
-        <span className="mt-1 block text-sm text-pink-nebula-muted">{description}</span>
+        <span className="block text-sm font-semibold text-ink">{title}</span>
+        <span className="mt-0.5 block text-[13px] leading-5 text-ink-2">{description}</span>
       </span>
     </button>
   );
-}
-
-function exportTargetButtonClass(active: boolean): string {
-  const base = 'min-h-[40px] rounded-xl px-3 py-2 text-sm font-black transition-all focus:outline-hidden focus:ring-2 focus:ring-cyan-300/25';
-  if (active) {
-    return `${base} border border-cyan-200/45 bg-cyan-300/18 text-cyan-50 shadow-lg shadow-cyan-500/10`;
-  }
-  return `${base} text-pink-nebula-muted hover:bg-white/6 hover:text-pink-nebula-text`;
 }
 
 function countExportItems(
@@ -519,11 +502,38 @@ const EXPORT_IMAGE_COLUMNS: ExportImageColumn[] = [
   { key: 'research', label: 'Research', minWidth: 190, maxWidth: 320 },
 ];
 
-const EXPORT_IMAGE_TITLE_FONT = '700 28px Inter, system-ui, -apple-system, Segoe UI, sans-serif';
-const EXPORT_IMAGE_META_FONT = '500 14px Inter, system-ui, -apple-system, Segoe UI, sans-serif';
-const EXPORT_IMAGE_HEADER_FONT = '700 13px Inter, system-ui, -apple-system, Segoe UI, sans-serif';
-const EXPORT_IMAGE_BODY_FONT = '500 15px Inter, system-ui, -apple-system, Segoe UI, sans-serif';
-const EXPORT_IMAGE_FOOTER_FONT = 'italic 12px Inter, system-ui, -apple-system, Segoe UI, sans-serif';
+/** Emission palette for the exported PNG — mirrors the tokens in app/globals.css. */
+const EXPORT_IMAGE_COLORS = {
+  void: '#0E0A14',
+  dust: '#18121F',
+  dustAlt: '#1C1524',
+  veil: '#221A2D',
+  filament: '#342843',
+  ink: '#EEE8F4',
+  ink2: '#B8AEC8',
+  ink3: '#9489A6',
+  halpha: '#F2508C',
+  halphaGlow: 'rgba(242, 80, 140, 0.16)',
+  halphaLine: 'rgba(242, 80, 140, 0.35)',
+} as const;
+
+type ExportImageFontRole = 'title' | 'meta' | 'header' | 'body' | 'footer';
+
+const EXPORT_IMAGE_FONT_SPECS: Record<ExportImageFontRole, string> = {
+  title: '700 28px',
+  meta: '500 14px',
+  header: '700 13px',
+  body: '600 15px',
+  footer: 'italic 500 12px',
+};
+
+/** Canvas needs the concrete family name; next/font exposes it through the --font-sans variable. */
+function exportImageFont(role: ExportImageFontRole): string {
+  const family = typeof document === 'undefined'
+    ? ''
+    : getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim();
+  return `${EXPORT_IMAGE_FONT_SPECS[role]} ${family ? `${family}, ` : ''}system-ui, -apple-system, Segoe UI, sans-serif`;
+}
 
 export function createBuildOrderImageCanvas(items: QueueItem[], options: ExportImageOptions): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
@@ -541,7 +551,7 @@ export function createBuildOrderImageCanvas(items: QueueItem[], options: ExportI
   const bodyLineHeight = 19;
   const footerHeight = 42;
 
-  ctx.font = EXPORT_IMAGE_BODY_FONT;
+  ctx.font = exportImageFont('body');
   const columnWidths = EXPORT_IMAGE_COLUMNS.map((column) => measureExportImageColumn(
     ctx,
     column,
@@ -626,7 +636,7 @@ export function createMultiPlanetBuildOrderImageCanvas(
   const footerHeight = 42;
   const tableY = 104;
 
-  ctx.font = EXPORT_IMAGE_BODY_FONT;
+  ctx.font = exportImageFont('body');
   const allRows = sections.flatMap((section) => buildExportImageRows(section.items));
   const columnWidths = EXPORT_IMAGE_COLUMNS.map((column) => measureExportImageColumn(
     ctx,
@@ -670,8 +680,8 @@ export function createMultiPlanetBuildOrderImageCanvas(
 
   let y = tableY;
   sectionLayouts.forEach((section, index) => {
-    ctx.fillStyle = '#f0e7ff';
-    ctx.font = EXPORT_IMAGE_HEADER_FONT;
+    ctx.fillStyle = EXPORT_IMAGE_COLORS.ink;
+    ctx.font = exportImageFont('header');
     ctx.textAlign = 'left';
     ctx.fillText(section.title, outerPadding, y);
     y += sectionTitleHeight;
@@ -742,10 +752,10 @@ function measureExportImageColumn(
   rows: ExportImageRow[],
   cellPaddingX: number,
 ): number {
-  ctx.font = EXPORT_IMAGE_HEADER_FONT;
+  ctx.font = exportImageFont('header');
   let widest = ctx.measureText(column.label.toUpperCase()).width;
 
-  ctx.font = EXPORT_IMAGE_BODY_FONT;
+  ctx.font = exportImageFont('body');
   rows.forEach((row) => {
     widest = Math.max(widest, ctx.measureText(getExportImageCellText(row, column.key)).width);
   });
@@ -761,7 +771,7 @@ function layoutExportImageRow(
   cellPaddingY: number,
   bodyLineHeight: number,
 ): ExportImageRowLayout {
-  ctx.font = EXPORT_IMAGE_BODY_FONT;
+  ctx.font = exportImageFont('body');
 
   const lines = {} as Record<ExportImageColumnKey, string[]>;
   let maxLines = 1;
@@ -848,15 +858,18 @@ function renderExportImageBackground(
   canvasWidth: number,
   canvasHeight: number,
 ): void {
-  const background = ctx.createLinearGradient(0, 0, canvasWidth, canvasHeight);
-  background.addColorStop(0, '#120c18');
-  background.addColorStop(0.52, '#171321');
-  background.addColorStop(1, '#102031');
-
-  ctx.fillStyle = background;
+  ctx.fillStyle = EXPORT_IMAGE_COLORS.void;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-  ctx.fillStyle = 'rgba(125, 211, 252, 0.7)';
+  // Same ambient H-alpha glow the app draws behind its header.
+  const glowRadius = Math.max(canvasWidth, 420) * 0.6;
+  const glow = ctx.createRadialGradient(canvasWidth * 0.08, 0, 0, canvasWidth * 0.08, 0, glowRadius);
+  glow.addColorStop(0, EXPORT_IMAGE_COLORS.halphaGlow);
+  glow.addColorStop(1, 'rgba(242, 80, 140, 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, canvasWidth, Math.min(canvasHeight, 420));
+
+  ctx.fillStyle = EXPORT_IMAGE_COLORS.halpha;
   ctx.fillRect(0, 0, canvasWidth, 3);
 }
 
@@ -874,13 +887,13 @@ function renderExportImageHeader(
       : 'Full queue';
   const entryLabel = itemCount === 1 ? 'entry' : 'entries';
 
-  ctx.fillStyle = '#f0e7ff';
-  ctx.font = EXPORT_IMAGE_TITLE_FONT;
+  ctx.fillStyle = EXPORT_IMAGE_COLORS.ink;
+  ctx.font = exportImageFont('title');
   ctx.textAlign = 'left';
   ctx.fillText(title, outerPadding, 30);
 
-  ctx.fillStyle = '#b7c7da';
-  ctx.font = EXPORT_IMAGE_META_FONT;
+  ctx.fillStyle = EXPORT_IMAGE_COLORS.ink2;
+  ctx.font = exportImageFont('meta');
   ctx.fillText(`${scope} | Current turn ${options.currentTurn} | ${itemCount} ${entryLabel}`, outerPadding, 68);
 }
 
@@ -907,14 +920,14 @@ function renderExportImageTable(
   createRoundedRectPath(ctx, metrics.x, metrics.y, metrics.width, metrics.height, tableRadius);
   ctx.clip();
 
-  ctx.fillStyle = '#17111f';
+  ctx.fillStyle = EXPORT_IMAGE_COLORS.dust;
   ctx.fillRect(metrics.x, metrics.y, metrics.width, metrics.height);
 
-  ctx.fillStyle = '#261d35';
+  ctx.fillStyle = EXPORT_IMAGE_COLORS.veil;
   ctx.fillRect(metrics.x, metrics.y, metrics.width, metrics.headerHeight);
 
-  ctx.font = EXPORT_IMAGE_HEADER_FONT;
-  ctx.fillStyle = '#8fe4ff';
+  ctx.font = exportImageFont('header');
+  ctx.fillStyle = EXPORT_IMAGE_COLORS.ink3;
   ctx.textAlign = 'left';
 
   let x = metrics.x;
@@ -931,14 +944,14 @@ function renderExportImageTable(
 
   let rowY = metrics.y + metrics.headerHeight;
   rowLayouts.forEach((rowLayout, rowIndex) => {
-    ctx.fillStyle = rowIndex % 2 === 0 ? '#17111f' : '#1d1728';
+    ctx.fillStyle = rowIndex % 2 === 0 ? EXPORT_IMAGE_COLORS.dust : EXPORT_IMAGE_COLORS.dustAlt;
     ctx.fillRect(metrics.x, rowY, metrics.width, rowLayout.height);
 
-    ctx.fillStyle = '#403451';
+    ctx.fillStyle = EXPORT_IMAGE_COLORS.filament;
     ctx.fillRect(metrics.x, rowY, metrics.width, 1);
 
-    ctx.font = EXPORT_IMAGE_BODY_FONT;
-    ctx.fillStyle = '#e8ddff';
+    ctx.font = exportImageFont('body');
+    ctx.fillStyle = EXPORT_IMAGE_COLORS.ink;
 
     let cellX = metrics.x;
     EXPORT_IMAGE_COLUMNS.forEach((column, columnIndex) => {
@@ -954,9 +967,9 @@ function renderExportImageTable(
       });
 
       if (columnIndex > 0) {
-        ctx.fillStyle = '#332941';
+        ctx.fillStyle = EXPORT_IMAGE_COLORS.filament;
         ctx.fillRect(cellX, rowY, 1, rowLayout.height);
-        ctx.fillStyle = '#e8ddff';
+        ctx.fillStyle = EXPORT_IMAGE_COLORS.ink;
       }
 
       cellX += columnWidth;
@@ -967,7 +980,7 @@ function renderExportImageTable(
 
   ctx.restore();
 
-  ctx.strokeStyle = '#4c3b62';
+  ctx.strokeStyle = EXPORT_IMAGE_COLORS.filament;
   ctx.lineWidth = 1;
   createRoundedRectPath(ctx, metrics.x, metrics.y, metrics.width, metrics.height, tableRadius);
   ctx.stroke();
@@ -981,11 +994,11 @@ function renderExportImageFooter(
 ): void {
   const footerY = canvasHeight - 28;
 
-  ctx.fillStyle = 'rgba(143, 228, 255, 0.28)';
+  ctx.fillStyle = EXPORT_IMAGE_COLORS.halphaLine;
   ctx.fillRect(outerPadding, footerY - 14, canvasWidth - outerPadding * 2, 1);
 
-  ctx.fillStyle = '#9d8ec2';
-  ctx.font = EXPORT_IMAGE_FOOTER_FONT;
+  ctx.fillStyle = EXPORT_IMAGE_COLORS.ink3;
+  ctx.font = exportImageFont('footer');
   ctx.textAlign = 'left';
   ctx.fillText('Infinite Conflict Build Planner', outerPadding, footerY);
 }
