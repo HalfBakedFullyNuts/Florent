@@ -13,6 +13,7 @@ import {
   saveEncodedStateToURL,
   clearStateFromURL,
   replayCommands,
+  type ReplayDrop,
 } from '../urlState';
 import { createInitialGameState, type PlanetConfig } from '../gameState';
 import { getLaneView } from '../selectors';
@@ -324,5 +325,39 @@ describe('URL state helpers', () => {
     expect(loadStateFromURL()?.cmds).toHaveLength(1);
     expect(window.localStorage.getItem('florent_save')).toBe(encoded);
     expect(hashChanges).toBe(0);
+  });
+});
+
+describe('replayCommands drop reporting', () => {
+  // v2 item codes: 11 = farm, 30 = metal_mine, 38 = research_lab
+  test('reports a queued step that the current rules reject', () => {
+    const drops: ReplayDrop[] = [];
+    // Old plans queued a lab on the homeworld; it now starts with one (max 1 per planet)
+    replayCommands(createInitialGameState(), [['q', 0, 38, 1]], (drop) => drops.push(drop));
+
+    expect(drops).toHaveLength(1);
+    expect(drops[0]).toMatchObject({ planetIndex: 0, itemId: 'research_lab', quantity: 1 });
+    expect(drops[0].reason).toBeTruthy();
+  });
+
+  test('keeps replaying the remaining steps after a drop', () => {
+    const drops: ReplayDrop[] = [];
+    const replayed = replayCommands(
+      createInitialGameState(),
+      [['q', 0, 38, 1], ['q', 0, 30, 1]],
+      (drop) => drops.push(drop),
+    );
+    const homeworld = replayed.planets.get('planet-1')!;
+    const building = getLaneView(homeworld.timeline!.getStateAtTurn(1)!, 'building');
+
+    expect(drops.map((drop) => drop.itemId)).toEqual(['research_lab']);
+    expect(building.entries.map((entry) => entry.itemId)).toEqual(['metal_mine']);
+  });
+
+  test('reports nothing when every step applies', () => {
+    const drops: ReplayDrop[] = [];
+    replayCommands(createInitialGameState(), [['q', 0, 11, 1], ['q', 0, 30, 1]], (drop) => drops.push(drop));
+
+    expect(drops).toEqual([]);
   });
 });

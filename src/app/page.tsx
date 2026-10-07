@@ -65,8 +65,10 @@ import {
   normaliseShareMetadata,
   replayCommands,
   saveEncodedStateToURL,
+  type ReplayDrop,
   type ShareMetadata,
 } from "../lib/game/urlState";
+import { formatReplayDropNotice } from "../lib/game/replayNotice";
 import {
   cancelGlobalResearch,
   canQueueGlobalResearch,
@@ -151,6 +153,21 @@ async function copyTextToClipboard(text: string): Promise<boolean> {
   } finally {
     textarea?.remove();
   }
+}
+
+/**
+ * Turn replay drops into the player-facing notice, naming planets in replay
+ * order and items by their game-data names. Null when nothing was dropped.
+ */
+function buildReplayNotice(drops: ReplayDrop[], replayedState: GameState): string | null {
+  if (drops.length === 0) return null;
+  for (const drop of drops) {
+    console.warn("[replay] skipped step rejected by current rules:", drop);
+  }
+  const planetNames = Array.from(replayedState.planets.values(), (planet) => planet.name);
+  const defs = getDefs();
+  const itemNames = Object.fromEntries(Object.keys(defs).map((id) => [id, defs[id].name]));
+  return formatReplayDropNotice(drops, planetNames, itemNames);
 }
 
 function withPlanetMetadata(
@@ -349,6 +366,9 @@ export default function Home() {
     [],
   );
 
+  // Persistent until dismissed: plan steps the current rules rejected on load
+  const [replayNotice, setReplayNotice] = useState<string | null>(null);
+
   const restoreShareSnapshot = useCallback(
     (
       snapshot: LoadedGameSnapshot,
@@ -360,14 +380,17 @@ export default function Home() {
       setIsReplaying(true);
       setTimeout(() => {
         let replayedState: GameState = createInitialGameState();
+        const drops: ReplayDrop[] = [];
         try {
           replayedState = replayCommands(
             createInitialGameState(),
             snapshot.cmds,
+            (drop) => drops.push(drop),
           );
         } finally {
           setIsReplaying(false);
         }
+        setReplayNotice(buildReplayNotice(drops, replayedState));
         commandHistory.loadFromSnapshot(snapshot.cmds);
         if (encoded && options?.shared) {
           rememberOpenedSharedLink(encoded, snapshot);
@@ -2607,7 +2630,7 @@ export default function Home() {
                 <div className="mx-auto w-full max-w-[1800px]">
                   <Card className="p-5 border-amber-500/50 bg-amber-950/20">
                     <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                      <div className="opacity-30 text-[10px]">v0.2.75</div>
+                      <div className="opacity-30 text-[10px]">v0.2.76</div>
                       <div>
                         <h2 className="text-lg font-bold text-amber-300">
                           Planet not active at this turn
@@ -2847,7 +2870,7 @@ export default function Home() {
           >
             Copy Debug State
           </button>
-          <div className="opacity-30 text-[10px]">v0.2.75</div>
+          <div className="opacity-30 text-[10px]">v0.2.76</div>
         </footer>
       </div>
 
@@ -2994,6 +3017,24 @@ export default function Home() {
           className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 max-w-[90vw] bg-pink-nebula-panel border border-pink-nebula-accent-primary rounded-lg shadow-2xl text-pink-nebula-text text-sm font-medium pointer-events-none animate-in fade-in slide-in-from-bottom-2"
         >
           {toast}
+        </div>
+      )}
+
+      {replayNotice && (
+        <div
+          role="alert"
+          className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-start gap-3 px-4 py-3 w-[min(42rem,92vw)] bg-pink-nebula-panel border border-pink-nebula-warning rounded-lg shadow-2xl text-pink-nebula-text text-sm"
+        >
+          <span aria-hidden="true" className="text-pink-nebula-warning font-bold">!</span>
+          <p className="flex-1">{replayNotice}</p>
+          <button
+            type="button"
+            onClick={() => setReplayNotice(null)}
+            className="shrink-0 px-2 py-0.5 rounded-sm text-pink-nebula-muted hover:text-pink-nebula-text"
+            aria-label="Dismiss notice"
+          >
+            ✕
+          </button>
         </div>
       )}
     </div>

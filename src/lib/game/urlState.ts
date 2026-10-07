@@ -1387,14 +1387,23 @@ export function clearStateFromURL(): void {
 // Command replay
 // ---------------------------------------------------------------------------
 
+/** A recorded queue step that the current game rules rejected during replay. */
+export interface ReplayDrop {
+  planetIndex: number;
+  itemId: string;
+  quantity: number;
+  reason: string;
+}
+
 /**
  * Replay recorded commands to reconstruct game state.
  * Handles both v1 and v2 snapshots.
- * Returns the seqId→entryId map so the caller can rebuild CommandHistory.
+ * Rejected queue steps are skipped (later steps still replay) and reported via onDrop.
  */
 export function replayCommands(
   initialGameState: GameState,
-  commands: CommandType[]
+  commands: CommandType[],
+  onDrop?: (drop: ReplayDrop) => void
 ): GameState {
   let gameState = initialGameState;
   // seqId counter: increments for every 'q' command in order
@@ -1467,13 +1476,16 @@ export function replayCommands(
             ensureBatch(planetId);
             const controller = new GameController(planet, planet.timeline);
             const researchGate = getLocalResearchGateForItem(gameState, itemId, planet.startTurn, getDefs());
-            controller.queueItem(planet.startTurn, itemId, qty, {
+            const result = controller.queueItem(planet.startTurn, itemId, qty, {
               preserveId: deterministicId,
               completedResearch: researchGate.completedResearch,
               scheduledResearch: researchGate.scheduledResearch,
               blockedResearch: researchGate.blockedResearch,
               minStartTurn: researchGate.minStartTurn,
             });
+            if (!result.success) {
+              onDrop?.({ planetIndex: planetIdx, itemId, quantity: qty, reason: result.reason ?? 'REJECTED' });
+            }
           }
           break;
         }
