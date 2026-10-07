@@ -364,7 +364,7 @@ export function SavesModal({ isOpen, onClose, getCurrentSnapshot, onRestore }: S
             <p className="mt-1 text-sm text-ink-2">
               Import a JSON save file, paste a shared URL, paste a #state fragment, or paste the raw encoded payload.
             </p>
-            <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-panel border border-dashed border-edge px-4 py-5 text-sm font-semibold text-ink transition-colors hover:bg-veil focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-oiii">
+            <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-panel border border-dashed border-edge px-4 py-5 text-sm font-semibold text-ink transition-colors hover:bg-veil focus-within:outline-solid focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-oiii">
               <Upload className="h-4 w-4 text-ink-2" aria-hidden="true" />
               Choose a Florent JSON file
               <input
@@ -429,7 +429,7 @@ function SaveRow({ save, onLoad, onExport, onRename, onDelete }: SaveRowProps) {
     <>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="break-words text-[15px] font-semibold text-ink">{save.name}</div>
+          <div className="wrap-break-word text-[15px] font-semibold text-ink">{save.name}</div>
           <SummaryLine summary={save.summary} />
         </div>
         <span className="chip shrink-0 self-start">Updated {new Date(save.updatedAt).toLocaleString()}</span>
@@ -496,7 +496,7 @@ function SharedRow({ sharedList, onOpen, onSaveAsMine, onRemove }: SharedRowProp
     <>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <div className="break-words text-[15px] font-semibold text-ink">{sharedList.name}</div>
+          <div className="wrap-break-word text-[15px] font-semibold text-ink">{sharedList.name}</div>
           <div className="mt-0.5 text-xs font-semibold text-ink-2">Shared by {sharedList.author}</div>
           <SummaryLine summary={sharedList.summary} />
         </div>

@@ -403,7 +403,7 @@ function StartTurnSection({
         value={startTurn}
         onChange={(e) => onChange(parseInt(e.target.value))}
         onFocus={(e) => e.target.select()}
-        className="field sm:max-w-[12rem]"
+        className="field sm:max-w-48"
         min={minTravelStart}
       />
       {showAdjustNote && (

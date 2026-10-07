@@ -142,7 +142,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
             onClick={() => { setShowTimes(t => !t); if (showTimes) setShowCalibrate(false); }}
             aria-pressed={showTimes}
             title={showTimes ? 'Show turn numbers' : 'Show wall-clock times (your local timezone)'}
-            className={`btn btn-ghost btn-sm btn-icon ${showTimes ? '!text-oiii' : ''}`}
+            className={`btn btn-ghost btn-sm btn-icon ${showTimes ? 'text-oiii!' : ''}`}
             aria-label={showTimes ? 'Show turn numbers' : 'Show wall-clock times'}
           >
             {showTimes ? <Hash aria-hidden="true" /> : <Clock aria-hidden="true" />}
@@ -165,11 +165,11 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
               type="button"
               onClick={() => onClearLane(activeTab)}
               disabled={entryCount === 0}
-              className="btn btn-ghost btn-sm text-ink-3 hover:!text-danger"
+              className="btn btn-ghost btn-sm text-ink-3 hover:text-danger!"
               aria-label={`Clear ${config.title} lane`}
               title={`Remove every entry from the ${config.title} lane`}
             >
-              <Trash2 aria-hidden="true" className="!h-3.5 !w-3.5" />
+              <Trash2 aria-hidden="true" className="h-3.5! w-3.5!" />
               Clear
             </button>
           )}
@@ -186,7 +186,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
         />
       )}
 
-      <div ref={scrollRef} className="scroll-nebula max-h-[60vh] min-h-[12rem] overflow-y-auto md:max-h-[560px]">
+      <div ref={scrollRef} className="scroll-nebula max-h-[60vh] min-h-48 overflow-y-auto md:max-h-[560px]">
         {!laneView || laneView.entries.length === 0 ? (
           <p className="m-4 rounded-ctl border border-dashed border-filament py-8 text-center text-sm text-ink-3">
             Queue empty — click or drag an item from the catalog
@@ -233,7 +233,7 @@ function QueueLaneLink({ laneId }: { laneId: LaneId }) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`IC manual: ${LANE_CONFIG[laneId].title}`}
-        className="rounded px-1 hover:text-ink hover:underline"
+        className="rounded-sm px-1 hover:text-ink hover:underline"
       >
         {LANE_CONFIG[laneId].title}
       </a>
@@ -396,11 +396,11 @@ function QueueRow({ entry, displayIndex, reorder, activeTab, currentTurn, newest
       )}
       {canDrag && onReorder && (
         <span className="flex shrink-0 flex-col justify-center gap-0.5 pl-2 md:hidden">
-          <button type="button" onClick={() => sourceIndex > 0 && onReorder(activeTab, entry.id, sourceIndex - 1)} disabled={sourceIndex <= 0} aria-label="Move up" className="btn btn-ghost btn-sm btn-icon !h-6">
-            <ArrowUp aria-hidden="true" className="!h-3.5 !w-3.5" />
+          <button type="button" onClick={() => sourceIndex > 0 && onReorder(activeTab, entry.id, sourceIndex - 1)} disabled={sourceIndex <= 0} aria-label="Move up" className="btn btn-ghost btn-sm btn-icon h-6!">
+            <ArrowUp aria-hidden="true" className="h-3.5! w-3.5!" />
           </button>
-          <button type="button" onClick={() => sourceIndex >= 0 && sourceIndex < downBoundExclusive && onReorder(activeTab, entry.id, sourceIndex + 1)} disabled={sourceIndex < 0 || sourceIndex >= downBoundExclusive} aria-label="Move down" className="btn btn-ghost btn-sm btn-icon !h-6">
-            <ArrowDown aria-hidden="true" className="!h-3.5 !w-3.5" />
+          <button type="button" onClick={() => sourceIndex >= 0 && sourceIndex < downBoundExclusive && onReorder(activeTab, entry.id, sourceIndex + 1)} disabled={sourceIndex < 0 || sourceIndex >= downBoundExclusive} aria-label="Move down" className="btn btn-ghost btn-sm btn-icon h-6!">
+            <ArrowDown aria-hidden="true" className="h-3.5! w-3.5!" />
           </button>
         </span>
       )}

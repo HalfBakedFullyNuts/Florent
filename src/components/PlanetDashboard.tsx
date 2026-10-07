@@ -233,7 +233,7 @@ function WorkerGrowthTip({ summary, turnsToHousingCap }: { summary: PlanetSummar
     <div className="group relative inline-block">
       <button
         type="button"
-        className={`cursor-help rounded font-semibold underline decoration-dotted underline-offset-2 ${RESOURCE_META.workers.text}`}
+        className={`cursor-help rounded-sm font-semibold underline decoration-dotted underline-offset-2 ${RESOURCE_META.workers.text}`}
         aria-label="Worker growth details"
       >
         Workers
@@ -312,7 +312,7 @@ function BuildingsTable({ rows, defs, onDemolish, demolishableIds }: BuildingsTa
 
   return (
     <div className="scroll-nebula -mr-2 max-h-[232px] overflow-auto pr-2">
-      <table className="data-table min-w-[26rem]">
+      <table className="data-table min-w-104">
         <thead className="sticky top-0 z-10 bg-dust">
           <tr>
             <th className="text-left">Building</th>
@@ -327,7 +327,7 @@ function BuildingsTable({ rows, defs, onDemolish, demolishableIds }: BuildingsTa
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              <td className="min-w-[8.5rem] max-w-0">
+              <td className="min-w-34 max-w-0">
                 <span className="flex min-w-0 items-center gap-1.5 text-ink" title={row.name}>
                   <ItemIcon itemId={row.id} size={16} />
                   <span className="truncate">{row.name}</span>
@@ -360,9 +360,9 @@ function DemolishButton({ row, defs, onDemolish, demolishable }: { row: Structur
       title={demolishable ? `Demolish ${row.name} (${turns}T) — click to queue` : `Cannot demolish: another completed building requires ${row.name}`}
       aria-label={`Demolish ${row.name}`}
       disabled={!demolishable}
-      className="btn btn-ghost btn-sm btn-icon text-ink-3 hover:!text-danger disabled:opacity-30"
+      className="btn btn-ghost btn-sm btn-icon text-ink-3 hover:text-danger! disabled:opacity-30"
     >
-      <Hammer aria-hidden="true" className="!h-3.5 !w-3.5" />
+      <Hammer aria-hidden="true" className="h-3.5! w-3.5!" />
     </button>
   );
 }

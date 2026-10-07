@@ -280,7 +280,7 @@ function CatalogLaneLink({ laneId }: { laneId: LaneId }) {
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`IC manual: ${LANE_CONFIG[laneId].title}`}
-        className="rounded px-1 hover:text-ink hover:underline"
+        className="rounded-sm px-1 hover:text-ink hover:underline"
       >
         {LANE_CONFIG[laneId].title}
       </a>
@@ -350,7 +350,7 @@ function ItemRow({ item, template, columns, isBatchable, queueCheck, queueable, 
       }}
       onClick={() => clickable && onActivate(item.id)}
       title={lockedReason}
-      className={`group border-b border-filament/60 px-4 py-2 transition-colors md:grid md:min-h-[2.75rem] md:items-center md:gap-x-2 md:py-1 ${
+      className={`group border-b border-filament/60 px-4 py-2 transition-colors md:grid md:min-h-11 md:items-center md:gap-x-2 md:py-1 ${
         queueable ? 'hover:bg-veil' : 'opacity-50'
       } ${clickable ? 'cursor-pointer' : ''}`}
       style={{ gridTemplateColumns: template }}
@@ -362,7 +362,7 @@ function ItemRow({ item, template, columns, isBatchable, queueCheck, queueable, 
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onActivate(item.id); }}
-            className="min-w-0 truncate rounded text-left text-sm font-semibold text-ink"
+            className="min-w-0 truncate rounded-sm text-left text-sm font-semibold text-ink"
             aria-label={`Queue ${item.name}`}
           >
             <span>{item.name}</span>
@@ -473,7 +473,7 @@ interface BatchControlsProps {
 
 function BatchControls({ inline, item, queueable, queueCheck, batch, showSteppers, canQueueItem, onQueueItem }: BatchControlsProps) {
   const error = batch.errors[item.id];
-  const stepClass = 'btn btn-secondary btn-sm min-w-[2rem] px-1.5';
+  const stepClass = 'btn btn-secondary btn-sm min-w-8 px-1.5';
   return (
     <div className={`mt-2 flex flex-col items-end gap-1 ${inline ? 'md:mt-0' : 'md:col-span-full md:mt-1'}`}>
       <div className="flex flex-nowrap items-center gap-1" onClick={(e) => e.stopPropagation()}>
@@ -488,7 +488,7 @@ function BatchControls({ inline, item, queueable, queueCheck, batch, showStepper
           disabled={!queueable}
           aria-label={`Quantity of ${item.name}`}
           aria-invalid={error ? true : undefined}
-          className={`field field-sm w-16 text-center ${error ? '!border-danger' : ''}`}
+          className={`field field-sm w-16 text-center ${error ? 'border-danger!' : ''}`}
           placeholder="qty"
         />
         {showSteppers && (

@@ -7,14 +7,14 @@ import { serviceWorkerRegistrationScript } from './serviceWorkerRegistration'
 // Self-hosted at build time: the game's own faces, no runtime request to Google.
 const sans = Source_Sans_3({
   subsets: ['latin'],
-  variable: '--font-sans',
+  variable: '--font-source-sans',
   display: 'swap',
 })
 
 const display = Turret_Road({
   subsets: ['latin'],
   weight: '800',
-  variable: '--font-display',
+  variable: '--font-turret-road',
   display: 'swap',
 })
 

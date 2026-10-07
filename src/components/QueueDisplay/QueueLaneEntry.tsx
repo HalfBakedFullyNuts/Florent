@@ -56,7 +56,7 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
 
   return (
     <div className={`group border-b border-filament/60 py-1.5 pl-2 pr-3 transition-colors ${tone.row}`}>
-      <div className="grid min-h-[2rem] grid-cols-[minmax(0,1fr)_auto_2.75rem_1.75rem] items-center gap-x-2 gap-y-0.5 text-sm font-semibold [grid-template-areas:'name_qty_dur_rm'_'range_range_range_range'] md:grid-cols-[auto_minmax(0,1fr)_auto_2.75rem_1.75rem] md:gap-x-3 md:text-sm md:[grid-template-areas:'range_name_qty_dur_rm']">
+      <div className="grid min-h-8 grid-cols-[minmax(0,1fr)_auto_2.75rem_1.75rem] items-center gap-x-2 gap-y-0.5 text-sm font-semibold [grid-template-areas:'name_qty_dur_rm'_'range_range_range_range'] md:grid-cols-[auto_minmax(0,1fr)_auto_2.75rem_1.75rem] md:gap-x-3 md:text-sm md:[grid-template-areas:'range_name_qty_dur_rm']">
         <TurnRange entry={entry} showTimes={showTimes} roundStartMs={roundStartMs} onTurnClick={onTurnClick} maxTurn={maxTurn} />
 
         <div className={`flex min-w-0 items-center gap-1.5 [grid-area:name] ${tone.name}`}>
@@ -72,9 +72,9 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 disabled={entry.quantity <= 1}
                 title="Decrease quantity"
                 aria-label={`Decrease ${entry.itemName} quantity`}
-                className="btn btn-ghost btn-sm btn-icon !h-6 !w-6"
+                className="btn btn-ghost btn-sm btn-icon h-6! w-6!"
               >
-                <Minus aria-hidden="true" className="!h-3 !w-3" />
+                <Minus aria-hidden="true" className="h-3! w-3!" />
               </button>
               <span className="w-10 select-none text-center text-ink">{entry.quantity}</span>
               <button
@@ -83,13 +83,13 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 disabled={maxQuantity !== undefined && entry.quantity >= maxQuantity}
                 title={maxQuantity !== undefined && entry.quantity >= maxQuantity ? `Maximum: ${maxQuantity}` : 'Increase quantity'}
                 aria-label={`Increase ${entry.itemName} quantity`}
-                className="btn btn-ghost btn-sm btn-icon !h-6 !w-6"
+                className="btn btn-ghost btn-sm btn-icon h-6! w-6!"
               >
-                <Plus aria-hidden="true" className="!h-3 !w-3" />
+                <Plus aria-hidden="true" className="h-3! w-3!" />
               </button>
             </div>
           ) : (
-            <span className="block min-w-[2.5rem] text-right">{entry.isWait || isAutoWait || (!showQuantityInput && entry.quantity === 1) ? '' : `×${entry.quantity}`}</span>
+            <span className="block min-w-10 text-right">{entry.isWait || isAutoWait || (!showQuantityInput && entry.quantity === 1) ? '' : `×${entry.quantity}`}</span>
           )}
         </div>
 
@@ -104,11 +104,11 @@ export const QueueLaneEntry = React.memo(function QueueLaneEntry({
                 e.stopPropagation();
                 onCancel();
               }}
-              className="btn btn-ghost btn-sm btn-icon !h-7 !w-7 text-ink-3 hover:!bg-danger/15 hover:!text-danger"
+              className="btn btn-ghost btn-sm btn-icon h-7! w-7! text-ink-3 hover:bg-danger/15! hover:text-danger!"
               title="Remove from queue"
               aria-label={`Remove ${entry.itemName} from queue`}
             >
-              <X aria-hidden="true" className="!h-3.5 !w-3.5" />
+              <X aria-hidden="true" className="h-3.5! w-3.5!" />
             </button>
           )}
         </div>
@@ -182,7 +182,7 @@ function getDisplayDurationTurns(entry: LaneEntry, def?: any, currentTurn?: numb
 }
 
 function rowTone(entry: LaneEntry): { row: string; name: string } {
-  if (entry.invalid) return { row: 'bg-danger/[0.06] shadow-[inset_2px_0_0_#FF7A7A]', name: 'text-ink' };
+  if (entry.invalid) return { row: 'bg-danger/6 shadow-[inset_2px_0_0_#FF7A7A]', name: 'text-ink' };
   if (entry.resourceDelayed) return { row: 'shadow-[inset_2px_0_0_#F5B544]', name: 'text-ink' };
   if (entry.status === 'active') return { row: 'bg-halpha-deep shadow-[inset_2px_0_0_#F2508C]', name: 'text-ink' };
   if (entry.status === 'completed') return { row: '', name: 'text-ink-3' };
@@ -204,7 +204,7 @@ function TurnRange({ entry, showTimes, roundStartMs, onTurnClick, maxTurn }: Tur
   const label = (t: number | string) => (showTimes && t !== '?' ? formatTickTime(t as number, roundStartMs) : `T${t}`);
   const fullTitle = (t: number | string, fallback: string) =>
     showTimes && t !== '?' ? `T${t} · ${formatTickTimeFull(t as number, roundStartMs)}` : fallback;
-  const linkClass = 'rounded px-0.5 text-ink-2 hover:bg-veil hover:text-ink';
+  const linkClass = 'rounded-sm px-0.5 text-ink-2 hover:bg-veil hover:text-ink';
 
   return (
     <div className={`flex items-center gap-0.5 text-xs font-medium text-ink-3 [grid-area:range] md:text-[13px] ${showTimes ? 'md:w-40' : 'md:w-28'}`}>

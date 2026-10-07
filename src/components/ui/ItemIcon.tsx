@@ -30,7 +30,7 @@ export function ItemIcon({ itemId, size = 24, className = '' }: ItemIconProps) {
       height={size}
       loading="lazy"
       onError={() => setFailed(true)}
-      className={`shrink-0 rounded object-cover ${className}`}
+      className={`shrink-0 rounded-sm object-cover ${className}`}
       style={{ width: size, height: size }}
     />
   );

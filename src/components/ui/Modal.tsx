@@ -77,7 +77,7 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={headingId}
         tabIndex={-1}
-        className={`modal ${widthClass} outline-none`}
+        className={`modal ${widthClass} outline-hidden`}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <header className={`modal-head ${children ? "" : "border-b-0"}`}>

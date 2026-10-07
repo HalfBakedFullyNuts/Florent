@@ -105,7 +105,7 @@ function HorizontalTimelineInner({
             min={1}
             max={totalTurns}
             aria-label="Turn"
-            className="field w-[4.5rem] text-center text-lg font-bold text-halpha-soft [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+            className="field w-18 text-center text-lg font-bold text-halpha-soft [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
           />
           <button type="button" onClick={() => goTo(localTurn + 1)} disabled={localTurn >= totalTurns} className="btn btn-secondary btn-icon" aria-label="Next turn">
             <ChevronRight aria-hidden="true" />
@@ -127,7 +127,7 @@ function HorizontalTimelineInner({
             type="checkbox"
             checked={isAutoJumpEnabled ?? true}
             onChange={(e) => onAutoJumpToggle?.(e.target.checked)}
-            className="h-4 w-4 rounded border-edge bg-void text-halpha focus:ring-0 focus:ring-offset-0"
+            className="h-4 w-4 rounded-sm border-edge bg-void text-halpha checked:bg-current checked:border-transparent focus:ring-0 focus:ring-offset-0"
           />
           Advance after queuing
         </label>
@@ -179,11 +179,11 @@ function LaneSpectrum({ localTurn, totalTurns, onSlide, laneSpans, currentBuilds
           </span>
         ))}
         {hoveredTurn !== null && hoveredTurn !== localTurn && (
-          <span className="absolute z-10 -translate-x-1/2 rounded bg-veil-hi px-1 text-[11px] font-semibold leading-[18px] text-ink" style={{ left: turnPosition(hoveredTurn, totalTurns) }}>
+          <span className="absolute z-10 -translate-x-1/2 rounded-sm bg-veil-hi px-1 text-[11px] font-semibold leading-[18px] text-ink" style={{ left: turnPosition(hoveredTurn, totalTurns) }}>
             T{hoveredTurn}
           </span>
         )}
-        <span className="absolute z-20 -translate-x-1/2 rounded bg-halpha px-1 text-[11px] font-bold leading-[18px] text-void" style={{ left: turnPosition(localTurn, totalTurns) }}>
+        <span className="absolute z-20 -translate-x-1/2 rounded-sm bg-halpha px-1 text-[11px] font-bold leading-[18px] text-void" style={{ left: turnPosition(localTurn, totalTurns) }}>
           T{localTurn}
         </span>
       </div>

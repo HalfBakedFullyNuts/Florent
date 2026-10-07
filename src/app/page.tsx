@@ -2388,7 +2388,7 @@ export default function Home() {
           <div className="mx-auto flex max-w-[1800px] flex-wrap items-center gap-x-6 gap-y-3 px-4 pt-4 md:px-6">
             <h1 className="flex items-center gap-2.5 font-display text-lg font-extrabold uppercase tracking-[0.08em] text-ink md:text-xl">
               <span aria-hidden="true" className="h-2.5 w-2.5 rotate-45 bg-halpha shadow-[0_0_12px_rgba(242,80,140,0.8)]" />
-              <a href={INFINITE_CONFLICT_URL} target="_blank" rel="noopener noreferrer" className="rounded hover:text-halpha-soft">
+              <a href={INFINITE_CONFLICT_URL} target="_blank" rel="noopener noreferrer" className="rounded-sm hover:text-halpha-soft">
                 Infinite Conflict Simulator
               </a>
             </h1>
@@ -2493,7 +2493,7 @@ export default function Home() {
                   className="btn btn-danger btn-sm"
                   title="Start over: remove every colony, queue and research, back to a fresh homeworld at T1"
                 >
-                  <RotateCcw aria-hidden="true" className="!h-3.5 !w-3.5" />
+                  <RotateCcw aria-hidden="true" className="h-3.5! w-3.5!" />
                   Reset plan
                 </button>
               </div>
@@ -2517,7 +2517,7 @@ export default function Home() {
             </div>
 
             {/* Turn deck — sticky from tablet up so the viewed turn stays in reach while scrolling */}
-            <div className="z-30 -mx-4 bg-void/95 px-4 py-2 backdrop-blur md:sticky md:top-0 md:-mx-6 md:px-6">
+            <div className="z-30 -mx-4 bg-void/95 px-4 py-2 backdrop-blur-sm md:sticky md:top-0 md:-mx-6 md:px-6">
               <HorizontalTimeline
                 currentTurn={viewTurn}
                 totalTurns={timelineMaxTurn}
@@ -2634,7 +2634,7 @@ export default function Home() {
               onClick={handleCopyDebugState}
               title="Copy URL with full command history to clipboard for bug reporting"
             >
-              <Bug aria-hidden="true" className="!h-3.5 !w-3.5" />
+              <Bug aria-hidden="true" className="h-3.5! w-3.5!" />
               Copy debug state
             </button>
           </div>

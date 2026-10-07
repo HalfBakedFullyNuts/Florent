@@ -17,7 +17,7 @@ export function ManualLink({ topic, label }: ManualLinkProps) {
       rel="noopener noreferrer"
       aria-label={label}
       title={label}
-      className="inline-flex items-center rounded p-1 text-ink-3 transition-colors hover:text-ink"
+      className="inline-flex items-center rounded-sm p-1 text-ink-3 transition-colors hover:text-ink"
     >
       <ExternalLink aria-hidden="true" className="h-3 w-3" />
     </a>

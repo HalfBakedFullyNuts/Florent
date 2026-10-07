@@ -219,7 +219,7 @@ export function BuildListSelector({ onRestore, className }: BuildListSelectorPro
             <div
               role="listbox"
               aria-label="Build lists"
-              className="scroll-nebula panel absolute left-0 right-0 top-full z-[90] mt-1 max-h-[420px] overflow-y-auto p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.5)]"
+              className="scroll-nebula panel absolute left-0 right-0 top-full z-90 mt-1 max-h-[420px] overflow-y-auto p-1.5 shadow-[0_16px_40px_rgba(0,0,0,0.5)]"
             >
               <BuildListGroup
                 label="Your lists"

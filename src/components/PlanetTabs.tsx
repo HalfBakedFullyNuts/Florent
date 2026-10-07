@@ -58,8 +58,8 @@ function PlanetTabsInner({
               suppressHydrationWarning
             >
               <span className={`font-bold ${isActive ? 'text-halpha-soft' : ''}`}>{planetLabel}</span>
-              <span className="max-w-[9rem] truncate font-medium">{planet.name}</span>
-              {isEditable && <Pencil aria-hidden="true" className="!h-3.5 !w-3.5 text-ink-3" />}
+              <span className="max-w-36 truncate font-medium">{planet.name}</span>
+              {isEditable && <Pencil aria-hidden="true" className="h-3.5! w-3.5! text-ink-3" />}
             </button>
           );
         })}
