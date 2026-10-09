@@ -143,6 +143,7 @@ const V2_ITEM_IDS: readonly string[] = [
   'solar_station_research',  // 85
   'spy_centre',              // 86
   'scout',                   // 87
+  'colonization_ship',       // 88
 ];
 
 const V2_ITEM_CODE: Record<string, number> = Object.fromEntries(

@@ -296,7 +296,7 @@ describe('Seed Functions', () => {
   });
 
   describe('game data updates (new game version)', () => {
-    it('defines the Spy Centre as a 16-turn, max-1 structure that needs an Outpost', () => {
+    it('defines the Spy Centre as a 16-turn, buildable-many structure that needs an Outpost', () => {
       const spy = defs.spy_centre;
 
       expect(spy.name).toBe('Spy Centre');
@@ -305,7 +305,7 @@ describe('Seed Functions', () => {
       expect(spy.costsPerUnit).toMatchObject({ metal: 6000, mineral: 4000, workers: 3000, space: 2 });
       expect(spy.upkeepPerUnit.energy).toBe(100);
       expect(spy.prerequisites).toContain('outpost');
-      expect(spy.unique).toBe(true);
+      expect(spy.unique).toBe(false);
     });
 
     it('defines the Scout as a 2-turn ship that needs a Shipyard', () => {
@@ -316,6 +316,16 @@ describe('Seed Functions', () => {
       expect(scout.durationTurns).toBe(2);
       expect(scout.costsPerUnit).toMatchObject({ metal: 300, mineral: 200, workers: 250 });
       expect(scout.prerequisites).toContain('shipyard');
+    });
+
+    it('defines the Colonization Ship as a 24-turn ship that needs a Shipyard', () => {
+      const ship = defs.colonization_ship;
+
+      expect(ship.name).toBe('Colonization Ship');
+      expect(ship.lane).toBe('ship');
+      expect(ship.durationTurns).toBe(24);
+      expect(ship.costsPerUnit).toMatchObject({ metal: 120000, mineral: 80000, workers: 100000 });
+      expect(ship.prerequisites).toContain('shipyard');
     });
 
     it('houses 5,000 scientists per Research Lab', () => {

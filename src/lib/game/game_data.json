@@ -397,6 +397,37 @@
       "score_value": 0.5
     },
     {
+      "id": "colonization_ship",
+      "name": "Colonization Ship",
+      "category": "ship",
+      "subcategory": "colony",
+      "tier": 1,
+      "build_time_turns": 24,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "metal",
+          "amount": 120000
+        },
+        {
+          "type": "resource",
+          "id": "mineral",
+          "amount": 80000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 100000
+      },
+      "consumption": [],
+      "requirements": [
+        {
+          "type": "structure",
+          "id": "shipyard"
+        }
+      ],
+      "score_value": 400
+    },
+    {
       "id": "cruiser",
       "name": "Cruiser",
       "category": "ship",
@@ -1114,7 +1145,7 @@
         ],
         "effects": []
       },
-      "max_per_planet": 1,
+      "max_per_planet": null,
       "description": "Espionage centre; the homeworld starts with one"
     },
     {

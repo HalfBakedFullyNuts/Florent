@@ -349,14 +349,14 @@ describe('Data Adapter', () => {
   });
 
   describe('Data Completeness', () => {
-    it('should convert expected number of units (16 total)', () => {
+    it('should convert expected number of units (17 total)', () => {
       const defs = loadGameData(gameDataJson as any);
 
       const units = Object.values(defs).filter((def: any) =>
         def.lane === 'colonist' || def.lane === 'ship'
       );
 
-      expect(units.length).toBe(16);
+      expect(units.length).toBe(17);
     });
 
     it('should convert all colonist types (3 total)', () => {
@@ -372,14 +372,14 @@ describe('Data Adapter', () => {
       expect(defs.scientist).toBeDefined();
     });
 
-    it('should convert all ship types (13 total, incl. Scout)', () => {
+    it('should convert all ship types (14 total, incl. Scout and Colonization Ship)', () => {
       const defs = loadGameData(gameDataJson as any);
 
       const ships = Object.values(defs).filter((def: any) =>
         def.lane === 'ship'
       );
 
-      expect(ships.length).toBe(13);
+      expect(ships.length).toBe(14);
     });
 
     it('should convert all structures', () => {
