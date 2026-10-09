@@ -82,7 +82,8 @@ export type WarningType =
   | 'NO_FOOD'
   | 'HOUSING_FULL'
   | 'SPACE_FULL'
-  | 'QUEUE_CASCADE_REMOVAL';
+  | 'QUEUE_CASCADE_REMOVAL'
+  | 'ACTION_ERROR';
 
 export interface Warning {
   type: WarningType;

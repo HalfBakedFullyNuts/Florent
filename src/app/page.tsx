@@ -909,16 +909,17 @@ export default function Home() {
     [currentState],
   );
 
-  // Merge engine warnings with cascade-removal warnings into a single list for the panel.
-  // Cascade warnings are reset on next cancellation, so they auto-clear on next user action.
+  // Merge the last action error, engine warnings and cascade-removal notices into the inline alert slot.
+  // Errors and cascade notices are reset by the next user action, so they auto-clear.
   const allWarnings = useMemo(() => {
     const cascadeItems = cascadeWarnings.map((w) => ({
       type: "QUEUE_CASCADE_REMOVAL" as const,
       message: `Auto-removed: ${w.reason}`,
       severity: "warning" as const,
     }));
-    return [...warnings, ...cascadeItems];
-  }, [warnings, cascadeWarnings]);
+    const errorItems = error ? [{ type: "ACTION_ERROR" as const, message: error, severity: "error" as const }] : [];
+    return [...errorItems, ...warnings, ...cascadeItems];
+  }, [error, warnings, cascadeWarnings]);
 
   // Calculate first empty turn for each lane (for timeline quick jump buttons).
   // gameState is intentionally a dep so queue mutations re-evaluate (controller mutates
@@ -2531,12 +2532,6 @@ export default function Home() {
                   <span className="text-ink-3 sm:ml-auto">Opened from a shared link; save it as yours from Saves → Shared.</span>
                 </div>
               )}
-
-              {error && (
-                <div role="alert" className="callout border-l-danger text-danger">
-                  {error}
-                </div>
-              )}
             </div>
 
             {/* Turn deck — sticky from tablet up so the viewed turn stays in reach while scrolling */}
@@ -2584,13 +2579,16 @@ export default function Home() {
             {/* Workbench — one lane switcher drives both the catalog and the queue */}
             <main className="pb-10 pt-6">
               {!isPlanetViewAvailable ? (
-                <section className="panel p-6">
-                  <h2 className="panel-title mb-2">Queue unavailable</h2>
-                  <p className="text-sm text-ink-2">
-                    Move to a turn where this planet exists before adding planet-local queue items. Planet tabs, turn
-                    navigation, global research, and Add planet remain available.
-                  </p>
-                </section>
+                <>
+                  <WarningsPanel warnings={allWarnings} className="mb-3 w-full" />
+                  <section className="panel p-6">
+                    <h2 className="panel-title mb-2">Queue unavailable</h2>
+                    <p className="text-sm text-ink-2">
+                      Move to a turn where this planet exists before adding planet-local queue items. Planet tabs, turn
+                      navigation, global research, and Add planet remain available.
+                    </p>
+                  </section>
+                </>
               ) : (
                 <>
                   <div className="mb-3 flex flex-wrap items-center gap-2 md:flex-nowrap">
@@ -2650,7 +2648,7 @@ export default function Home() {
 
         <footer className="mt-auto border-t border-filament/70">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
-            <span>v0.2.82</span>
+            <span>v0.2.83</span>
             <button
               type="button"
               className="btn btn-ghost btn-sm"

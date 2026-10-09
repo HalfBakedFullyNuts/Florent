@@ -22,9 +22,9 @@ function styleFor(warning: Warning) {
 }
 
 /**
- * WarningsPanel - engine warnings (energy, food, housing, space) and cascade-removal notices,
- * sized to sit in the lane-switcher row: the most severe warning shows inline, the rest open
- * from a "+N" button, so warnings appearing or clearing never move the rest of the page.
+ * WarningsPanel - permanent alert slot in the lane-switcher row for action errors, engine warnings
+ * and cascade-removal notices. It stays mounted (empty when all is well) so alerts appearing or
+ * clearing never move the page; the most severe shows inline, the rest open from a "+N" button.
  */
 function WarningsPanelInner({ warnings, className = '' }: WarningsPanelProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -32,7 +32,14 @@ function WarningsPanelInner({ warnings, className = '' }: WarningsPanelProps) {
   useDismiss(isOpen, containerRef, () => setIsOpen(false));
 
   if (warnings.length === 0) {
-    return null;
+    return (
+      <div className={`flex min-w-0 items-center ${className}`} role="status" aria-live="polite" data-empty="true">
+        <div className="callout min-w-0 flex-1 items-center border-l-filament py-1.5" aria-hidden="true">
+          <span className="h-4 w-4 shrink-0" />
+          <span className="font-semibold">&nbsp;</span>
+        </div>
+      </div>
+    );
   }
 
   const sorted = [...warnings].sort((a, b) => (SEVERITY_RANK[a.severity] ?? 3) - (SEVERITY_RANK[b.severity] ?? 3));
@@ -40,7 +47,7 @@ function WarningsPanelInner({ warnings, className = '' }: WarningsPanelProps) {
   const firstStyle = styleFor(first);
 
   return (
-    <div ref={containerRef} className={`relative flex min-w-0 items-center gap-2 ${className}`} role="status" aria-live="polite">
+    <div ref={containerRef} className={`relative flex min-w-0 items-center gap-2 ${className}`} role="status" aria-live="polite" data-empty="false">
       <div className={`callout min-w-0 flex-1 items-center py-1.5 ${firstStyle.border}`} title={first.message}>
         <span className="shrink-0">{firstStyle.icon}</span>
         <span className="sr-only">{firstStyle.label}:</span>
