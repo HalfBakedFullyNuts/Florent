@@ -2,6 +2,9 @@
 
 One- to two-sentence entries, newest first, per CLAUDE.md.
 
+## 2026-10-09 — Ship and structure scores come from the in-game asset formula
+`computePlanetScore` scores ships and structures with `computeItemAssetScore` (weighted cost × 1.5 / 1000, rounded, × turns / 4) and population with `POPULATION_SCORE_VALUES`; the hardcoded `score_value` fields were removed from `game_data.json` and the adapter.
+
 ## 2026-10-06 — "Emission" design system replaces glass/nebula styling
 UI colour, type and component styling now come from one token set (CSS variables in `app/globals.css` exposed to Tailwind via `@theme`; `pink-nebula-*` kept as aliases) plus shared primitives (`.panel`, `.btn-*`, `.field`, `.seg`, `.chip`, `.data-table`, `.callout`, `ui/Modal`); fonts are self-hosted via `next/font` (Source Sans 3, Turret Road) instead of a runtime Google Fonts link. Raw Tailwind palette classes in components are replaced by tokens — see docs/UI_ASSESSMENT.md §6.
 
