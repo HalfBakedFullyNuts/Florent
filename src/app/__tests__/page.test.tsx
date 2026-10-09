@@ -92,7 +92,15 @@ describe('Home page', () => {
       fireEvent.click(screen.getByRole('button', { name: /awoo!/i }));
     });
 
-    expect(screen.getByText(/Planning range extended to T300/i)).toBeInTheDocument();
+    expect(screen.getByText(/Planning range extended to T400/i)).toBeInTheDocument();
+  });
+
+  it('starts at 200 turns even when a browser kept the old T300 unlock', () => {
+    localStorage.setItem('ic_extended_view', 'true');
+    render(<Home />);
+
+    expect(screen.getByText('of 200')).toBeInTheDocument();
+    localStorage.removeItem('ic_extended_view');
   });
 
   it('does NOT show the wait code modal for wrong sequence (50 then 67)', async () => {

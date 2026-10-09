@@ -131,7 +131,10 @@ type LoadedGameSnapshot = NonNullable<ReturnType<typeof loadStateFromURL>>;
 type RestoreOptions = { shared?: boolean };
 const SHARE_AUTHOR_STORAGE_KEY = "florent_share_author";
 const INFINITE_CONFLICT_URL = "https://www.infiniteconflict.com/";
-const EXTENDED_VIEW_TURNS = 300;
+const DEFAULT_VIEW_TURNS = 200;
+const EXTENDED_VIEW_TURNS = 400;
+// Versioned so unlocks saved for the old T300 range reset to the 200-turn default.
+const EXTENDED_VIEW_STORAGE_KEY = 'ic_extended_view_t400';
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
@@ -411,7 +414,7 @@ export default function Home() {
   const [showWaitCodeModal, setShowWaitCodeModal] = useState(false);
   const [extendedViewUnlocked, setExtendedViewUnlocked] = useState(() => {
     if (typeof window === 'undefined') return false;
-    return localStorage.getItem('ic_extended_view') === 'true';
+    return localStorage.getItem(EXTENDED_VIEW_STORAGE_KEY) === 'true';
   });
   const [waitCodeCounts, setWaitCodeCounts] = useState(() => {
     if (typeof window === 'undefined') return { awoo: 0, aroo: 0 };
@@ -481,7 +484,7 @@ export default function Home() {
       setExtendedViewUnlocked(false);
       setWaitCodeCounts({ awoo: 0, aroo: 0 });
       localStorage.removeItem('ic_wait_code_stage');
-      localStorage.removeItem('ic_extended_view');
+      localStorage.removeItem(EXTENDED_VIEW_STORAGE_KEY);
       localStorage.removeItem('ic_wait_code_counts');
       setQueueValidation(new Map());
       setPendingCancellation(null);
@@ -651,19 +654,19 @@ export default function Home() {
   }, [waitCodeStage]);
 
   useEffect(() => {
-    localStorage.setItem('ic_extended_view', String(extendedViewUnlocked));
+    localStorage.setItem(EXTENDED_VIEW_STORAGE_KEY, String(extendedViewUnlocked));
   }, [extendedViewUnlocked]);
 
   useEffect(() => {
     localStorage.setItem('ic_wait_code_counts', JSON.stringify(waitCodeCounts));
   }, [waitCodeCounts]);
 
-  const totalTurns = controller?.getTotalTurns() || 200;
+  const totalTurns = controller?.getTotalTurns() || DEFAULT_VIEW_TURNS;
   const planetTimelineEndTurn = currentPlanet
     ? currentPlanet.startTurn + totalTurns - 1
     : totalTurns;
   const timelineMaxTurn = Math.max(
-    extendedViewUnlocked ? EXTENDED_VIEW_TURNS : 200,
+    extendedViewUnlocked ? EXTENDED_VIEW_TURNS : DEFAULT_VIEW_TURNS,
     planetTimelineEndTurn,
     viewTurn,
   );
@@ -2663,7 +2666,7 @@ export default function Home() {
 
         <footer className="mt-auto border-t border-filament/70">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
-            <span>v0.2.88</span>
+            <span>v0.2.89</span>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
