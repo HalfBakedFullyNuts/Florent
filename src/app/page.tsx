@@ -2663,7 +2663,7 @@ export default function Home() {
 
         <footer className="mt-auto border-t border-filament/70">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
-            <span>v0.2.87</span>
+            <span>v0.2.88</span>
             <button
               type="button"
               className="btn btn-ghost btn-sm"

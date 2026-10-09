@@ -101,3 +101,33 @@ describe('TabbedItemGrid batch controls', () => {
     expect(onQueueItem).toHaveBeenCalledWith('fighter', 100);
   });
 });
+
+describe('TabbedItemGrid column alignment', () => {
+  // A queueable row (wide batch controls) next to a locked row (narrow chip) used to give each
+  // row its own auto-sized Quantity column, shifting every cost column. Rows must share one grid.
+  const items = {
+    scientist: { id: 'scientist', name: 'Scientist', lane: 'colonist', durationTurns: 8, costsPerUnit: { metal: 5, mineral: 20 }, upkeepPerUnit: {}, prerequisites: [] },
+    soldier: { id: 'soldier', name: 'Soldier', lane: 'colonist', durationTurns: 4, costsPerUnit: { metal: 12, mineral: 8 }, upkeepPerUnit: {}, prerequisites: [] },
+  };
+
+  test('header and rows are subgrids of one shared column template', () => {
+    render(
+      <TabbedItemGrid
+        availableItems={items}
+        onQueueItem={vi.fn()}
+        canQueueItem={(itemId) => ({ allowed: itemId === 'scientist', canQueueEventually: itemId === 'scientist', reason: 'REQ_MISSING' })}
+        activeTab="colonist"
+      />
+    );
+
+    const list = screen.getByRole('list', { name: 'Colonists catalog' });
+    expect(list.style.gridTemplateColumns).not.toBe('');
+    const tracks = [...list.children] as HTMLElement[];
+    expect(tracks).toHaveLength(3); // header + 2 rows
+    for (const track of tracks) {
+      expect(track.style.gridTemplateColumns).toBe('');
+      expect(track.className).toContain('md:grid-cols-subgrid');
+      expect(track.className).toContain('md:col-span-full');
+    }
+  });
+});

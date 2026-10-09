@@ -241,13 +241,13 @@ function TabbedItemGridInner({
         {items.length === 0 ? (
           <p className="py-8 text-center text-sm text-ink-3">No items available</p>
         ) : (
-          <div role="list" aria-label={`${config.title} catalog`}>
-            <ColumnHeader template={template} columns={columns} isBatchable={isBatchable && controlsInline} />
+          // One shared grid: header and rows are subgrids, so every row gets the same column widths.
+          <div role="list" aria-label={`${config.title} catalog`} className="md:grid md:gap-x-2" style={{ gridTemplateColumns: template }}>
+            <ColumnHeader columns={columns} isBatchable={isBatchable && controlsInline} />
             {items.map((item) => (
               <ItemRow
                 key={item.id}
                 item={item}
-                template={template}
                 columns={columns}
                 isBatchable={isBatchable}
                 queueCheck={queueChecks.get(item.id) ?? canQueueItem(item.id, 1)}
@@ -296,12 +296,11 @@ interface ColumnsInfo {
   showUpkeep: boolean;
 }
 
-function ColumnHeader({ template, columns, isBatchable }: { template: string; columns: ColumnsInfo; isBatchable: boolean }) {
+function ColumnHeader({ columns, isBatchable }: { columns: ColumnsInfo; isBatchable: boolean }) {
   return (
     <div
       aria-hidden="true"
-      className="sticky top-0 z-10 hidden h-8 items-center gap-x-2 border-b border-filament bg-dust px-4 md:grid"
-      style={{ gridTemplateColumns: template }}
+      className="sticky top-0 z-10 hidden h-8 items-center border-b border-filament bg-dust px-4 md:col-span-full md:grid md:grid-cols-subgrid"
     >
       <span className="eyebrow">Item</span>
       {columns.costs.map((col) => (
@@ -316,7 +315,6 @@ function ColumnHeader({ template, columns, isBatchable }: { template: string; co
 
 interface ItemRowProps {
   item: any;
-  template: string;
   columns: ColumnsInfo;
   isBatchable: boolean;
   queueCheck: SmartQueueCheckShape;
@@ -329,8 +327,8 @@ interface ItemRowProps {
   onQueueItem: TabbedItemGridProps['onQueueItem'];
 }
 
-/** One catalog row: a CSS grid on desktop (aligned to the header), two lines on phones. */
-function ItemRow({ item, template, columns, isBatchable, queueCheck, queueable, onActivate, batch, showSteppers, controlsInline, canQueueItem, onQueueItem }: ItemRowProps) {
+/** One catalog row: a subgrid of the catalog on desktop (aligned to the header), two lines on phones. */
+function ItemRow({ item, columns, isBatchable, queueCheck, queueable, onActivate, batch, showSteppers, controlsInline, canQueueItem, onQueueItem }: ItemRowProps) {
   const waitTurns = queueCheck.waitTurnsNeeded ?? 0;
   // hasWait covers: known wait (waitTurns > 0) OR resource soft-block (no production yet)
   const hasResourceBlocker = queueable && (queueCheck.blockers?.some((b: any) => b.type === 'RESOURCES') ?? false);
@@ -350,10 +348,9 @@ function ItemRow({ item, template, columns, isBatchable, queueCheck, queueable, 
       }}
       onClick={() => clickable && onActivate(item.id)}
       title={lockedReason}
-      className={`group border-b border-filament/60 px-4 py-2 transition-colors md:grid md:min-h-11 md:items-center md:gap-x-2 md:py-1 ${
+      className={`group border-b border-filament/60 px-4 py-2 transition-colors md:col-span-full md:grid md:min-h-11 md:grid-cols-subgrid md:items-center md:py-1 ${
         queueable ? 'hover:bg-veil' : 'opacity-50'
       } ${clickable ? 'cursor-pointer' : ''}`}
-      style={{ gridTemplateColumns: template }}
     >
       {/* Clickable rows expose an inner button so keyboard users can queue structures and research. */}
       <div className="flex min-w-0 items-center gap-2">
