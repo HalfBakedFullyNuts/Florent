@@ -86,7 +86,7 @@ describe('Multi-Planet Integration', () => {
     expect(exportData).toContain('Homeworld');
     expect(exportData).toContain('Mars');
     expect(exportData).toContain('Luna');
-    expect(exportData).toContain('Planet Count: 3/8');
+    expect(exportData).toContain('Planet Count: 3/6');
   });
 
   test('timeline works per-planet', () => {

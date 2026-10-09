@@ -21,7 +21,7 @@ describe('Multi-Planet State Management', () => {
     expect(gameState.globalResearch.lane.pendingQueue).toEqual([]);
     expect(gameState.globalResearch.completed).toEqual([]);
     expect(gameState.nextPlanetId).toBe(2);
-    expect(gameState.maxPlanets).toBe(8);
+    expect(gameState.maxPlanets).toBe(6);
 
     const firstPlanet = gameState.planets.get('planet-1');
     expect(firstPlanet).toBeDefined();
@@ -131,7 +131,7 @@ describe('Multi-Planet State Management', () => {
 
   test('does not consume an outpost ship when expansion fails planet-limit validation', () => {
     let gameState = createInitialGameState();
-    for (let i = 2; i <= 8; i++) {
+    for (let i = 2; i <= 6; i++) {
       gameState = addPlanet(gameState, {
         name: `Planet ${i}`,
         startTurn: 1,
@@ -146,7 +146,7 @@ describe('Multi-Planet State Management', () => {
     });
 
     expect(() => addPlanet(gameState, {
-      name: 'Blocked Ninth Colony',
+      name: 'Blocked Seventh Colony',
       startTurn: 1,
       abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
       space: { groundCap: 30, orbitalCap: 20 },
@@ -448,11 +448,11 @@ describe('Multi-Planet State Management', () => {
     expect(earth.lanes.research.pendingQueue).toEqual([]);
   });
 
-  test('respects 8-planet limit', () => {
+  test('respects 6-planet limit', () => {
     let gameState = createInitialGameState();
 
-    // Add 7 more planets (total 8)
-    for (let i = 0; i < 7; i++) {
+    // Add 5 more planets (total 6)
+    for (let i = 0; i < 5; i++) {
       gameState = addPlanet(gameState, {
         name: `Colony ${i + 1}`,
         startTurn: 1,
@@ -461,9 +461,9 @@ describe('Multi-Planet State Management', () => {
       });
     }
 
-    expect(gameState.planets.size).toBe(8);
+    expect(gameState.planets.size).toBe(6);
 
-    // Try to add 9th planet - should fail
+    // Try to add 7th planet - should fail
     expect(() => {
       addPlanet(gameState, {
         name: 'Colony 5',
