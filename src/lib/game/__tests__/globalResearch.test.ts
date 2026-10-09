@@ -219,7 +219,7 @@ describe('global research', () => {
 
   test('PL research raises the planet limit on its completion turn', () => {
     let gameState = createInitialGameState();
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 7; i++) {
       gameState = addPlanet(gameState, {
         name: `Colony ${i + 1}`,
         startTurn: 1,
@@ -228,11 +228,12 @@ describe('global research', () => {
       });
     }
 
-    gameState.globalResearch.completed = ['planet_management'];
-    gameState.globalResearch.stock = 1000;
-    gameState = queueGlobalResearch(gameState, 'pl_6');
+    // The base limit is 8, so pl_10 is the first research that raises it.
+    gameState.globalResearch.completed = ['planet_management', 'pl_6', 'pl_8'];
+    gameState.globalResearch.stock = 2000;
+    gameState = queueGlobalResearch(gameState, 'pl_10');
 
-    expect(getPlanetLimitAtTurn(gameState, 13)).toBe(4);
+    expect(getPlanetLimitAtTurn(gameState, 13)).toBe(8);
     expect(() => addPlanet(gameState, {
       name: 'Too Early',
       startTurn: 13,
@@ -240,14 +241,14 @@ describe('global research', () => {
       space: { groundCap: 60, orbitalCap: 40 },
     })).toThrow('Maximum planet limit reached');
 
-    expect(getPlanetLimitAtTurn(gameState, 14)).toBe(6);
+    expect(getPlanetLimitAtTurn(gameState, 14)).toBe(10);
     const expanded = addPlanet(gameState, {
       name: 'Allowed',
       startTurn: 14,
       abundance: { metal: 1, mineral: 1, food: 1, energy: 1, research_points: 1 },
       space: { groundCap: 60, orbitalCap: 40 },
     });
-    expect(expanded.planets.size).toBe(5);
+    expect(expanded.planets.size).toBe(9);
   });
 
   test('planet start lookup returns null when no PL unlock is scheduled', () => {
@@ -255,33 +256,34 @@ describe('global research', () => {
     gameState.globalResearch.stock = 1000;
     gameState = queueGlobalResearch(gameState, 'fleet_technology');
 
-    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBeNull();
+    expect(getEarliestPlanetStartTurn(gameState, 8, 1)).toBe(1);
+    expect(getEarliestPlanetStartTurn(gameState, 9, 1)).toBeNull();
   });
 
   test('earliest planet start uses scheduled PL completion milestones', () => {
     let gameState = createInitialGameState();
-    gameState.globalResearch.completed = ['planet_management'];
-    gameState.globalResearch.stock = 1000;
-    gameState = queueGlobalResearch(gameState, 'pl_6');
+    gameState.globalResearch.completed = ['planet_management', 'pl_6', 'pl_8'];
+    gameState.globalResearch.stock = 2000;
+    gameState = queueGlobalResearch(gameState, 'pl_10');
 
-    expect(getPlanetLimitAtTurn(gameState, 13)).toBe(4);
-    expect(getPlanetLimitAtTurn(gameState, 14)).toBe(6);
-    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBe(14);
-    expect(getEarliestPlanetStartTurn(gameState, 6, 25)).toBe(25);
+    expect(getPlanetLimitAtTurn(gameState, 13)).toBe(8);
+    expect(getPlanetLimitAtTurn(gameState, 14)).toBe(10);
+    expect(getEarliestPlanetStartTurn(gameState, 9, 1)).toBe(14);
+    expect(getEarliestPlanetStartTurn(gameState, 10, 25)).toBe(25);
   });
 
   test('blocked PL research does not scan to the planning ceiling', () => {
     const gameState = createInitialGameState();
     gameState.globalResearch.lane.pendingQueue.push({
       id: 'blocked-pl',
-      itemId: 'pl_6',
+      itemId: 'pl_10',
       status: 'pending',
       quantity: 1,
       turnsRemaining: 24,
       queuedTurn: 1,
     });
 
-    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBeNull();
+    expect(getEarliestPlanetStartTurn(gameState, 9, 1)).toBeNull();
   });
 
   test('research reorder rejects moving dependencies before prerequisites', () => {
@@ -306,7 +308,7 @@ describe('global research', () => {
     gameState = queueGlobalResearch(gameState, 'pl_6');
     gameState.globalResearch.lane.pendingQueue.reverse();
 
-    expect(getEarliestPlanetStartTurn(gameState, 5, 1)).toBeNull();
+    expect(getEarliestPlanetStartTurn(gameState, 9, 1)).toBeNull();
     const laneView = getGlobalResearchLaneView(gameState, 1);
     expect(laneView.entries.find((entry) => entry.itemId === 'pl_6')?.startTurn).toBeUndefined();
   });

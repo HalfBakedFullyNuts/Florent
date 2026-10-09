@@ -7,6 +7,7 @@ import { ManualLink } from '@/components/ui/ManualLink';
 import { MANUAL_LINKS } from '../lib/constants/manualLinks';
 import { ItemIcon } from '@/components/ui/ItemIcon';
 import { RESOURCE_META, formatSigned, formatThousands, formatWithK } from '@/components/ui/resources';
+import { STARTING_PLANET_LIMIT } from '../lib/sim/rules/constants';
 
 export interface PlanetDashboardProps {
   summary: PlanetSummaryType;
@@ -124,7 +125,7 @@ export const PlanetDashboard = React.memo(function PlanetDashboard({ summary, de
         )}
         <div className="mt-auto flex items-center justify-between border-t border-filament pt-2 text-sm font-semibold">
           <span className="text-ink-2">Planet limit</span>
-          <span className="font-semibold text-ink">{summary.planetLimit || 4}</span>
+          <span className="font-semibold text-ink">{summary.planetLimit || STARTING_PLANET_LIMIT}</span>
         </div>
       </DashPanel>
 

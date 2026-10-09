@@ -3,10 +3,11 @@ import type { ItemDefinition, LaneState, WorkItem } from '../sim/engine/types';
 import type { LaneView } from './selectors';
 import { generateWorkItemId } from '../sim/engine/helpers';
 import { getDefs } from '../sim/engine/defsRegistry';
+import { STARTING_PLANET_LIMIT } from '../sim/rules/constants';
 
 const TOTAL_TURNS = 200;
 const RESEARCH_PLAN_MAX_TURN = 1_000_000;
-const BASE_PLANET_LIMIT = 4;
+const BASE_PLANET_LIMIT = STARTING_PLANET_LIMIT;
 export interface GlobalResearchSnapshot {
   turn: number;
   stock: number;

@@ -6,7 +6,7 @@ import { PlanetState, LaneState, ItemDefinition, LaneId, WorkItem } from '../sim
 import { setDefsCatalog, getDefs } from '../sim/engine/defsRegistry';
 import { createStandardStart, createInitialState } from '../sim/defs/seed';
 import { loadGameData } from '../sim/defs/adapter';
-import { STARTING_RESEARCH_POINTS } from '../sim/rules/constants';
+import { STARTING_PLANET_LIMIT, STARTING_RESEARCH_POINTS } from '../sim/rules/constants';
 import gameDataJson from './game_data.json';
 import { Timeline } from './state';
 import { getPlanetLimitAtTurn, getResearchCompletionTurns } from './globalResearch';
@@ -76,7 +76,7 @@ export interface ExtendedPlanetState extends PlanetState {
 const itemDefinitions: Record<string, ItemDefinition> = loadGameData(gameDataJson as any);
 setDefsCatalog(itemDefinitions);
 const PLANET_LANES: LaneId[] = ['building', 'ship', 'colonist', 'research'];
-const BASE_PLANET_LIMIT = 4;
+const BASE_PLANET_LIMIT = STARTING_PLANET_LIMIT;
 const OUTPOST_SHIP_ID = 'outpost_ship';
 // The starter outpost ship on HW is intended for the first colonisation mission
 // (see createStandardStart in seed.ts). Reserving it blocked that use case and
@@ -593,7 +593,7 @@ export function createInitialGameState(): GameState {
     currentPlanetId: 'planet-1',
     globalResearch: createInitialGlobalResearchState(),
     nextPlanetId: 2,
-    maxPlanets: 4,
+    maxPlanets: STARTING_PLANET_LIMIT,
   };
 }
 

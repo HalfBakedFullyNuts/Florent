@@ -4,7 +4,7 @@
  */
 
 import type { PlanetState, ItemDefinition } from '../engine/types';
-import { STARTING_STATE, HOMEWORLD_STARTING_SCIENTISTS } from '../rules/constants';
+import { STARTING_STATE, HOMEWORLD_STARTING_SCIENTISTS, STARTING_PLANET_LIMIT } from '../rules/constants';
 
 export interface SeedConfig {
   stocks?: {
@@ -132,7 +132,7 @@ export function createInitialState(
       soldierCap: housingSoldierCap,
       scientistCap: housingScientistCap,
     },
-    planetLimit: 4, // Default starting planet limit
+    planetLimit: STARTING_PLANET_LIMIT,
     completedResearch: [], // No research completed initially
     lanes: {
       building: {
