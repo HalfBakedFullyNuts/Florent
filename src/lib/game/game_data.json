@@ -8,23 +8,19 @@
   "resources": [
     {
       "id": "metal",
-      "name": "Metal",
-      "score_value": 1
+      "name": "Metal"
     },
     {
       "id": "mineral",
-      "name": "Mineral",
-      "score_value": 1.5
+      "name": "Mineral"
     },
     {
       "id": "food",
-      "name": "Food",
-      "score_value": 2
+      "name": "Food"
     },
     {
       "id": "energy",
-      "name": "Energy",
-      "score_value": 2
+      "name": "Energy"
     },
     {
       "id": "ground_space",
@@ -60,8 +56,7 @@
           "amount": 1
         }
       ],
-      "requirements": [],
-      "score_value": 12
+      "requirements": []
     },
     {
       "id": "soldier",
@@ -112,8 +107,7 @@
           "type": "structure",
           "id": "army_barracks"
         }
-      ],
-      "score_value": 128
+      ]
     },
     {
       "id": "scientist",
@@ -159,8 +153,7 @@
           "type": "structure",
           "id": "research_lab"
         }
-      ],
-      "score_value": 340
+      ]
     },
     {
       "id": "fighter",
@@ -194,8 +187,7 @@
           "type": "structure",
           "id": "light_weapons_factory"
         }
-      ],
-      "score_value": 5
+      ]
     },
     {
       "id": "bomber",
@@ -229,8 +221,7 @@
           "type": "structure",
           "id": "light_weapons_factory"
         }
-      ],
-      "score_value": 10
+      ]
     },
     {
       "id": "frigate",
@@ -264,8 +255,7 @@
           "type": "structure",
           "id": "light_weapons_factory"
         }
-      ],
-      "score_value": 25
+      ]
     },
     {
       "id": "outpost_ship",
@@ -295,8 +285,7 @@
           "type": "structure",
           "id": "shipyard"
         }
-      ],
-      "score_value": 100
+      ]
     },
     {
       "id": "invasion_ship",
@@ -330,8 +319,7 @@
           "type": "structure",
           "id": "light_weapons_factory"
         }
-      ],
-      "score_value": 80
+      ]
     },
     {
       "id": "freighter",
@@ -362,8 +350,7 @@
           "id": "shipyard"
         }
       ],
-      "special": "Stores up to 120000 metal and 80000 mineral; capacity of 40000 shared for energy, food and colonists",
-      "score_value": 50
+      "special": "Stores up to 120000 metal and 80000 mineral; capacity of 40000 shared for energy, food and colonists"
     },
     {
       "id": "scout",
@@ -393,8 +380,7 @@
           "type": "structure",
           "id": "shipyard"
         }
-      ],
-      "score_value": 0.5
+      ]
     },
     {
       "id": "colonization_ship",
@@ -422,10 +408,9 @@
       "requirements": [
         {
           "type": "structure",
-          "id": "shipyard"
+          "id": "space_dock"
         }
-      ],
-      "score_value": 600
+      ]
     },
     {
       "id": "cruiser",
@@ -459,8 +444,7 @@
           "type": "structure",
           "id": "light_weapons_factory"
         }
-      ],
-      "score_value": 200
+      ]
     },
     {
       "id": "destroyer",
@@ -494,8 +478,7 @@
           "type": "structure",
           "id": "heavy_weapons_factory"
         }
-      ],
-      "score_value": 100
+      ]
     },
     {
       "id": "battleship",
@@ -529,8 +512,7 @@
           "type": "structure",
           "id": "heavy_weapons_factory"
         }
-      ],
-      "score_value": 800
+      ]
     },
     {
       "id": "command_carrier",
@@ -564,8 +546,7 @@
           "type": "structure",
           "id": "heavy_weapons_factory"
         }
-      ],
-      "score_value": 2000
+      ]
     },
     {
       "id": "merchant",
@@ -596,8 +577,7 @@
           "id": "shipyard"
         }
       ],
-      "special": "Stores up to 240000 metal and 160000 mineral; capacity of 80000 shared for energy, food and colonists",
-      "score_value": 100
+      "special": "Stores up to 240000 metal and 160000 mineral; capacity of 80000 shared for energy, food and colonists"
     },
     {
       "id": "trader",
@@ -628,8 +608,7 @@
           "id": "space_dock"
         }
       ],
-      "special": "Stores up to 480000 metal and 320000 mineral; capacity of 160000 shared for energy, food and colonists",
-      "score_value": 150
+      "special": "Stores up to 480000 metal and 320000 mineral; capacity of 160000 shared for energy, food and colonists"
     }
   ],
   "structures": [
@@ -2499,8 +2478,7 @@
             "pl_6"
           ]
         }
-      ],
-      "score_value": 1
+      ]
     },
     {
       "id": "resource_collection",
@@ -2533,8 +2511,7 @@
             "land_enhancement"
           ]
         }
-      ],
-      "score_value": 1
+      ]
     },
     {
       "id": "fleet_technology",
@@ -2565,8 +2542,7 @@
             "warp_theory"
           ]
         }
-      ],
-      "score_value": 1
+      ]
     },
     {
       "id": "pl_6",
@@ -2594,8 +2570,7 @@
           "effect": "set_planet_limit",
           "value": 6
         }
-      ],
-      "score_value": 5
+      ]
     },
     {
       "id": "pl_8",
@@ -2623,8 +2598,7 @@
           "effect": "set_planet_limit",
           "value": 8
         }
-      ],
-      "score_value": 1
+      ]
     },
     {
       "id": "pl_10",
@@ -2652,8 +2626,7 @@
           "effect": "set_planet_limit",
           "value": 10
         }
-      ],
-      "score_value": 20
+      ]
     },
     {
       "id": "pl_12",
@@ -2681,8 +2654,7 @@
           "effect": "set_planet_limit",
           "value": 12
         }
-      ],
-      "score_value": 50
+      ]
     },
     {
       "id": "pl_14",
@@ -2710,8 +2682,7 @@
           "effect": "set_planet_limit",
           "value": 14
         }
-      ],
-      "score_value": 50
+      ]
     },
     {
       "id": "pl_16",
@@ -2739,8 +2710,7 @@
           "effect": "set_planet_limit",
           "value": 16
         }
-      ],
-      "score_value": 100
+      ]
     },
     {
       "id": "pl_18",
@@ -2768,8 +2738,7 @@
           "effect": "set_planet_limit",
           "value": 18
         }
-      ],
-      "score_value": 100
+      ]
     },
     {
       "id": "pl_20",
@@ -2797,8 +2766,7 @@
           "effect": "set_planet_limit",
           "value": 20
         }
-      ],
-      "score_value": 250
+      ]
     },
     {
       "id": "pl_22",
@@ -2826,8 +2794,7 @@
           "effect": "set_planet_limit",
           "value": 22
         }
-      ],
-      "score_value": 250
+      ]
     },
     {
       "id": "pl_24",
@@ -2855,8 +2822,7 @@
           "effect": "set_planet_limit",
           "value": 24
         }
-      ],
-      "score_value": 250
+      ]
     },
     {
       "id": "merchant_research",
@@ -2884,8 +2850,7 @@
           "effect": "unlock_structure",
           "item": "merchant"
         }
-      ],
-      "score_value": 100
+      ]
     },
     {
       "id": "trader_research",
@@ -2912,9 +2877,43 @@
           "type": "on_complete",
           "effect": "unlock_structure",
           "item": "trader"
+        },
+        {
+          "type": "on_complete",
+          "effect": "unlock_research",
+          "items": [
+            "fast_expansion"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fast_expansion",
+      "name": "Fast Expansion",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 14,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 96000
         }
       ],
-      "score_value": 500
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "trader_research"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "unlock_structure",
+          "item": "colonization_ship"
+        }
+      ]
     },
     {
       "id": "war_ship_design",
@@ -2946,8 +2945,7 @@
             "battleship_research"
           ]
         }
-      ],
-      "score_value": 20
+      ]
     },
     {
       "id": "warp_theory",
@@ -2978,8 +2976,7 @@
             "jump_gate_research"
           ]
         }
-      ],
-      "score_value": 50
+      ]
     },
     {
       "id": "destroyer_research",
@@ -3007,8 +3004,7 @@
           "effect": "unlock_structure",
           "item": "destroyer"
         }
-      ],
-      "score_value": 200
+      ]
     },
     {
       "id": "cruiser_research",
@@ -3036,8 +3032,7 @@
           "effect": "unlock_structure",
           "item": "cruiser"
         }
-      ],
-      "score_value": 1000
+      ]
     },
     {
       "id": "battleship_research",
@@ -3065,8 +3060,7 @@
           "effect": "unlock_structure",
           "item": "battleship"
         }
-      ],
-      "score_value": 5000
+      ]
     },
     {
       "id": "hyperspace_beacon_research",
@@ -3094,8 +3088,7 @@
           "effect": "unlock_structure",
           "item": "hyperspace_beacon"
         }
-      ],
-      "score_value": 500
+      ]
     },
     {
       "id": "jump_gate_research",
@@ -3123,8 +3116,7 @@
           "effect": "unlock_structure",
           "item": "jump_gate"
         }
-      ],
-      "score_value": 500
+      ]
     },
     {
       "id": "core_metal_mine_research",
@@ -3152,8 +3144,7 @@
           "effect": "unlock_structure",
           "item": "core_metal_mine"
         }
-      ],
-      "score_value": 50
+      ]
     },
     {
       "id": "core_mineral_extractor_research",
@@ -3181,8 +3172,7 @@
           "effect": "unlock_structure",
           "item": "core_mineral_extractor"
         }
-      ],
-      "score_value": 50
+      ]
     },
     {
       "id": "hydroponics_lab_research",
@@ -3210,8 +3200,7 @@
           "effect": "unlock_structure",
           "item": "hydroponics_lab"
         }
-      ],
-      "score_value": 50
+      ]
     },
     {
       "id": "solar_array_research",
@@ -3239,8 +3228,7 @@
           "effect": "unlock_structure",
           "item": "solar_array"
         }
-      ],
-      "score_value": 50
+      ]
     },
     {
       "id": "mass_production",
@@ -3273,8 +3261,7 @@
             "solar_station_research"
           ]
         }
-      ],
-      "score_value": 120
+      ]
     },
     {
       "id": "land_enhancement",
@@ -3307,8 +3294,7 @@
             "energy_booster_research"
           ]
         }
-      ],
-      "score_value": 250
+      ]
     },
     {
       "id": "metal_refinery_research",
@@ -3336,8 +3322,7 @@
           "effect": "unlock_structure",
           "item": "metal_refinery"
         }
-      ],
-      "score_value": 500
+      ]
     },
     {
       "id": "mineral_processor_research",
@@ -3365,8 +3350,7 @@
           "effect": "unlock_structure",
           "item": "mineral_processor"
         }
-      ],
-      "score_value": 500
+      ]
     },
     {
       "id": "food_purifier_research",
@@ -3394,8 +3378,7 @@
           "effect": "unlock_structure",
           "item": "food_purifier"
         }
-      ],
-      "score_value": 500
+      ]
     },
     {
       "id": "energy_booster_research",
@@ -3423,8 +3406,7 @@
           "effect": "unlock_structure",
           "item": "energy_booster"
         }
-      ],
-      "score_value": 500
+      ]
     },
     {
       "id": "strip_metal_mine_research",
@@ -3452,8 +3434,7 @@
           "effect": "unlock_structure",
           "item": "strip_metal_mine"
         }
-      ],
-      "score_value": 500
+      ]
     },
     {
       "id": "strip_mineral_extractor_research",
@@ -3481,8 +3462,7 @@
           "effect": "unlock_structure",
           "item": "strip_mineral_extractor"
         }
-      ],
-      "score_value": 500
+      ]
     },
     {
       "id": "hydroponics_dome_research",
@@ -3510,8 +3490,7 @@
           "effect": "unlock_structure",
           "item": "hydroponics_dome"
         }
-      ],
-      "score_value": 500
+      ]
     },
     {
       "id": "solar_station_research",
@@ -3539,8 +3518,7 @@
           "effect": "unlock_structure",
           "item": "solar_station"
         }
-      ],
-      "score_value": 500
+      ]
     }
   ]
 }

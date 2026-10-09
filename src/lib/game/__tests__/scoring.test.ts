@@ -25,14 +25,39 @@ const baseSummary: PlanetSummary = {
   completedResearch: [],
 };
 
-const defs: Record<string, { scoreValue?: number }> = {
-  worker:      { scoreValue: 12 },
-  soldier:     { scoreValue: 128 },
-  scientist:   { scoreValue: 340 },
-  fighter:     { scoreValue: 5 },
-  destroyer:   { scoreValue: 100 },
-  battleship:  { scoreValue: 800 },
-  metal_mine:  {},                    // no scoreValue — should contribute 0
+// Minimal ItemDefinition stub for scoring tests
+function makeDef(
+  costs: Partial<{ metal: number; mineral: number; food: number; energy: number }>,
+  durationTurns: number,
+): ItemDefinition {
+  return {
+    id: 'test',
+    name: 'Test',
+    lane: 'building',
+    durationTurns,
+    costsPerUnit: {
+      metal: costs.metal ?? 0,
+      mineral: costs.mineral ?? 0,
+      food: costs.food ?? 0,
+      energy: costs.energy ?? 0,
+      research_points: 0,
+      workers: 0,
+      space: 0,
+      space_orbital: 0,
+    },
+    upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0, workers: 0, space: 0, space_orbital: 0 },
+    effectsOnComplete: {},
+    prerequisites: [],
+    isAbundanceScaled: false,
+  } as unknown as ItemDefinition;
+}
+
+// Asset scores via the in-game formula: fighter 14, battleship 288, outpost 6
+const defs: Record<string, ItemDefinition> = {
+  fighter:    makeDef({ metal: 6000, mineral: 2000 }, 4),
+  battleship: makeDef({ metal: 24000, mineral: 16000 }, 16),
+  outpost:    makeDef({ metal: 4000 }, 4),
+  free_post:  makeDef({}, 4),
 };
 
 describe('computePlanetScore', () => {
@@ -40,33 +65,24 @@ describe('computePlanetScore', () => {
     expect(computePlanetScore(baseSummary, defs)).toBe(0);
   });
 
-  it('scores workers correctly', () => {
-    const summary = { ...baseSummary, population: { ...baseSummary.population, workersTotal: 1000 } };
-    expect(computePlanetScore(summary, defs)).toBe((1000 / SCORE_DIVISOR) * 12);
-  });
-
-  it('scores soldiers and scientists correctly', () => {
+  it('scores population from POPULATION_SCORE_VALUES', () => {
     const summary = {
       ...baseSummary,
-      population: { ...baseSummary.population, soldiers: 100, scientists: 10 },
+      population: { ...baseSummary.population, workersTotal: 1000, soldiers: 100, scientists: 10 },
     };
-    expect(computePlanetScore(summary, defs)).toBe((100 / SCORE_DIVISOR) * 128 + (10 / SCORE_DIVISOR) * 340);
+    expect(computePlanetScore(summary, defs)).toBe(
+      (1000 / SCORE_DIVISOR) * 12 + (100 / SCORE_DIVISOR) * 128 + (10 / SCORE_DIVISOR) * 340
+    );
   });
 
-  it('scores ships correctly', () => {
-    const summary = { ...baseSummary, ships: { fighter: 3, destroyer: 1 } };
-    expect(computePlanetScore(summary, defs)).toBe((3 / SCORE_DIVISOR) * 5 + (1 / SCORE_DIVISOR) * 100);
+  it('scores ships with the in-game asset formula', () => {
+    const summary = { ...baseSummary, ships: { fighter: 3, battleship: 1 } };
+    expect(computePlanetScore(summary, defs)).toBe((3 / SCORE_DIVISOR) * 14 + (1 / SCORE_DIVISOR) * 288);
   });
 
-  it('scores structures that have scoreValue', () => {
-    const defsWithScore = { ...defs, outpost: { scoreValue: 50 } };
-    const summary = { ...baseSummary, structures: { outpost: 2 } };
-    expect(computePlanetScore(summary, defsWithScore)).toBe((2 / SCORE_DIVISOR) * 50);
-  });
-
-  it('ignores structures without scoreValue (treats as 0)', () => {
-    const summary = { ...baseSummary, structures: { metal_mine: 5 } };
-    expect(computePlanetScore(summary, defs)).toBe(0);
+  it('scores structures with the in-game asset formula', () => {
+    const summary = { ...baseSummary, structures: { outpost: 2, free_post: 5 } };
+    expect(computePlanetScore(summary, defs)).toBe((2 / SCORE_DIVISOR) * 6);
   });
 
   it('handles missing def entries without throwing', () => {
@@ -81,20 +97,13 @@ describe('computePlanetScore', () => {
       stocks: { metal: 100, mineral: 100, food: 100, energy: 100, research_points: 0 },
       population: { ...baseSummary.population, workersTotal: 500, soldiers: 50, scientists: 5 },
       ships: { battleship: 2, fighter: 10 },
-      structures: { metal_mine: 3 },
+      structures: { outpost: 3 },
     };
     const D = SCORE_DIVISOR;
     const resourceScore = (100 / D) * 1 + (100 / D) * 1.5 + (100 / D) * 2 + (100 / D) * 2;
     const popScore = (500 / D) * 12 + (50 / D) * 128 + (5 / D) * 340;
-    const shipScore = (2 / D) * 800 + (10 / D) * 5;
-    const expected = resourceScore + popScore + shipScore;
-    expect(computePlanetScore(summary, defs)).toBeCloseTo(expected, 10);
-  });
-
-  it('score updates reflect a ship completion (before vs after)', () => {
-    const before = { ...baseSummary, ships: {} };
-    const after  = { ...baseSummary, ships: { destroyer: 1 } };
-    expect(computePlanetScore(after, defs) - computePlanetScore(before, defs)).toBe((1 / SCORE_DIVISOR) * 100);
+    const assetScore = (2 / D) * 288 + (10 / D) * 14 + (3 / D) * 6;
+    expect(computePlanetScore(summary, defs)).toBeCloseTo(resourceScore + popScore + assetScore, 10);
   });
 
   it('scores resources from stocks correctly', () => {
@@ -103,7 +112,6 @@ describe('computePlanetScore', () => {
       stocks: { metal: 1000, mineral: 500, food: 200, energy: 100, research_points: 0 },
     };
     const D = SCORE_DIVISOR;
-    // (1000/D)*1 + (500/D)*1.5 + (200/D)*2 + (100/D)*2 = 1 + 0.75 + 0.4 + 0.2 = 2.35
     expect(computePlanetScore(summary, defs)).toBe(
       (1000 / D) * 1 + (500 / D) * 1.5 + (200 / D) * 2 + (100 / D) * 2
     );
@@ -132,33 +140,6 @@ describe('computePlanetScore', () => {
     expect(POPULATION_SCORE_VALUES.scientist).toBe(340);
   });
 });
-
-// Minimal ItemDefinition stub for computeItemAssetScore tests
-function makeDef(
-  costs: Partial<{ metal: number; mineral: number; food: number; energy: number }>,
-  durationTurns: number,
-): ItemDefinition {
-  return {
-    id: 'test',
-    name: 'Test',
-    lane: 'building',
-    durationTurns,
-    costsPerUnit: {
-      metal: costs.metal ?? 0,
-      mineral: costs.mineral ?? 0,
-      food: costs.food ?? 0,
-      energy: costs.energy ?? 0,
-      research_points: 0,
-      workers: 0,
-      space: 0,
-      space_orbital: 0,
-    },
-    upkeepPerUnit: { metal: 0, mineral: 0, food: 0, energy: 0, research_points: 0, workers: 0, space: 0, space_orbital: 0 },
-    effectsOnComplete: {},
-    prerequisites: [],
-    isAbundanceScaled: false,
-  } as unknown as ItemDefinition;
-}
 
 describe('computeItemAssetScore', () => {
   it('returns 0 for a zero-cost item', () => {

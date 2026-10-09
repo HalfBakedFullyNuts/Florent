@@ -32,8 +32,7 @@ const TURNS_DIVISOR = 4;
  *   weightedCost = metal×1 + mineral×1.5 + food×2 + energy×2
  *   assetScore   = round((weightedCost × 1.5) / 1000) × (durationTurns / 4)
  *
- * This is the canonical per-item score that can replace hardcoded score_value
- * fields in game_data.json when the scoring migration is complete.
+ * This is the canonical per-item score used for every ship and structure.
  */
 export function computeItemAssetScore(def: ItemDefinition): number {
   const costs = def.costsPerUnit;
@@ -49,13 +48,12 @@ export function computeItemAssetScore(def: ItemDefinition): number {
 /**
  * Compute planet score for the viewed turn.
  *
- * Every category (resources, ships, population, structures) is
- * scored as `(amount / 1000) * scoreValue`.
- * Missing score values are treated as 0 and never throw.
+ * Resources and population use their per-1000 score maps; ships and structures
+ * use their in-game asset score. Unknown items score 0 and never throw.
  */
 export function computePlanetScore(
   summary: PlanetSummary,
-  defs: Record<string, { scoreValue?: number }>
+  defs: Record<string, ItemDefinition>
 ): number {
   let score = 0;
 
@@ -63,17 +61,14 @@ export function computePlanetScore(
     score += (amount / SCORE_DIVISOR) * (RESOURCE_SCORE_VALUES[id] ?? 0);
   }
 
-  for (const [id, count] of Object.entries(summary.ships)) {
-    score += (count / SCORE_DIVISOR) * (defs[id]?.scoreValue ?? 0);
+  for (const [id, count] of [...Object.entries(summary.ships), ...Object.entries(summary.structures)]) {
+    const def = defs[id];
+    if (def) score += (count / SCORE_DIVISOR) * computeItemAssetScore(def);
   }
 
-  for (const [id, count] of Object.entries(summary.structures)) {
-    score += (count / SCORE_DIVISOR) * (defs[id]?.scoreValue ?? 0);
-  }
-
-  score += (summary.population.workersTotal / SCORE_DIVISOR) * (defs['worker']?.scoreValue ?? 0);
-  score += (summary.population.soldiers / SCORE_DIVISOR) * (defs['soldier']?.scoreValue ?? 0);
-  score += (summary.population.scientists / SCORE_DIVISOR) * (defs['scientist']?.scoreValue ?? 0);
+  score += (summary.population.workersTotal / SCORE_DIVISOR) * POPULATION_SCORE_VALUES.worker;
+  score += (summary.population.soldiers / SCORE_DIVISOR) * POPULATION_SCORE_VALUES.soldier;
+  score += (summary.population.scientists / SCORE_DIVISOR) * POPULATION_SCORE_VALUES.scientist;
 
   return score;
 }

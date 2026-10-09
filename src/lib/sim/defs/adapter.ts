@@ -50,7 +50,6 @@ interface RawUnit {
     workers_occupied?: number;
   };
   requirements: RawRequirement[];
-  score_value?: number;
 }
 
 interface RawStructure {
@@ -70,7 +69,6 @@ interface RawStructure {
     effects?: RawEffect[];
   };
   max_per_planet?: number | null;
-  score_value?: number;
 }
 
 interface RawResearch {
@@ -85,7 +83,6 @@ interface RawResearch {
   };
   requirements: string[];
   operations?: any[];
-  score_value?: number;
 }
 
 interface RawGameData {
@@ -158,7 +155,6 @@ function convertUnit(raw: RawUnit): ItemDefinition {
     isAbundanceScaled: false, // Units don't have abundance-scaled production
     prerequisites,
     unique: false, // Units are never unique per planet
-    ...(raw.score_value !== undefined && { scoreValue: raw.score_value }),
   };
 
   return def;
@@ -275,7 +271,6 @@ function convertStructure(raw: RawStructure): ItemDefinition {
     isAbundanceScaled: hasAbundanceScaledProduction,
     prerequisites,
     unique: raw.max_per_planet === 1,
-    ...(raw.score_value !== undefined && { scoreValue: raw.score_value }),
   };
 
   return def;
@@ -347,7 +342,6 @@ function convertResearch(raw: RawResearch): ItemDefinition {
     isAbundanceScaled: false,
     prerequisites,
     unique: true, // Each research can only be completed once per planet
-    ...(raw.score_value !== undefined && { scoreValue: raw.score_value }),
   };
 
   return def;

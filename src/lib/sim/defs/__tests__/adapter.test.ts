@@ -444,7 +444,7 @@ describe('Merged adapter semantics (single source of truth)', () => {
       {
         id: 'scout', name: 'Scout', category: 'ship', tier: 1, build_time_turns: 2,
         cost: [{ type: 'resource', id: 'metal', amount: 100 }],
-        build_requirements: { workers_occupied: 10 }, requirements: [], score_value: 7,
+        build_requirements: { workers_occupied: 10 }, requirements: [],
       },
     ],
     structures: [
@@ -452,12 +452,12 @@ describe('Merged adapter semantics (single source of truth)', () => {
         id: 'unique_post', name: 'Unique Post', tier: 1, build_time_turns: 3,
         cost: [{ type: 'resource', id: 'metal', amount: 50 }],
         build_requirements: { workers_occupied: 5 }, requirements: [],
-        max_per_planet: 1, score_value: 12,
+        max_per_planet: 1,
       },
       {
         id: 'plain_post', name: 'Plain Post', tier: 1, build_time_turns: 3,
         cost: [{ type: 'resource', id: 'metal', amount: 50 }],
-        build_requirements: { workers_occupied: 5 }, requirements: [], score_value: 3,
+        build_requirements: { workers_occupied: 5 }, requirements: [],
       },
     ],
     research: [
@@ -466,18 +466,9 @@ describe('Merged adapter semantics (single source of truth)', () => {
         build_time_turns: 4, cost: [{ type: 'resource', id: 'research_points', amount: 100 }],
         build_requirements: {}, requirements: [],
         operations: [{ type: 'on_complete', effect: 'unlock_unit', item: 'scout' }],
-        score_value: 5,
       },
     ],
   } as any;
-
-  it('maps score_value for units, structures and research', () => {
-    const defs = loadGameData(raw);
-    expect(defs.scout.scoreValue).toBe(7);
-    expect(defs.unique_post.scoreValue).toBe(12);
-    expect(defs.plain_post.scoreValue).toBe(3);
-    expect(defs.scout_research.scoreValue).toBe(5);
-  });
 
   it('derives unique flags from max_per_planet and research rules', () => {
     const defs = loadGameData(raw);

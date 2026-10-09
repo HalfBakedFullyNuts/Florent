@@ -12,6 +12,7 @@ import {
 import { loadGameData } from '../adapter';
 import { computeNetOutputsPerTurn } from '../../engine/outputs';
 import { setDefsCatalog } from '../../engine/defsRegistry';
+import { computeItemAssetScore } from '../../../game/scoring';
 import gameDataJson from '../../../game/game_data.json';
 
 describe('Seed Functions', () => {
@@ -318,14 +319,26 @@ describe('Seed Functions', () => {
       expect(scout.prerequisites).toContain('shipyard');
     });
 
-    it('defines the Colonization Ship as a 24-turn ship that needs a Shipyard', () => {
+    it('defines the Colonization Ship as a 24-turn ship gated by Space Dock and Fast Expansion', () => {
       const ship = defs.colonization_ship;
 
       expect(ship.name).toBe('Colonization Ship');
       expect(ship.lane).toBe('ship');
       expect(ship.durationTurns).toBe(24);
       expect(ship.costsPerUnit).toMatchObject({ metal: 180000, mineral: 120000, workers: 200000 });
-      expect(ship.prerequisites).toContain('shipyard');
+      expect(ship.prerequisites).toEqual(expect.arrayContaining(['space_dock', 'fast_expansion']));
+      expect(ship.prerequisites).not.toContain('shipyard');
+      expect(computeItemAssetScore(ship)).toBe(3240);
+    });
+
+    it('defines Fast Expansion as 96k RP / 14-turn research after Trader Research', () => {
+      const research = defs.fast_expansion;
+
+      expect(research.name).toBe('Fast Expansion');
+      expect(research.lane).toBe('research');
+      expect(research.durationTurns).toBe(14);
+      expect(research.costsPerUnit.research_points).toBe(96000);
+      expect(research.prerequisites).toEqual(['trader_research']);
     });
 
     it('houses 5,000 scientists per Research Lab', () => {
