@@ -69,6 +69,7 @@ import {
 } from "../lib/game/urlState";
 import { formatReplayDropNotice } from "../lib/game/replayNotice";
 import { planOrderFromLane } from "../lib/game/queueReorder";
+import { STARTING_PLANET_LIMIT } from "../lib/sim/rules/constants";
 import {
   cancelGlobalResearch,
   canQueueGlobalResearch,
@@ -683,7 +684,7 @@ export default function Home() {
   );
   const planetUnavailableReason = useMemo(() => {
     if (!currentPlanet) return "No planet selected.";
-    if (currentPlanetNumber > 4 && currentPlanetNumber > planetLimitAtStart) {
+    if (currentPlanetNumber > STARTING_PLANET_LIMIT && currentPlanetNumber > planetLimitAtStart) {
       return `${currentPlanet.name} is blocked by planet-limit research at T${currentPlanet.startTurn}.`;
     }
     if (viewTurn < currentPlanet.startTurn) {
@@ -820,6 +821,7 @@ export default function Home() {
         research_points: globalResearch.outputPerTurn,
       },
       planetLimit: globalResearch.planetLimit,
+      queueLength: globalResearch.queueLength,
       completedResearch: globalResearch.completed,
     };
   }, [currentState, globalResearch]);
@@ -2661,7 +2663,7 @@ export default function Home() {
 
         <footer className="mt-auto border-t border-filament/70">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
-            <span>v0.2.86</span>
+            <span>v0.2.87</span>
             <button
               type="button"
               className="btn btn-ghost btn-sm"

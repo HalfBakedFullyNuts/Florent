@@ -56,6 +56,7 @@ export const STARTING_STATE = {
 export const HOMEWORLD_STARTING_SCIENTISTS = 250;
 export const STARTING_RESEARCH_POINTS = 100; // seeds the empire-wide research pool
 export const STARTING_PLANET_LIMIT = 6; // planets allowed before any PL research
+export const STARTING_QUEUE_LENGTH = 4; // QL4 is free; QL research raises it (display only)
 
 // Colonist worker occupation rules
 export const SOLDIER_WORKERS_OCCUPIED = 10; // Reserves 10 workers during training, converts 1 at completion

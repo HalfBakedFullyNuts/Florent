@@ -216,6 +216,14 @@ describe('PlanetDashboard', () => {
       const allText = container.textContent || '';
       expect(allText).toContain('Planet limit');
     });
+
+    it('shows the researched queue length, defaulting to the starting QL4', () => {
+      const { container, rerender } = render(<PlanetDashboard summary={mockSummary} defs={mockDefs} />);
+      expect(container.textContent).toContain('Queue length4');
+
+      rerender(<PlanetDashboard summary={{ ...mockSummary, queueLength: 7 }} defs={mockDefs} />);
+      expect(container.textContent).toContain('Queue length7');
+    });
   });
 
   describe('Worker Tooltip', () => {

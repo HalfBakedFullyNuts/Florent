@@ -309,6 +309,8 @@ function convertResearch(raw: RawResearch): ItemDefinition {
       if (op.type === 'on_complete') {
         if (op.effect === 'set_planet_limit') {
           effects.planet_limit = op.value;
+        } else if (op.effect === 'set_queue_length') {
+          effects.queue_length = op.value;
         } else if (op.effect === 'unlock_research') {
           effects.unlocks_research = op.items;
         } else if (op.effect === 'unlock_structure') {

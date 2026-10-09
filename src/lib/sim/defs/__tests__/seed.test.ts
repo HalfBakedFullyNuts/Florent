@@ -341,6 +341,25 @@ describe('Seed Functions', () => {
       expect(research.prerequisites).toEqual(['trader_research']);
     });
 
+    it('defines the Queue Length chain QL5–QL10 (14 turns each) raising the queue length', () => {
+      const expected: Array<[string, number, string[]]> = [
+        ['ql_5', 10000, []],
+        ['ql_6', 20000, ['ql_5']],
+        ['ql_7', 50000, ['ql_6']],
+        ['ql_8', 100000, ['ql_7']],
+        ['ql_9', 250000, ['ql_8']],
+        ['ql_10', 1000000, ['ql_9']],
+      ];
+      for (const [id, rp, prereqs] of expected) {
+        const research = defs[id];
+        expect(research.lane).toBe('research');
+        expect(research.durationTurns).toBe(14);
+        expect(research.costsPerUnit.research_points).toBe(rp);
+        expect(research.prerequisites).toEqual(prereqs);
+        expect(research.effectsOnComplete.queue_length).toBe(Number(id.slice(3)));
+      }
+    });
+
     it('houses 5,000 scientists per Research Lab', () => {
       expect(defs.research_lab.effectsOnComplete.housing_scientist_cap).toBe(5000);
     });

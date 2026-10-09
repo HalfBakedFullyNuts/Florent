@@ -2825,6 +2825,172 @@
       ]
     },
     {
+      "id": "ql_5",
+      "name": "Queue Length 5",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 14,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 10000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_queue_length",
+          "value": 5
+        }
+      ]
+    },
+    {
+      "id": "ql_6",
+      "name": "Queue Length 6",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 14,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 20000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "ql_5"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_queue_length",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "id": "ql_7",
+      "name": "Queue Length 7",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 14,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 50000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "ql_6"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_queue_length",
+          "value": 7
+        }
+      ]
+    },
+    {
+      "id": "ql_8",
+      "name": "Queue Length 8",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 14,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 100000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "ql_7"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_queue_length",
+          "value": 8
+        }
+      ]
+    },
+    {
+      "id": "ql_9",
+      "name": "Queue Length 9",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 14,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 250000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "ql_8"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_queue_length",
+          "value": 9
+        }
+      ]
+    },
+    {
+      "id": "ql_10",
+      "name": "Queue Length 10",
+      "category": "research",
+      "tier": 1.5,
+      "build_time_turns": 14,
+      "cost": [
+        {
+          "type": "resource",
+          "id": "research_points",
+          "amount": 1000000
+        }
+      ],
+      "build_requirements": {
+        "workers_occupied": 0
+      },
+      "consumption": [],
+      "requirements": [
+        "ql_9"
+      ],
+      "operations": [
+        {
+          "type": "on_complete",
+          "effect": "set_queue_length",
+          "value": 10
+        }
+      ]
+    },
+    {
       "id": "merchant_research",
       "name": "Merchant Research",
       "category": "research",

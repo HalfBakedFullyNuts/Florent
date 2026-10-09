@@ -251,6 +251,16 @@ describe('global research', () => {
     expect(expanded.planets.size).toBe(7);
   });
 
+  test('queue length starts at 4 and rises when QL research completes', () => {
+    let gameState = createInitialGameState();
+    gameState.globalResearch.stock = 10000;
+    gameState = queueGlobalResearch(gameState, 'ql_5');
+
+    expect(getGlobalResearchAtTurn(gameState, 1).queueLength).toBe(4);
+    expect(getGlobalResearchAtTurn(gameState, 13).queueLength).toBe(4);
+    expect(getGlobalResearchAtTurn(gameState, 14).queueLength).toBe(5);
+  });
+
   test('planet start lookup returns null when no PL unlock is scheduled', () => {
     let gameState = createInitialGameState();
     gameState.globalResearch.stock = 1000;

@@ -46,6 +46,7 @@ export interface Effects {
 
   // Research effects
   planet_limit?: number; // Increases planet limit (for PL research)
+  queue_length?: number; // Raises queue length (for QL research; display only)
   unlocks_research?: string[]; // Enables other research
   unlocks_structure?: string; // Enables a structure
   unlocks_unit?: string; // Enables a unit
@@ -142,7 +143,7 @@ export interface PlanetState {
   };
 
   // Research & Limits
-  planetLimit: number; // Maximum planets allowed (starts at 4, increased by research)
+  planetLimit: number; // Maximum planets allowed (starts at STARTING_PLANET_LIMIT, increased by research)
   completedResearch: string[]; // List of completed research IDs
 
   // Production queues

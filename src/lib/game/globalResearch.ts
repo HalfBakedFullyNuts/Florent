@@ -3,7 +3,7 @@ import type { ItemDefinition, LaneState, WorkItem } from '../sim/engine/types';
 import type { LaneView } from './selectors';
 import { generateWorkItemId } from '../sim/engine/helpers';
 import { getDefs } from '../sim/engine/defsRegistry';
-import { STARTING_PLANET_LIMIT } from '../sim/rules/constants';
+import { STARTING_PLANET_LIMIT, STARTING_QUEUE_LENGTH } from '../sim/rules/constants';
 
 const TOTAL_TURNS = 200;
 const RESEARCH_PLAN_MAX_TURN = 1_000_000;
@@ -15,6 +15,7 @@ export interface GlobalResearchSnapshot {
   lane: LaneState;
   completed: string[];
   planetLimit: number;
+  queueLength: number;
 }
 
 export interface PlanetLimitMilestone {
@@ -97,6 +98,11 @@ function applyPlanetLimit(current: number, def: ItemDefinition): number {
   return limit ? Math.max(current, limit) : current;
 }
 
+function applyQueueLength(current: number, def: ItemDefinition): number {
+  const length = def.effectsOnComplete?.queue_length;
+  return length ? Math.max(current, length) : current;
+}
+
 function runGlobalResearchTurn(
   gameState: GameState,
   snapshot: GlobalResearchSnapshot
@@ -105,6 +111,7 @@ function runGlobalResearchTurn(
   const completed = [...snapshot.completed];
   let stock = snapshot.stock;
   let planetLimit = snapshot.planetLimit;
+  let queueLength = snapshot.queueLength;
   const currentTurn = snapshot.turn;
 
   if (!lane.active && lane.pendingQueue.length > 0) {
@@ -146,6 +153,7 @@ function runGlobalResearchTurn(
         const def = getDefs()[completedItem.itemId];
         if (def) {
           planetLimit = applyPlanetLimit(planetLimit, def);
+          queueLength = applyQueueLength(queueLength, def);
         }
       }
       lane.active = null;
@@ -162,6 +170,7 @@ function runGlobalResearchTurn(
     lane,
     completed,
     planetLimit,
+    queueLength,
   };
 }
 
@@ -173,11 +182,14 @@ function createInitialSnapshot(gameState: GameState): GlobalResearchSnapshot {
     lane: cloneLane(gameState.globalResearch.lane),
     completed: [...(gameState.globalResearch.completed || [])],
     planetLimit: BASE_PLANET_LIMIT,
+    queueLength: STARTING_QUEUE_LENGTH,
   };
 
   for (const researchId of snapshot.completed) {
     const def = getDefs()[researchId];
-    if (def) snapshot.planetLimit = applyPlanetLimit(snapshot.planetLimit, def);
+    if (!def) continue;
+    snapshot.planetLimit = applyPlanetLimit(snapshot.planetLimit, def);
+    snapshot.queueLength = applyQueueLength(snapshot.queueLength, def);
   }
 
   return snapshot;

@@ -8,7 +8,7 @@ import { getDefs } from '../sim/engine/defsRegistry';
 import type { PlanetState, LaneId, NetOutputs, ResourceId, WorkItem, ItemDefinition } from '../sim/engine/types';
 import { computeNetOutputsPerTurn, calculatePopulationFoodUpkeep, computeProjectedNetOutputsPerTurn } from '../sim/engine/outputs';
 import { computeGrowthBonus } from '../sim/engine/growth_food';
-import { WORKER_GROWTH_BASE } from '../sim/rules/constants';
+import { STARTING_PLANET_LIMIT, WORKER_GROWTH_BASE } from '../sim/rules/constants';
 import { canQueue } from '../sim/engine/validation';
 import { estimateLaneFreeTurn } from '../sim/engine/queueValidation';
 import { validateQueueWithWait, type QueueBlocker } from '../sim/engine/queueValidation';
@@ -41,6 +41,7 @@ export interface PlanetSummary {
   growthHint: string; // "+X workers at end of turn"
   foodUpkeep: number;
   planetLimit: number; // Maximum number of planets allowed
+  queueLength?: number; // Researched queue length (global; display only)
   completedResearch: string[]; // List of completed research IDs
   workerGrowthDetail?: {
     growthPerTurn: number;
@@ -204,7 +205,7 @@ export function getPlanetSummary(state: PlanetState): PlanetSummary {
     structures: extractCompletedByType(state, 'structure'),
     growthHint,
     foodUpkeep,
-    planetLimit: state.planetLimit || 4,
+    planetLimit: state.planetLimit || STARTING_PLANET_LIMIT,
     completedResearch: state.completedResearch || [],
     workerGrowthDetail,
   };
