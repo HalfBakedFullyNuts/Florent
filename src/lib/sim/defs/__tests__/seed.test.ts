@@ -324,7 +324,7 @@ describe('Seed Functions', () => {
       expect(ship.name).toBe('Colonization Ship');
       expect(ship.lane).toBe('ship');
       expect(ship.durationTurns).toBe(24);
-      expect(ship.costsPerUnit).toMatchObject({ metal: 120000, mineral: 80000, workers: 100000 });
+      expect(ship.costsPerUnit).toMatchObject({ metal: 180000, mineral: 120000, workers: 200000 });
       expect(ship.prerequisites).toContain('shipyard');
     });
 

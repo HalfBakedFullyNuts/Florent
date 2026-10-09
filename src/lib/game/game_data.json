@@ -407,16 +407,16 @@
         {
           "type": "resource",
           "id": "metal",
-          "amount": 120000
+          "amount": 180000
         },
         {
           "type": "resource",
           "id": "mineral",
-          "amount": 80000
+          "amount": 120000
         }
       ],
       "build_requirements": {
-        "workers_occupied": 100000
+        "workers_occupied": 200000
       },
       "consumption": [],
       "requirements": [
@@ -425,7 +425,7 @@
           "id": "shipyard"
         }
       ],
-      "score_value": 400
+      "score_value": 600
     },
     {
       "id": "cruiser",
