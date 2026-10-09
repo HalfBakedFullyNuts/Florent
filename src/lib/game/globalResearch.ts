@@ -316,8 +316,11 @@ function simulateGlobalResearch(
   };
 }
 
+// Stock is reported at the start of `turn` (before that turn's scientist output),
+// matching planet timelines where turn 1 shows the initial state.
 export function getGlobalResearchAtTurn(gameState: GameState, turn: number): GlobalResearchSnapshot {
-  return simulateGlobalResearch(gameState, turn);
+  const snapshot = simulateGlobalResearch(gameState, turn);
+  return { ...snapshot, stock: snapshot.stock - snapshot.outputPerTurn };
 }
 
 function buildPlanView(gameState: GameState): GlobalResearchPlanView {

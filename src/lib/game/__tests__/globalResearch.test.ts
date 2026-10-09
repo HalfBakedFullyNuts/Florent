@@ -101,8 +101,8 @@ describe('global research', () => {
 
     expect(gameState.planets.get('planet-1')!.population.scientists).toBe(250);
     expect(gameState.globalResearch.stock).toBe(100);
-    expect(getGlobalResearchAtTurn(gameState, 1).stock).toBe(350);
-    expect(getGlobalResearchAtTurn(gameState, 2).stock).toBe(600);
+    expect(getGlobalResearchAtTurn(gameState, 1).stock).toBe(100);
+    expect(getGlobalResearchAtTurn(gameState, 2).stock).toBe(350);
   });
 
   test('colonies start without scientists', () => {
@@ -126,7 +126,7 @@ describe('global research', () => {
     const localBefore = planet.stocks.research_points;
     const global = getGlobalResearchAtTurn(gameState, 5);
 
-    expect(global.stock).toBe(50);
+    expect(global.stock).toBe(40);
     expect(planet.stocks.research_points).toBe(localBefore);
   });
 
@@ -147,8 +147,9 @@ describe('global research', () => {
     colony.population.scientists = 5;
     refreshTimeline(gameState, 'planet-2');
 
-    expect(getGlobalResearchAtTurn(gameState, 9).stock).toBe(90);
-    expect(getGlobalResearchAtTurn(gameState, 10).stock).toBe(105);
+    expect(getGlobalResearchAtTurn(gameState, 9).stock).toBe(80);
+    expect(getGlobalResearchAtTurn(gameState, 10).stock).toBe(90);
+    expect(getGlobalResearchAtTurn(gameState, 11).stock).toBe(105);
   });
 
   test('research lane view is independent of active planet', () => {
@@ -327,8 +328,8 @@ describe('global research', () => {
     const turn5 = getGlobalResearchAtTurn(gameState, 5);
     const turn50 = getGlobalResearchAtTurn(gameState, 50);
 
-    expect(turn5.stock).toBe(50);
-    expect(turn50.stock).toBe(500);
+    expect(turn5.stock).toBe(40);
+    expect(turn50.stock).toBe(490);
     expect(turn50.completed).not.toContain('pl_6');
     expect(turn50.lane.pendingQueue[0]?.itemId).toBe('pl_6');
     expect(turn50.lane.active).toBeNull();
