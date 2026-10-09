@@ -9,6 +9,7 @@ import { LANE_CONFIG } from '../../lib/constants/lanes';
 import { LANE_MANUAL_TOPICS, MANUAL_LINKS } from '../../lib/constants/manualLinks';
 import { ManualLink } from '@/components/ui/ManualLink';
 import { formatTickTime, getRoundStartMs, setRoundStartFromTick } from '../../lib/utils/tickTime';
+import { getPlanDropIndex, getPlanShiftIndex, type PlanLaneOrder } from '../../lib/game/queueReorder';
 
 export interface TabbedLaneDisplayProps {
   buildingLane: LaneView | null;
@@ -28,6 +29,8 @@ export interface TabbedLaneDisplayProps {
   maxTurn?: number;
   /** Called when an item is dragged from the Add-to-Queue panel and dropped here. */
   onDropGridItem?: (itemId: string, quantity: number) => void;
+  /** Active lane's queue order at the plan start — the index space onReorder expects. */
+  reorderPlan?: PlanLaneOrder | null;
 }
 
 const LANE_HINT: Record<LaneId, string> = {
@@ -59,6 +62,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   onTurnClick,
   maxTurn = 199,
   onDropGridItem,
+  reorderPlan,
 }: TabbedLaneDisplayProps) {
   const [showTimes, setShowTimes] = useState(false);
   const [dragOverExternal, setDragOverExternal] = useState(false);
@@ -207,6 +211,7 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
             onQuantityChange={onQuantityChange}
             onReorder={onReorder}
             onTurnClick={onTurnClick}
+            reorderPlan={reorderPlan ?? planOrderFromView(laneView, activeTab)}
           />
         )}
       </div>
@@ -289,11 +294,21 @@ interface QueueRowsProps {
   onQuantityChange?: TabbedLaneDisplayProps['onQuantityChange'];
   onReorder?: TabbedLaneDisplayProps['onReorder'];
   onTurnClick?: TabbedLaneDisplayProps['onTurnClick'];
+  reorderPlan: PlanLaneOrder;
+}
+
+/** Fallback plan order read from the viewed turn; only exact when the view is at the plan start. */
+function planOrderFromView(laneView: LaneView, laneId: LaneId): PlanLaneOrder {
+  return {
+    activeId: laneView.entries.find((e) => e.status === 'active')?.id ?? null,
+    pendingIds: laneView.entries.filter((e) => e.status === 'pending').map((e) => e.id),
+    activeInIndexSpace: laneId === 'research',
+  };
 }
 
 /**
  * Newest-first rows with a "now" divider before the first entry that finished by the viewed turn.
- * Drop targets map to pendingQueue indices — anything else returns INVALID_INDEX from the controller.
+ * Reorder targets come from the plan order (reorderPlan), so they work at any viewed turn.
  */
 function QueueRows(props: QueueRowsProps) {
   const { laneView, activeTab, currentTurn, showTimes, roundStartMs } = props;
@@ -303,17 +318,6 @@ function QueueRows(props: QueueRowsProps) {
     const finish = finishTurn(e);
     return finish !== null && finish <= currentTurn;
   });
-
-  const pendingEntries = laneView.entries.filter(e => e.status === 'pending');
-  const pendingIndexById = new Map<string, number>(pendingEntries.map((e, i): [string, number] => [e.id, i]));
-  const reorder = {
-    pendingCount: pendingEntries.length,
-    dropIndexFor: (e: LaneEntry) => (e.status === 'pending' ? (pendingIndexById.get(e.id) ?? -1) : -1),
-    sourceIndexFor: (e: LaneEntry) => {
-      if (e.status === 'pending') return pendingIndexById.get(e.id) ?? -1;
-      return e.status === 'active' ? pendingEntries.length : -1;
-    },
-  };
 
   return (
     <ol aria-label={`${LANE_CONFIG[activeTab].title} queue, newest first`}>
@@ -328,7 +332,7 @@ function QueueRows(props: QueueRowsProps) {
               <span className="h-px flex-1 bg-halpha/50" />
             </li>
           )}
-          <QueueRow {...props} entry={entry} displayIndex={displayIndex} reorder={reorder} />
+          <QueueRow {...props} entry={entry} displayIndex={displayIndex} />
         </React.Fragment>
       ))}
     </ol>
@@ -338,23 +342,20 @@ function QueueRows(props: QueueRowsProps) {
 interface QueueRowProps extends QueueRowsProps {
   entry: LaneEntry;
   displayIndex: number;
-  reorder: {
-    pendingCount: number;
-    dropIndexFor: (e: LaneEntry) => number;
-    sourceIndexFor: (e: LaneEntry) => number;
-  };
 }
 
-function QueueRow({ entry, displayIndex, reorder, activeTab, currentTurn, newestId, maxQuantities, defs, disabled, drag, showTimes, roundStartMs, maxTurn, onCancel, onQuantityChange, onReorder, onTurnClick }: QueueRowProps) {
+function QueueRow({ entry, displayIndex, reorderPlan, activeTab, currentTurn, newestId, maxQuantities, defs, disabled, drag, showTimes, roundStartMs, maxTurn, onCancel, onQuantityChange, onReorder, onTurnClick }: QueueRowProps) {
   const def = defs[entry.itemId];
-  const dropIndex = reorder.dropIndexFor(entry);
-  const sourceIndex = reorder.sourceIndexFor(entry);
-  const downBoundExclusive = entry.status === 'active' ? reorder.pendingCount : reorder.pendingCount - 1;
-  // Auto-generated waits reposition on their own; every other plan entry can move (re-runs from T1).
-  const canDrag = !disabled && !!onReorder && !entry.isAutoWait;
+  const inPlan = entry.id === reorderPlan.activeId || reorderPlan.pendingIds.includes(entry.id);
+  const dropIndex = drag.dragged?.laneId === activeTab ? getPlanDropIndex(reorderPlan, drag.dragged.entryId, entry.id) : null;
+  // Newest-first list: "up" moves an entry later in the plan, "down" earlier.
+  const laterIndex = getPlanShiftIndex(reorderPlan, entry.id, 'later');
+  const earlierIndex = getPlanShiftIndex(reorderPlan, entry.id, 'earlier');
+  // Auto-generated waits reposition on their own; every other plan entry can move (re-runs from the plan start).
+  const canDrag = !disabled && !!onReorder && !entry.isAutoWait && inPlan;
   const isDragging = drag.dragged?.entryId === entry.id && drag.dragged?.laneId === activeTab;
   const isDropTarget = drag.overIndex === displayIndex && drag.dragged && drag.dragged.entryId !== entry.id;
-  const acceptsDrop = !!drag.dragged && drag.dragged.laneId === activeTab && drag.dragged.entryId !== entry.id && dropIndex >= 0;
+  const acceptsDrop = dropIndex !== null;
 
   return (
     <li
@@ -376,7 +377,7 @@ function QueueRow({ entry, displayIndex, reorder, activeTab, currentTurn, newest
       }}
       onDrop={(e) => {
         // Internal reorder is consumed here; external catalog drops bubble to the panel handler.
-        if (acceptsDrop && onReorder && drag.dragged) {
+        if (dropIndex !== null && onReorder && drag.dragged) {
           e.preventDefault();
           e.stopPropagation();
           onReorder(activeTab, drag.dragged.entryId, dropIndex);
@@ -395,10 +396,10 @@ function QueueRow({ entry, displayIndex, reorder, activeTab, currentTurn, newest
       )}
       {canDrag && onReorder && (
         <span className="flex shrink-0 flex-col justify-center gap-0.5 pl-2 md:hidden">
-          <button type="button" onClick={() => sourceIndex > 0 && onReorder(activeTab, entry.id, sourceIndex - 1)} disabled={sourceIndex <= 0} aria-label="Move up" className="btn btn-ghost btn-sm btn-icon h-6!">
+          <button type="button" onClick={() => laterIndex !== null && onReorder(activeTab, entry.id, laterIndex)} disabled={laterIndex === null} aria-label="Move up" className="btn btn-ghost btn-sm btn-icon h-6!">
             <ArrowUp aria-hidden="true" className="h-3.5! w-3.5!" />
           </button>
-          <button type="button" onClick={() => sourceIndex >= 0 && sourceIndex < downBoundExclusive && onReorder(activeTab, entry.id, sourceIndex + 1)} disabled={sourceIndex < 0 || sourceIndex >= downBoundExclusive} aria-label="Move down" className="btn btn-ghost btn-sm btn-icon h-6!">
+          <button type="button" onClick={() => earlierIndex !== null && onReorder(activeTab, entry.id, earlierIndex)} disabled={earlierIndex === null} aria-label="Move down" className="btn btn-ghost btn-sm btn-icon h-6!">
             <ArrowDown aria-hidden="true" className="h-3.5! w-3.5!" />
           </button>
         </span>

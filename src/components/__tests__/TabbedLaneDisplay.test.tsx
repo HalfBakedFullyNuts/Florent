@@ -153,3 +153,58 @@ describe('TabbedLaneDisplay', () => {
     expect(onClearLane).toHaveBeenCalledWith('ship');
   });
 });
+
+describe('TabbedLaneDisplay reordering', () => {
+  const entry = (id: string, name: string, startTurn: number) => ({
+    id, itemId: id, itemName: name, status: 'completed' as const, quantity: 1, turnsRemaining: 0,
+    eta: startTurn + 3, startTurn, completionTurn: startTurn + 3,
+  });
+  // Viewed turn is past the whole queue (the default after "Advance after queuing").
+  const lane: LaneView = {
+    laneId: 'building',
+    entries: [entry('farm', 'Farm', 1), entry('metal_mine', 'Metal Mine', 5), entry('mineral_extractor', 'Mineral Extractor', 9)],
+  };
+  const reorderPlan = { activeId: 'farm', pendingIds: ['metal_mine', 'mineral_extractor'], activeInIndexSpace: false };
+
+  function renderReorderable(onReorder = vi.fn()) {
+    render(
+      <TabbedLaneDisplay
+        buildingLane={lane}
+        shipLane={{ laneId: 'ship', entries: [] }}
+        colonistLane={{ laneId: 'colonist', entries: [] }}
+        researchLane={{ laneId: 'research', entries: [] }}
+        currentTurn={20}
+        onCancel={vi.fn()}
+        onReorder={onReorder}
+        reorderPlan={reorderPlan}
+        defs={defs}
+        activeTab="building"
+        maxTurn={199}
+      />
+    );
+    return onReorder;
+  }
+
+  const row = (name: string) => screen.getByText(name).closest('li[draggable]') as HTMLElement;
+
+  it('reorders by drag even when the viewed turn is past every entry', () => {
+    const onReorder = renderReorderable();
+    const dataTransfer = { setData: vi.fn(), getData: vi.fn(() => ''), types: [] as string[], effectAllowed: '', dropEffect: '' };
+
+    fireEvent.dragStart(row('Mineral Extractor'), { dataTransfer });
+    fireEvent.dragOver(row('Metal Mine'), { dataTransfer });
+    fireEvent.drop(row('Metal Mine'), { dataTransfer });
+
+    expect(onReorder).toHaveBeenCalledWith('building', 'mineral_extractor', 0);
+  });
+
+  it('moves an entry one slot later in the plan with the "Move up" arrow (newest-first list)', () => {
+    const onReorder = renderReorderable();
+
+    const up = row('Metal Mine').querySelector('button[aria-label="Move up"]') as HTMLButtonElement;
+    expect(up).not.toBeDisabled();
+    fireEvent.click(up);
+
+    expect(onReorder).toHaveBeenCalledWith('building', 'metal_mine', 1);
+  });
+});

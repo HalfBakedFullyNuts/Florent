@@ -68,6 +68,7 @@ import {
   type ShareMetadata,
 } from "../lib/game/urlState";
 import { formatReplayDropNotice } from "../lib/game/replayNotice";
+import { planOrderFromLane } from "../lib/game/queueReorder";
 import {
   cancelGlobalResearch,
   canQueueGlobalResearch,
@@ -831,6 +832,15 @@ export default function Home() {
     // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, planetTimelineEndTurn, gameState]);
+
+  // Reorder commands edit the plan at its start, so drag/arrow targets use that queue order
+  // rather than row statuses at the viewed turn (which may be past the whole queue).
+  const reorderPlan = useMemo(() => {
+    if (activeTab === "research") return planOrderFromLane(gameState.globalResearch.lane, true);
+    const lane = controller?.getStateAtTurn(planTurn)?.lanes[activeTab];
+    return lane ? planOrderFromLane(lane, false) : null;
+    // gameState is a deliberate cache-busting dep: the controller mutates its timeline outside React.
+  }, [controller, planTurn, activeTab, gameState]);
 
   // Helper to adjust the status of the global queue items relative to the current viewTurn
   const getAdjustedLaneView = useCallback(
@@ -2639,6 +2649,7 @@ export default function Home() {
                         onTurnClick={setViewTurn}
                         maxTurn={timelineMaxTurn}
                         onDropGridItem={handleQueueItem}
+                        reorderPlan={reorderPlan}
                       />
                     </div>
                   </div>
@@ -2650,7 +2661,7 @@ export default function Home() {
 
         <footer className="mt-auto border-t border-filament/70">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
-            <span>v0.2.82</span>
+            <span>v0.2.84</span>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
