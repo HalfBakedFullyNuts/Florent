@@ -67,6 +67,7 @@ export interface LaneEntry {
   missingPrereqs?: string[]; // List of missing prerequisites
   isWait?: boolean; // True for wait items
   isAutoWait?: boolean; // True for auto-inserted wait items
+  allowShortfall?: boolean; // Player accepted starting without enough stock
   resourceDelayed?: boolean; // True when an auto-wait precedes this item (resource gap)
   resourceDelayReason?: string; // Populated by page.tsx enrichment: specific missing resources
   scheduledResearch?: string[]; // Research prereqs the engine has scheduled to complete before activation
@@ -295,6 +296,7 @@ function workItemToLaneEntry(
     minStartTurn: item.minStartTurn,
     isWait: item.isWait,
     isAutoWait: item.isAutoWait,
+    allowShortfall: item.allowShortfall,
     scheduledResearch: item.scheduledResearch,
     blockedResearch: item.blockedResearch,
   };

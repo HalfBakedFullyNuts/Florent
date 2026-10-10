@@ -144,7 +144,8 @@ export function tryActivateNext(
     pending.quantity,
     projectedBonus,
     pending.minStartTurn,
-    pending.scheduledResearch ?? []
+    pending.scheduledResearch ?? [],
+    pending.allowShortfall === true
   );
   if (actualQty === 0) return;
 

@@ -292,6 +292,27 @@ export function canQueue(
 }
 
 /**
+ * Units affordable from current stocks. Resources are deducted at activation time; when
+ * projectedBonus is supplied (Phase 2b), this turn's production is included so the item can
+ * start in the same turn its predecessor completes — matching the game's turn-atomic behaviour.
+ */
+function affordableFromStocks(
+  state: PlanetState,
+  def: ItemDefinition,
+  projectedBonus?: Partial<Record<ResourceId, number>>
+): number {
+  const c = def.costsPerUnit;
+  const bonus = projectedBonus ?? {};
+  let affordable = Number.POSITIVE_INFINITY;
+  for (const resource of ['metal', 'mineral', 'food', 'energy', 'research_points'] as const) {
+    const unitCost = c[resource] || 0;
+    if (unitCost <= 0) continue;
+    affordable = Math.min(affordable, Math.floor((state.stocks[resource] + (bonus[resource] ?? 0)) / unitCost));
+  }
+  return affordable;
+}
+
+/**
  * Dynamic validation: clamp batch size at activation based on available resources.
  * projectedBonus adds this turn's production to the resource check — used only by
  * Phase 2b (completion-triggered activation) so those items can start in the same
@@ -304,7 +325,8 @@ export function clampBatchAtActivation(
   requested: number,
   projectedBonus?: Partial<Record<ResourceId, number>>,
   minStartTurn?: number,
-  scheduledResearch: string[] = []
+  scheduledResearch: string[] = [],
+  ignoreResources = false
 ): number {
   let maxAffordable = requested;
 
@@ -339,25 +361,9 @@ export function clampBatchAtActivation(
     }
   }
 
-  // Resources are deducted at activation time. When projectedBonus is supplied (Phase 2b),
-  // this turn's production is included so the item can start in the same turn its
-  // predecessor completes — matching the actual game's turn-atomic behaviour.
-  const c = def.costsPerUnit;
-  const bonus = projectedBonus ?? {};
-  if ((c.metal || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.metal + (bonus.metal ?? 0)) / c.metal));
-  }
-  if ((c.mineral || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.mineral + (bonus.mineral ?? 0)) / c.mineral));
-  }
-  if ((c.food || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.food + (bonus.food ?? 0)) / c.food));
-  }
-  if ((c.energy || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.energy + (bonus.energy ?? 0)) / c.energy));
-  }
-  if ((c.research_points || 0) > 0) {
-    maxAffordable = Math.min(maxAffordable, Math.floor((state.stocks.research_points + (bonus.research_points ?? 0)) / c.research_points));
+  // An accepted shortfall (allowShortfall) activates without enough stock and overspends it.
+  if (!ignoreResources) {
+    maxAffordable = Math.min(maxAffordable, affordableFromStocks(state, def, projectedBonus));
   }
 
   // Check worker constraints

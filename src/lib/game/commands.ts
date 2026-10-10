@@ -36,6 +36,8 @@ interface QueueItemOptions {
   completedResearch?: string[];
   scheduledResearch?: string[];
   blockedResearch?: string[];
+  /** Start in its slot even without enough stock (player accepted an invalid build). */
+  allowShortfall?: boolean;
 }
 
 /**
@@ -116,6 +118,7 @@ export class GameController {
       minStartTurn: options?.minStartTurn,
       scheduledResearch: options?.scheduledResearch?.length ? options.scheduledResearch : undefined,
       blockedResearch: options?.blockedResearch?.length ? options.blockedResearch : undefined,
+      allowShortfall: options?.allowShortfall || undefined,
     };
 
     // Push to queue, then eagerly activate so costs appear on the current turn.
@@ -847,12 +850,31 @@ export class GameController {
         minStartTurn: item.minStartTurn,
         scheduledResearch: item.scheduledResearch,
         blockedResearch: item.blockedResearch,
+        allowShortfall: item.allowShortfall,
       });
 
       // Advance cursor
       cursorTurn = validTurn + def.durationTurns;
     }
 
+    return true;
+  }
+
+  /**
+   * Accept (or revoke) starting an already-queued entry without enough stock.
+   * No repack: resource stalls never create auto-waits, so this stays safe inside a replay batch.
+   */
+  setAllowShortfall(turn: number, laneId: LaneId, entryId: string, allow: boolean): boolean {
+    const lane = this.timeline.getStateAtTurn(turn)?.lanes[laneId];
+    const inQueue = lane?.active?.id === entryId || lane?.pendingQueue.some((item) => item.id === entryId);
+    if (!lane || !inQueue) return false;
+    this.timeline.mutateAtTurn(turn, (s) => {
+      const target = s.lanes[laneId];
+      for (const item of [...(target.active ? [target.active] : []), ...target.pendingQueue]) {
+        if (item.id === entryId) item.allowShortfall = allow || undefined;
+      }
+      tryActivateNext(s, laneId);
+    });
     return true;
   }
 

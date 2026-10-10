@@ -213,6 +213,7 @@ type V2CommandType =
   | ['qr', number]                          // queue research: itemCode
   | ['qw', number]                          // queue research wait: turns
   | ['xa']                                  // reset all additional planets and home queue
+  | ['sf', number, string, number]          // accept shortfall: planetIdx, laneCode, seqId
   | ['x', number]                           // reset: planetIdx
   | ['dp', number];                         // delete planet: planetIdx
 
@@ -386,6 +387,16 @@ export class CommandHistory {
     }
     const laneCode = V2_LANE_ENC[laneId] ?? laneId;
     this.commands.push(['c', planetIdx, laneCode, seqId]);
+  }
+
+  /** Record that the player accepted starting an entry without enough stock. */
+  recordAllowShortfall(planetIdx: number, laneId: LaneId, entryId: string) {
+    const seqId = this.entryIdToSeqId.get(entryId);
+    if (seqId === undefined) {
+      console.warn(`[CommandHistory] Shortfall: unknown entryId ${entryId}`);
+      return;
+    }
+    this.commands.push(['sf', planetIdx, V2_LANE_ENC[laneId] ?? laneId, seqId]);
   }
 
   /** Record a reorder command, referenced by the item's seqId. */
@@ -588,6 +599,7 @@ const COMMAND_TAG: Record<string, number> = {
   xa: 8,
   x: 9,
   w: 10,
+  sf: 11,
 };
 
 const COMMAND_BY_TAG: Record<number, V2CommandType[0]> = {
@@ -602,6 +614,7 @@ const COMMAND_BY_TAG: Record<number, V2CommandType[0]> = {
   8: 'xa',
   9: 'x',
   10: 'w',
+  11: 'sf',
 };
 
 const LANE_TO_BINARY: Record<string, number> = {
@@ -651,10 +664,12 @@ const MAX_COMPACT_QUANTITY = 1_000_000_000;
 const MAX_COMPACT_WAIT_TURNS = 1_000_000;
 const COMPACT_ENTRY_IS_WAIT = 1 << 0;
 const COMPACT_ENTRY_HAS_QTY = 1 << 1;
+const COMPACT_ENTRY_ALLOW_SHORTFALL = 1 << 2; // only set when true, so ordinary links are unchanged
 
 interface CompactPlanEntry {
   itemCode?: number;
   quantity?: number;
+  allowShortfall?: boolean;
   waitTurns?: number;
 }
 
@@ -750,7 +765,7 @@ function extractCompactSharePlan(
   return share ? { planets, research, planetLanes, share } : { planets, research, planetLanes };
 }
 
-function extractCompactEntries(items: Array<{ itemId: string; quantity: number; turnsRemaining: number; status?: string; queuedTurn?: number; startTurn?: number; completionTurn?: number; eta?: number | null; isWait?: boolean; isAutoWait?: boolean }>): CompactLanePlan {
+function extractCompactEntries(items: Array<{ itemId: string; quantity: number; turnsRemaining: number; status?: string; queuedTurn?: number; startTurn?: number; completionTurn?: number; eta?: number | null; isWait?: boolean; isAutoWait?: boolean; allowShortfall?: boolean }>): CompactLanePlan {
   const entries: CompactLanePlan = [];
   for (const item of items) {
     if (item.isAutoWait) continue;
@@ -761,7 +776,7 @@ function extractCompactEntries(items: Array<{ itemId: string; quantity: number; 
     }
     const itemCode = V2_ITEM_CODE[item.itemId];
     if (itemCode === undefined) continue;
-    entries.push({ itemCode, quantity: item.quantity });
+    entries.push(item.allowShortfall ? { itemCode, quantity: item.quantity, allowShortfall: true } : { itemCode, quantity: item.quantity });
   }
   return entries;
 }
@@ -862,7 +877,7 @@ function writeCompactLanePlan(writer: BinaryWriter, entries: CompactLanePlan): v
     if (itemCode === undefined || !V2_ITEM_IDS[itemCode]) throw new Error(`Invalid compact item code: ${itemCode}`);
     const quantity = entry.quantity ?? 1;
     if (quantity <= 0 || quantity > MAX_COMPACT_QUANTITY) throw new Error(`Invalid quantity: ${quantity}`);
-    const flags = quantity === 1 ? 0 : COMPACT_ENTRY_HAS_QTY;
+    const flags = (quantity === 1 ? 0 : COMPACT_ENTRY_HAS_QTY) | (entry.allowShortfall ? COMPACT_ENTRY_ALLOW_SHORTFALL : 0);
     writer.writeByte(flags);
     writer.writeVarint(itemCode);
     if (quantity !== 1) writer.writeVarint(quantity);
@@ -875,10 +890,10 @@ function readCompactLanePlan(reader: BinaryReader): CompactLanePlan {
   const entries: CompactLanePlan = [];
   for (let i = 0; i < count; i++) {
     const flags = reader.readByte();
-    const knownFlags = COMPACT_ENTRY_IS_WAIT | COMPACT_ENTRY_HAS_QTY;
+    const knownFlags = COMPACT_ENTRY_IS_WAIT | COMPACT_ENTRY_HAS_QTY | COMPACT_ENTRY_ALLOW_SHORTFALL;
     if ((flags & ~knownFlags) !== 0) throw new Error(`Unknown compact entry flags: ${flags}`);
     if ((flags & COMPACT_ENTRY_IS_WAIT) !== 0) {
-      if ((flags & COMPACT_ENTRY_HAS_QTY) !== 0) throw new Error(`Invalid wait flags: ${flags}`);
+      if ((flags & ~COMPACT_ENTRY_IS_WAIT) !== 0) throw new Error(`Invalid wait flags: ${flags}`);
       const waitTurns = reader.readVarint();
       if (waitTurns <= 0 || waitTurns > MAX_COMPACT_WAIT_TURNS) throw new Error(`Invalid wait turns: ${waitTurns}`);
       entries.push({ waitTurns });
@@ -889,7 +904,7 @@ function readCompactLanePlan(reader: BinaryReader): CompactLanePlan {
     if (!V2_ITEM_IDS[itemCode]) throw new Error(`Unknown compact item code: ${itemCode}`);
     const quantity = (flags & COMPACT_ENTRY_HAS_QTY) !== 0 ? reader.readVarint() : 1;
     if (quantity <= 0 || quantity > MAX_COMPACT_QUANTITY) throw new Error(`Invalid quantity: ${quantity}`);
-    entries.push({ itemCode, quantity });
+    entries.push((flags & COMPACT_ENTRY_ALLOW_SHORTFALL) !== 0 ? { itemCode, quantity, allowShortfall: true } : { itemCode, quantity });
   }
   return entries;
 }
@@ -909,6 +924,11 @@ function compactPlanToCommands(
     COMPACT_PLAN_LANES.forEach((laneId) => appendCompactLaneCommands(cmds, planetIdx, laneId, lanes[laneId]));
   });
   return cmds;
+}
+
+/** Replay assigns a seqId to every q / w / qr / qw command, in order. */
+function countSeqCommands(cmds: V2CommandType[]): number {
+  return cmds.filter((cmd) => cmd[0] === 'q' || cmd[0] === 'w' || cmd[0] === 'qr' || cmd[0] === 'qw').length;
 }
 
 function appendCompactResearchCommands(cmds: V2CommandType[], entries: CompactLanePlan): void {
@@ -933,6 +953,7 @@ function appendCompactLaneCommands(
       cmds.push(['w', planetIdx, laneCode, entry.waitTurns]);
     } else if (entry.itemCode !== undefined) {
       cmds.push(['q', planetIdx, entry.itemCode, entry.quantity ?? 1]);
+      if (entry.allowShortfall) cmds.push(['sf', planetIdx, laneCode, countSeqCommands(cmds)]);
     }
   }
 }
@@ -1017,6 +1038,7 @@ function writeBinaryCommand(writer: BinaryWriter, command: CommandType): void {
       writer.writeVarint(command[3] as number);
       break;
     }
+    case 'sf':
     case 'c': {
       if (typeof command[3] !== 'number') throw new Error('Legacy cancel commands cannot be binary encoded');
       writer.writeVarint(command[1] as number);
@@ -1076,6 +1098,8 @@ function readBinaryCommand(reader: BinaryReader): V2CommandType {
       return ['w', reader.readVarint(), binaryCodeToLane(reader.readByte()), reader.readVarint()];
     case 'c':
       return ['c', reader.readVarint(), binaryCodeToLane(reader.readByte()), reader.readVarint()];
+    case 'sf':
+      return ['sf', reader.readVarint(), binaryCodeToLane(reader.readByte()), reader.readVarint()];
     case 'r':
       return ['r', reader.readVarint(), binaryCodeToLane(reader.readByte()), reader.readVarint(), reader.readVarint()];
     case 'p':
@@ -1547,6 +1571,17 @@ export function replayCommands(
             const controller = new GameController(planet, planet.timeline);
             controller.cancelPlannedItem(laneId, entryId);
           }
+          break;
+        }
+
+        case 'sf': {
+          const laneId: LaneId = V2_LANE_DEC[cmd[2] as string] ?? (cmd[2] as LaneId);
+          const entryId = seqToEntryId.get(cmd[3] as number) ?? '';
+          const planetId = getPlanetId(cmd[1] as number);
+          const planet = planetId ? gameState.planets.get(planetId) : undefined;
+          if (!entryId || !planetId || !planet?.timeline || laneId === 'research') break;
+          ensureBatch(planetId);
+          new GameController(planet, planet.timeline).setAllowShortfall(planet.startTurn, laneId, entryId, true);
           break;
         }
 

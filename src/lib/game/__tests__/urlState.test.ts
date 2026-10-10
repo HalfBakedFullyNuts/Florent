@@ -361,3 +361,44 @@ describe('replayCommands drop reporting', () => {
     expect(drops).toEqual([]);
   });
 });
+
+describe('accepted resource shortfalls survive saving and sharing', () => {
+  // Living Quarters (code 28) flagged to start without enough stock.
+  const commands: Parameters<typeof encodeGameState>[1] = [
+    ['q', 0, 11, 1],
+    ['q', 0, 28, 1],
+    ['sf', 0, 'b', 2],
+  ];
+
+  function buildingEntries(gameState: ReturnType<typeof createInitialGameState>) {
+    const home = Array.from(gameState.planets.values())[0];
+    return getLaneView(home.timeline!.getStateAtTurn(1)!, 'building').entries;
+  }
+
+  test('replaying an sf command marks that entry', () => {
+    const entries = buildingEntries(replayCommands(createInitialGameState(), commands));
+    expect(entries.map((entry) => [entry.itemId, entry.allowShortfall ?? false])).toEqual([
+      ['farm', false],
+      ['living_quarters', true],
+    ]);
+  });
+
+  test('command history records the mark and the binary link keeps it', () => {
+    const history = new CommandHistory();
+    history.recordQueue(0, 'farm', 1, 'farm-entry');
+    history.recordQueue(0, 'living_quarters', 1, 'lq-entry');
+    history.recordAllowShortfall(0, 'building', 'lq-entry');
+
+    expect(history.getCommands()).toEqual(commands);
+    expect(decodeGameState(encodeGameState([homeworldConfig], history.getCommands()))?.cmds).toEqual(commands);
+  });
+
+  test('compact q4 links keep the mark, and plans without one encode as before', () => {
+    const flagged = encodeCompactShareState(replayCommands(createInitialGameState(), commands));
+    expect(decodeGameState(flagged)?.cmds).toEqual(commands);
+
+    const plain = encodeCompactShareState(replayCommands(createInitialGameState(), commands.slice(0, 2)));
+    expect(decodeGameState(plain)?.cmds).toEqual(commands.slice(0, 2));
+    expect(plain.length).toBe(flagged.length); // the mark rides in the existing per-entry flag byte
+  });
+});
