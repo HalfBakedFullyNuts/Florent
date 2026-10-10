@@ -2475,7 +2475,7 @@
           "type": "on_complete",
           "effect": "unlock_research",
           "items": [
-            "pl_6"
+            "pl_8"
           ]
         }
       ]
@@ -2545,34 +2545,6 @@
       ]
     },
     {
-      "id": "pl_6",
-      "name": "PL 6",
-      "category": "research",
-      "tier": 1.5,
-      "build_time_turns": 14,
-      "cost": [
-        {
-          "type": "resource",
-          "id": "research_points",
-          "amount": 500
-        }
-      ],
-      "build_requirements": {
-        "workers_occupied": 0
-      },
-      "consumption": [],
-      "requirements": [
-        "planet_management"
-      ],
-      "operations": [
-        {
-          "type": "on_complete",
-          "effect": "set_planet_limit",
-          "value": 6
-        }
-      ]
-    },
-    {
       "id": "pl_8",
       "name": "PL 8",
       "category": "research",
@@ -2590,7 +2562,7 @@
       },
       "consumption": [],
       "requirements": [
-        "pl_6"
+        "planet_management"
       ],
       "operations": [
         {

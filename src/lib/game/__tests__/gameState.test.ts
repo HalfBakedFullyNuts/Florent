@@ -332,7 +332,7 @@ describe('Multi-Planet State Management', () => {
     gameState = switchPlanet(gameState, 'planet-2');
     gameState.globalResearch.stock = 500;
     gameState.globalResearch.completed = ['planet_management'];
-    gameState = queueGlobalResearch(gameState, 'pl_6');
+    gameState = queueGlobalResearch(gameState, 'pl_8');
 
     const reset = resetToHomeworld(gameState);
 

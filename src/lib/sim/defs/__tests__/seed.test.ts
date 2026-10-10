@@ -360,6 +360,12 @@ describe('Seed Functions', () => {
       }
     });
 
+    it('grants PL6 at the start: no pl_6 research, pl_8 follows Planet Management', () => {
+      expect(defs.pl_6).toBeUndefined();
+      expect(defs.pl_8.prerequisites).toEqual(['planet_management']);
+      expect(defs.planet_management.effectsOnComplete.unlocks_research).toEqual(['pl_8']);
+    });
+
     it('houses 5,000 scientists per Research Lab', () => {
       expect(defs.research_lab.effectsOnComplete.housing_scientist_cap).toBe(5000);
     });

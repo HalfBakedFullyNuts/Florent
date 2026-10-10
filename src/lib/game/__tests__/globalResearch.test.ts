@@ -229,7 +229,7 @@ describe('global research', () => {
     }
 
     // The base limit is 6, so pl_8 is the first research that raises it.
-    gameState.globalResearch.completed = ['planet_management', 'pl_6'];
+    gameState.globalResearch.completed = ['planet_management'];
     gameState.globalResearch.stock = 1000;
     gameState = queueGlobalResearch(gameState, 'pl_8');
 
@@ -272,7 +272,7 @@ describe('global research', () => {
 
   test('earliest planet start uses scheduled PL completion milestones', () => {
     let gameState = createInitialGameState();
-    gameState.globalResearch.completed = ['planet_management', 'pl_6'];
+    gameState.globalResearch.completed = ['planet_management'];
     gameState.globalResearch.stock = 1000;
     gameState = queueGlobalResearch(gameState, 'pl_8');
 
@@ -299,13 +299,13 @@ describe('global research', () => {
   test('research reorder rejects moving dependencies before prerequisites', () => {
     let gameState = createInitialGameState();
     gameState.globalResearch.completed = ['planet_management'];
-    gameState.globalResearch.stock = 1000;
-    gameState = queueGlobalResearch(gameState, 'pl_6');
+    gameState.globalResearch.stock = 3000;
     gameState = queueGlobalResearch(gameState, 'pl_8');
+    gameState = queueGlobalResearch(gameState, 'pl_10');
 
     const originalOrder = gameState.globalResearch.lane.pendingQueue.map((item) => item.itemId);
-    const pl8 = gameState.globalResearch.lane.pendingQueue[1];
-    const reordered = reorderGlobalResearch(gameState, pl8.id, 0);
+    const pl10 = gameState.globalResearch.lane.pendingQueue[1];
+    const reordered = reorderGlobalResearch(gameState, pl10.id, 0);
 
     expect(reordered).toBe(gameState);
     expect(reordered.globalResearch.lane.pendingQueue.map((item) => item.itemId)).toEqual(originalOrder);
@@ -315,12 +315,12 @@ describe('global research', () => {
     let gameState = createInitialGameState();
     gameState.globalResearch.stock = 1000;
     gameState = queueGlobalResearch(gameState, 'planet_management');
-    gameState = queueGlobalResearch(gameState, 'pl_6');
+    gameState = queueGlobalResearch(gameState, 'pl_8');
     gameState.globalResearch.lane.pendingQueue.reverse();
 
     expect(getEarliestPlanetStartTurn(gameState, 7, 1)).toBeNull();
     const laneView = getGlobalResearchLaneView(gameState, 1);
-    expect(laneView.entries.find((entry) => entry.itemId === 'pl_6')?.startTurn).toBeUndefined();
+    expect(laneView.entries.find((entry) => entry.itemId === 'pl_8')?.startTurn).toBeUndefined();
   });
 
   test('blocked front research stalls the lane while global RP keeps accruing', () => {
@@ -331,7 +331,7 @@ describe('global research', () => {
     refreshTimeline(gameState, 'planet-1');
 
     gameState = queueGlobalResearch(gameState, 'planet_management');
-    gameState = queueGlobalResearch(gameState, 'pl_6');
+    gameState = queueGlobalResearch(gameState, 'pl_8');
     const planetManagement = gameState.globalResearch.lane.pendingQueue.find(
       (item) => item.itemId === 'planet_management'
     )!;
@@ -342,8 +342,8 @@ describe('global research', () => {
 
     expect(turn5.stock).toBe(40);
     expect(turn50.stock).toBe(490);
-    expect(turn50.completed).not.toContain('pl_6');
-    expect(turn50.lane.pendingQueue[0]?.itemId).toBe('pl_6');
+    expect(turn50.completed).not.toContain('pl_8');
+    expect(turn50.lane.pendingQueue[0]?.itemId).toBe('pl_8');
     expect(turn50.lane.active).toBeNull();
   });
 
