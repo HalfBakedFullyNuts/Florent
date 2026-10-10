@@ -2062,7 +2062,13 @@
       ],
       "operations": {
         "production": [],
-        "consumption": [],
+        "consumption": [
+          {
+            "type": "resource",
+            "id": "energy",
+            "amount": 10
+          }
+        ],
         "effects": [
           {
             "type": "UNLOCK_CATEGORY",

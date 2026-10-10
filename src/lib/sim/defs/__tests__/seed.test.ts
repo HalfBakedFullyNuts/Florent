@@ -366,6 +366,10 @@ describe('Seed Functions', () => {
       expect(defs.planet_management.effectsOnComplete.unlocks_research).toEqual(['pl_8']);
     });
 
+    it('charges the Space Dock 10 energy upkeep', () => {
+      expect(defs.space_dock.upkeepPerUnit.energy).toBe(10);
+    });
+
     it('houses 5,000 scientists per Research Lab', () => {
       expect(defs.research_lab.effectsOnComplete.housing_scientist_cap).toBe(5000);
     });

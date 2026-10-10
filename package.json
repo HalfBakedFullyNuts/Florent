@@ -1,6 +1,6 @@
 {
   "name": "infinite-conflict-planner",
-  "version": "0.2.91",
+  "version": "0.2.92",
   "private": true,
   "scripts": {
     "dev": "rimraf .next && next dev",
