@@ -661,6 +661,8 @@ function humanizeQueueReason(reason: string | undefined, def: ItemDefinition | a
       return 'Would push net energy below zero — only zero-upkeep buildings allowed.';
     case 'INSUFFICIENT_RESOURCES':
       return 'Resources cannot be produced — check net production for the cost types.';
+    case 'SPACE_INSUFFICIENT':
+      return 'No space left once the queue is built — free space first (Land Reclamation, Orbital Clearing or a demolition).';
     default:
       return reason || 'Cannot queue this item.';
   }

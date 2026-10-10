@@ -175,7 +175,8 @@ export type CanQueueReason =
   | 'HOUSING_MISSING'
   | 'ENERGY_INSUFFICIENT'
   | 'PLANET_LIMIT_REACHED'
-  | 'INSUFFICIENT_RESOURCES';
+  | 'INSUFFICIENT_RESOURCES'
+  | 'SPACE_INSUFFICIENT';
 
 export interface CanQueueResult {
   allowed: boolean;

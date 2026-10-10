@@ -6,6 +6,7 @@
 import type { PlanetState, ItemDefinition, CanQueueResult, ResourceId } from './types';
 import { getDefs } from './defsRegistry';
 import { computeNetOutputsPerTurn, computeProjectedNetOutputsPerTurn } from './outputs';
+import { demolishTarget } from './demolish';
 
 /**
  * Check if prerequisites are met for queuing an item
@@ -260,6 +261,47 @@ function resourcesFeasible(
 }
 
 /**
+ * Ground and orbital space still free once everything already queued is built:
+ * queued structures take their space, space providers and demolitions give it back.
+ */
+export function projectedFreeSpace(state: PlanetState): { ground: number; orbital: number } {
+  const defs = getDefs();
+  const free = {
+    ground: state.space.groundCap - state.space.groundUsed,
+    orbital: state.space.orbitalCap - state.space.orbitalUsed,
+  };
+  for (const lane of Object.values(state.lanes)) {
+    for (const item of [...(lane.active ? [lane.active] : []), ...lane.pendingQueue]) {
+      const def = defs[item.itemId];
+      if (!def || item.isWait) continue;
+      const qty = item.quantity;
+      if (item !== lane.active && def.type === 'structure') {
+        free.ground -= (def.costsPerUnit.space || 0) * qty; // active items reserved theirs at activation
+        free.orbital -= (def.costsPerUnit.space_orbital || 0) * qty;
+      }
+      free.ground += (def.effectsOnComplete?.space_ground_cap || 0) * qty;
+      free.orbital += (def.effectsOnComplete?.space_orbital_cap || 0) * qty;
+      const target = demolishTarget(def.id);
+      const targetDef = target ? defs[target] : undefined;
+      if (targetDef) {
+        free.ground += (targetDef.costsPerUnit.space || 0) * qty;
+        free.orbital += (targetDef.costsPerUnit.space_orbital || 0) * qty;
+      }
+    }
+  }
+  return free;
+}
+
+function spaceReachable(state: PlanetState, def: ItemDefinition, qty: number): boolean {
+  if (def.type !== 'structure') return true;
+  const ground = (def.costsPerUnit.space || 0) * qty;
+  const orbital = (def.costsPerUnit.space_orbital || 0) * qty;
+  if (ground <= 0 && orbital <= 0) return true;
+  const free = projectedFreeSpace(state);
+  return ground <= free.ground && orbital <= free.orbital;
+}
+
+/**
  * Static validation: can we queue this item?
  * Activation-time pricing model:
  *   - prereqs must exist OR be queued (so they will land before this item runs)
@@ -287,6 +329,9 @@ export function canQueue(
   }
   if (!resourcesFeasible(state, def, requestedQty)) {
     return { allowed: false, reason: 'INSUFFICIENT_RESOURCES' };
+  }
+  if (!spaceReachable(state, def, requestedQty)) {
+    return { allowed: false, reason: 'SPACE_INSUFFICIENT' };
   }
   return { allowed: true };
 }

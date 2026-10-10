@@ -152,6 +152,10 @@ function neverStartsDetail(state: PlanetState, item: WorkItem): string {
     (id) => (state.completedCounts[id] || 0) <= 0 && !state.completedResearch?.includes(id),
   );
   if (missing.length > 0) return `never starts: missing ${missing.map((id) => defs[id]?.name ?? id).join(', ')}`;
+  if (def?.type === 'structure') {
+    if ((def.costsPerUnit.space || 0) * item.quantity > state.space.groundCap - state.space.groundUsed) return 'never starts: no free ground space';
+    if ((def.costsPerUnit.space_orbital || 0) * item.quantity > state.space.orbitalCap - state.space.orbitalUsed) return 'never starts: no free orbital space';
+  }
   return 'never starts: resources, workers or housing never become available';
 }
 

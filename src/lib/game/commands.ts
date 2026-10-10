@@ -15,7 +15,7 @@ import { getPlannedWaitTurns } from './waitDuration';
 
 export interface QueueResult {
   success: boolean;
-  reason?: 'REQ_MISSING' | 'HOUSING_MISSING' | 'ENERGY_INSUFFICIENT' | 'PLANET_LIMIT_REACHED' | 'INSUFFICIENT_RESOURCES' | 'INVALID_LANE';
+  reason?: 'REQ_MISSING' | 'HOUSING_MISSING' | 'ENERGY_INSUFFICIENT' | 'PLANET_LIMIT_REACHED' | 'INSUFFICIENT_RESOURCES' | 'SPACE_INSUFFICIENT' | 'INVALID_LANE';
   itemId?: string;
 }
 
