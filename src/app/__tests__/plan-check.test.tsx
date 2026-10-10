@@ -59,6 +59,13 @@ describe('plan check on queue changes', () => {
     });
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(queueOrder()).toEqual(['Solar Generator', 'Spy Centre', 'Farm']);
+
+    // The accepted problem stays visible: queue row, timeline marker and alert slot.
+    const queue = screen.getByRole('list', { name: /Structures queue/i });
+    const spyRow = within(queue).getAllByRole('listitem').find((row) => row.textContent?.includes('Spy Centre'))!;
+    expect(spyRow).toHaveTextContent('Energy output negative');
+    expect(screen.getByRole('button', { name: /^Problem at T21–T24: Energy output negative/ })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('1 plan problem, first at T21');
   });
 
   it('applies a valid change without asking', async () => {

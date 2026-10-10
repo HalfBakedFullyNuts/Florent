@@ -103,8 +103,8 @@ import { formatScore } from "@/components/ui/resources";
 import { Bug, Link2, ListOrdered, ListPlus, RotateCcw, Save, Upload } from "lucide-react";
 import { DependencyWarningModal } from "../components/DependencyWarningModal";
 import { PlanCheckDialog, type PlanCheckAction } from "../components/PlanCheckDialog";
-import { beginPlanGuard, findShortfallChoice } from "../lib/game/planGuard";
-import type { PlanProblem } from "../lib/game/planDiagnostics";
+import { beginPlanGuard, diagnoseController, findShortfallChoice } from "../lib/game/planGuard";
+import { describePlanProblem, problemsByEntry, type PlanProblem } from "../lib/game/planDiagnostics";
 import { PlanetActionsModal } from "../components/PlanetActionsModal";
 import { SavesModal } from "../components/SavesModal";
 import { BuildListSelector } from "../components/BuildListSelector";
@@ -929,6 +929,22 @@ export default function Home() {
     [currentState],
   );
 
+  // Standing problems of the current planet's plan, shown in the queue, on the timeline and in the alert slot.
+  const planProblems = useMemo(() => {
+    if (!controller || !isPlanetViewAvailable) return [];
+    return diagnoseController(controller, planTurn).problems;
+    // The controller mutates its timeline outside React; gameState is a deliberate cache-busting dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controller, planTurn, gameState, isPlanetViewAvailable]);
+  const nameOfItem = useCallback((id: string) => defs[id]?.name ?? id, [defs]);
+  const problemMarkers = useMemo(
+    () => planProblems.map((problem) => {
+      const text = describePlanProblem(problem, nameOfItem);
+      return { turn: problem.turn, endTurn: problem.endTurn, label: `${text.title} (${text.detail})` };
+    }),
+    [planProblems, nameOfItem],
+  );
+
   // Merge the last action error, engine warnings and cascade-removal notices into the inline alert slot.
   // Errors and cascade notices are reset by the next user action, so they auto-clear.
   const allWarnings = useMemo(() => {
@@ -938,8 +954,16 @@ export default function Home() {
       severity: "warning" as const,
     }));
     const errorItems = error ? [{ type: "ACTION_ERROR" as const, message: error, severity: "error" as const }] : [];
-    return [...errorItems, ...warnings, ...cascadeItems];
-  }, [error, warnings, cascadeWarnings]);
+    const first = problemMarkers[0];
+    const planItems = first
+      ? [{
+          type: "PLAN_PROBLEM" as const,
+          message: `${problemMarkers.length} plan problem${problemMarkers.length === 1 ? "" : "s"}, first at T${first.turn}: ${first.label}`,
+          severity: "error" as const,
+        }]
+      : [];
+    return [...errorItems, ...planItems, ...warnings, ...cascadeItems];
+  }, [error, warnings, cascadeWarnings, problemMarkers]);
 
   // Calculate first empty turn for each lane (for timeline quick jump buttons).
   // gameState is intentionally a dep so queue mutations re-evaluate (controller mutates
@@ -952,25 +976,45 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, planetTimelineEndTurn, gameState, planTurn]);
 
+  // Queue rows that a plan problem points at get the invalid outline and the reason.
+  const problemMarks = useMemo(
+    () => problemsByEntry(
+      planProblems,
+      [...(buildingLane?.entries ?? []), ...(shipLane?.entries ?? []), ...(colonistLane?.entries ?? [])],
+      nameOfItem,
+    ),
+    [planProblems, buildingLane, shipLane, colonistLane, nameOfItem],
+  );
+  const markPlanProblems = useCallback(
+    <T extends { id: string; invalid?: boolean }>(entries: T[]): T[] => {
+      if (problemMarks.size === 0) return entries;
+      return entries.map((entry) => {
+        const reason = problemMarks.get(entry.id);
+        return reason && !entry.invalid ? { ...entry, invalid: true, invalidReason: reason } : entry;
+      });
+    },
+    [problemMarks],
+  );
+
   // Enrich all lanes with validation state in a single useMemo
   const enrichedLanes = useMemo(
     () => ({
       building: buildingLane
         ? {
             ...buildingLane,
-            entries: enrichEntriesWithDelay(enrichEntriesWithValidation(buildingLane.entries)),
+            entries: markPlanProblems(enrichEntriesWithDelay(enrichEntriesWithValidation(buildingLane.entries))),
           }
         : null,
       ship: shipLane
         ? {
             ...shipLane,
-            entries: enrichEntriesWithDelay(enrichEntriesWithValidation(shipLane.entries)),
+            entries: markPlanProblems(enrichEntriesWithDelay(enrichEntriesWithValidation(shipLane.entries))),
           }
         : null,
       colonist: colonistLane
         ? {
             ...colonistLane,
-            entries: enrichEntriesWithDelay(enrichEntriesWithValidation(colonistLane.entries)),
+            entries: markPlanProblems(enrichEntriesWithDelay(enrichEntriesWithValidation(colonistLane.entries))),
           }
         : null,
       research: globalResearchLane
@@ -987,6 +1031,7 @@ export default function Home() {
       globalResearchLane,
       enrichEntriesWithValidation,
       enrichEntriesWithDelay,
+      markPlanProblems,
     ],
   );
 
@@ -2665,6 +2710,7 @@ export default function Home() {
                 laneSpans={laneSpans}
                 isAutoJumpEnabled={isAutoJumpEnabled}
                 onAutoJumpToggle={setIsAutoJumpEnabled}
+                problemMarkers={problemMarkers}
               />
             </div>
 

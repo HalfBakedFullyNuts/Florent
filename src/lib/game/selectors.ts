@@ -85,7 +85,8 @@ export type WarningType =
   | 'HOUSING_FULL'
   | 'SPACE_FULL'
   | 'QUEUE_CASCADE_REMOVAL'
-  | 'ACTION_ERROR';
+  | 'ACTION_ERROR'
+  | 'PLAN_PROBLEM';
 
 export interface Warning {
   type: WarningType;

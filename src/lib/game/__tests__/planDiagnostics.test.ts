@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameController } from '../commands';
-import { describePlanProblem, diagnosePlan, findNewProblems, type PlanDiagnosis } from '../planDiagnostics';
+import { describePlanProblem, diagnosePlan, findNewProblems, problemsByEntry, type PlanDiagnosis } from '../planDiagnostics';
 import { createStandardStart } from '../../sim/defs/seed';
 import { loadGameData } from '../../sim/defs/adapter';
 import { setDefsCatalog } from '../../sim/engine/defsRegistry';
@@ -118,5 +118,34 @@ describe('findNewProblems', () => {
     const after: PlanDiagnosis = { ...empty, starts: new Map([['lq', null]]) };
 
     expect(findNewProblems(before, after).map((p) => p.kind)).toEqual(['DELAYED']);
+  });
+});
+
+describe('problemsByEntry', () => {
+  const nameOf = (id: string) => id;
+  const entries = [
+    { id: 'spy', startTurn: 5, completionTurn: 20 },
+    { id: 'solar', startTurn: 21, completionTurn: 24 },
+    { id: 'dock', startTurn: undefined, completionTurn: undefined },
+  ];
+
+  it('marks entries named by a problem and the entry whose completion starts a range', () => {
+    const marks = problemsByEntry(
+      [
+        { kind: 'NEGATIVE_ENERGY', turn: 21, endTurn: 24, detail: 'net energy -40/turn' },
+        { kind: 'NEVER_STARTS', turn: 200, entryId: 'dock', itemId: 'space_dock', detail: 'never starts: missing Metropolis' },
+      ],
+      entries,
+      nameOf,
+    );
+
+    expect(marks.get('spy')).toBe('T21–T24: Energy output negative (net energy -40/turn)');
+    expect(marks.get('dock')).toBe('never starts: missing Metropolis');
+    expect(marks.has('solar')).toBe(false);
+  });
+
+  it('marks the entry whose activation overspends stock', () => {
+    const marks = problemsByEntry([{ kind: 'NEGATIVE_STOCK', turn: 5, endTurn: 9, detail: 'metal stock below zero' }], entries, nameOf);
+    expect(marks.get('spy')).toBe('T5–T9: Spending stock that is not there (metal stock below zero)');
   });
 });

@@ -207,3 +207,27 @@ function findDelays(before: PlanDiagnosis, after: PlanDiagnosis, changedEntryId?
   }
   return delays;
 }
+
+/**
+ * Reason text per queue entry for highlighting. Entry problems mark their own entry; range problems
+ * (energy, stock) mark the entry whose completion (turn - 1) or activation (turn) starts the range.
+ */
+export function problemsByEntry(
+  problems: PlanProblem[],
+  entries: Array<{ id: string; startTurn?: number; completionTurn?: number }>,
+  nameOf: (itemId: string) => string,
+): Map<string, string> {
+  const marks = new Map<string, string>();
+  for (const problem of problems) {
+    if (problem.entryId) {
+      if (!marks.has(problem.entryId)) marks.set(problem.entryId, problem.detail);
+      continue;
+    }
+    const cause = entries.find((entry) => entry.completionTurn === problem.turn - 1)
+      ?? entries.find((entry) => entry.startTurn === problem.turn);
+    if (!cause || marks.has(cause.id)) continue;
+    const text = describePlanProblem(problem, nameOf);
+    marks.set(cause.id, `${text.turnLabel}: ${text.title} (${text.detail})`);
+  }
+  return marks;
+}

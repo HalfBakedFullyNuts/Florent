@@ -38,6 +38,14 @@ export interface HorizontalTimelineProps {
   laneSpans?: Partial<Record<LaneId, LaneSpan[]>>;
   isAutoJumpEnabled?: boolean;
   onAutoJumpToggle?: (v: boolean) => void;
+  /** Plan problems to mark: a red band over their turns and a marker that jumps to the first turn. */
+  problemMarkers?: ProblemMarker[];
+}
+
+export interface ProblemMarker {
+  turn: number;
+  endTurn?: number;
+  label: string;
 }
 
 const ROW_HEIGHT = 20;
@@ -69,6 +77,7 @@ function HorizontalTimelineInner({
   laneSpans,
   isAutoJumpEnabled,
   onAutoJumpToggle,
+  problemMarkers,
 }: HorizontalTimelineProps) {
   // Local state keeps the slider from snapping back while dragging fast.
   const [localTurn, setLocalTurn] = useState(currentTurn);
@@ -140,6 +149,7 @@ function HorizontalTimelineInner({
         laneSpans={laneSpans}
         currentBuilds={currentBuilds}
         firstEmptyTurns={firstEmptyTurns}
+        problemMarkers={problemMarkers ?? []}
       />
     </section>
   );
@@ -152,10 +162,15 @@ interface LaneSpectrumProps {
   laneSpans?: HorizontalTimelineProps['laneSpans'];
   currentBuilds?: HorizontalTimelineProps['currentBuilds'];
   firstEmptyTurns?: FirstEmptyTurns;
+  problemMarkers: ProblemMarker[];
+}
+
+function markerTurns(marker: ProblemMarker): string {
+  return marker.endTurn !== undefined && marker.endTurn !== marker.turn ? `T${marker.turn}–T${marker.endTurn}` : `T${marker.turn}`;
 }
 
 /** Three aligned columns: lane + item in progress | spectrum tracks | first free turn. */
-function LaneSpectrum({ localTurn, totalTurns, onSlide, laneSpans, currentBuilds, firstEmptyTurns }: LaneSpectrumProps) {
+function LaneSpectrum({ localTurn, totalTurns, onSlide, laneSpans, currentBuilds, firstEmptyTurns, problemMarkers }: LaneSpectrumProps) {
   const ticks = Array.from(new Set([1, 50, 100, 150, 200, totalTurns].filter((t) => t <= totalTurns))).sort((a, b) => a - b);
   const [hover, setHover] = useState<SpectrumHover | null>(null);
   const hoveredTurn = hover?.turn ?? null;
@@ -172,20 +187,33 @@ function LaneSpectrum({ localTurn, totalTurns, onSlide, laneSpans, currentBuilds
   return (
     <div className="mt-3 grid grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)_3.25rem] gap-x-3 md:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_4rem]">
       <div className="eyebrow h-[18px]">In progress</div>
-      <div className="relative h-[18px]" aria-hidden="true">
+      <div className="relative h-[18px]">
         {ticks.map((turn) => (
-          <span key={turn} className={`absolute -translate-x-1/2 text-[11px] leading-[18px] text-ink-3 ${turn === 50 || turn === 150 ? 'max-sm:hidden' : ''}`} style={{ left: turnPosition(turn, totalTurns) }}>
+          <span key={turn} aria-hidden="true" className={`absolute -translate-x-1/2 text-[11px] leading-[18px] text-ink-3 ${turn === 50 || turn === 150 ? 'max-sm:hidden' : ''}`} style={{ left: turnPosition(turn, totalTurns) }}>
             {turn}
           </span>
         ))}
         {hoveredTurn !== null && hoveredTurn !== localTurn && (
-          <span className="absolute z-10 -translate-x-1/2 rounded-sm bg-veil-hi px-1 text-[11px] font-semibold leading-[18px] text-ink" style={{ left: turnPosition(hoveredTurn, totalTurns) }}>
+          <span aria-hidden="true" className="absolute z-10 -translate-x-1/2 rounded-sm bg-veil-hi px-1 text-[11px] font-semibold leading-[18px] text-ink" style={{ left: turnPosition(hoveredTurn, totalTurns) }}>
             T{hoveredTurn}
           </span>
         )}
-        <span className="absolute z-20 -translate-x-1/2 rounded-sm bg-halpha px-1 text-[11px] font-bold leading-[18px] text-void" style={{ left: turnPosition(localTurn, totalTurns) }}>
+        <span aria-hidden="true" className="absolute z-20 -translate-x-1/2 rounded-sm bg-halpha px-1 text-[11px] font-bold leading-[18px] text-void" style={{ left: turnPosition(localTurn, totalTurns) }}>
           T{localTurn}
         </span>
+        {problemMarkers.map((marker) => (
+          <button
+            key={`${marker.turn}:${marker.label}`}
+            type="button"
+            onClick={() => onSlide(marker.turn)}
+            aria-label={`Problem at ${markerTurns(marker)}: ${marker.label}`}
+            title={`${markerTurns(marker)}: ${marker.label}`}
+            className="pointer-events-auto absolute top-0 z-30 h-[18px] w-3 -translate-x-1/2 rounded-sm bg-danger text-[10px] font-bold leading-[18px] text-void hover:brightness-110"
+            style={{ left: turnPosition(marker.turn, totalTurns) }}
+          >
+            !
+          </button>
+        ))}
       </div>
       <div className="eyebrow h-[18px] text-right">Free</div>
 
@@ -198,6 +226,14 @@ function LaneSpectrum({ localTurn, totalTurns, onSlide, laneSpans, currentBuilds
       <div className="relative" style={{ height: ROW_HEIGHT * ALL_LANES.length }}>
         {ticks.map((turn) => (
           <span key={turn} aria-hidden="true" className="absolute inset-y-0 w-px bg-filament/70" style={{ left: turnPosition(turn, totalTurns) }} />
+        ))}
+        {problemMarkers.map((marker) => (
+          <span
+            key={`band:${marker.turn}:${marker.label}`}
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 min-w-0.5 bg-danger/25 shadow-[inset_1px_0_0_#FF7A7A]"
+            style={{ left: turnPosition(marker.turn, totalTurns), width: spanWidth({ start: marker.turn, end: marker.endTurn ?? marker.turn }, totalTurns) }}
+          />
         ))}
         {hover && (
           <span aria-hidden="true" className="absolute inset-x-0 rounded-[4px] bg-oiii/10" style={{ top: hover.laneIndex * ROW_HEIGHT, height: ROW_HEIGHT }} />
