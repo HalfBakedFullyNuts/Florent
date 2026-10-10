@@ -2,6 +2,9 @@
 
 One- to two-sentence entries, newest first, per CLAUDE.md.
 
+## 2026-10-10 — Queue changes are checked against a full plan diagnosis; shortfalls can be accepted
+Every planet queue change (add, reorder, quantity, remove) is applied, diagnosed over the whole timeline (`planDiagnostics`) and kept only if it adds no problems or the player confirms; declining restores the plan-start snapshot and the command history checkpoint (`planGuard`). Players may accept starting an entry without enough stock (`WorkItem.allowShortfall`, persisted as the `sf` command / compact flag bit), which overspends and is shown as an invalid build instead of being prevented.
+
 ## 2026-10-09 — Ship and structure scores come from the in-game asset formula
 `computePlanetScore` scores ships and structures with `computeItemAssetScore` (weighted cost × 1.5 / 1000, rounded, × turns / 4) and population with `POPULATION_SCORE_VALUES`; the hardcoded `score_value` fields were removed from `game_data.json` and the adapter.
 
