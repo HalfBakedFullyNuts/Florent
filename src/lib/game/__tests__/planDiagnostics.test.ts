@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameController } from '../commands';
-import { diagnosePlan, findNewProblems, type PlanDiagnosis } from '../planDiagnostics';
+import { describePlanProblem, diagnosePlan, findNewProblems, type PlanDiagnosis } from '../planDiagnostics';
 import { createStandardStart } from '../../sim/defs/seed';
 import { loadGameData } from '../../sim/defs/adapter';
 import { setDefsCatalog } from '../../sim/engine/defsRegistry';
@@ -64,7 +64,7 @@ describe('diagnosePlan', () => {
 });
 
 describe('findNewProblems', () => {
-  const empty: PlanDiagnosis = { problems: [], starts: new Map() };
+  const empty: PlanDiagnosis = { problems: [], starts: new Map(), items: new Map() };
 
   it('returns problems that did not exist before the change', () => {
     const before = diagnose(controllerWith(['farm', 'solar_generator', 'spy_centre']));
@@ -89,6 +89,28 @@ describe('findNewProblems', () => {
 
     const added = findNewProblems(before, after, { changedEntryId: 'moved' });
     expect(added).toEqual([expect.objectContaining({ kind: 'DELAYED', entryId: 'lq', turn: 12, detail: 'starts T12 instead of T7' })]);
+  });
+
+  it('names the delayed entry and its lane when the diagnosis knows them', () => {
+    const items = new Map([['lq', { itemId: 'living_quarters', laneId: 'building' as const }]]);
+    const before: PlanDiagnosis = { ...empty, starts: new Map([['lq', 7]]), items };
+    const after: PlanDiagnosis = { ...empty, starts: new Map([['lq', 9]]), items };
+
+    expect(findNewProblems(before, after)[0]).toMatchObject({ itemId: 'living_quarters', laneId: 'building' });
+  });
+
+  it('describes problems for the player with turn labels and item names', () => {
+    const names = (id: string) => (id === 'spy_centre' ? 'Spy Centre' : id);
+    expect(describePlanProblem({ kind: 'NEGATIVE_ENERGY', turn: 21, endTurn: 24, detail: 'net energy -40/turn' }, names)).toEqual({
+      turnLabel: 'T21–T24',
+      title: 'Energy output negative',
+      detail: 'net energy -40/turn',
+    });
+    expect(describePlanProblem({ kind: 'NEVER_STARTS', turn: 200, itemId: 'spy_centre', detail: 'never starts: missing Metropolis' }, names)).toEqual({
+      turnLabel: 'T200',
+      title: 'Spy Centre never starts',
+      detail: 'never starts: missing Metropolis',
+    });
   });
 
   it('reports an entry that started before but no longer starts at all', () => {

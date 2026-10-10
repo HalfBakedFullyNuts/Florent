@@ -32,7 +32,23 @@ export interface PlanDiagnosis {
   problems: PlanProblem[];
   /** Start turn of every plan entry (null = never starts within the horizon). */
   starts: Map<string, number | null>;
+  /** Item and lane of every plan entry, so delays can be named and highlighted. */
+  items: Map<string, { itemId: string; laneId: LaneId }>;
 }
+
+export interface PlanProblemText {
+  turnLabel: string;
+  title: string;
+  detail: string;
+}
+
+const PROBLEM_TITLES: Record<PlanProblemKind, (name: string) => string> = {
+  NEGATIVE_ENERGY: () => 'Energy output negative',
+  NEGATIVE_STOCK: () => 'Spending stock that is not there',
+  NEVER_STARTS: (name) => `${name} never starts`,
+  BATCH_REDUCED: (name) => `${name} batch cut short`,
+  DELAYED: (name) => `${name} delayed`,
+};
 
 type StateAt = (turn: number) => PlanetState | undefined;
 
@@ -43,13 +59,24 @@ const STOCKS = ['metal', 'mineral', 'food', 'energy'] as const;
 export function diagnosePlan(stateAt: StateAt, firstTurn: number, lastTurn: number): PlanDiagnosis {
   const first = stateAt(firstTurn);
   const last = stateAt(lastTurn) ?? lastComputedState(stateAt, firstTurn, lastTurn);
-  if (!first || !last) return { problems: [], starts: new Map() };
+  if (!first || !last) return { problems: [], starts: new Map(), items: new Map() };
 
   const problems = [
     ...collectRangeProblems(stateAt, firstTurn, last.currentTurn),
     ...collectEntryProblems(first, last),
   ];
-  return { problems, starts: collectStarts(first, last) };
+  const items = new Map(LANES.flatMap((laneId) => planEntriesIn(first, laneId).map((item): [string, { itemId: string; laneId: LaneId }] => [item.id, { itemId: item.itemId, laneId }])));
+  return { problems, starts: collectStarts(first, last), items };
+}
+
+/** Player-facing turn label, headline and detail for one problem. */
+export function describePlanProblem(problem: PlanProblem, nameOf: (itemId: string) => string): PlanProblemText {
+  const range = problem.endTurn !== undefined && problem.endTurn !== problem.turn;
+  return {
+    turnLabel: range ? `T${problem.turn}–T${problem.endTurn}` : `T${problem.turn}`,
+    title: PROBLEM_TITLES[problem.kind](problem.itemId ? nameOf(problem.itemId) : 'An entry'),
+    detail: problem.detail,
+  };
 }
 
 function lastComputedState(stateAt: StateAt, firstTurn: number, lastTurn: number): PlanetState | undefined {
@@ -128,11 +155,13 @@ function neverStartsDetail(state: PlanetState, item: WorkItem): string {
   return 'never starts: resources, workers or housing never become available';
 }
 
+function planEntriesIn(state: PlanetState, laneId: LaneId): WorkItem[] {
+  const lane = state.lanes[laneId];
+  return [...(lane.active ? [lane.active] : []), ...lane.pendingQueue].filter((item) => !item.isWait);
+}
+
 function planEntries(state: PlanetState): WorkItem[] {
-  return LANES.flatMap((laneId) => {
-    const lane = state.lanes[laneId];
-    return [...(lane.active ? [lane.active] : []), ...lane.pendingQueue].filter((item) => !item.isWait);
-  });
+  return LANES.flatMap((laneId) => planEntriesIn(state, laneId));
 }
 
 function collectStarts(first: PlanetState, last: PlanetState): Map<string, number | null> {
@@ -167,10 +196,12 @@ function findDelays(before: PlanDiagnosis, after: PlanDiagnosis, changedEntryId?
     if (entryId === changedEntryId || oldStart === null || !after.starts.has(entryId)) continue;
     const newStart = after.starts.get(entryId) ?? null;
     if (newStart !== null && newStart <= oldStart) continue;
+    const item = after.items?.get(entryId) ?? before.items?.get(entryId);
     delays.push({
       kind: 'DELAYED',
       turn: newStart ?? oldStart,
       entryId,
+      ...(item ? { itemId: item.itemId, laneId: item.laneId } : {}),
       detail: newStart === null ? `no longer starts (was T${oldStart})` : `starts T${newStart} instead of T${oldStart}`,
     });
   }
