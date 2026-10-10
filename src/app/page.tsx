@@ -102,6 +102,9 @@ import { LANE_CONFIG } from "../lib/constants/lanes";
 import { formatScore } from "@/components/ui/resources";
 import { Bug, Link2, ListOrdered, ListPlus, RotateCcw, Save, Upload } from "lucide-react";
 import { DependencyWarningModal } from "../components/DependencyWarningModal";
+import { PlanCheckDialog, type PlanCheckAction } from "../components/PlanCheckDialog";
+import { beginPlanGuard, findShortfallChoice } from "../lib/game/planGuard";
+import type { PlanProblem } from "../lib/game/planDiagnostics";
 import { PlanetActionsModal } from "../components/PlanetActionsModal";
 import { SavesModal } from "../components/SavesModal";
 import { BuildListSelector } from "../components/BuildListSelector";
@@ -1379,6 +1382,81 @@ export default function Home() {
   );
 
   // Command handlers
+  // Pending "this change causes problems" decision; Cancel undoes the change.
+  const [planCheck, setPlanCheck] = useState<{
+    title: string;
+    description?: string;
+    problems: PlanProblem[];
+    actions: PlanCheckAction[];
+    onCancel: () => void;
+  } | null>(null);
+
+  const syncPlanetFromController = useCallback(
+    (turn: number) => {
+      const updated = controller?.getStateAtTurn(turn);
+      if (!updated) return;
+      setGameState((prev) => {
+        const planets = new Map(prev.planets);
+        const existing = planets.get(prev.currentPlanetId);
+        if (existing) planets.set(prev.currentPlanetId, withPlanetMetadata(updated, existing));
+        return { ...prev, planets };
+      });
+    },
+    [controller],
+  );
+
+  /**
+   * Applies a planet queue change, then asks the player before keeping one that adds problems
+   * (or, for a new entry that only waits for stock, whether to wait or start now and overspend).
+   */
+  const runGuarded = useCallback(
+    (title: string, apply: () => { entryId: string; laneId: LaneId; isNewEntry?: boolean } | null) => {
+      if (!controller) return;
+      const guard = beginPlanGuard(controller, planTurn);
+      const checkpoint = commandHistory.checkpoint();
+      const turnBefore = viewTurn;
+      const changed = apply();
+      if (!changed) return;
+
+      const problems = guard.finish({ changedEntryId: changed.isNewEntry ? undefined : changed.entryId });
+      const shortfall = changed.isNewEntry
+        ? findShortfallChoice(controller, planTurn, changed.laneId, changed.entryId)
+        : null;
+      if (problems.length === 0 && !shortfall) return;
+
+      const close = () => setPlanCheck(null);
+      const undo = () => {
+        guard.undo();
+        commandHistory.restore(checkpoint);
+        setViewTurn(turnBefore);
+        syncPlanetFromController(turnBefore);
+        close();
+      };
+      const startNow = () => {
+        controller.setAllowShortfall(planTurn, changed.laneId, changed.entryId, true);
+        commandHistory.recordAllowShortfall(Math.max(0, getPlanetIndex(gameState, currentPlanetId)), changed.laneId, changed.entryId);
+        syncPlanetFromController(viewTurn);
+        close();
+      };
+      const actions: PlanCheckAction[] = shortfall
+        ? [
+            { label: shortfall.waitStart === null ? "Keep waiting" : `Wait for resources (starts T${shortfall.waitStart})`, onSelect: close, tone: "primary" },
+            { label: `Start now at T${shortfall.forcedStart} (overspends)`, onSelect: startNow, tone: "danger" },
+          ]
+        : [{ label: "Do it anyway", onSelect: close, tone: "danger" }];
+      setPlanCheck({
+        title: shortfall ? `${title}: not enough stock yet` : `${title} causes problems`,
+        description: shortfall
+          ? "Wait until the stock is there, or start now and accept an invalid build (stock goes negative)."
+          : "If you keep the change, the problems below are marked in the queue and on the timeline.",
+        problems,
+        actions,
+        onCancel: undo,
+      });
+    },
+    [controller, planTurn, commandHistory, viewTurn, syncPlanetFromController, gameState, currentPlanetId],
+  );
+
   const handleQueueItem = useCallback(
     (itemId: string, quantity: number) => {
       setError(null);
@@ -1423,15 +1501,16 @@ export default function Home() {
           return;
         }
 
+        runGuarded(`Adding ${def?.name ?? itemId}`, () => {
         const result = controller.queueItem(planTurn, itemId, quantity, {
           completedResearch: researchGate.completedResearch,
           scheduledResearch: researchGate.scheduledResearch,
           blockedResearch: researchGate.blockedResearch,
           minStartTurn: researchGate.minStartTurn,
         });
-        if (!result.success) {
+        if (!result.success || !result.itemId || !def) {
           setError(result.reason || "Cannot queue item");
-          return;
+          return null;
         }
 
         // Record command for URL encoding (pass entryId so cancel commands can reference it)
@@ -1474,6 +1553,8 @@ export default function Home() {
             }
           }
         }
+        return { entryId: result.itemId, laneId: def.lane, isNewEntry: true };
+        });
       } catch (e) {
         console.error("Error in handleQueueItem:", e);
         setError((e as Error).message || "Unknown error");
@@ -1493,6 +1574,7 @@ export default function Home() {
       planTurn,
       isPlanetViewAvailable,
       planetUnavailableReason,
+      runGuarded,
     ],
   );
 
@@ -1796,19 +1878,29 @@ export default function Home() {
       (a, b) => (b.entry.queuedTurn || 0) - (a.entry.queuedTurn || 0),
     );
 
-    for (const dep of sortedBroken) {
-      controller.cancelPlannedItem(
-        dep.laneId as "building" | "ship" | "colonist" | "research",
-        dep.entry.id,
-      );
-    }
+    const { laneId, entry } = pendingCancellation;
+    const cancelAll = () => {
+      for (const dep of sortedBroken) {
+        controller.cancelPlannedItem(
+          dep.laneId as "building" | "ship" | "colonist" | "research",
+          dep.entry.id,
+        );
+      }
+      // Finally cancel the root element the user actually clicked
+      executeCancellation(laneId, entry);
+    };
 
-    // Finally cancel the root element the user actually clicked
-    executeCancellation(pendingCancellation.laneId, pendingCancellation.entry);
-
-    // Close modal
+    // Close modal first so a follow-up plan check can take its place
     setPendingCancellation(null);
-  }, [pendingCancellation, controller, executeCancellation]);
+    if (laneId === "research") {
+      cancelAll();
+      return;
+    }
+    runGuarded(`Removing ${entry.itemName ?? "this entry"}`, () => {
+      cancelAll();
+      return { entryId: entry.id, laneId };
+    });
+  }, [pendingCancellation, controller, executeCancellation, runGuarded]);
 
   const handleCancelItem = useCallback(
     (laneId: "building" | "ship" | "colonist" | "research", entry: any) => {
@@ -1851,12 +1943,15 @@ export default function Home() {
         }
 
         // 2. Standard Cancellation Execution
-        executeCancellation(laneId, entry);
+        runGuarded(`Removing ${entry.itemName ?? "this entry"}`, () => {
+          executeCancellation(laneId, entry);
+          return { entryId: entry.id, laneId };
+        });
       } catch (e) {
         setError((e as Error).message || "Unknown error");
       }
     },
-    [controller, executeCancellation, viewTurn],
+    [controller, executeCancellation, viewTurn, runGuarded],
   );
 
   const handleClearLane = useCallback(
@@ -2008,7 +2103,9 @@ export default function Home() {
         return;
       }
 
+      if (laneId === "research") return;
       try {
+        runGuarded(`Changing ${entry.itemName ?? "the batch"} to ${newQuantity}`, () => {
         // Update quantity preserving position
         const updateResult = controller.updateItemQuantity(
           planTurn,
@@ -2019,7 +2116,7 @@ export default function Home() {
 
         if (!updateResult.success) {
           setError(`Failed to update quantity: ${updateResult.reason}`);
-          return;
+          return null;
         }
 
         // Update the planet in game state
@@ -2036,11 +2133,13 @@ export default function Home() {
             return { ...prev, planets: newPlanets };
           });
         }
+        return { entryId: entry.id, laneId };
+        });
       } catch (e) {
         setError((e as Error).message || "Unknown error");
       }
     },
-    [controller, viewTurn, gameState, planTurn],
+    [controller, viewTurn, gameState, planTurn, runGuarded],
   );
 
   const handleReorder = useCallback(
@@ -2066,6 +2165,7 @@ export default function Home() {
       }
 
       try {
+        runGuarded("This reorder", () => {
         const result = controller.reorderQueueItem(
           planTurn,
           laneId,
@@ -2075,7 +2175,7 @@ export default function Home() {
 
         if (!result.success) {
           setError(`Cannot reorder: ${result.reason || "unknown error"}`);
-          return;
+          return null;
         }
 
         // We should repack the queue following a reorder so items lock into their new places mathematically
@@ -2102,6 +2202,8 @@ export default function Home() {
             return { ...prev, planets: newPlanets };
           });
         }
+        return { entryId, laneId };
+        });
       } catch (e) {
         console.error("Error reordering item:", e);
         setError((e as Error).message || "Unknown error");
@@ -2114,6 +2216,7 @@ export default function Home() {
       commandHistory,
       planTurn,
       currentPlanetId,
+      runGuarded,
     ],
   );
 
@@ -2716,6 +2819,18 @@ export default function Home() {
           onCancel={() => setPendingCancellation(null)}
           cancelledItemName={pendingCancellation.entry.itemName}
           brokenDependencies={pendingCancellation.brokenDependencies.map((d) => d.entry)}
+        />
+      )}
+
+      {/* Plan check — a queue change would leave the plan invalid */}
+      {planCheck && (
+        <PlanCheckDialog
+          title={planCheck.title}
+          description={planCheck.description}
+          problems={planCheck.problems}
+          nameOf={(id) => defs[id]?.name ?? id}
+          actions={planCheck.actions}
+          onCancel={planCheck.onCancel}
         />
       )}
 
