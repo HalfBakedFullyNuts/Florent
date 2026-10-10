@@ -349,6 +349,12 @@ function expandPlanetConfigV1(compact: V1CompactPlanetConfig): PlanetConfig {
 // CommandHistory — records player actions for URL encoding
 // ---------------------------------------------------------------------------
 
+export interface CommandHistoryCheckpoint {
+  length: number;
+  nextSeqId: number;
+  entryIdToSeqId: Map<string, number>;
+}
+
 export class CommandHistory {
   private commands: V2CommandType[] = [];
   // seqId counter — increments with every queue command
@@ -453,6 +459,17 @@ export class CommandHistory {
 
   getCommands(): V2CommandType[] {
     return [...this.commands];
+  }
+
+  /** Marks the current history so a declined change can be rolled back with restore(). */
+  checkpoint(): CommandHistoryCheckpoint {
+    return { length: this.commands.length, nextSeqId: this.nextSeqId, entryIdToSeqId: new Map(this.entryIdToSeqId) };
+  }
+
+  restore(checkpoint: CommandHistoryCheckpoint): void {
+    this.commands = this.commands.slice(0, checkpoint.length);
+    this.nextSeqId = checkpoint.nextSeqId;
+    this.entryIdToSeqId = new Map(checkpoint.entryIdToSeqId);
   }
 
   /**

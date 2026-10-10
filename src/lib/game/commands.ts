@@ -860,6 +860,11 @@ export class GameController {
     return true;
   }
 
+  /** Replace the plan with a snapshot of its start state (used to undo a declined change). */
+  restorePlanStart(state: PlanetState): void {
+    this.timeline.reset(state);
+  }
+
   /**
    * Accept (or revoke) starting an already-queued entry without enough stock.
    * No repack: resource stalls never create auto-waits, so this stays safe inside a replay batch.
