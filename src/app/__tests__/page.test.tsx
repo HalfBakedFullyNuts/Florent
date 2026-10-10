@@ -95,6 +95,43 @@ describe('Home page', () => {
     expect(screen.getByText(/Planning range extended to T400/i)).toBeInTheDocument();
   });
 
+  it('ignores wait-code progress saved before the T400 change (no dialog on T123 alone)', async () => {
+    localStorage.setItem('ic_wait_code_stage', '2');
+    render(<Home />);
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/^Turn$/i), { target: { value: '123' } });
+    });
+
+    expect(screen.queryByRole('dialog', { name: /signal found/i })).not.toBeInTheDocument();
+    localStorage.removeItem('ic_wait_code_stage');
+  });
+
+  it('clears the wait-code progress once the dialog has opened', async () => {
+    render(<Home />);
+    for (const turns of ['99', '67']) {
+      await act(async () => {
+        fireEvent.change(screen.getByDisplayValue('5'), { target: { value: turns } });
+        fireEvent.click(screen.getByRole('button', { name: /inject wait/i }));
+      });
+    }
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/^Turn$/i), { target: { value: '123' } });
+    });
+    expect(screen.getByRole('dialog', { name: /signal found/i })).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /continue planning/i }));
+    });
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/^Turn$/i), { target: { value: '122' } });
+    });
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText(/^Turn$/i), { target: { value: '123' } });
+    });
+    expect(screen.queryByRole('dialog', { name: /signal found/i })).not.toBeInTheDocument();
+  });
+
   it('starts at 200 turns even when a browser kept the old T300 unlock', () => {
     localStorage.setItem('ic_extended_view', 'true');
     render(<Home />);

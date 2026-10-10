@@ -133,8 +133,9 @@ const SHARE_AUTHOR_STORAGE_KEY = "florent_share_author";
 const INFINITE_CONFLICT_URL = "https://www.infiniteconflict.com/";
 const DEFAULT_VIEW_TURNS = 200;
 const EXTENDED_VIEW_TURNS = 400;
-// Versioned so unlocks saved for the old T300 range reset to the 200-turn default.
+// Versioned so unlocks and code progress saved for the old T300 range reset to the 200-turn default.
 const EXTENDED_VIEW_STORAGE_KEY = 'ic_extended_view_t400';
+const WAIT_CODE_STAGE_STORAGE_KEY = 'ic_wait_code_stage_t400';
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
@@ -407,7 +408,7 @@ export default function Home() {
   const [isAutoJumpEnabled, setIsAutoJumpEnabled] = useState(true);
   const [waitCodeStage, setWaitCodeStage] = useState<0 | 1 | 2>(() => {
     if (typeof window === 'undefined') return 0;
-    const stored = localStorage.getItem('ic_wait_code_stage');
+    const stored = localStorage.getItem(WAIT_CODE_STAGE_STORAGE_KEY);
     const parsed = stored ? parseInt(stored, 10) : 0;
     return (parsed === 1 || parsed === 2) ? parsed as 0 | 1 | 2 : 0;
   });
@@ -483,7 +484,7 @@ export default function Home() {
       setShowWaitCodeModal(false);
       setExtendedViewUnlocked(false);
       setWaitCodeCounts({ awoo: 0, aroo: 0 });
-      localStorage.removeItem('ic_wait_code_stage');
+      localStorage.removeItem(WAIT_CODE_STAGE_STORAGE_KEY);
       localStorage.removeItem(EXTENDED_VIEW_STORAGE_KEY);
       localStorage.removeItem('ic_wait_code_counts');
       setQueueValidation(new Map());
@@ -627,6 +628,7 @@ export default function Home() {
   useEffect(() => {
     if (waitCodeStage === 2 && viewTurn === 123 && !extendedViewUnlocked) {
       setShowWaitCodeModal(true);
+      setWaitCodeStage(0); // The code is spent once the dialog opens
     }
   }, [waitCodeStage, viewTurn, extendedViewUnlocked]);
 
@@ -650,7 +652,7 @@ export default function Home() {
 
   // Persist easter egg state to localStorage
   useEffect(() => {
-    localStorage.setItem('ic_wait_code_stage', String(waitCodeStage));
+    localStorage.setItem(WAIT_CODE_STAGE_STORAGE_KEY, String(waitCodeStage));
   }, [waitCodeStage]);
 
   useEffect(() => {
@@ -2664,7 +2666,7 @@ export default function Home() {
 
         <footer className="mt-auto border-t border-filament/70">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
-            <span>v0.2.92</span>
+            <span>v0.2.93</span>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
