@@ -100,9 +100,10 @@ import { LaneTabs } from "../components/LaneTabs";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { LANE_CONFIG } from "../lib/constants/lanes";
 import { formatScore } from "@/components/ui/resources";
-import { Bug, Link2, ListOrdered, ListPlus, RotateCcw, Save, Upload } from "lucide-react";
+import { Bug, Link2, ListOrdered, ListPlus, ListTree, RotateCcw, Save, Upload } from "lucide-react";
 import { DependencyWarningModal } from "../components/DependencyWarningModal";
 import { PlanCheckDialog, type PlanCheckAction } from "../components/PlanCheckDialog";
+import { BuildListOverviewModal, type TurnStats } from "../components/BuildListOverviewModal";
 import { beginPlanGuard, diagnoseController, findShortfallChoice } from "../lib/game/planGuard";
 import { describePlanProblem, problemsByEntry, type PlanProblem } from "../lib/game/planDiagnostics";
 import { PlanetActionsModal } from "../components/PlanetActionsModal";
@@ -976,6 +977,33 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [controller, planetTimelineEndTurn, gameState, planTurn]);
 
+  // Planet stats at the start of a turn for the build-list overview (RP comes from the global pool).
+  const overviewStatsAt = useCallback(
+    (turn: number): TurnStats | null => {
+      const state = controller?.getStateAtTurn(turn);
+      if (!state) return null;
+      const summary = getPlanetSummary(state);
+      const research = getGlobalResearchAtTurn(gameState, turn);
+      const pick = (values: Record<string, number>, rp: number) => ({
+        metal: values.metal ?? 0,
+        mineral: values.mineral ?? 0,
+        food: values.food ?? 0,
+        energy: values.energy ?? 0,
+        research_points: rp,
+      });
+      return {
+        stocks: pick(summary.stocks, research.stock),
+        income: pick(summary.outputsPerTurn as unknown as Record<string, number>, research.outputPerTurn),
+        population: {
+          workers: summary.population.workersTotal,
+          soldiers: summary.population.soldiers,
+          scientists: summary.population.scientists,
+        },
+      };
+    },
+    [controller, gameState],
+  );
+
   // Queue rows that a plan problem points at get the invalid outline and the reason.
   const problemMarks = useMemo(
     () => problemsByEntry(
@@ -1427,6 +1455,8 @@ export default function Home() {
   );
 
   // Command handlers
+  const [showBuildOverview, setShowBuildOverview] = useState(false);
+
   // Pending "this change causes problems" decision; Cancel undoes the change.
   const [planCheck, setPlanCheck] = useState<{
     title: string;
@@ -2772,6 +2802,10 @@ export default function Home() {
                     <LaneTabs activeTab={activeTab} onTabChange={setActiveTab} className="w-full shrink-0 md:w-auto" />
                     {/* Warnings (engine + cascade-removal notices) live in this row's free space so they never shift the page */}
                     <WarningsPanel warnings={allWarnings} className="w-full md:ml-2 md:w-auto md:flex-1" />
+                    <button type="button" onClick={() => setShowBuildOverview(true)} className="btn btn-secondary w-full shrink-0 md:w-auto">
+                      <ListTree aria-hidden="true" />
+                      View entire build list
+                    </button>
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2 md:items-start">
@@ -2815,7 +2849,7 @@ export default function Home() {
 
         <footer className="mt-auto border-t border-filament/70">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
-            <span>v0.2.95</span>
+            <span>v0.2.96</span>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
@@ -2865,6 +2899,27 @@ export default function Home() {
           onCancel={() => setPendingCancellation(null)}
           cancelledItemName={pendingCancellation.entry.itemName}
           brokenDependencies={pendingCancellation.brokenDependencies.map((d) => d.entry)}
+        />
+      )}
+
+      {/* Whole build list of the current planet, lanes side by side */}
+      {showBuildOverview && (
+        <BuildListOverviewModal
+          planetName={currentPlanet?.name ?? "Planet"}
+          lanes={{
+            building: enrichedBuildingLane?.entries ?? [],
+            ship: enrichedShipLane?.entries ?? [],
+            colonist: enrichedColonistLane?.entries ?? [],
+            research: enrichedResearchLane?.entries ?? [],
+          }}
+          problems={planProblems}
+          nameOf={nameOfItem}
+          statsAt={overviewStatsAt}
+          onJumpToTurn={(turn) => {
+            setViewTurn(turn);
+            setShowBuildOverview(false);
+          }}
+          onClose={() => setShowBuildOverview(false)}
         />
       )}
 

@@ -74,3 +74,25 @@ describe('plan check on queue changes', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
+
+describe('entire build list overview', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it('opens from the button next to the alert slot and shows every lane by turn', async () => {
+    render(<Home />);
+    await queueStructures(['Farm', 'Solar Generator']);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: /View entire build list/i }));
+    });
+    const table = screen.getByRole('table', { name: /Build list of Homeworld/i });
+    expect(within(table).getByRole('row', { name: /^T1\b/ })).toHaveTextContent('Farm');
+    expect(within(table).getByRole('row', { name: /^T5\b/ })).toHaveTextContent('Solar Generator');
+
+    fireEvent.mouseEnter(within(table).getByRole('button', { name: 'T5' }));
+    const card = screen.getAllByRole('tooltip').find((tip) => tip.textContent?.includes('Start of T5'));
+    expect(card).toHaveTextContent('Scientists');
+  });
+});
