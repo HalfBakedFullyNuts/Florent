@@ -24,6 +24,8 @@ import {
 } from '../lib/export/formatters';
 import type { MultiPlanetExportData, QueueItem } from '../lib/export/formatters';
 import { Modal } from './ui/Modal';
+import { EXPORT_IMAGE_COLORS, exportImageFont } from '../lib/export/imageTheme';
+import { renderSharedViewImage, type SharedViewImageInput } from '../lib/export/sharedViewImage';
 
 export interface ExportModalProps {
   isOpen: boolean;
@@ -35,6 +37,8 @@ export interface ExportModalProps {
   currentTurn: number;
   multiPlanetData?: MultiPlanetExportData;
   exportMode?: 'current' | 'full';
+  /** The build list laid out like the shared-link page; when set, it is the primary image export. */
+  viewImage?: SharedViewImageInput;
 }
 
 /**
@@ -57,6 +61,7 @@ export function ExportModal({
   currentTurn,
   multiPlanetData,
   exportMode,
+  viewImage,
 }: ExportModalProps) {
   const [notification, setNotification] = useState<string | null>(null);
   const [discordMessages, setDiscordMessages] = useState<string[]>([]);
@@ -211,16 +216,33 @@ export function ExportModal({
         ? createMultiPlanetBuildOrderImageCanvas(multiPlanetData, rangeOpts.maxTurn, imageOpts)
         : createBuildOrderImageCanvas(items, imageOpts);
 
-      const blob = await canvasToPngBlob(canvas);
-      if (!blob) {
-        showNotification('Failed to generate image');
-        return;
-      }
+      await deliverImage(canvas, `build-order-${activeTarget}-t${exportStartTurn}-t${exportEndTurn}.png`);
+    } catch (error) {
+      console.error('Image export error:', error);
+      showNotification('Failed to export image');
+    }
+  };
 
-      const filename = `build-order-${activeTarget}-t${exportStartTurn}-t${exportEndTurn}.png`;
-      const copied = await copyImageToClipboard(blob, canvas.toDataURL('image/png'));
-      setImageFallback({ blob, filename });
-      showNotification(copied ? 'Image copied to clipboard!' : 'Browser blocked image clipboard. Use Download image instead.');
+  // Copies the PNG to the clipboard and keeps a download fallback.
+  const deliverImage = async (canvas: HTMLCanvasElement, filename: string) => {
+    const blob = await canvasToPngBlob(canvas);
+    if (!blob) {
+      showNotification('Failed to generate image');
+      return;
+    }
+    const copied = await copyImageToClipboard(blob, canvas.toDataURL('image/png'));
+    setImageFallback({ blob, filename });
+    showNotification(copied ? 'Image copied to clipboard!' : 'Browser blocked image clipboard. Use Download image instead.');
+  };
+
+  const handleExportViewImage = async () => {
+    if (!viewImage) return;
+    clearDiscordCopyState();
+    setImageFallback(null);
+    setJsonFallback(null);
+    try {
+      const slug = (viewImage.name.trim() || 'build-list').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      await deliverImage(renderSharedViewImage(viewImage), `${slug || 'build-list'}.png`);
     } catch (error) {
       console.error('Image export error:', error);
       showNotification('Failed to export image');
@@ -318,10 +340,21 @@ export function ExportModal({
             />
           )}
 
+          {viewImage && (
+            <ExportActionCard
+              icon={<ImageIcon aria-hidden="true" />}
+              title="Export as image"
+              description="The build list as it looks on the shared-link page, with the link in the footer. Copied to clipboard as PNG."
+              onClick={handleExportViewImage}
+            />
+          )}
+
           <ExportActionCard
             icon={<ImageIcon aria-hidden="true" />}
-            title="Export as image"
-            description="PNG copied to clipboard when the browser supports image clipboard writes."
+            title={viewImage ? 'Export queue table as image' : 'Export as image'}
+            description={viewImage
+              ? 'Compact table by start turn, limited to the turn range above.'
+              : 'PNG copied to clipboard when the browser supports image clipboard writes.'}
             onClick={handleExportImage}
           />
 
@@ -501,39 +534,6 @@ const EXPORT_IMAGE_COLUMNS: ExportImageColumn[] = [
   { key: 'colonist', label: 'Colonist', minWidth: 150, maxWidth: 260 },
   { key: 'research', label: 'Research', minWidth: 190, maxWidth: 320 },
 ];
-
-/** Emission palette for the exported PNG — mirrors the tokens in app/globals.css. */
-const EXPORT_IMAGE_COLORS = {
-  void: '#0E0A14',
-  dust: '#18121F',
-  dustAlt: '#1C1524',
-  veil: '#221A2D',
-  filament: '#342843',
-  ink: '#EEE8F4',
-  ink2: '#B8AEC8',
-  ink3: '#9489A6',
-  halpha: '#F2508C',
-  halphaGlow: 'rgba(242, 80, 140, 0.16)',
-  halphaLine: 'rgba(242, 80, 140, 0.35)',
-} as const;
-
-type ExportImageFontRole = 'title' | 'meta' | 'header' | 'body' | 'footer';
-
-const EXPORT_IMAGE_FONT_SPECS: Record<ExportImageFontRole, string> = {
-  title: '700 28px',
-  meta: '500 14px',
-  header: '700 13px',
-  body: '600 15px',
-  footer: 'italic 500 12px',
-};
-
-/** Canvas needs the concrete family name; next/font exposes it through the --font-sans variable. */
-function exportImageFont(role: ExportImageFontRole): string {
-  const family = typeof document === 'undefined'
-    ? ''
-    : getComputedStyle(document.documentElement).getPropertyValue('--font-sans').trim();
-  return `${EXPORT_IMAGE_FONT_SPECS[role]} ${family ? `${family}, ` : ''}system-ui, -apple-system, Segoe UI, sans-serif`;
-}
 
 export function createBuildOrderImageCanvas(items: QueueItem[], options: ExportImageOptions): HTMLCanvasElement {
   const canvas = document.createElement('canvas');

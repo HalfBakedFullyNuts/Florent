@@ -98,7 +98,7 @@ import {
 } from "../components/AddPlanetModal";
 import { LaneTabs } from "../components/LaneTabs";
 import { ConfirmDialog } from "../components/ConfirmDialog";
-import { LANE_CONFIG } from "../lib/constants/lanes";
+import { ALL_LANES, LANE_CONFIG } from "../lib/constants/lanes";
 import { formatScore } from "@/components/ui/resources";
 import { Bug, Link2, ListOrdered, ListPlus, ListTree, RotateCcw, Save, Upload } from "lucide-react";
 import { DependencyWarningModal } from "../components/DependencyWarningModal";
@@ -109,7 +109,9 @@ import { describePlanProblem, problemsByEntry, type PlanProblem } from "../lib/g
 import { PlanetActionsModal } from "../components/PlanetActionsModal";
 import { SavesModal } from "../components/SavesModal";
 import { BuildListSelector } from "../components/BuildListSelector";
-import { SharedBuildListView } from "../components/SharedBuildListView";
+import { SharedBuildListView, buildSharedBuildListSummary } from "../components/SharedBuildListView";
+import { buildSharedLaneRows } from "../lib/export/sharedViewModel";
+import type { SharedViewImageInput } from "../lib/export/sharedViewImage";
 import {
   clearAutosaveTimer,
   consumeRestoreIntent,
@@ -448,6 +450,7 @@ export default function Home() {
     researchLane: LaneView;
     currentTurn: number;
     multiPlanetData: MultiPlanetExportData;
+    viewImage?: SharedViewImageInput;
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
     "building" | "ship" | "colonist" | "research"
@@ -2407,8 +2410,40 @@ export default function Home() {
     };
   }, [gameState, viewTurn]);
 
+  // The build list as the shared-link page shows it, for the image export (name, facts, lanes, link).
+  const buildViewImageInput = useCallback(
+    (multiPlanetData: MultiPlanetExportData): SharedViewImageInput => {
+      const name = shareListName.trim() || activeShareMetadata?.name || "";
+      const author = shareAuthor.trim() || activeShareMetadata?.author || undefined;
+      const planetList = Array.from(gameState.planets.values());
+      const planetIndex = planetList.findIndex((planet) => planet.id === gameState.currentPlanetId);
+      let shareUrl: string | undefined;
+      if (commandHistory.getCommands().length > 0) {
+        const metadata = normaliseShareMetadata({ name: name || "Build list", author, sharedAt: new Date().toISOString() });
+        shareUrl = buildCompactShareURL(encodeCompactShareState(gameState, metadata));
+      }
+      return {
+        name,
+        author,
+        planetLabel: planetList.length > 1 && planetIndex >= 0
+          ? `${planetList[planetIndex].name} · P${planetIndex + 1} of ${planetList.length}`
+          : undefined,
+        facts: buildSharedBuildListSummary({ name, planets: gameState.planets, lanes: enrichedLanes, multiPlanetData })
+          .facts.filter((fact) => fact.label !== "Build list"),
+        lanes: ALL_LANES.map((laneId) => ({
+          laneId,
+          title: LANE_CONFIG[laneId].title,
+          rows: buildSharedLaneRows(enrichedLanes[laneId], defs, viewTurn),
+        })),
+        shareUrl,
+      };
+    },
+    [shareListName, shareAuthor, activeShareMetadata, gameState, commandHistory, enrichedLanes, defs, viewTurn],
+  );
+
   const openExportModal = useCallback(
     () => {
+      const multiPlanetData = buildMultiPlanetExportData();
       setExportSnapshot({
         buildingLane: enrichedBuildingLane || {
           laneId: "building" as const,
@@ -2424,7 +2459,8 @@ export default function Home() {
           entries: [],
         },
         currentTurn: viewTurn,
-        multiPlanetData: buildMultiPlanetExportData(),
+        multiPlanetData,
+        viewImage: buildViewImageInput(multiPlanetData),
       });
       setShowExportModal(true);
     },
@@ -2435,6 +2471,7 @@ export default function Home() {
       enrichedResearchLane,
       viewTurn,
       buildMultiPlanetExportData,
+      buildViewImageInput,
     ],
   );
 
@@ -2849,7 +2886,7 @@ export default function Home() {
 
         <footer className="mt-auto border-t border-filament/70">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
-            <span>v0.2.97</span>
+            <span>v0.2.98</span>
             <button
               type="button"
               className="btn btn-ghost btn-sm"
@@ -2949,6 +2986,7 @@ export default function Home() {
           researchLane={exportSnapshot.researchLane}
           currentTurn={exportSnapshot.currentTurn}
           multiPlanetData={exportSnapshot.multiPlanetData}
+          viewImage={exportSnapshot.viewImage}
         />
       )}
 

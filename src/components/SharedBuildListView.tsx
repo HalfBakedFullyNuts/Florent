@@ -10,7 +10,7 @@ import {
 } from "../lib/game/selectors";
 import type { LaneId } from "../lib/sim/engine/types";
 import { ALL_LANES, LANE_CONFIG } from "../lib/constants/lanes";
-import { formatPlannedWaitTurns } from "../lib/game/waitDuration";
+import { buildSharedLaneRows, type SharedViewRow } from "../lib/export/sharedViewModel";
 import type { MultiPlanetExportData } from "../lib/export/formatters";
 
 const SUMMARY_TURN = 200;
@@ -419,7 +419,7 @@ function SharedLaneCard({
 }) {
   const config = LANE_CONFIG[laneId];
   const LaneGlyph = LANE_ICONS[laneId];
-  const entries = [...(lane?.entries ?? [])].sort(compareEntries);
+  const rows = buildSharedLaneRows(lane, defs, currentTurn);
 
   return (
     <section
@@ -430,23 +430,18 @@ function SharedLaneCard({
         <LaneGlyph className="h-4 w-4 shrink-0 text-ink-3" aria-hidden="true" />
         <h3 className="panel-title truncate">{config.title}</h3>
         <span className="chip ml-auto">
-          {entries.length} item{entries.length === 1 ? "" : "s"}
+          {rows.length} item{rows.length === 1 ? "" : "s"}
         </span>
       </div>
 
-      {entries.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="px-3 py-4 text-center text-sm text-ink-2">
           No {config.title.toLowerCase()} queued.
         </div>
       ) : (
         <div className="scroll-nebula min-h-0 divide-y divide-filament/60 xl:max-h-[62vh] xl:overflow-y-auto">
-          {entries.map((entry) => (
-            <SharedLaneRow
-              key={entry.id}
-              entry={entry}
-              def={defs[entry.itemId]}
-              currentTurn={currentTurn}
-            />
+          {rows.map((row) => (
+            <SharedLaneRow key={row.id} row={row} />
           ))}
         </div>
       )}
@@ -454,102 +449,29 @@ function SharedLaneCard({
   );
 }
 
-function SharedLaneRow({
-  entry,
-  def,
-  currentTurn,
-}: {
-  entry: LaneEntry;
-  def?: any;
-  currentTurn: number;
-}) {
-  const start = entry.startTurn ?? entry.queuedTurn ?? "?";
-  const end = entry.completionTurn ?? entry.eta ?? "?";
-  const duration = getDurationTurns(entry, def, currentTurn);
-  const status = getDisplayStatus(entry, currentTurn);
-
+function SharedLaneRow({ row }: { row: SharedViewRow }) {
   return (
-    <div className={`border-l-2 text-[13px] ${rowClass(status, entry.invalid)}`}>
+    <div className={`border-l-2 text-[13px] ${rowClass(row.status, row.invalid)}`}>
       <div className="grid h-9 min-w-0 grid-cols-[5.5rem_1fr_auto] items-center gap-2 px-3">
-        <div className="whitespace-nowrap text-xs text-ink-3">
-          T{start} – T{end}
-        </div>
-        <div className={`min-w-0 truncate font-semibold ${status === "completed" ? "text-ink-2" : "text-ink"}`}>
-          {formatEntryName(entry, currentTurn)}
+        <div className="whitespace-nowrap text-xs text-ink-3">{row.span}</div>
+        <div className={`min-w-0 truncate font-semibold ${row.status === "completed" ? "text-ink-2" : "text-ink"}`}>
+          {row.name}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-1.5 text-xs text-ink-2">
-          {entry.quantity > 1 && <span className="chip h-5 px-1.5">×{entry.quantity}</span>}
-          {duration !== null && <span className="w-8 text-right">{duration}T</span>}
+          {row.quantity > 1 && <span className="chip h-5 px-1.5">×{row.quantity}</span>}
+          {row.duration !== null && <span className="w-8 text-right">{row.duration}T</span>}
         </div>
       </div>
-      {entry.invalid && entry.invalidReason && (
+      {row.invalid && row.invalidReason && (
         <div className="-mt-1 truncate px-3 pb-2 text-xs text-danger">
-          {entry.invalidReason}
+          {row.invalidReason}
         </div>
       )}
     </div>
   );
 }
 
-function compareEntries(a: LaneEntry, b: LaneEntry): number {
-  return getEntryTurn(a) - getEntryTurn(b);
-}
-
-function getEntryTurn(entry: LaneEntry): number {
-  return (
-    entry.startTurn ??
-    entry.queuedTurn ??
-    entry.completionTurn ??
-    entry.eta ??
-    0
-  );
-}
-
-function getDisplayStatus(
-  entry: LaneEntry,
-  currentTurn: number,
-): LaneEntry["status"] {
-  const start = entry.startTurn ?? entry.queuedTurn ?? 0;
-  const finish = entry.completionTurn ?? entry.eta ?? 999;
-  if (finish <= currentTurn) return "completed";
-  if (start <= currentTurn && currentTurn < finish) return "active";
-  return entry.status;
-}
-
-function formatEntryName(entry: LaneEntry, currentTurn: number): string {
-  if (entry.isAutoWait)
-    return `Auto-wait: ${getWaitTurns(entry, currentTurn)}t`;
-  if (entry.isWait) return `Manual wait: ${getWaitTurns(entry, currentTurn)}t`;
-  return entry.itemName;
-}
-
-function getWaitTurns(entry: LaneEntry, currentTurn: number): number | string {
-  if (!entry.isWait) return entry.turnsRemaining;
-  return formatPlannedWaitTurns(entry, currentTurn);
-}
-
-function getDurationTurns(
-  entry: LaneEntry,
-  def?: any,
-  currentTurn?: number,
-): number | string | null {
-  if (entry.isWait)
-    return getWaitTurns(entry, currentTurn ?? entry.startTurn ?? 0);
-  if (entry.turnsRemaining > 0) return entry.turnsRemaining;
-  if (def?.durationTurns !== undefined || def?.duration !== undefined) {
-    return def?.durationTurns ?? def?.duration;
-  }
-
-  const start = entry.startTurn ?? entry.queuedTurn;
-  const end = entry.completionTurn ?? entry.eta ?? undefined;
-  if (start !== undefined && end !== undefined && end >= start) {
-    return end - start + 1;
-  }
-
-  return entry.turnsRemaining ?? null;
-}
-
-function rowClass(status: LaneEntry["status"], invalid?: boolean): string {
+function rowClass(status: SharedViewRow["status"], invalid?: boolean): string {
   if (invalid) return "border-l-danger";
   if (status === "active") return "border-l-halpha bg-halpha-deep";
   return "border-l-transparent";

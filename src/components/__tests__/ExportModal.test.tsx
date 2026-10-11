@@ -293,4 +293,76 @@ describe('ExportModal', () => {
     expect(context.fillText).toHaveBeenCalledWith('STRUCTURE', expect.any(Number), expect.any(Number));
     expect(context.fillText).toHaveBeenCalledWith('SHIP', expect.any(Number), expect.any(Number));
   });
+
+  describe('with the shared-view image available', () => {
+    function mockCanvas() {
+      const drawn: string[] = [];
+      const ctx = new Proxy({} as Record<string, unknown>, {
+        get(target, prop: string) {
+          if (prop === 'fillText') return (text: string) => drawn.push(text);
+          if (prop === 'measureText') return (text: string) => ({ width: text.length * 7 });
+          if (prop === 'createLinearGradient' || prop === 'createRadialGradient') return () => ({ addColorStop: () => undefined });
+          if (!(prop in target)) target[prop] = () => undefined;
+          return target[prop];
+        },
+        set(target, prop: string, value) {
+          target[prop] = value;
+          return true;
+        },
+      });
+      vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as unknown as CanvasRenderingContext2D);
+      vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((callback) => callback(new Blob(['png'], { type: 'image/png' })));
+      vi.spyOn(HTMLCanvasElement.prototype, 'toDataURL').mockReturnValue('data:image/png;base64,test');
+      Object.defineProperty(window.navigator, 'clipboard', {
+        configurable: true,
+        value: { writeText: vi.fn().mockResolvedValue(undefined), write: vi.fn().mockResolvedValue(undefined) },
+      });
+      (globalThis as { ClipboardItem: unknown }).ClipboardItem = class { constructor(public readonly items: unknown) {} };
+      return drawn;
+    }
+
+    const viewImage = {
+      name: 'Wolfpack',
+      author: 'Ada',
+      facts: [],
+      lanes: [{ laneId: 'building' as const, title: 'Structures', rows: [] }],
+      shareUrl: 'https://florent.example/#q=AAAA',
+    };
+
+    function renderWithViewImage() {
+      render(
+        <ExportModal
+          isOpen
+          onClose={vi.fn()}
+          buildingLane={futureBuildingLane}
+          shipLane={futureShipLane}
+          colonistLane={emptyLane('colonist')}
+          researchLane={emptyLane('research')}
+          currentTurn={1}
+          exportMode="full"
+          viewImage={viewImage}
+        />,
+      );
+    }
+
+    test('"Export as image" draws the shared build-list view with the share link', async () => {
+      const drawn = mockCanvas();
+      renderWithViewImage();
+
+      fireEvent.click(screen.getByRole('button', { name: /^Export as image/i }));
+
+      await waitFor(() => expect(drawn).toContain('SHARED BUILD LIST'));
+      expect(drawn).toEqual(expect.arrayContaining(['Wolfpack', 'Structures', 'https://florent.example/#q=AAAA']));
+    });
+
+    test('the queue table image stays available as a second option', async () => {
+      const drawn = mockCanvas();
+      renderWithViewImage();
+
+      fireEvent.click(screen.getByRole('button', { name: /Export queue table as image/i }));
+
+      await waitFor(() => expect(drawn).toContain('START'));
+      expect(drawn).not.toContain('SHARED BUILD LIST');
+    });
+  });
 });
