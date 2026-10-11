@@ -208,3 +208,36 @@ describe('TabbedLaneDisplay reordering', () => {
     expect(onReorder).toHaveBeenCalledWith('building', 'metal_mine', 1);
   });
 });
+
+describe('TabbedLaneDisplay undo', () => {
+  function renderWithUndo(undoLabel: string | null, onUndo = vi.fn()) {
+    render(
+      <TabbedLaneDisplay
+        buildingLane={{ laneId: 'building', entries: [] }}
+        shipLane={{ laneId: 'ship', entries: [] }}
+        colonistLane={{ laneId: 'colonist', entries: [] }}
+        researchLane={{ laneId: 'research', entries: [] }}
+        currentTurn={1}
+        onCancel={vi.fn()}
+        defs={defs}
+        activeTab="building"
+        maxTurn={199}
+        onUndo={onUndo}
+        undoLabel={undoLabel}
+      />
+    );
+    return onUndo;
+  }
+
+  it('undoes the last change and names it', () => {
+    const onUndo = renderWithUndo('Adding Farm');
+    const button = screen.getByRole('button', { name: 'Undo: Adding Farm' });
+    fireEvent.click(button);
+    expect(onUndo).toHaveBeenCalledTimes(1);
+  });
+
+  it('is disabled when there is nothing to undo', () => {
+    renderWithUndo(null);
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+  });
+});

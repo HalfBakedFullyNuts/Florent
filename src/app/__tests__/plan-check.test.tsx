@@ -96,3 +96,45 @@ describe('entire build list overview', () => {
     expect(card).toHaveTextContent('Scientists');
   });
 });
+
+describe('planet queue undo', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  function structuresInQueue(): string[] {
+    const queue = screen.queryByRole('list', { name: /Structures queue/i });
+    if (!queue) return [];
+    return within(queue).getAllByRole('listitem').map((row) => row.textContent ?? '')
+      .map((text) => ['Metal Mine', 'Farm'].find((name) => text.includes(name)) ?? '')
+      .filter(Boolean);
+  }
+
+  it('reverts queue changes one step at a time, newest first', async () => {
+    render(<Home />);
+    await queueStructures(['Farm', 'Metal Mine']);
+    expect(structuresInQueue()).toEqual(['Metal Mine', 'Farm']);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Undo: Adding Metal Mine' }));
+    });
+    expect(structuresInQueue()).toEqual(['Farm']);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Undo: Adding Farm' }));
+    });
+    expect(structuresInQueue()).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Undo' })).toBeDisabled();
+  });
+
+  it('does not record a change the player cancelled in the plan check', async () => {
+    render(<Home />);
+    await queueStructures(['Farm', 'Solar Generator', 'Spy Centre']);
+    await moveSpyCentreEarlier();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Cancel change' }));
+    });
+
+    expect(screen.getByRole('button', { name: 'Undo: Adding Spy Centre' })).toBeInTheDocument();
+  });
+});

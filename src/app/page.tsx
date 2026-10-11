@@ -49,6 +49,7 @@ import { setupLogging } from "../lib/game/logging-utils";
 import { getLogger } from "../lib/game/logger";
 import {
   CommandHistory,
+  type CommandHistoryCheckpoint,
   buildCompactShareURL,
   buildShareURL,
   clearStateFromURL,
@@ -103,6 +104,8 @@ import { formatScore } from "@/components/ui/resources";
 import { Bug, Link2, ListOrdered, ListPlus, ListTree, RotateCcw, Save, Upload } from "lucide-react";
 import { DependencyWarningModal } from "../components/DependencyWarningModal";
 import { PlanCheckDialog, type PlanCheckAction } from "../components/PlanCheckDialog";
+import { UndoStack } from "../lib/game/undoStack";
+import { cloneState } from "../lib/sim/engine/helpers";
 import { BuildListOverviewModal, type TurnStats } from "../components/BuildListOverviewModal";
 import { beginPlanGuard, diagnoseController, findShortfallChoice } from "../lib/game/planGuard";
 import { describePlanProblem, problemsByEntry, type PlanProblem } from "../lib/game/planDiagnostics";
@@ -183,6 +186,15 @@ function buildReplayNotice(drops: ReplayDrop[], replayedState: GameState): strin
   const defs = getDefs();
   const itemNames = Object.fromEntries(Object.keys(defs).map((id) => [id, defs[id].name]));
   return formatReplayDropNotice(drops, planetNames, itemNames);
+}
+
+/** What Undo restores: one planet's plan, the global research queue and the command history. */
+interface UndoSnapshot {
+  planetId: string;
+  planStart: PlanetState | null;
+  research: GameState["globalResearch"];
+  history: CommandHistoryCheckpoint;
+  viewTurn: number;
 }
 
 function withPlanetMetadata(
@@ -479,9 +491,16 @@ export default function Home() {
     }>
   >([]);
 
+  // Undo history for queue changes; undoLabel mirrors the newest step for the Undo button.
+  const undoStackRef = useRef(new UndoStack<UndoSnapshot>());
+  const [undoLabel, setUndoLabel] = useState<string | null>(null);
+  const bumpUndo = useCallback(() => setUndoLabel(undoStackRef.current.peekLabel), []);
+
   const resetToCleanState = useCallback(
     (message?: string) => {
       commandHistory.clear();
+      undoStackRef.current.clear();
+      bumpUndo();
       lastAppliedShareRef.current = null;
       setActiveShareMetadata(null);
       setSharedBuildPreviewOpen(false);
@@ -504,7 +523,7 @@ export default function Home() {
         setTimeout(() => setToast(null), 3000);
       }
     },
-    [commandHistory],
+    [commandHistory, bumpUndo],
   );
 
   useEffect(() => {
@@ -1483,6 +1502,51 @@ export default function Home() {
     [controller],
   );
 
+  /** Saves the current plan so the next queue change can be undone. */
+  const rememberForUndo = useCallback(
+    (label: string) => {
+      const start = controller?.getStateAtTurn(planTurn);
+      undoStackRef.current.push(
+        {
+          planetId: currentPlanetId,
+          planStart: start ? cloneState(start) : null,
+          research: gameState.globalResearch,
+          history: commandHistory.checkpoint(),
+          viewTurn,
+        },
+        label,
+      );
+      bumpUndo();
+    },
+    [controller, planTurn, currentPlanetId, gameState, commandHistory, viewTurn, bumpUndo],
+  );
+
+  const forgetLastUndo = useCallback(() => {
+    undoStackRef.current.discardLast();
+    bumpUndo();
+  }, [bumpUndo]);
+
+  /** Restores the plan, research queue and command history saved before the last change. */
+  const handleUndo = useCallback(() => {
+    const entry = undoStackRef.current.pop();
+    bumpUndo();
+    if (!entry) return;
+    const { planetId, planStart, research, history, viewTurn: turn } = entry.snapshot;
+    const planet = gameState.planets.get(planetId);
+    if (planet?.timeline && planStart) new GameController(planet, planet.timeline).restorePlanStart(planStart);
+    commandHistory.restore(history);
+    setGameState((prev) => {
+      const planets = new Map(prev.planets);
+      const existing = planets.get(planetId);
+      const restored = existing?.timeline?.getStateAtTurn(turn);
+      if (existing && restored) planets.set(planetId, withPlanetMetadata(restored, existing));
+      return refreshLocalResearchGates({ ...prev, planets, globalResearch: research });
+    });
+    setViewTurn(turn);
+    setPlanCheck(null);
+    setError(null);
+  }, [gameState, commandHistory, bumpUndo]);
+
   /**
    * Applies a planet queue change, then asks the player before keeping one that adds problems
    * (or, for a new entry that only waits for stock, whether to wait or start now and overspend).
@@ -1490,11 +1554,15 @@ export default function Home() {
   const runGuarded = useCallback(
     (title: string, apply: () => { entryId: string; laneId: LaneId; isNewEntry?: boolean } | null) => {
       if (!controller) return;
+      rememberForUndo(title);
       const guard = beginPlanGuard(controller, planTurn);
       const checkpoint = commandHistory.checkpoint();
       const turnBefore = viewTurn;
       const changed = apply();
-      if (!changed) return;
+      if (!changed) {
+        forgetLastUndo();
+        return;
+      }
 
       const problems = guard.finish({ changedEntryId: changed.isNewEntry ? undefined : changed.entryId });
       const shortfall = changed.isNewEntry
@@ -1506,6 +1574,7 @@ export default function Home() {
       const undo = () => {
         guard.undo();
         commandHistory.restore(checkpoint);
+        forgetLastUndo();
         setViewTurn(turnBefore);
         syncPlanetFromController(turnBefore);
         close();
@@ -1532,7 +1601,7 @@ export default function Home() {
         onCancel: undo,
       });
     },
-    [controller, planTurn, commandHistory, viewTurn, syncPlanetFromController, gameState, currentPlanetId],
+    [controller, planTurn, commandHistory, viewTurn, syncPlanetFromController, gameState, currentPlanetId, rememberForUndo, forgetLastUndo],
   );
 
   const handleQueueItem = useCallback(
@@ -1546,6 +1615,7 @@ export default function Home() {
       try {
         const def = defs[itemId];
         if (def?.lane === "research") {
+          rememberForUndo(`Adding ${def.name}`);
           const nextState = queueGlobalResearch(gameState, itemId);
           const queuedEntry =
             nextState.globalResearch.lane.pendingQueue[
@@ -1653,6 +1723,7 @@ export default function Home() {
       isPlanetViewAvailable,
       planetUnavailableReason,
       runGuarded,
+      rememberForUndo,
     ],
   );
 
@@ -1665,6 +1736,7 @@ export default function Home() {
       // Register the synthetic demolish def so the engine can look it up for
       // worker reservation, validation, and completion handling.
       const demolishDef = createDemolishDef(structureId, defs);
+      rememberForUndo(`Demolishing ${def.name}`);
 
       controller.injectDef(planTurn, demolishDef);
 
@@ -1674,10 +1746,11 @@ export default function Home() {
       if (result.success) {
         setGameState((prev) => ({ ...prev }));
       } else {
+        forgetLastUndo();
         setError(`Cannot queue demolition: ${result.reason ?? 'unknown error'}`);
       }
     },
-    [controller, currentState, defs, planTurn],
+    [controller, currentState, defs, planTurn, rememberForUndo, forgetLastUndo],
   );
 
   const recordWaitCodeAttempt = useCallback((waitTurns: number) => {
@@ -1699,6 +1772,7 @@ export default function Home() {
         return;
       }
 
+      rememberForUndo(`Adding a ${waitTurns}-turn wait`);
       try {
         if (laneId === "research") {
           setGameState((prev) => {
@@ -1722,6 +1796,7 @@ export default function Home() {
           false,
         );
         if (!result.success) {
+          forgetLastUndo();
           setError(result.reason || "Cannot queue wait item");
           return;
         }
@@ -1763,6 +1838,8 @@ export default function Home() {
       commandHistory,
       planTurn,
       recordWaitCodeAttempt,
+      rememberForUndo,
+      forgetLastUndo,
     ],
   );
 
@@ -1778,6 +1855,7 @@ export default function Home() {
   const executeCancellation = useCallback(
     (laneId: "building" | "ship" | "colonist" | "research", entry: any) => {
       if (laneId === "research") {
+        rememberForUndo(`Removing ${entry.itemName ?? "research"}`);
         commandHistory.recordCancel(0, laneId, entry.id);
         setGameState((prev) =>
           refreshLocalResearchGates(cancelGlobalResearch(prev, entry.id)),
@@ -1945,6 +2023,7 @@ export default function Home() {
       planetTimelineEndTurn,
       currentPlanet?.startTurn,
       isAutoJumpEnabled,
+      rememberForUndo,
     ],
   );
 
@@ -2042,6 +2121,7 @@ export default function Home() {
           planetTimelineEndTurn,
         ).entries;
         if (entries.length === 0) return;
+        rememberForUndo("Clearing the research lane");
 
         let nextState = gameState;
         for (const entry of entries) {
@@ -2056,6 +2136,7 @@ export default function Home() {
         setError("No planet selected");
         return;
       }
+      rememberForUndo(`Clearing the ${LANE_CONFIG[laneId].title.toLowerCase()} lane`);
 
       const planState =
         controller.getStateAtTurn(planetTimelineEndTurn) ??
@@ -2166,6 +2247,7 @@ export default function Home() {
       planetTimelineEndTurn,
       planTurn,
       viewTurn,
+      rememberForUndo,
     ],
   );
 
@@ -2233,6 +2315,7 @@ export default function Home() {
           setError("Cannot move research before its prerequisites.");
           return;
         }
+        rememberForUndo("Reordering research");
         commandHistory.recordReorder(0, laneId, entryId, newIndex);
         setGameState(refreshLocalResearchGates(nextState));
         return;
@@ -2295,6 +2378,7 @@ export default function Home() {
       planTurn,
       currentPlanetId,
       runGuarded,
+      rememberForUndo,
     ],
   );
 
@@ -2379,11 +2463,13 @@ export default function Home() {
       setShowExportModal(false);
 
       commandHistory.recordResetAllPlanets();
+      undoStackRef.current.clear();
+      bumpUndo();
       setGameState(resetState);
     } catch (e) {
       setError((e as Error).message || "Unknown error");
     }
-  }, [gameState, commandHistory]);
+  }, [gameState, commandHistory, bumpUndo]);
 
   const buildMultiPlanetExportData = useCallback((): MultiPlanetExportData => {
     const planets = Array.from(gameState.planets.values()).map((planet) => {
@@ -2875,6 +2961,8 @@ export default function Home() {
                         maxTurn={timelineMaxTurn}
                         onDropGridItem={handleQueueItem}
                         reorderPlan={reorderPlan}
+                        onUndo={handleUndo}
+                        undoLabel={undoLabel}
                       />
                     </div>
                   </div>
@@ -2886,7 +2974,7 @@ export default function Home() {
 
         <footer className="mt-auto border-t border-filament/70">
           <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-4 px-4 py-4 text-xs text-ink-3 md:px-6">
-            <span>v0.2.98</span>
+            <span>v0.2.99</span>
             <button
               type="button"
               className="btn btn-ghost btn-sm"

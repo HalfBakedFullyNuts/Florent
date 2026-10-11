@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import { ArrowDown, ArrowUp, Clock, GripVertical, Hash, MapPin, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Clock, GripVertical, Hash, MapPin, Trash2, Undo2 } from 'lucide-react';
 import type { LaneView, LaneEntry } from '../../lib/game/selectors';
 import type { LaneId } from '../../lib/sim/engine/types';
 import { QueueLaneEntry } from './QueueLaneEntry';
@@ -31,6 +31,9 @@ export interface TabbedLaneDisplayProps {
   onDropGridItem?: (itemId: string, quantity: number) => void;
   /** Active lane's queue order at the plan start — the index space onReorder expects. */
   reorderPlan?: PlanLaneOrder | null;
+  /** Reverts the last queue change; undoLabel names it (null = nothing to undo). */
+  onUndo?: () => void;
+  undoLabel?: string | null;
 }
 
 const LANE_HINT: Record<LaneId, string> = {
@@ -63,6 +66,8 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
   maxTurn = 199,
   onDropGridItem,
   reorderPlan,
+  onUndo,
+  undoLabel = null,
 }: TabbedLaneDisplayProps) {
   const [showTimes, setShowTimes] = useState(false);
   const [dragOverExternal, setDragOverExternal] = useState(false);
@@ -163,6 +168,19 @@ export const TabbedLaneDisplay = React.memo(function TabbedLaneDisplay({
             </button>
           )}
           <span className="chip" aria-label={`${entryCount} entries`}>{entryCount > 0 ? entryCount : '—'}</span>
+          {onUndo && (
+            <button
+              type="button"
+              onClick={onUndo}
+              disabled={!undoLabel}
+              className="btn btn-ghost btn-sm"
+              aria-label={undoLabel ? `Undo: ${undoLabel}` : 'Undo'}
+              title={undoLabel ? `Undo: ${undoLabel}` : 'Nothing to undo'}
+            >
+              <Undo2 aria-hidden="true" className="h-3.5! w-3.5!" />
+              Undo
+            </button>
+          )}
           {onClearLane && (
             <button
               type="button"
