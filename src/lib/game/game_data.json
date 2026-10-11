@@ -378,7 +378,7 @@
       "requirements": [
         {
           "type": "structure",
-          "id": "shipyard"
+          "id": "launch_site"
         }
       ]
     },

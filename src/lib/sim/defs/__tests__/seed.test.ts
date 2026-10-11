@@ -309,14 +309,14 @@ describe('Seed Functions', () => {
       expect(spy.unique).toBe(false);
     });
 
-    it('defines the Scout as a 2-turn ship that needs a Shipyard', () => {
+    it('defines the Scout as a 2-turn ship that needs a Launch Site', () => {
       const scout = defs.scout;
 
       expect(scout.name).toBe('Scout');
       expect(scout.lane).toBe('ship');
       expect(scout.durationTurns).toBe(2);
       expect(scout.costsPerUnit).toMatchObject({ metal: 300, mineral: 200, workers: 250 });
-      expect(scout.prerequisites).toContain('shipyard');
+      expect(scout.prerequisites).toContain('launch_site');
     });
 
     it('defines the Colonization Ship as a 24-turn ship gated by Space Dock and Fast Expansion', () => {
