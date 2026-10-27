@@ -1,5 +1,6 @@
-# Docker image to use for building
-image: node:24
+# Docker image to use for building. Pinned to a patch release with the Brotli decoder fix
+# (CVE-2026-111497); bump deliberately, never below 24.22.1.
+image: node:24.22.1
 
 # Build command
 command: npm ci && npm run build

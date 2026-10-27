@@ -2,6 +2,9 @@
 
 One- to two-sentence entries, newest first, per CLAUDE.md.
 
+## 2026-10-27 — Node pinned to 24.22.1 (CVE-2026-111497, Brotli decoder)
+Every place the repo chooses a Node runtime (StaticHost image, all Dockerfile stages, `.nvmrc`) names the patch release `24.22.1` instead of a floating `24` tag, and `engines.node` is `^24.22.1 || >=26.12.1` so npm warns on a vulnerable local Node; bump these deliberately, never below the fixed release.
+
 ## 2026-10-10 — Queue changes are checked against a full plan diagnosis; shortfalls can be accepted
 Every planet queue change (add, reorder, quantity, remove) is applied, diagnosed over the whole timeline (`planDiagnostics`) and kept only if it adds no problems or the player confirms; declining restores the plan-start snapshot and the command history checkpoint (`planGuard`). Players may accept starting an entry without enough stock (`WorkItem.allowShortfall`, persisted as the `sf` command / compact flag bit), which overspends and is shown as an invalid build instead of being prevented.
 
